@@ -159,15 +159,15 @@ export default function AdminCourses() {
                 className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#04F87F]'}`} />
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">수강 시작일</label>
+              <label className="text-sm font-bold block mb-1">오픈일</label>
               <input type="date" value={(editing.enrollment_start as string)?.slice(0, 10) || ''}
-                onChange={(e) => setEditing({ ...editing, enrollment_start: e.target.value ? new Date(e.target.value).toISOString() : null })}
+                onChange={(e) => setEditing({ ...editing, enrollment_start: e.target.value ? e.target.value + 'T00:00:00+09:00' : null })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">수강 마감일</label>
+              <label className="text-sm font-bold block mb-1">마감일</label>
               <input type="date" value={(editing.enrollment_deadline as string)?.slice(0, 10) || ''}
-                onChange={(e) => setEditing({ ...editing, enrollment_deadline: e.target.value ? new Date(e.target.value + 'T23:59:59').toISOString() : null })}
+                onChange={(e) => setEditing({ ...editing, enrollment_deadline: e.target.value ? e.target.value + 'T23:59:59+09:00' : null })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
             </div>
             <div>
@@ -179,6 +179,14 @@ export default function AdminCourses() {
               <label className="text-sm font-bold block mb-1">랜딩 이미지</label>
               <ImageUploader bucket="courses" path={`${editing.id || 'new'}/landing-${Date.now()}`}
                 currentUrl={editing.landing_image_url as string} onUpload={(url) => setEditing({ ...editing, landing_image_url: url })} className="h-[140px]" />
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-2">뱃지 / 옵션</label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#04F87F]" /> HOT</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#04F87F]" /> NEW</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개</label>
+              </div>
             </div>
           </div>
         )}

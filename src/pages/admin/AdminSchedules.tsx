@@ -110,8 +110,14 @@ export default function AdminSchedules() {
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">일시 *</label>
-              <input type="datetime-local" value={(editing.scheduled_at as string)?.slice(0, 16) || ''}
-                onChange={(e) => setEditing({ ...editing, scheduled_at: e.target.value ? new Date(e.target.value).toISOString() : '' })}
+              <input type="datetime-local" value={(() => {
+                  const v = editing.scheduled_at as string
+                  if (!v) return ''
+                  const d = new Date(v)
+                  const kr = new Date(d.getTime() + (d.getTimezoneOffset() + 540) * 60000)
+                  return `${kr.getFullYear()}-${String(kr.getMonth()+1).padStart(2,'0')}-${String(kr.getDate()).padStart(2,'0')}T${String(kr.getHours()).padStart(2,'0')}:${String(kr.getMinutes()).padStart(2,'0')}`
+                })()}
+                onChange={(e) => setEditing({ ...editing, scheduled_at: e.target.value ? e.target.value + ':00+09:00' : '' })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
             </div>
             <div>

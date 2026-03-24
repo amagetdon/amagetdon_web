@@ -209,18 +209,11 @@ export default function AdminInstructors() {
               />
             </div>
             <div className="flex flex-col gap-3 justify-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={editing.has_active_course ?? false}
-                  onChange={(e) => setEditing({ ...editing, has_active_course: e.target.checked })}
-                  className="accent-[#04F87F]" />
-                진행중인 강의 있음
-              </label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={editing.is_published ?? true}
-                  onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })}
-                  className="accent-[#04F87F]" />
-                공개
-              </label>
+              <label className="text-sm font-bold block mb-1">옵션</label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.has_active_course ?? false} onChange={(e) => setEditing({ ...editing, has_active_course: e.target.checked })} className="accent-[#04F87F]" /> 진행중인 강의</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개</label>
+              </div>
             </div>
           </div>
         )}

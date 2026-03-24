@@ -106,8 +106,15 @@ export default function AdminEbooks() {
               </select>
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">열람 기간 (일)</label>
-              <input type="number" value={(editing.duration_days as number) || 30} onChange={(e) => setEditing({ ...editing, duration_days: Number(e.target.value) })}
+              <label className="text-sm font-bold block mb-1">오픈일</label>
+              <input type="date" value={(editing.open_date as string)?.slice(0, 10) || ''}
+                onChange={(e) => setEditing({ ...editing, open_date: e.target.value ? e.target.value + 'T00:00:00+09:00' : null })}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">마감일</label>
+              <input type="date" value={(editing.close_date as string)?.slice(0, 10) || ''}
+                onChange={(e) => setEditing({ ...editing, close_date: e.target.value ? e.target.value + 'T23:59:59+09:00' : null })}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
             </div>
             <div>
@@ -127,10 +134,14 @@ export default function AdminEbooks() {
               <ImageUploader bucket="ebooks" path={`${editing.id || 'new'}/thumb-${Date.now()}`}
                 currentUrl={editing.thumbnail_url as string} onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })} className="h-[140px]" />
             </div>
-            <div className="flex flex-col gap-3 justify-center">
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_free} onChange={(e) => setEditing({ ...editing, is_free: e.target.checked, ...(e.target.checked ? { original_price: 0, sale_price: 0 } : {}) })} className="accent-[#04F87F]" /> 무료</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#04F87F]" /> HOT 배지</label>
-              <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개</label>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-2">뱃지 / 옵션</label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_free} onChange={(e) => setEditing({ ...editing, is_free: e.target.checked, ...(e.target.checked ? { original_price: 0, sale_price: 0 } : {}) })} className="accent-[#04F87F]" /> 무료</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#04F87F]" /> HOT</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#04F87F]" /> NEW</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개</label>
+              </div>
             </div>
           </div>
         )}
