@@ -106,7 +106,7 @@ export default function AdminSchedules() {
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">제목 *</label>
               <input value={(editing.title as string) || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">일시 *</label>
@@ -118,12 +118,12 @@ export default function AdminSchedules() {
                   return `${kr.getFullYear()}-${String(kr.getMonth()+1).padStart(2,'0')}-${String(kr.getDate()).padStart(2,'0')}T${String(kr.getHours()).padStart(2,'0')}:${String(kr.getMinutes()).padStart(2,'0')}`
                 })()}
                 onChange={(e) => setEditing({ ...editing, scheduled_at: e.target.value ? e.target.value + ':00+09:00' : '' })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">강의</label>
               <select value={(editing.course_id as number) || ''} onChange={(e) => setEditing({ ...editing, course_id: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]">
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all">
                 <option value="">선택</option>
                 {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
               </select>
@@ -131,7 +131,7 @@ export default function AdminSchedules() {
             <div>
               <label className="text-sm font-bold block mb-1">강사</label>
               <select value={(editing.instructor_id as number) || ''} onChange={(e) => setEditing({ ...editing, instructor_id: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]">
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all">
                 <option value="">선택</option>
                 {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>

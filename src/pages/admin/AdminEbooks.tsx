@@ -95,39 +95,49 @@ export default function AdminEbooks() {
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">제목 *</label>
               <input value={(editing.title as string) || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">강사</label>
               <select value={(editing.instructor_id as number) || ''} onChange={(e) => setEditing({ ...editing, instructor_id: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]">
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all">
                 <option value="">선택</option>
                 {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">오픈일</label>
-              <input type="date" value={(editing.open_date as string)?.slice(0, 10) || ''}
-                onChange={(e) => setEditing({ ...editing, open_date: e.target.value ? e.target.value + 'T00:00:00+09:00' : null })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">마감일</label>
-              <input type="date" value={(editing.close_date as string)?.slice(0, 10) || ''}
-                onChange={(e) => setEditing({ ...editing, close_date: e.target.value ? e.target.value + 'T23:59:59+09:00' : null })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
+              <label className="text-sm font-bold block mb-1">유형</label>
+              <select value={editing.is_free ? 'free' : 'paid'} onChange={(e) => {
+                const isFree = e.target.value === 'free'
+                setEditing({ ...editing, is_free: isFree, ...(isFree ? { original_price: 0, sale_price: 0 } : {}) })
+              }} className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all">
+                <option value="free">무료</option>
+                <option value="paid">유료</option>
+              </select>
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">정가 (원)</label>
               <input type="number" value={editing.is_free ? 0 : (editing.original_price as number) || ''} disabled={!!editing.is_free}
                 onChange={(e) => setEditing({ ...editing, original_price: e.target.value ? Number(e.target.value) : null })}
-                className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#04F87F]'}`} />
+                className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10'}`} />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">할인가 (원)</label>
               <input type="number" value={editing.is_free ? 0 : (editing.sale_price as number) || ''} disabled={!!editing.is_free}
                 onChange={(e) => setEditing({ ...editing, sale_price: e.target.value ? Number(e.target.value) : null })}
-                className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#04F87F]'}`} />
+                className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10'}`} />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">오픈일</label>
+              <input type="date" value={(editing.open_date as string)?.slice(0, 10) || ''}
+                onChange={(e) => setEditing({ ...editing, open_date: e.target.value ? e.target.value + 'T00:00:00+09:00' : null })}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">마감일</label>
+              <input type="date" value={(editing.close_date as string)?.slice(0, 10) || ''}
+                onChange={(e) => setEditing({ ...editing, close_date: e.target.value ? e.target.value + 'T23:59:59+09:00' : null })}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">표지 이미지</label>
@@ -137,7 +147,6 @@ export default function AdminEbooks() {
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-2">뱃지 / 옵션</label>
               <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_free} onChange={(e) => setEditing({ ...editing, is_free: e.target.checked, ...(e.target.checked ? { original_price: 0, sale_price: 0 } : {}) })} className="accent-[#04F87F]" /> 무료</label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#04F87F]" /> HOT</label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#04F87F]" /> NEW</label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개</label>

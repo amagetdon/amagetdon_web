@@ -92,7 +92,7 @@ export default function AdminFaqs() {
             <div>
               <label className="text-sm font-bold block mb-1">질문 *</label>
               <input value={editing.question || ''} onChange={(e) => setEditing({ ...editing, question: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">답변 *</label>
@@ -102,17 +102,17 @@ export default function AdminFaqs() {
             <div>
               <label className="text-sm font-bold block mb-1">영상 URL</label>
               <input value={editing.video_url || ''} onChange={(e) => setEditing({ ...editing, video_url: e.target.value || null })} placeholder="https://..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">첨부파일 URL</label>
               <input value={editing.file_url || ''} onChange={(e) => setEditing({ ...editing, file_url: e.target.value || null })} placeholder="https://..."
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">첨부파일명</label>
               <input value={editing.file_name || ''} onChange={(e) => setEditing({ ...editing, file_name: e.target.value || null })} placeholder="파일명.xlsx"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#04F87F]" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
               <input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개
