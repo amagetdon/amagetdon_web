@@ -2,8 +2,8 @@
 
 @theme {
   --font-sans: 'Noto Sans KR', sans-serif;
-  --color-primary: #00c896;
-  --color-primary-dark: #064e3b;
+  --color-primary: #04F87F;
+  --color-primary-dark: #024d2a;
 }
 
 body {
@@ -57,7 +57,7 @@ body {
   left: -42px;
   width: 84px;
   height: 84px;
-  background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(0, 220, 150, 0.65) 10%, rgba(0, 210, 150, 0.35) 25%, rgba(0, 200, 150, 0.15) 45%, rgba(0, 200, 150, 0.06) 65%, transparent 85%);
+  background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(4, 248, 127, 0.65) 10%, rgba(4, 248, 127, 0.35) 25%, rgba(4, 248, 127, 0.15) 45%, rgba(4, 248, 127, 0.06) 65%, transparent 85%);
   border-radius: 50%;
   filter: blur(2px);
 }
@@ -74,7 +74,7 @@ body {
   left: -1px;
   width: 2px;
   height: 35px;
-  background: linear-gradient(to top, rgba(255,255,255,0.35) 0%, rgba(0, 210, 150, 0.15) 40%, transparent 100%);
+  background: linear-gradient(to top, rgba(255,255,255,0.35) 0%, rgba(4, 248, 127, 0.15) 40%, transparent 100%);
   filter: blur(0.5px);
 }
 
@@ -87,7 +87,7 @@ body {
   height: 35px;
   transform-origin: top center;
   transform: rotate(135deg);
-  background: linear-gradient(to bottom, rgba(255,255,255,0.35) 0%, rgba(0, 210, 150, 0.15) 40%, transparent 100%);
+  background: linear-gradient(to bottom, rgba(255,255,255,0.35) 0%, rgba(4, 248, 127, 0.15) 40%, transparent 100%);
   filter: blur(0.5px);
 }
 
@@ -100,6 +100,6 @@ body {
   height: 35px;
   transform-origin: top center;
   transform: rotate(-135deg);
-  background: linear-gradient(to bottom, rgba(255,255,255,0.35) 0%, rgba(0, 210, 150, 0.15) 40%, transparent 100%);
+  background: linear-gradient(to bottom, rgba(255,255,255,0.35) 0%, rgba(4, 248, 127, 0.15) 40%, transparent 100%);
   filter: blur(0.5px);
 }

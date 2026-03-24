@@ -139,21 +139,19 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
 
             <div className="grid grid-cols-7 gap-1">
               {calendarDays.map((day, idx) => (
-                <div
-                  key={idx}
-                  className={`text-center text-sm py-2 ${
-                    day === 0
-                      ? ''
-                      : `text-gray-700 ${isToday(day) ? 'border border-gray-900 rounded font-bold' : ''}`
-                  }`}
-                >
+                <div key={idx} className="flex items-center justify-center py-0.5">
                   {day > 0 && (
-                    <>
+                    <span
+                      className={`w-10 h-9 flex items-center justify-center text-sm rounded ${
+                        isToday(day)
+                          ? 'bg-[#04F87F] text-black font-bold'
+                          : hasLecture(day)
+                            ? 'border-[1.5px] border-[#04F87F] text-gray-700'
+                            : 'text-gray-700'
+                      }`}
+                    >
                       {day}
-                      {hasLecture(day) && (
-                        <div className="w-1 h-1 bg-[#00c896] rounded-full mx-auto mt-0.5" />
-                      )}
-                    </>
+                    </span>
                   )}
                 </div>
               ))}
@@ -169,7 +167,7 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
               <div key={idx} className="flex items-start gap-4">
                 <div className="w-12 h-12 bg-gray-200 rounded-full shrink-0 overflow-hidden" />
                 <div className="flex-1">
-                  <p className="text-xs text-[#00c896] font-medium mb-1">{item.date}</p>
+                  <p className="text-xs text-[#04F87F] font-bold mb-1">{item.date}</p>
                   <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">
                     {item.title}
                   </p>

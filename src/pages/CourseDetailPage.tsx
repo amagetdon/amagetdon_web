@@ -75,7 +75,7 @@ function CourseDetailPage() {
           {/* Right */}
           <div className="w-[340px] max-md:w-full shrink-0">
             <div className="sticky top-4">
-              <p className="text-sm text-[#00c896] font-medium">김나영 강사</p>
+              <p className="text-sm text-[#04F87F] font-medium">김나영 강사</p>
               <h1 className="text-xl font-bold text-gray-900 mt-1">
                 TOT 설계사의 하이엔드 세일즈 비법(강의명)
               </h1>
@@ -97,7 +97,7 @@ function CourseDetailPage() {
 
               <div className="text-center mt-6">
                 <p className="text-sm text-gray-600">강의 모집 마감까지</p>
-                <p className={`text-2xl font-bold mt-1 ${isExpired ? 'text-gray-400' : 'text-[#00c896]'}`}>
+                <p className={`text-2xl font-bold mt-1 ${isExpired ? 'text-gray-400' : 'text-[#04F87F]'}`}>
                   {countdownText}
                 </p>
               </div>
@@ -107,7 +107,7 @@ function CourseDetailPage() {
                   모집 마감
                 </button>
               ) : (
-                <button className="w-full py-4 bg-[#00c896] text-white font-bold text-center rounded-xl mt-4 cursor-pointer">
+                <button className="w-full py-4 bg-[#04F87F] text-white font-bold text-center rounded-xl mt-4 cursor-pointer">
                   선착순 마감 전에 신청하기
                 </button>
               )}

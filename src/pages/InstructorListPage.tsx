@@ -37,7 +37,7 @@ function InstructorListPage() {
             onClick={() => setActiveTab('all')}
             className={`rounded-full px-4 py-1 text-sm font-medium cursor-pointer transition-colors ${
               activeTab === 'all'
-                ? 'bg-[#00c896] text-white border-none'
+                ? 'bg-[#04F87F] text-white border-none'
                 : 'border border-gray-300 text-gray-600 bg-white'
             }`}
           >
@@ -47,7 +47,7 @@ function InstructorListPage() {
             onClick={() => setActiveTab('active')}
             className={`rounded-full px-4 py-1 text-sm font-medium cursor-pointer transition-colors ${
               activeTab === 'active'
-                ? 'bg-[#00c896] text-white border-none'
+                ? 'bg-[#04F87F] text-white border-none'
                 : 'border border-gray-300 text-gray-600 bg-white'
             }`}
           >
@@ -69,8 +69,8 @@ function InstructorListPage() {
                   className="w-full h-full object-cover"
                 />
                 {/* Green gradient overlay from bottom and sides */}
-                <div className="absolute inset-0 bg-gradient-to-t from-[#00c896]/80 via-[#00c896]/20 to-transparent" />
-                <div className="absolute inset-0 bg-gradient-to-r from-[#00c896]/30 via-transparent to-[#00c896]/30" />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#04F87F]/80 via-[#04F87F]/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#04F87F]/30 via-transparent to-[#04F87F]/30" />
                 <div className="absolute bottom-0 left-0 right-0 p-5">
                   <h3 className="text-2xl font-bold text-white mb-1">{instructor.name}</h3>
                   <p className="text-sm text-white/80">{instructor.title}</p>

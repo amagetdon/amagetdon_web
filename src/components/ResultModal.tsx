@@ -65,7 +65,7 @@ function ResultModal({ isOpen, onClose, result }: ResultModalProps) {
         <button
           onClick={() => setLiked(!liked)}
           className={`flex items-center gap-2 mt-4 border-none bg-transparent cursor-pointer ${
-            liked ? 'text-[#00c896]' : 'text-gray-500'
+            liked ? 'text-[#04F87F]' : 'text-gray-500'
           }`}
           aria-label={liked ? '좋아요 취소' : '좋아요'}
         >
@@ -75,7 +75,7 @@ function ResultModal({ isOpen, onClose, result }: ResultModalProps) {
 
         {/* CTA 버튼들 */}
         <div className="flex flex-col gap-3 mt-6">
-          <button className="bg-[#00c896] text-white rounded-full px-6 py-3 font-bold cursor-pointer border-none hover:bg-[#00b386] transition-colors">
+          <button className="bg-[#04F87F] text-white rounded-full px-6 py-3 font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors">
             이 수강생이 선택한 강의 &gt;
           </button>
           <button className="border border-gray-300 rounded-full px-6 py-3 cursor-pointer bg-white text-gray-700 hover:bg-gray-50 transition-colors">

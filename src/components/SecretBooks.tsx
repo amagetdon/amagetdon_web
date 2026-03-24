@@ -33,7 +33,7 @@ function SecretBooks() {
               </p>
               <p className="text-xs text-gray-500 line-through">{book.originalPrice}</p>
               <p className="text-base font-bold text-white">{book.salePrice}</p>
-              <span className="inline-block mt-1 px-2 py-0.5 bg-[#00c896] text-white text-xs font-bold rounded">
+              <span className="inline-block mt-1 px-2 py-0.5 bg-[#04F87F] text-white text-xs font-bold rounded">
                 HOT
               </span>
             </div>

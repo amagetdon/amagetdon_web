@@ -46,9 +46,9 @@ function MyClassroomPage() {
           <div key={idx} className="mb-16">
             {/* 상단 정보 */}
             <div className="flex items-start gap-6 max-sm:flex-col">
-              <div className="bg-black rounded-xl w-[300px] h-[200px] shrink-0 max-sm:w-full border-2 border-[#00c896]" />
+              <div className="bg-black rounded-xl w-[300px] h-[200px] shrink-0 max-sm:w-full border-2 border-[#04F87F]" />
               <div>
-                <span className="bg-[#00c896] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
+                <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
                   남은 수강기간 D-{course.dDay}
                 </span>
                 <h2 className="text-xl font-bold whitespace-pre-line">{course.title}</h2>

@@ -68,7 +68,7 @@ function ReviewModal({ isOpen, onClose, review }: ReviewModalProps) {
         </p>
 
         {/* Course link button */}
-        <button className="bg-[#00c896] text-white rounded-full px-6 py-3 text-sm font-medium border-none cursor-pointer hover:bg-[#00b386] transition-colors">
+        <button className="bg-[#04F87F] text-white rounded-full px-6 py-3 text-sm font-medium border-none cursor-pointer hover:bg-[#03d46d] transition-colors">
           이 수강생이 선택한 강의 &gt;
         </button>
       </div>

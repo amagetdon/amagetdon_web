@@ -86,7 +86,7 @@ function FAQPage() {
                 placeholder="키워드를 입력하세요"
                 value={searchQuery}
                 onChange={(e) => handleSearch(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-10 text-sm outline-none focus:border-[#00c896]"
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 pr-10 text-sm outline-none focus:border-[#04F87F]"
               />
               <i className="ti ti-search absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" />
             </div>
@@ -111,7 +111,7 @@ function FAQPage() {
 
                 {item.hasFile && (
                   <div className="border border-gray-200 rounded-lg p-3 flex items-center gap-3 mt-4 max-w-[400px]">
-                    <i className="ti ti-file-spreadsheet text-[#00c896] text-2xl shrink-0" />
+                    <i className="ti ti-file-spreadsheet text-[#04F87F] text-2xl shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-900 truncate">
                         아마겟돈_강의 환불규정.xlsx
@@ -146,7 +146,7 @@ function FAQPage() {
                 onClick={() => setCurrentPage(page)}
                 className={`w-8 h-8 flex items-center justify-center rounded-full text-sm cursor-pointer ${
                   safePage === page
-                    ? 'bg-[#00c896] text-white font-bold'
+                    ? 'bg-[#04F87F] text-white font-bold'
                     : 'text-gray-400 hover:text-gray-600'
                 }`}
               >

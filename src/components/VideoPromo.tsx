@@ -39,7 +39,7 @@ function VideoPromo() {
           <div className="w-[360px] max-md:w-full flex flex-col divide-y divide-gray-200">
             {SIDE_REVIEWS.map((review, idx) => (
               <div key={idx} className="py-4 first:pt-0 last:pb-0 cursor-pointer">
-                <p className="text-xs text-[#00c896] font-medium mb-1">{review.category}</p>
+                <p className="text-xs text-[#04F87F] font-bold mb-1">{review.category}</p>
                 <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">
                   {review.title}
                 </p>

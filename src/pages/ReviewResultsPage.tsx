@@ -56,7 +56,7 @@ function Pagination({
             onClick={() => onPageChange(page)}
             className={`w-8 h-8 flex items-center justify-center rounded-full text-sm border-none cursor-pointer ${
               page === current
-                ? 'bg-[#00c896] text-white'
+                ? 'bg-[#04F87F] text-white'
                 : 'bg-white text-gray-500 hover:bg-gray-100'
             }`}
           >
@@ -94,7 +94,7 @@ function ReviewResultsPage() {
       <div className="max-w-[1200px] mx-auto px-5 pb-16">
         <div className="flex items-center justify-between mt-16 mb-8">
           <h1 className="text-2xl font-bold text-gray-900">어떤 성과가 나왔는지 확인해보세요</h1>
-          <button className="bg-[#00c896] text-white rounded-full px-5 py-2.5 text-sm font-medium border-none cursor-pointer hover:bg-[#00b386] transition-colors flex items-center gap-1">
+          <button className="bg-[#04F87F] text-white rounded-full px-5 py-2.5 text-sm font-medium border-none cursor-pointer hover:bg-[#03d46d] transition-colors flex items-center gap-1">
             <i className="ti ti-plus text-sm" />
             성과 작성하기
           </button>
@@ -117,7 +117,7 @@ function ReviewResultsPage() {
                 alt={result.title}
                 className="w-full rounded-xl mb-3"
               />
-              <span className="text-xs text-[#00c896]">{result.author} | {result.date}</span>
+              <span className="text-xs text-[#04F87F]">{result.author} | {result.date}</span>
               <h3 className="text-base font-bold text-gray-900 mt-1 mb-1">{result.title}</h3>
               <p className="text-sm text-gray-500 leading-relaxed">{result.preview}</p>
             </div>

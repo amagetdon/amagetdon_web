@@ -28,9 +28,9 @@ function MyEbooksPage() {
 
         {EBOOKS.map((ebook, idx) => (
           <div key={idx} className="flex items-start gap-6 mb-12 max-sm:flex-col">
-            <div className="bg-black rounded-xl w-[300px] h-[200px] border-2 border-[#00c896] shrink-0 max-sm:w-full" />
+            <div className="bg-black rounded-xl w-[300px] h-[200px] border-2 border-[#04F87F] shrink-0 max-sm:w-full" />
             <div>
-              <span className="bg-[#00c896] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
+              <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
                 남은 수강기간 D-{ebook.dDay}
               </span>
               <h2 className="text-xl font-bold whitespace-pre-line">{ebook.title}</h2>

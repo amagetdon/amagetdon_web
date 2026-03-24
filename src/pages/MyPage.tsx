@@ -110,13 +110,13 @@ function MyPage() {
       <div className="max-w-[800px] mx-auto px-6">
         {/* 인사 영역 */}
         <div className="mt-16 mb-10">
-          <p className="text-2xl font-bold text-[#00c896]">심지원님</p>
+          <p className="text-2xl font-bold text-[#04F87F]">심지원님</p>
           <p className="text-2xl font-bold">안녕하세요 아마겟돈 클래스입니다 :)</p>
         </div>
 
         {/* 회원정보입력 섹션 */}
         <div>
-          <h2 className="font-bold border-b-2 border-[#00c896] pb-2">회원정보입력</h2>
+          <h2 className="font-bold border-b-2 border-[#04F87F] pb-2">회원정보입력</h2>
 
           {/* 이름 */}
           <div className="flex items-center gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
@@ -163,7 +163,7 @@ function MyPage() {
                 placeholder="한글 또는 영문으로 기재해주세요."
                 className="border-b px-2 py-1 text-sm w-full outline-none"
               />
-              <p className={`text-xs mt-1 ${errors.password ? 'text-red-500' : 'text-[#00c896]'}`}>
+              <p className={`text-xs mt-1 ${errors.password ? 'text-red-500' : 'text-[#04F87F]'}`}>
                 {errors.password || '8~15자의 영문/숫자/특수문자를 함께 입력해주세요.'}
               </p>
               <input
@@ -267,7 +267,7 @@ function MyPage() {
             </button>
             <button
               onClick={handleSave}
-              className="bg-[#00c896] text-white px-8 py-3 rounded-lg cursor-pointer"
+              className="bg-[#04F87F] text-white px-8 py-3 rounded-lg cursor-pointer"
             >
               저장
             </button>
@@ -276,16 +276,16 @@ function MyPage() {
 
         {/* 내 포인트 섹션 */}
         <div className="mt-12">
-          <h2 className="font-bold border-b-2 border-[#00c896] pb-2">내 포인트</h2>
+          <h2 className="font-bold border-b-2 border-[#04F87F] pb-2">내 포인트</h2>
           <div className="flex items-center gap-4 py-4">
             <span className="font-bold text-sm">포인트</span>
-            <span className="text-[#00c896] font-bold">50,000포인트</span>
+            <span className="text-[#04F87F] font-bold">50,000포인트</span>
           </div>
         </div>
 
         {/* 내 구매내역 섹션 */}
         <div className="mt-12 mb-16">
-          <h2 className="font-bold border-b-2 border-[#00c896] pb-2">내 구매내역</h2>
+          <h2 className="font-bold border-b-2 border-[#04F87F] pb-2">내 구매내역</h2>
           <div className="divide-y">
             {PURCHASES.map((item, idx) => (
               <div key={idx} className="py-4">

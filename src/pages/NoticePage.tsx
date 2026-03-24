@@ -15,7 +15,7 @@ function NoticePage() {
             <div className="flex-1">
               <div className="flex items-center gap-2">
                 <span className="text-2xl font-bold text-gray-900">아마겟돈 클래스</span>
-                <i className="ti ti-circle-check-filled text-[#00c896] text-lg" />
+                <i className="ti ti-circle-check-filled text-[#04F87F] text-lg" />
               </div>
               <p className="text-sm text-gray-500">May be get money</p>
             </div>

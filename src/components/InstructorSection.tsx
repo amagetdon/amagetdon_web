@@ -94,7 +94,7 @@ function InstructorSection() {
           </button>
 
           {/* Instructor card */}
-          <div className="bg-[#064e3b] rounded-2xl p-10 max-sm:p-6 flex items-center gap-10 max-md:flex-col">
+          <div className="bg-[#024d2a] rounded-2xl p-10 max-sm:p-6 flex items-center gap-10 max-md:flex-col">
             <div className="shrink-0">
               <img
                 src={instructor.image}
@@ -129,7 +129,7 @@ function InstructorSection() {
                   src={inst.image}
                   alt={inst.name}
                   className={`w-12 h-12 rounded-full object-cover ${
-                    activeIndex === idx ? 'ring-2 ring-[#00c896]' : ''
+                    activeIndex === idx ? 'ring-2 ring-[#04F87F]' : ''
                   }`}
                 />
                 <span className={`text-xs ${activeIndex === idx ? 'font-bold text-gray-900' : 'text-gray-500'}`}>
@@ -143,7 +143,7 @@ function InstructorSection() {
           <div className="text-center mt-6">
             <Link
               to="/instructors"
-              className="text-sm text-[#00c896] font-medium no-underline hover:underline"
+              className="text-sm text-[#04F87F] font-medium no-underline hover:underline"
             >
               전체 강사 보기 →
             </Link>

@@ -54,7 +54,7 @@ function Header() {
         </div>
         <div className="ml-auto flex items-center gap-3">
           <Link to="/academy" className="no-underline">
-            <span className="bg-[#00c896] text-white text-xs font-bold px-4 py-1.5 rounded-full cursor-pointer">
+            <span className="bg-[#04F87F] text-white text-xs font-bold px-4 py-1.5 rounded-full cursor-pointer">
               혜택 가득!
             </span>
           </Link>
