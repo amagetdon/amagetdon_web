@@ -107,14 +107,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex min-h-[calc(100vh-120px)]">
       {/* Desktop sidebar */}
-      <aside className="w-[240px] bg-[#0f0f0f] shrink-0 flex flex-col max-lg:hidden">
+      <aside className="w-[240px] bg-[#1e2330] shrink-0 flex flex-col max-lg:hidden">
         {sidebar}
       </aside>
 
       {/* Mobile hamburger */}
       <button
         onClick={() => setMobileOpen(!mobileOpen)}
-        className="hidden max-lg:fixed max-lg:block top-[76px] left-4 z-40 w-10 h-10 bg-[#0f0f0f] rounded-lg flex items-center justify-center border-none cursor-pointer shadow-lg"
+        className="hidden max-lg:fixed max-lg:block top-[76px] left-4 z-40 w-10 h-10 bg-[#1e2330] rounded-lg flex items-center justify-center border-none cursor-pointer shadow-lg"
         aria-label="메뉴"
       >
         <i className={`ti ${mobileOpen ? 'ti-x' : 'ti-menu-2'} text-white`} />
@@ -124,7 +124,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {mobileOpen && (
         <>
           <div className="fixed inset-0 bg-black/50 z-30 lg:hidden" onClick={() => setMobileOpen(false)} />
-          <aside className="fixed left-0 top-0 bottom-0 w-[240px] bg-[#0f0f0f] z-40 flex flex-col lg:hidden">
+          <aside className="fixed left-0 top-0 bottom-0 w-[240px] bg-[#1e2330] z-40 flex flex-col lg:hidden">
             {sidebar}
           </aside>
         </>
