@@ -26,6 +26,10 @@ import AdminInstructors from './pages/admin/AdminInstructors'
 import AdminCourses from './pages/admin/AdminCourses'
 import SearchPage from './pages/SearchPage'
 import EbookDetailPage from './pages/EbookDetailPage'
+import AdminEbooks from './pages/admin/AdminEbooks'
+import AdminReviews from './pages/admin/AdminReviews'
+import AdminResults from './pages/admin/AdminResults'
+import AdminSchedules from './pages/admin/AdminSchedules'
 import AdminFaqs from './pages/admin/AdminFaqs'
 
 function App() {
@@ -58,6 +62,10 @@ function App() {
               <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
               <Route path="/admin/instructors" element={<AdminRoute><AdminInstructors /></AdminRoute>} />
               <Route path="/admin/courses" element={<AdminRoute><AdminCourses /></AdminRoute>} />
+              <Route path="/admin/ebooks" element={<AdminRoute><AdminEbooks /></AdminRoute>} />
+              <Route path="/admin/reviews" element={<AdminRoute><AdminReviews /></AdminRoute>} />
+              <Route path="/admin/results" element={<AdminRoute><AdminResults /></AdminRoute>} />
+              <Route path="/admin/schedules" element={<AdminRoute><AdminSchedules /></AdminRoute>} />
               <Route path="/admin/faqs" element={<AdminRoute><AdminFaqs /></AdminRoute>} />
             </Routes>
           </main>
