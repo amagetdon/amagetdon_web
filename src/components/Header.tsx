@@ -1,17 +1,25 @@
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
+import { authService } from '../services/authService'
 
 function Header() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { user, profile, isAdmin } = useAuth()
   const currentPath = location.pathname
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
-  const isMyPage =
-    currentPath === '/mypage' ||
-    currentPath.startsWith('/my-classroom') ||
-    currentPath.startsWith('/my-ebooks')
+
+  const handleLogout = async () => {
+    try {
+      await authService.signOut()
+      navigate('/')
+    } catch {
+      // 무시
+    }
+  }
 
   const navItems = [
     { label: '아마겟돈', path: '/' },
@@ -58,12 +66,30 @@ function Header() {
               혜택 가득!
             </span>
           </Link>
-          {isMyPage ? (
-            <Link to="/my-classroom" className="no-underline max-md:hidden">
-              <span className="text-sm text-gray-900 cursor-pointer font-medium">내 강의실</span>
-            </Link>
+          {user ? (
+            <div className="flex items-center gap-3 max-md:hidden">
+              {isAdmin && (
+                <Link to="/admin" className="no-underline">
+                  <span className="text-xs text-white bg-gray-800 px-3 py-1 rounded-full cursor-pointer">관리자</span>
+                </Link>
+              )}
+              <Link to="/my-classroom" className="no-underline">
+                <span className="text-sm text-gray-900 cursor-pointer font-medium">내 강의실</span>
+              </Link>
+              <Link to="/mypage" className="no-underline">
+                <span className="text-sm text-gray-900 cursor-pointer">
+                  {profile?.name || '마이페이지'}
+                </span>
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="text-sm text-gray-400 cursor-pointer bg-transparent border-none"
+              >
+                로그아웃
+              </button>
+            </div>
           ) : (
-            <Link to="/mypage" className="no-underline max-md:hidden">
+            <Link to="/login" className="no-underline max-md:hidden">
               <span className="text-sm text-gray-900 cursor-pointer">로그인/회원가입</span>
             </Link>
           )}
@@ -105,20 +131,28 @@ function Header() {
                 {item.label}
               </Link>
             ))}
-            {isMyPage ? (
-              <Link
-                to="/my-classroom"
-                onClick={() => setIsMenuOpen(false)}
-                className="text-sm text-gray-900 no-underline py-2 font-medium"
-              >
-                내 강의실
-              </Link>
+            {user ? (
+              <>
+                {isAdmin && (
+                  <Link to="/admin" onClick={() => setIsMenuOpen(false)} className="text-sm text-gray-900 no-underline py-2 font-medium">
+                    관리자
+                  </Link>
+                )}
+                <Link to="/my-classroom" onClick={() => setIsMenuOpen(false)} className="text-sm text-gray-900 no-underline py-2 font-medium">
+                  내 강의실
+                </Link>
+                <Link to="/mypage" onClick={() => setIsMenuOpen(false)} className="text-sm text-gray-900 no-underline py-2">
+                  {profile?.name || '마이페이지'}
+                </Link>
+                <button
+                  onClick={() => { handleLogout(); setIsMenuOpen(false) }}
+                  className="text-sm text-gray-400 cursor-pointer bg-transparent border-none text-left py-2"
+                >
+                  로그아웃
+                </button>
+              </>
             ) : (
-              <Link
-                to="/mypage"
-                onClick={() => setIsMenuOpen(false)}
-                className="text-sm text-gray-900 no-underline py-2"
-              >
+              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="text-sm text-gray-900 no-underline py-2">
                 로그인/회원가입
               </Link>
             )}

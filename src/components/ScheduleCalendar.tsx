@@ -1,35 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useSchedules } from '../hooks/useSchedules'
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일']
-
-interface ScheduleItem {
-  date: string
-  time: string
-  title: string
-  instructor: string
-  courseId: number
-}
-
-const SCHEDULE_ITEMS: ScheduleItem[] = [
-  {
-    date: '12월 27일(금) 오후 7시 30분',
-    time: '',
-    title: '한번 배워서 평생 써먹는,\nTOT설계사의 하이엔드 세일즈 비법',
-    instructor: '김나영 강사',
-    courseId: 1,
-  },
-  {
-    date: '12월 30일(화) 오후 7시 30분',
-    time: '',
-    title: '월 300 자동 수익 프로세스,\n에이비앤비 & 단기임대 마스터 클래스',
-    instructor: '코코 강사',
-    courseId: 2,
-  },
-]
-
-// 강의가 있는 날짜 (예시 데이터)
-const LECTURE_DAYS = [27, 30]
 
 interface ScheduleCalendarProps {
   title?: string
@@ -43,52 +16,47 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
   const [currentYear, setCurrentYear] = useState(today.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1)
 
+  const { schedules } = useSchedules(currentYear, currentMonth)
+
+  const lectureDays = useMemo(() => {
+    return schedules.map((s) => new Date(s.scheduled_at).getDate())
+  }, [schedules])
+
   const daysInMonth = new Date(currentYear, currentMonth, 0).getDate()
   const firstDayOfWeek = new Date(currentYear, currentMonth - 1, 1).getDay()
-  // 월요일 시작으로 변환 (0=일 -> 6, 1=월 -> 0, ...)
   const startOffset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1
 
   const calendarDays: number[] = []
-  for (let i = 0; i < startOffset; i++) {
-    calendarDays.push(0)
-  }
-  for (let d = 1; d <= daysInMonth; d++) {
-    calendarDays.push(d)
-  }
-  // 남은 칸 채우기
-  while (calendarDays.length % 7 !== 0) {
-    calendarDays.push(0)
-  }
+  for (let i = 0; i < startOffset; i++) calendarDays.push(0)
+  for (let d = 1; d <= daysInMonth; d++) calendarDays.push(d)
+  while (calendarDays.length % 7 !== 0) calendarDays.push(0)
 
-  const isToday = (day: number) => {
-    return (
-      day > 0 &&
-      currentYear === today.getFullYear() &&
-      currentMonth === today.getMonth() + 1 &&
-      day === today.getDate()
-    )
-  }
+  const isToday = (day: number) =>
+    day > 0 && currentYear === today.getFullYear() && currentMonth === today.getMonth() + 1 && day === today.getDate()
 
-  const hasLecture = (day: number) => {
-    return day > 0 && LECTURE_DAYS.includes(day)
-  }
+  const hasLecture = (day: number) => day > 0 && lectureDays.includes(day)
 
   const handlePrevMonth = () => {
-    if (currentMonth === 1) {
-      setCurrentYear(currentYear - 1)
-      setCurrentMonth(12)
-    } else {
-      setCurrentMonth(currentMonth - 1)
-    }
+    if (currentMonth === 1) { setCurrentYear(currentYear - 1); setCurrentMonth(12) }
+    else setCurrentMonth(currentMonth - 1)
   }
 
   const handleNextMonth = () => {
-    if (currentMonth === 12) {
-      setCurrentYear(currentYear + 1)
-      setCurrentMonth(1)
-    } else {
-      setCurrentMonth(currentMonth + 1)
-    }
+    if (currentMonth === 12) { setCurrentYear(currentYear + 1); setCurrentMonth(1) }
+    else setCurrentMonth(currentMonth + 1)
+  }
+
+  const formatScheduleDate = (dateStr: string) => {
+    const d = new Date(dateStr)
+    const weekdays = ['일', '월', '화', '수', '목', '금', '토']
+    const month = d.getMonth() + 1
+    const day = d.getDate()
+    const weekday = weekdays[d.getDay()]
+    const hours = d.getHours()
+    const minutes = d.getMinutes()
+    const ampm = hours >= 12 ? '오후' : '오전'
+    const h = hours > 12 ? hours - 12 : hours
+    return `${month}월 ${day}일(${weekday}) ${ampm} ${h}시${minutes > 0 ? ` ${minutes}분` : ''}`
   }
 
   return (
@@ -107,33 +75,22 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
         )}
 
         <div className="flex gap-0 max-md:flex-col border border-gray-200 rounded-2xl p-8 max-sm:p-5">
-          {/* Calendar */}
           <div className="w-[360px] max-md:w-full shrink-0">
             <div className="flex items-center justify-center gap-4 mb-5">
-              <button
-                onClick={handlePrevMonth}
-                className="border-none bg-transparent cursor-pointer p-1"
-                aria-label="이전 달"
-              >
+              <button onClick={handlePrevMonth} className="border-none bg-transparent cursor-pointer p-1" aria-label="이전 달">
                 <i className="ti ti-chevron-left text-lg text-gray-400" />
               </button>
               <span className="text-base font-bold text-gray-900">
                 {currentYear}. {String(currentMonth).padStart(2, '0')}
               </span>
-              <button
-                onClick={handleNextMonth}
-                className="border-none bg-transparent cursor-pointer p-1"
-                aria-label="다음 달"
-              >
+              <button onClick={handleNextMonth} className="border-none bg-transparent cursor-pointer p-1" aria-label="다음 달">
                 <i className="ti ti-chevron-right text-lg text-gray-400" />
               </button>
             </div>
 
             <div className="grid grid-cols-7 gap-1 mb-1">
               {DAYS.map((day) => (
-                <div key={day} className="text-center text-xs text-gray-400 py-2">
-                  {day}
-                </div>
+                <div key={day} className="text-center text-xs text-gray-400 py-2">{day}</div>
               ))}
             </div>
 
@@ -141,15 +98,13 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
               {calendarDays.map((day, idx) => (
                 <div key={idx} className="flex items-center justify-center py-0.5">
                   {day > 0 && (
-                    <span
-                      className={`w-10 h-9 flex items-center justify-center text-sm rounded ${
-                        isToday(day)
-                          ? 'bg-[#04F87F] text-black font-bold'
-                          : hasLecture(day)
-                            ? 'border-[1.5px] border-[#04F87F] text-gray-700'
-                            : 'text-gray-700'
-                      }`}
-                    >
+                    <span className={`w-10 h-9 flex items-center justify-center text-sm rounded ${
+                      isToday(day)
+                        ? 'bg-[#04F87F] text-black font-bold'
+                        : hasLecture(day)
+                          ? 'border-[1.5px] border-[#04F87F] text-gray-700'
+                          : 'text-gray-700'
+                    }`}>
                       {day}
                     </span>
                   )}
@@ -158,29 +113,35 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
             </div>
           </div>
 
-          {/* Vertical divider */}
           <div className="border-l border-gray-200 mx-8 max-md:border-l-0 max-md:border-t max-md:my-6 max-md:mx-0" />
 
-          {/* Schedule items */}
           <div className="flex-1 flex flex-col gap-6">
-            {SCHEDULE_ITEMS.map((item, idx) => (
-              <div key={idx} className="flex items-start gap-4">
-                <div className="w-12 h-12 bg-gray-200 rounded-full shrink-0 overflow-hidden" />
-                <div className="flex-1">
-                  <p className="text-xs text-[#04F87F] font-bold mb-1">{item.date}</p>
-                  <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">
-                    {item.title}
-                  </p>
-                  <p className="text-xs text-gray-400">{item.instructor}</p>
-                </div>
-                <button
-                  onClick={() => navigate(`/course/${item.courseId}`)}
-                  className="shrink-0 px-4 py-2 bg-gray-900 text-white text-xs rounded-md cursor-pointer border-none"
-                >
-                  강의 안내 &gt;
-                </button>
+            {schedules.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-sm text-gray-400">
+                이번 달 예정된 강의가 없습니다.
               </div>
-            ))}
+            ) : (
+              schedules.map((item) => (
+                <div key={item.id} className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full shrink-0 overflow-hidden" />
+                  <div className="flex-1">
+                    <p className="text-xs text-[#04F87F] font-bold mb-1">{formatScheduleDate(item.scheduled_at)}</p>
+                    <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-gray-400">{item.instructor?.name ? `${item.instructor.name} 강사` : ''}</p>
+                  </div>
+                  {item.course_id && (
+                    <button
+                      onClick={() => navigate(`/course/${item.course_id}`)}
+                      className="shrink-0 px-4 py-2 bg-gray-900 text-white text-xs rounded-md cursor-pointer border-none"
+                    >
+                      강의 안내 &gt;
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

@@ -1,11 +1,8 @@
 import { Link } from 'react-router-dom'
+import { useEbooks } from '../hooks/useEbooks'
 
 function FreeEbooks() {
-  const ebooks = [
-    { id: 1, title: '한번 배워서 평생 써먹는\n300 벌고 시작하는 보험 비즈니스', price: '무료' },
-    { id: 2, title: 'TOT 설계사의 하이엔드 세일즈 비법\n[설계사 플랜]', price: '무료' },
-    { id: 3, title: 'TOT 설계사의 하이엔드 세일즈 비법\n[설계사 플랜]', price: '무료' },
-  ]
+  const { ebooks, loading } = useEbooks({ isFree: true, limit: 3 })
 
   return (
     <section className="w-full bg-white py-14 max-sm:py-10">
@@ -19,19 +16,35 @@ function FreeEbooks() {
             전체 보기 <span className="text-lg">→</span>
           </Link>
         </div>
-        <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
-          {ebooks.map((book) => (
-            <Link key={book.id} to={`/course/${book.id}`} className="no-underline group">
-              <div className="bg-gray-100 rounded-xl h-[235px] flex items-center justify-center mb-3 overflow-hidden">
-                <span className="text-sm text-gray-400">썸네일{book.id}<br />380*235px</span>
+        {loading ? (
+          <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-gray-200 rounded-xl h-[235px] mb-3" />
+                <div className="bg-gray-200 h-4 rounded w-3/4 mb-2" />
+                <div className="bg-gray-200 h-3 rounded w-1/4" />
               </div>
-              <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">
-                {book.title}
-              </p>
-              <p className="text-sm text-gray-500">{book.price}</p>
-            </Link>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
+            {ebooks.map((book) => (
+              <Link key={book.id} to={`/course/${book.id}`} className="no-underline group">
+                <div className="bg-gray-100 rounded-xl h-[235px] flex items-center justify-center mb-3 overflow-hidden">
+                  {book.thumbnail_url ? (
+                    <img src={book.thumbnail_url} alt={book.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm text-gray-400">썸네일<br />380*235px</span>
+                  )}
+                </div>
+                <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">
+                  {book.title}
+                </p>
+                <p className="text-sm text-gray-500">무료</p>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   )
