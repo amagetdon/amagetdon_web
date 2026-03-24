@@ -24,6 +24,8 @@ import MyEbooksPage from './pages/MyEbooksPage'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminInstructors from './pages/admin/AdminInstructors'
 import AdminCourses from './pages/admin/AdminCourses'
+import SearchPage from './pages/SearchPage'
+import EbookDetailPage from './pages/EbookDetailPage'
 import AdminFaqs from './pages/admin/AdminFaqs'
 
 function App() {
@@ -43,6 +45,8 @@ function App() {
               <Route path="/academy/free" element={<AcademyFreePage />} />
               <Route path="/academy/premium" element={<AcademyPremiumPage />} />
               <Route path="/course/:id" element={<CourseDetailPage />} />
+              <Route path="/ebook/:id" element={<EbookDetailPage />} />
+              <Route path="/search" element={<SearchPage />} />
               <Route path="/faq" element={<FAQPage />} />
               <Route path="/notice" element={<NoticePage />} />
               <Route path="/login" element={<LoginPage />} />

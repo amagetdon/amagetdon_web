@@ -84,6 +84,7 @@ function ReviewResultsPage() {
             title: selectedResult.title,
             content: selectedResult.content,
             image: selectedResult.image_url || '',
+            likesCount: selectedResult.likes_count,
           }}
         />
       )}

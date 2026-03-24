@@ -14,7 +14,7 @@ export default function AdminFaqs() {
       setLoading(true)
       const { data } = await faqService.getAll({ perPage: 100 })
       setFaqs(data)
-    } catch { /* */ } finally { setLoading(false) }
+    } catch { alert('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
   }
 
   useEffect(() => { fetchData() }, [])
@@ -30,12 +30,12 @@ export default function AdminFaqs() {
       }
       setEditing(null)
       await fetchData()
-    } catch { /* */ } finally { setSaving(false) }
+    } catch { alert('저장에 실패했습니다.') } finally { setSaving(false) }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
-    try { await faqService.delete(id); await fetchData() } catch { /* */ }
+    try { await faqService.delete(id); await fetchData() } catch { alert('삭제에 실패했습니다.') }
   }
 
   return (

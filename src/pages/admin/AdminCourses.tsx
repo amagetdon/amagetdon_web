@@ -17,7 +17,7 @@ export default function AdminCourses() {
       const [c, i] = await Promise.all([courseService.getAll(), instructorService.getAll()])
       setCourses(c)
       setInstructors(i)
-    } catch { /* */ } finally { setLoading(false) }
+    } catch { alert('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
   }
 
   useEffect(() => { fetchData() }, [])
@@ -35,12 +35,12 @@ export default function AdminCourses() {
       }
       setEditing(null)
       await fetchData()
-    } catch { /* */ } finally { setSaving(false) }
+    } catch { alert('저장에 실패했습니다.') } finally { setSaving(false) }
   }
 
   const handleDelete = async (id: number) => {
     if (!confirm('정말 삭제하시겠습니까?')) return
-    try { await courseService.delete(id); await fetchData() } catch { /* */ }
+    try { await courseService.delete(id); await fetchData() } catch { alert('삭제에 실패했습니다.') }
   }
 
   const newCourse = () => ({

@@ -15,7 +15,7 @@ export default function AdminInstructors() {
       setLoading(true)
       const data = await instructorService.getAll()
       setInstructors(data)
-    } catch { /* */ } finally { setLoading(false) }
+    } catch { alert('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
   }
 
   useEffect(() => { fetchData() }, [])
@@ -31,7 +31,7 @@ export default function AdminInstructors() {
       }
       setEditing(null)
       await fetchData()
-    } catch { /* */ } finally { setSaving(false) }
+    } catch { alert('저장에 실패했습니다.') } finally { setSaving(false) }
   }
 
   const handleDelete = async (id: number) => {
@@ -39,7 +39,7 @@ export default function AdminInstructors() {
     try {
       await instructorService.delete(id)
       await fetchData()
-    } catch { /* */ }
+    } catch { alert('삭제에 실패했습니다.') }
   }
 
   const newInstructor = (): Partial<Instructor> => ({

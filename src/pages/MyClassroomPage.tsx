@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
+import VideoPlayerModal from '../components/VideoPlayerModal'
 
 function MyClassroomPage() {
+  const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string } | null>(null)
   const { user } = useAuth()
   const [purchases, setPurchases] = useState<Array<{
     id: number
@@ -89,8 +91,12 @@ function MyClassroomPage() {
                         <p className="text-sm font-bold whitespace-pre-line">
                           {item.week ? `[${item.week}주차]\n` : ''}{item.label}
                         </p>
-                        <button className="border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white">
-                          <i className="ti ti-player-play text-gray-600" />
+                        <button
+                          onClick={() => item.video_url && setPlayingVideo({ url: item.video_url, title: item.label })}
+                          disabled={!item.video_url}
+                          className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${!item.video_url ? 'opacity-30 cursor-not-allowed' : 'hover:border-[#04F87F]'}`}
+                        >
+                          <i className={`ti ti-player-play ${item.video_url ? 'text-[#04F87F]' : 'text-gray-400'}`} />
                         </button>
                       </div>
                     ))}
@@ -101,6 +107,15 @@ function MyClassroomPage() {
           })
         )}
       </div>
+
+      {playingVideo && (
+        <VideoPlayerModal
+          isOpen={true}
+          onClose={() => setPlayingVideo(null)}
+          videoUrl={playingVideo.url}
+          title={playingVideo.title}
+        />
+      )}
     </>
   )
 }

@@ -111,7 +111,7 @@ function InstructorDetailPage() {
             <h2 className="text-xl font-bold text-gray-900 mb-6">관련 전자책 받기</h2>
             <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-5">
               {ebooks.map((ebook) => (
-                <Link key={ebook.id} to={`/course/${ebook.id}`} className="no-underline cursor-pointer group">
+                <Link key={ebook.id} to={`/ebook/${ebook.id}`} className="no-underline cursor-pointer group">
                   <div className="bg-gray-100 rounded-xl h-[235px] flex items-center justify-center mb-3 overflow-hidden">
                     {ebook.thumbnail_url ? (
                       <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
