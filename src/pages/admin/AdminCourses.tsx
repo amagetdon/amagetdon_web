@@ -27,8 +27,8 @@ export default function AdminCourses() {
     try {
       setSaving(true)
       if (editing.id) {
-        const { id, instructor, curriculum_items, created_at, updated_at, ...updates } = editing as Record<string, unknown>
-        void instructor; void curriculum_items; void created_at; void updated_at;
+        const { id, instructor, curriculum_items, created_at, updated_at, ...updates } = editing
+        void instructor; void curriculum_items; void created_at; void updated_at
         await courseService.update(id as number, updates)
       } else {
         await courseService.create(editing as never)
@@ -43,10 +43,20 @@ export default function AdminCourses() {
     try { await courseService.delete(id); await fetchData() } catch { alert('삭제에 실패했습니다.') }
   }
 
+  const handleTypeChange = (type: string) => {
+    if (type === 'free') {
+      setEditing({ ...editing, course_type: type, original_price: 0, sale_price: 0 })
+    } else {
+      setEditing({ ...editing, course_type: type })
+    }
+  }
+
+  const isFree = editing?.course_type === 'free'
+
   const newCourse = () => ({
     title: '', instructor_id: null, course_type: 'free', description: '',
-    original_price: null, sale_price: null, sort_order: 0, is_published: true,
-    duration_days: 30,
+    original_price: 0, sale_price: 0, is_published: true,
+    enrollment_deadline: null, enrollment_start: null,
   })
 
   return (
@@ -77,7 +87,7 @@ export default function AdminCourses() {
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">유형</label>
-              <select value={(editing.course_type as string) || 'free'} onChange={(e) => setEditing({ ...editing, course_type: e.target.value })}
+              <select value={(editing.course_type as string) || 'free'} onChange={(e) => handleTypeChange(e.target.value)}
                 className="w-full border rounded-lg px-3 py-2 text-sm outline-none">
                 <option value="free">무료</option>
                 <option value="premium">프리미엄</option>
@@ -85,22 +95,30 @@ export default function AdminCourses() {
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">정가 (원)</label>
-              <input type="number" value={(editing.original_price as number) || ''} onChange={(e) => setEditing({ ...editing, original_price: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border rounded-lg px-3 py-2 text-sm outline-none" />
+              <input type="number" value={isFree ? 0 : (editing.original_price as number) || ''}
+                onChange={(e) => setEditing({ ...editing, original_price: e.target.value ? Number(e.target.value) : null })}
+                disabled={isFree}
+                className={`w-full border rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : ''}`} />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">할인가 (원)</label>
-              <input type="number" value={(editing.sale_price as number) || ''} onChange={(e) => setEditing({ ...editing, sale_price: e.target.value ? Number(e.target.value) : null })}
+              <input type="number" value={isFree ? 0 : (editing.sale_price as number) || ''}
+                onChange={(e) => setEditing({ ...editing, sale_price: e.target.value ? Number(e.target.value) : null })}
+                disabled={isFree}
+                className={`w-full border rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : ''}`} />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">수강 시작일</label>
+              <input type="date"
+                value={(editing.enrollment_start as string)?.slice(0, 10) || ''}
+                onChange={(e) => setEditing({ ...editing, enrollment_start: e.target.value ? new Date(e.target.value).toISOString() : null })}
                 className="w-full border rounded-lg px-3 py-2 text-sm outline-none" />
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">수강기간 (일)</label>
-              <input type="number" value={(editing.duration_days as number) || 30} onChange={(e) => setEditing({ ...editing, duration_days: Number(e.target.value) })}
-                className="w-full border rounded-lg px-3 py-2 text-sm outline-none" />
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">정렬 순서</label>
-              <input type="number" value={(editing.sort_order as number) ?? 0} onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })}
+              <label className="text-sm font-bold block mb-1">수강 마감일</label>
+              <input type="date"
+                value={(editing.enrollment_deadline as string)?.slice(0, 10) || ''}
+                onChange={(e) => setEditing({ ...editing, enrollment_deadline: e.target.value ? new Date(e.target.value + 'T23:59:59').toISOString() : null })}
                 className="w-full border rounded-lg px-3 py-2 text-sm outline-none" />
             </div>
           </div>
@@ -124,6 +142,7 @@ export default function AdminCourses() {
                 <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">강사</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">유형</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">가격</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">등록일</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
               </tr>
             </thead>
@@ -138,7 +157,10 @@ export default function AdminCourses() {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">
-                    {course.sale_price ? `${course.sale_price.toLocaleString()}원` : course.course_type === 'free' ? '무료' : '-'}
+                    {course.course_type === 'free' ? '무료' : course.sale_price ? `${course.sale_price.toLocaleString()}원` : '-'}
+                  </td>
+                  <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">
+                    {new Date(course.created_at).toLocaleDateString('ko-KR')}
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button onClick={() => setEditing(course as unknown as Record<string, unknown>)} className="text-blue-500 text-xs cursor-pointer bg-transparent border-none mr-2">수정</button>

@@ -44,7 +44,7 @@ export default function AdminInstructors() {
 
   const newInstructor = (): Partial<Instructor> => ({
     name: '', title: '', headline: '', bio: '', careers: [], image_url: null,
-    has_active_course: false, sort_order: 0, is_published: true,
+    has_active_course: false, is_published: true,
   })
 
   return (
@@ -84,15 +84,6 @@ export default function AdminInstructors() {
               <input
                 value={editing.headline || ''}
                 onChange={(e) => setEditing({ ...editing, headline: e.target.value })}
-                className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">정렬 순서</label>
-              <input
-                type="number"
-                value={editing.sort_order ?? 0}
-                onChange={(e) => setEditing({ ...editing, sort_order: Number(e.target.value) })}
                 className="w-full border rounded-lg px-3 py-2 text-sm outline-none"
               />
             </div>
@@ -164,7 +155,6 @@ export default function AdminInstructors() {
                 <th className="px-4 py-3 text-left font-bold text-gray-600">이름</th>
                 <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">직함</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">상태</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600">순서</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
               </tr>
             </thead>
@@ -178,7 +168,6 @@ export default function AdminInstructors() {
                       {inst.is_published ? '공개' : '비공개'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center text-gray-500">{inst.sort_order}</td>
                   <td className="px-4 py-3 text-center">
                     <button onClick={() => setEditing(inst)} className="text-blue-500 text-xs cursor-pointer bg-transparent border-none mr-2">수정</button>
                     <button onClick={() => handleDelete(inst.id)} className="text-red-500 text-xs cursor-pointer bg-transparent border-none">삭제</button>

@@ -45,7 +45,7 @@ export default function AdminEbooks() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">전자책 관리</h1>
-        <button onClick={() => setEditing({ title: '', instructor_id: null, is_free: false, is_hot: false, original_price: null, sale_price: null, sort_order: 0, is_published: true, duration_days: 30 })}
+        <button onClick={() => setEditing({ title: '', instructor_id: null, is_free: false, is_hot: false, original_price: null, sale_price: null, is_published: true, duration_days: 30 })}
           className="bg-[#04F87F] text-white px-4 py-2 rounded-lg text-sm font-bold cursor-pointer border-none">+ 전자책 추가</button>
       </div>
 
@@ -68,13 +68,17 @@ export default function AdminEbooks() {
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">정가 (원)</label>
-              <input type="number" value={(editing.original_price as number) || ''} onChange={(e) => setEditing({ ...editing, original_price: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border rounded-lg px-3 py-2 text-sm outline-none" />
+              <input type="number" value={editing.is_free ? 0 : (editing.original_price as number) || ''}
+                onChange={(e) => setEditing({ ...editing, original_price: e.target.value ? Number(e.target.value) : null })}
+                disabled={!!editing.is_free}
+                className={`w-full border rounded-lg px-3 py-2 text-sm outline-none ${editing.is_free ? 'bg-gray-100 text-gray-400' : ''}`} />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">할인가 (원)</label>
-              <input type="number" value={(editing.sale_price as number) || ''} onChange={(e) => setEditing({ ...editing, sale_price: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border rounded-lg px-3 py-2 text-sm outline-none" />
+              <input type="number" value={editing.is_free ? 0 : (editing.sale_price as number) || ''}
+                onChange={(e) => setEditing({ ...editing, sale_price: e.target.value ? Number(e.target.value) : null })}
+                disabled={!!editing.is_free}
+                className={`w-full border rounded-lg px-3 py-2 text-sm outline-none ${editing.is_free ? 'bg-gray-100 text-gray-400' : ''}`} />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">열람 기간 (일)</label>
