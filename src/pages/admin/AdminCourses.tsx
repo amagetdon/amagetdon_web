@@ -67,7 +67,7 @@ export default function AdminCourses() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">강의 관리</h1>
         <button onClick={() => setEditing({ title: '', instructor_id: null, course_type: 'free', original_price: 0, sale_price: 0, is_published: true, enrollment_deadline: null })}
-          className="bg-[#04F87F] text-white px-4 py-2 rounded-lg text-sm font-bold cursor-pointer border-none">+ 강의 추가</button>
+          className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 강의 추가</button>
       </div>
 
       <div className="mb-4">
@@ -110,8 +110,10 @@ export default function AdminCourses() {
                     {course.course_type === 'free' ? '무료' : course.sale_price ? `${course.sale_price.toLocaleString()}원` : '-'}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={() => setEditing(course as unknown as Record<string, unknown>)} className="text-blue-500 text-xs cursor-pointer bg-transparent border-none mr-2 hover:underline">수정</button>
-                    <button onClick={() => setDeleteTarget(course.id)} className="text-red-500 text-xs cursor-pointer bg-transparent border-none hover:underline">삭제</button>
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => setEditing(course as unknown as Record<string, unknown>)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
+                      <button onClick={() => setDeleteTarget(course.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
+                    </div>
                   </td>
                 </tr>
               ))}

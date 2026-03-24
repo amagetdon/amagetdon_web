@@ -76,24 +76,26 @@ export default function AdminInstructors() {
   return (
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">강사 관리</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">강사 관리</h1>
+          <p className="text-sm text-gray-400 mt-0.5">등록된 강사 {instructors.length}명</p>
+        </div>
         <button
           onClick={() => setEditing(newInstructor())}
-          className="bg-[#04F87F] text-white px-4 py-2 rounded-lg text-sm font-bold cursor-pointer border-none"
+          className="bg-[#04F87F] text-white px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"
         >
-          + 강사 추가
+          <i className="ti ti-plus text-sm" /> 강사 추가
         </button>
       </div>
 
-      {/* 검색 */}
       <div className="mb-4">
         <div className="relative max-w-xs">
-          <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+          <i className="ti ti-search absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="강사 검색..."
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]"
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
           />
         </div>
       </div>
@@ -111,40 +113,48 @@ export default function AdminInstructors() {
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-bold text-gray-600">강사</th>
-                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">직함</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600">상태</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
+            <thead>
+              <tr className="border-b border-gray-100">
+                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">강사</th>
+                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider max-sm:hidden">직함</th>
+                <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">상태</th>
+                <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider w-[100px]">관리</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400">
-                  {search ? '검색 결과가 없습니다.' : '등록된 강사가 없습니다.'}
+                <tr><td colSpan={4} className="px-5 py-16 text-center">
+                  <i className="ti ti-users-minus text-4xl text-gray-200 block mb-2" />
+                  <p className="text-sm text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 강사가 없습니다.'}</p>
                 </td></tr>
               ) : filtered.map((inst) => (
-                <tr key={inst.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
+                <tr key={inst.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                  <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                        {inst.image_url && <img src={inst.image_url} alt="" className="w-full h-full object-cover" />}
+                      <div className="w-10 h-10 rounded-xl bg-gray-100 overflow-hidden shrink-0">
+                        {inst.image_url ? <img src={inst.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-400"><i className="ti ti-user" /></div>}
                       </div>
-                      <span className="font-medium">{inst.name}</span>
+                      <span className="font-semibold text-gray-900">{inst.name}</span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-500 max-sm:hidden">{inst.title}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${inst.is_published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                  <td className="px-5 py-3.5 text-gray-500 max-sm:hidden">{inst.title}</td>
+                  <td className="px-5 py-3.5 text-center">
+                    <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${inst.is_published ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${inst.is_published ? 'bg-emerald-500' : 'bg-gray-400'}`} />
                       {inst.is_published ? '공개' : '비공개'}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-center">
-                    <button onClick={() => setEditing(inst)} className="text-blue-500 text-xs cursor-pointer bg-transparent border-none mr-2 hover:underline">수정</button>
-                    <button onClick={() => setDeleteTarget(inst.id)} className="text-red-500 text-xs cursor-pointer bg-transparent border-none hover:underline">삭제</button>
+                  <td className="px-5 py-3.5 text-center">
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => setEditing(inst)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정">
+                        <i className="ti ti-pencil text-sm" />
+                      </button>
+                      <button onClick={() => setDeleteTarget(inst.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제">
+                        <i className="ti ti-trash text-sm" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

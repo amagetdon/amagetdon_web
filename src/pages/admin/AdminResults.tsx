@@ -59,7 +59,7 @@ export default function AdminResults() {
                   <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{r.likes_count}</td>
                   <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{new Date(r.created_at).toLocaleDateString('ko-KR')}</td>
                   <td className="px-4 py-3 text-center">
-                    <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(r.id) }} className="text-red-500 text-xs cursor-pointer bg-transparent border-none hover:underline">삭제</button>
+                    <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(r.id) }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
                   </td>
                 </tr>
               ))}
