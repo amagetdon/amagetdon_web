@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import AdminLayout from '../../components/admin/AdminLayout'
 
@@ -13,9 +14,11 @@ interface Stats {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats>({ instructors: 0, courses: 0, ebooks: 0, reviews: 0, results: 0, faqs: 0 })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchStats = async () => {
+      try {
       const [instructors, courses, ebooks, reviews, results, faqs] = await Promise.all([
         supabase.from('instructors').select('id', { count: 'exact', head: true }),
         supabase.from('courses').select('id', { count: 'exact', head: true }),
@@ -32,6 +35,7 @@ export default function AdminDashboard() {
         results: results.count ?? 0,
         faqs: faqs.count ?? 0,
       })
+      } catch { toast.error('통계를 불러오는데 실패했습니다.') } finally { setLoading(false) }
     }
     fetchStats()
   }, [])

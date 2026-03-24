@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext'
 import Header from './components/Header'
 import Footer from './components/Footer'
@@ -70,6 +71,7 @@ function App() {
             </Routes>
           </main>
           <Footer />
+          <Toaster position="top-center" toastOptions={{ duration: 3000, style: { fontSize: '14px' } }} />
         </div>
       </AuthProvider>
     </BrowserRouter>
