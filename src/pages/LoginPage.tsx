@@ -42,7 +42,7 @@ function LoginPage() {
           .from('profiles')
           .select('name, phone, address')
           .eq('id', user.id)
-          .single()
+          .single<{ name: string | null; phone: string | null; address: string | null }>()
         const isIncomplete = !profile?.name || !profile?.phone || !profile?.address
         navigate(isIncomplete ? '/mypage' : '/', { replace: true })
       } else {
