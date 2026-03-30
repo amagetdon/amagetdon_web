@@ -383,12 +383,18 @@ export default function AdminSiteSettings() {
                 currentUrl={linkEditing.image_url as string} onUpload={(url) => setLinkEditing({ ...linkEditing, image_url: url })} className="h-[180px]" />
             </div>
             <div>
+              <label className="text-sm font-bold block mb-1">검은 오버레이 투명도</label>
+              <input type="number" min={0} max={100} value={(linkEditing.subtitle as number) ?? 0} onChange={(e) => setLinkEditing({ ...linkEditing, subtitle: e.target.value })}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+              <p className="text-xs text-gray-400 mt-1">0 = 없음, 50 = 반투명, 100 = 완전 검정</p>
+            </div>
+            <div>
               <label className="text-sm font-bold block mb-1">정렬 순서</label>
               <input type="number" value={(linkEditing.sort_order as number) ?? 0} onChange={(e) => setLinkEditing({ ...linkEditing, sort_order: Number(e.target.value) })}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
-            <div>
-              <label className="flex items-center gap-2 text-sm cursor-pointer mt-6">
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={linkEditing.is_published !== false} onChange={(e) => setLinkEditing({ ...linkEditing, is_published: e.target.checked })} className="accent-[#04F87F]" />
                 공개
               </label>
