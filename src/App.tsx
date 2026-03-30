@@ -10,7 +10,6 @@ import AcademyPage from './pages/AcademyPage'
 import InstructorListPage from './pages/InstructorListPage'
 import InstructorDetailPage from './pages/InstructorDetailPage'
 import ReviewsPage from './pages/ReviewsPage'
-import ReviewResultsPage from './pages/ReviewResultsPage'
 import CourseDetailPage from './pages/CourseDetailPage'
 import AcademyFreePage from './pages/AcademyFreePage'
 import AcademyPremiumPage from './pages/AcademyPremiumPage'
@@ -51,7 +50,7 @@ function App() {
               <Route path="/instructors" element={<InstructorListPage />} />
               <Route path="/instructors/:id" element={<InstructorDetailPage />} />
               <Route path="/reviews" element={<ReviewsPage />} />
-              <Route path="/reviews/results" element={<ReviewResultsPage />} />
+              {/* /reviews/results 제거 - 성과는 메인 페이지에서 관리 */}
               <Route path="/academy/free" element={<AcademyFreePage />} />
               <Route path="/academy/premium" element={<AcademyPremiumPage />} />
               <Route path="/course/:id" element={<CourseDetailPage />} />

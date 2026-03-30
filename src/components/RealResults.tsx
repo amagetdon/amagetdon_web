@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { useFeaturedResults } from '../hooks/useResults'
 import { useFeaturedReviews } from '../hooks/useReviews'
 import VideoEmbed from './VideoEmbed'
+import { getVideoThumbnail } from '../utils/videoUrl'
+import type { Result } from '../types'
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -42,6 +44,61 @@ function ReviewCard({ review }: { review: { author_name: string; title: string; 
   )
 }
 
+function ResultCard({ card, idx, onPlayVideo }: { card: Result; idx: number; onPlayVideo: (url: string) => void }) {
+  const videoThumb = card.video_url ? getVideoThumbnail(card.video_url) : null
+  const image = card.image_url || videoThumb || `https://placehold.co/580x360/${['1a2a1a', '1a1a2a', '2a1a1a', '1a2a2a'][idx % 4]}/333333`
+  const hasVideo = !!card.video_url
+  const hasLink = !!card.link_url
+
+  const overlay = (
+    <>
+      <img src={image} alt={card.title} className="w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-black/20" />
+      {hasVideo && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-16 h-16 bg-black/40 rounded-full flex items-center justify-center">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="white"><path d="M8 5v14l11-7z" /></svg>
+          </div>
+        </div>
+      )}
+      <div className="absolute bottom-4 left-4 right-4">
+        <p className="text-sm text-white font-bold leading-snug drop-shadow-lg">{card.title}</p>
+      </div>
+    </>
+  )
+
+  if (hasVideo) {
+    return (
+      <button
+        type="button"
+        onClick={() => onPlayVideo(card.video_url!)}
+        className="relative rounded-xl overflow-hidden cursor-pointer aspect-video w-full bg-gray-800 block border-0 p-0 text-left"
+      >
+        {overlay}
+      </button>
+    )
+  }
+
+  if (hasLink) {
+    return (
+      <a
+        href={card.link_url!}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="relative rounded-xl overflow-hidden cursor-pointer aspect-video w-full bg-gray-800 block no-underline"
+      >
+        {overlay}
+      </a>
+    )
+  }
+
+  return (
+    <div className="relative rounded-xl overflow-hidden aspect-video w-full bg-gray-800">
+      {overlay}
+    </div>
+  )
+}
+
 function RealResults() {
   const { results } = useFeaturedResults(4)
   const { reviews } = useFeaturedReviews(5)
@@ -69,49 +126,10 @@ function RealResults() {
               <span className="inline-block bg-[#04F87F] text-black text-xs font-bold px-4 py-1.5 rounded-full mb-3">
                 {card.author_name}
               </span>
-              <p className="text-sm text-gray-300 mb-4 text-center">{card.preview || card.title}</p>
-              {card.video_url ? (
-                <button
-                  type="button"
-                  onClick={() => setActiveVideoUrl(card.video_url)}
-                  className="relative rounded-xl overflow-hidden cursor-pointer group aspect-video w-full bg-gray-800 block border-0 p-0 text-left"
-                >
-                  <img
-                    src={card.image_url || `https://placehold.co/580x360/${['1a2a1a', '1a1a2a', '2a1a1a', '1a2a2a'][idx % 4]}/333333`}
-                    alt={card.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/20" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-14 h-14 bg-white/80 rounded-full flex items-center justify-center">
-                      <i className="ti ti-player-play-filled text-xl text-gray-900 ml-0.5" />
-                    </div>
-                  </div>
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <p className="text-sm text-white font-bold leading-snug drop-shadow-lg">{card.title}</p>
-                  </div>
-                </button>
-              ) : (
-                <Link
-                  to="/reviews/results"
-                  className="relative rounded-xl overflow-hidden cursor-pointer group aspect-video w-full bg-gray-800 no-underline block"
-                >
-                  <img
-                    src={card.image_url || `https://placehold.co/580x360/${['1a2a1a', '1a1a2a', '2a1a1a', '1a2a2a'][idx % 4]}/333333`}
-                    alt={card.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/20" />
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-14 h-14 bg-white/80 rounded-full flex items-center justify-center">
-                      <i className="ti ti-player-play-filled text-xl text-gray-900 ml-0.5" />
-                    </div>
-                  </div>
-                  <div className="absolute bottom-4 left-4 right-4">
-                    <p className="text-sm text-white font-bold leading-snug drop-shadow-lg">{card.title}</p>
-                  </div>
-                </Link>
-              )}
+              <p className="text-sm text-gray-300 mb-4 text-center" dangerouslySetInnerHTML={{
+                __html: (card.preview || card.title).replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
+              }} />
+              <ResultCard card={card} idx={idx} onPlayVideo={setActiveVideoUrl} />
             </div>
           ))}
         </div>
@@ -126,10 +144,7 @@ function RealResults() {
           aria-modal="true"
           aria-label="동영상 재생"
         >
-          <div
-            className="relative w-full max-w-[900px] mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="relative w-full max-w-[900px] mx-4" onClick={(e) => e.stopPropagation()}>
             <button
               type="button"
               onClick={() => setActiveVideoUrl(null)}

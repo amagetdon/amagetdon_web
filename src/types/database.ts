@@ -181,6 +181,7 @@ export interface Result {
   content: string
   image_url: string | null
   video_url: string | null
+  link_url: string | null
   likes_count: number
   is_published: boolean
   created_at: string

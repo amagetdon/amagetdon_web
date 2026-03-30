@@ -21,6 +21,7 @@ export const resultService = {
     const { data, error } = await supabase
       .from('results')
       .select('*')
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
       .limit(limit)
     if (error) throw error
