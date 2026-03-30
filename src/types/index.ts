@@ -17,4 +17,6 @@ export type {
   Purchase,
   PurchaseWithDetails,
   Banner,
+  SiteSetting,
+  HeroContent,
 } from './database'

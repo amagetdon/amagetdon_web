@@ -208,10 +208,20 @@ export default function AdminInstructors() {
                 className="h-[180px]"
               />
             </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">썸네일 이미지</label>
+              <p className="text-xs text-gray-400 mb-1">미등록 시 메인 페이지 강사 소개에 표시되지 않습니다.</p>
+              <ImageUploader
+                bucket="instructors"
+                path={`${editing.id || 'new'}/thumbnail-${Date.now()}`}
+                currentUrl={editing.thumbnail_url}
+                onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })}
+                className="h-[140px]"
+              />
+            </div>
             <div className="flex flex-col gap-3 justify-center">
               <label className="text-sm font-bold block mb-1">옵션</label>
               <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.has_active_course ?? false} onChange={(e) => setEditing({ ...editing, has_active_course: e.target.checked })} className="accent-[#04F87F]" /> 진행중인 강의</label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개</label>
               </div>
             </div>

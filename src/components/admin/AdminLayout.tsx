@@ -29,6 +29,7 @@ const NAV_GROUPS = [
     label: '설정',
     items: [
       { path: '/admin/faqs', label: 'FAQ', icon: 'ti-help-circle' },
+      { path: '/admin/site-settings', label: '사이트 설정', icon: 'ti-settings' },
     ],
   },
 ]

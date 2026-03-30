@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useCourse } from '../hooks/useCourses'
+import VideoEmbed from '../components/VideoEmbed'
 
 function CourseDetailPage() {
   const { id } = useParams()
@@ -76,7 +77,7 @@ function CourseDetailPage() {
           <div className="flex-1">
             <div className="bg-gray-100 rounded-xl h-[300px] flex items-center justify-center overflow-hidden">
               {course.video_url ? (
-                <video src={course.video_url} controls className="w-full h-full object-cover" />
+                <VideoEmbed url={course.video_url} className="w-full" />
               ) : (
                 <span className="text-sm text-gray-400">O.T 및 광고 영상</span>
               )}

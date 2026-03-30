@@ -12,9 +12,9 @@ function Footer() {
             <span className="text-gray-300">|</span>
             <span className="text-sm font-medium text-gray-700 cursor-pointer">인재채용</span>
             <span className="text-gray-300">|</span>
-            <span className="text-sm font-bold text-gray-900 cursor-pointer">개인정보 처리방침</span>
+            <Link to="/privacy" className="text-sm font-bold text-gray-900 cursor-pointer no-underline hover:text-gray-900">개인정보 처리방침</Link>
             <span className="text-gray-300">|</span>
-            <span className="text-sm font-medium text-gray-700 cursor-pointer">이용약관</span>
+            <Link to="/terms" className="text-sm font-medium text-gray-700 cursor-pointer no-underline hover:text-gray-900">이용약관</Link>
           </div>
           <Link to="/" className="no-underline">
             <img src="/logo.webp" alt="아마겟돈 클래스" className="h-12" />

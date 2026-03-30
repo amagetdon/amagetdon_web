@@ -21,7 +21,7 @@ function InstructorListPage() {
         <div className="flex items-center gap-3 mb-8">
           <button
             onClick={() => setActiveTab('all')}
-            className={`rounded-full px-4 py-1 text-sm font-medium cursor-pointer transition-colors ${
+            className={`rounded-full px-5 py-1.5 text-sm font-medium cursor-pointer transition-colors ${
               activeTab === 'all'
                 ? 'bg-[#04F87F] text-white border-none'
                 : 'border border-gray-300 text-gray-600 bg-white'
@@ -31,7 +31,7 @@ function InstructorListPage() {
           </button>
           <button
             onClick={() => setActiveTab('active')}
-            className={`rounded-full px-4 py-1 text-sm font-medium cursor-pointer transition-colors ${
+            className={`rounded-full px-5 py-1.5 text-sm font-medium cursor-pointer transition-colors ${
               activeTab === 'active'
                 ? 'bg-[#04F87F] text-white border-none'
                 : 'border border-gray-300 text-gray-600 bg-white'
@@ -44,24 +44,25 @@ function InstructorListPage() {
         {loading ? (
           <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="animate-pulse bg-gray-200 rounded-xl h-[464px]" />
+              <div key={i} className="animate-pulse bg-gray-200 rounded-2xl h-[464px]" />
             ))}
           </div>
+        ) : filteredInstructors.length === 0 ? (
+          <div className="text-center py-20 text-gray-400">등록된 강사가 없습니다.</div>
         ) : (
           <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
             {filteredInstructors.map((instructor) => (
               <Link key={instructor.id} to={`/instructors/${instructor.id}`} className="no-underline">
-                <div className="relative rounded-xl overflow-hidden h-[464px] cursor-pointer group">
+                <div className="relative rounded-2xl overflow-hidden h-[464px] cursor-pointer group bg-gray-100">
                   <img
-                    src={instructor.image_url || `https://placehold.co/366x464/333/333?text=${instructor.name}`}
+                    src={instructor.image_url || `/introduce/${instructor.name}.png`}
                     alt={instructor.name}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#04F87F]/80 via-[#04F87F]/20 to-transparent" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#04F87F]/30 via-transparent to-[#04F87F]/30" />
-                  <div className="absolute bottom-0 left-0 right-0 p-5">
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#04F87F]/80 via-[#04F87F]/10 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
                     <h3 className="text-2xl font-bold text-white mb-1">{instructor.name}</h3>
-                    <p className="text-sm text-white/80">{instructor.title}</p>
+                    <p className="text-sm text-white/80 leading-snug">{instructor.title}</p>
                   </div>
                 </div>
               </Link>

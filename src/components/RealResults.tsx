@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useFeaturedResults } from '../hooks/useResults'
 import { useFeaturedReviews } from '../hooks/useReviews'
+import VideoEmbed from './VideoEmbed'
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -43,6 +45,7 @@ function ReviewCard({ review }: { review: { author_name: string; title: string; 
 function RealResults() {
   const { results } = useFeaturedResults(4)
   const { reviews } = useFeaturedReviews(5)
+  const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null)
 
   const duplicatedReviews = [...reviews, ...reviews, ...reviews, ...reviews]
 
@@ -67,29 +70,78 @@ function RealResults() {
                 {card.author_name}
               </span>
               <p className="text-sm text-gray-300 mb-4 text-center">{card.preview || card.title}</p>
-              <Link
-                to="/reviews/results"
-                className="relative rounded-xl overflow-hidden cursor-pointer group aspect-video w-full bg-gray-800 no-underline block"
-              >
-                <img
-                  src={card.image_url || `https://placehold.co/580x360/${['1a2a1a', '1a1a2a', '2a1a1a', '1a2a2a'][idx % 4]}/333333`}
-                  alt={card.title}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-black/20" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-14 h-14 bg-white/80 rounded-full flex items-center justify-center">
-                    <i className="ti ti-player-play-filled text-xl text-gray-900 ml-0.5" />
+              {card.video_url ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveVideoUrl(card.video_url)}
+                  className="relative rounded-xl overflow-hidden cursor-pointer group aspect-video w-full bg-gray-800 block border-0 p-0 text-left"
+                >
+                  <img
+                    src={card.image_url || `https://placehold.co/580x360/${['1a2a1a', '1a1a2a', '2a1a1a', '1a2a2a'][idx % 4]}/333333`}
+                    alt={card.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/20" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-14 h-14 bg-white/80 rounded-full flex items-center justify-center">
+                      <i className="ti ti-player-play-filled text-xl text-gray-900 ml-0.5" />
+                    </div>
                   </div>
-                </div>
-                <div className="absolute bottom-4 left-4 right-4">
-                  <p className="text-sm text-white font-bold leading-snug drop-shadow-lg">{card.title}</p>
-                </div>
-              </Link>
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <p className="text-sm text-white font-bold leading-snug drop-shadow-lg">{card.title}</p>
+                  </div>
+                </button>
+              ) : (
+                <Link
+                  to="/reviews/results"
+                  className="relative rounded-xl overflow-hidden cursor-pointer group aspect-video w-full bg-gray-800 no-underline block"
+                >
+                  <img
+                    src={card.image_url || `https://placehold.co/580x360/${['1a2a1a', '1a1a2a', '2a1a1a', '1a2a2a'][idx % 4]}/333333`}
+                    alt={card.title}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/20" />
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-14 h-14 bg-white/80 rounded-full flex items-center justify-center">
+                      <i className="ti ti-player-play-filled text-xl text-gray-900 ml-0.5" />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-4 left-4 right-4">
+                    <p className="text-sm text-white font-bold leading-snug drop-shadow-lg">{card.title}</p>
+                  </div>
+                </Link>
+              )}
             </div>
           ))}
         </div>
       </div>
+
+      {/* 동영상 재생 모달 */}
+      {activeVideoUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+          onClick={() => setActiveVideoUrl(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="동영상 재생"
+        >
+          <div
+            className="relative w-full max-w-[900px] mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setActiveVideoUrl(null)}
+              className="absolute -top-10 right-0 text-white text-2xl cursor-pointer bg-transparent border-0 p-1"
+              aria-label="닫기"
+            >
+              <i className="ti ti-x" />
+            </button>
+            <VideoEmbed url={activeVideoUrl} className="w-full" />
+          </div>
+        </div>
+      )}
 
       {/* 수강생 후기 마키 */}
       {reviews.length > 0 && (

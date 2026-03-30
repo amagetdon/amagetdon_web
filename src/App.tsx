@@ -32,6 +32,9 @@ import AdminReviews from './pages/admin/AdminReviews'
 import AdminResults from './pages/admin/AdminResults'
 import AdminSchedules from './pages/admin/AdminSchedules'
 import AdminFaqs from './pages/admin/AdminFaqs'
+import AdminSiteSettings from './pages/admin/AdminSiteSettings'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import TermsOfServicePage from './pages/TermsOfServicePage'
 
 function App() {
   return (
@@ -54,6 +57,8 @@ function App() {
               <Route path="/search" element={<SearchPage />} />
               <Route path="/faq" element={<FAQPage />} />
               <Route path="/notice" element={<NoticePage />} />
+              <Route path="/privacy" element={<PrivacyPolicyPage />} />
+              <Route path="/terms" element={<TermsOfServicePage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignUpPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -68,6 +73,7 @@ function App() {
               <Route path="/admin/results" element={<AdminRoute><AdminResults /></AdminRoute>} />
               <Route path="/admin/schedules" element={<AdminRoute><AdminSchedules /></AdminRoute>} />
               <Route path="/admin/faqs" element={<AdminRoute><AdminFaqs /></AdminRoute>} />
+              <Route path="/admin/site-settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
             </Routes>
           </main>
           <Footer />

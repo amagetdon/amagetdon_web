@@ -180,9 +180,23 @@ export interface Result {
   preview: string | null
   content: string
   image_url: string | null
+  video_url: string | null
   likes_count: number
   is_published: boolean
   created_at: string
+}
+
+export interface SiteSetting {
+  id: number
+  key: string
+  value: Record<string, unknown>
+  updated_at: string
+}
+
+export interface HeroContent {
+  badge_text: string
+  title: string
+  image_url: string | null
 }
 
 export interface Schedule {
@@ -231,6 +245,8 @@ export interface PurchaseWithDetails extends Purchase {
 export interface Banner {
   id: number
   page_key: string
+  title: string | null
+  subtitle: string | null
   image_url: string
   link_url: string | null
   sort_order: number

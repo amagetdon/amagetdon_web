@@ -1,3 +1,5 @@
+import VideoEmbed from './VideoEmbed'
+
 interface VideoPlayerModalProps {
   isOpen: boolean
   onClose: () => void
@@ -29,15 +31,8 @@ function VideoPlayerModal({ isOpen, onClose, videoUrl, title }: VideoPlayerModal
             <i className="ti ti-x" />
           </button>
         </div>
-        <div className="bg-black rounded-xl overflow-hidden aspect-video">
-          <video
-            src={videoUrl}
-            controls
-            autoPlay
-            className="w-full h-full"
-          >
-            <track kind="captions" />
-          </video>
+        <div className="bg-black rounded-xl overflow-hidden">
+          <VideoEmbed url={videoUrl} />
         </div>
       </div>
     </div>

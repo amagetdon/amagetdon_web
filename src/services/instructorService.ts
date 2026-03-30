@@ -11,11 +11,11 @@ export const instructorService = {
     return data as Instructor[]
   },
 
-  async getFeatured(limit = 4) {
+  async getFeatured(limit = 6) {
     const { data, error } = await supabase
       .from('instructors')
       .select('*')
-      .eq('has_active_course', true)
+      .eq('is_published', true)
       .order('sort_order')
       .limit(limit)
     if (error) throw error

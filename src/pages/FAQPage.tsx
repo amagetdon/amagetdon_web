@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useFaqs } from '../hooks/useFaqs'
 import Pagination from '../components/Pagination'
+import VideoEmbed from '../components/VideoEmbed'
+import HeroSection from '../components/HeroSection'
 
 function FAQPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -25,9 +27,7 @@ function FAQPage() {
 
   return (
     <>
-      <section className="w-full bg-black h-[424px] flex items-center justify-center">
-        <span className="text-sm text-gray-500">배너 이미지 1920*424px</span>
-      </section>
+      <HeroSection />
 
       <section className="w-full bg-white py-16 max-sm:py-10">
         <div className="max-w-[800px] mx-auto px-5">
@@ -66,8 +66,8 @@ function FAQPage() {
                   </p>
 
                   {item.video_url && (
-                    <div className="bg-gray-800 rounded-lg h-[200px] w-[300px] mt-4 flex items-center justify-center overflow-hidden">
-                      <video src={item.video_url} controls className="w-full h-full object-cover" />
+                    <div className="mt-4 w-[300px]">
+                      <VideoEmbed url={item.video_url} className="w-full" />
                     </div>
                   )}
 

@@ -14,7 +14,19 @@ export const reviewService = {
       .order('created_at', { ascending: false })
       .range(from, to)
 
-    if (options?.instructorId) query = query.eq('instructor_id', options.instructorId)
+    if (options?.instructorId) {
+      // 강사에 직접 연결된 후기 + 강사의 강의에 달린 후기 모두 가져오기
+      const { data: courseData } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('instructor_id', options.instructorId)
+      const ids = (courseData as { id: number }[] | null)?.map((c) => c.id) || []
+      if (ids.length > 0) {
+        query = query.or(`instructor_id.eq.${options.instructorId},course_id.in.(${ids.join(',')})`)
+      } else {
+        query = query.eq('instructor_id', options.instructorId)
+      }
+    }
 
     const { data, error, count } = await query
     if (error) throw error
@@ -35,6 +47,17 @@ export const reviewService = {
     const { data, error } = await supabase
       .from('reviews')
       .insert(review as never)
+      .select()
+      .single()
+    if (error) throw error
+    return data as Review
+  },
+
+  async update(id: number, updates: Partial<Omit<Review, 'id' | 'created_at'>>) {
+    const { data, error } = await supabase
+      .from('reviews')
+      .update(updates as never)
+      .eq('id', id)
       .select()
       .single()
     if (error) throw error

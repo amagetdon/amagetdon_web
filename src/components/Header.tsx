@@ -26,13 +26,14 @@ function Header() {
     { label: '아카데미', path: '/academy' },
     { label: '수강 후기', path: '/reviews' },
     { label: '공지사항', path: '/notice' },
+    { label: 'FAQ', path: '/faq' },
   ]
 
   const isActiveNav = (itemPath: string) => {
     if (itemPath === '/') return currentPath === '/'
     if (itemPath === '/academy') return currentPath.startsWith('/academy')
     if (itemPath === '/reviews') return currentPath.startsWith('/reviews')
-    if (itemPath === '/notice') return currentPath === '/notice' || currentPath === '/faq'
+    if (itemPath === '/faq') return currentPath === '/faq'
     return currentPath === itemPath
   }
 

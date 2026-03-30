@@ -55,6 +55,17 @@ export const resultService = {
     return newCount
   },
 
+  async update(id: number, updates: Partial<Omit<Result, 'id' | 'created_at'>>) {
+    const { data, error } = await supabase
+      .from('results')
+      .update(updates as never)
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) throw error
+    return data as Result
+  },
+
   async delete(id: number) {
     const { error } = await supabase
       .from('results')

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
+import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import { faqService } from '../../services/faqService'
 import type { Faq } from '../../types'
 
@@ -100,9 +101,11 @@ export default function AdminFaqs() {
                 rows={5} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#04F87F]" />
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">영상 URL</label>
-              <input value={editing.video_url || ''} onChange={(e) => setEditing({ ...editing, video_url: e.target.value || null })} placeholder="https://..."
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+              <VideoUrlInput
+                value={editing.video_url || null}
+                onChange={(url) => setEditing({ ...editing, video_url: url })}
+                label="영상"
+              />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">첨부파일 URL</label>

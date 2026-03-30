@@ -4,6 +4,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
+import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import { courseService } from '../../services/courseService'
 import { instructorService } from '../../services/instructorService'
 import type { CourseWithInstructor, Instructor } from '../../types'
@@ -66,7 +67,7 @@ export default function AdminCourses() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">강의 관리</h1>
-        <button onClick={() => setEditing({ title: '', instructor_id: null, course_type: 'free', original_price: 0, sale_price: 0, is_published: true, enrollment_deadline: null })}
+        <button onClick={() => setEditing({ title: '', instructor_id: null, course_type: 'free', original_price: 0, sale_price: 0, is_published: true, enrollment_deadline: null, video_url: null })}
           className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 강의 추가</button>
       </div>
 
@@ -179,6 +180,13 @@ export default function AdminCourses() {
               <label className="text-sm font-bold block mb-1">랜딩 이미지</label>
               <ImageUploader bucket="courses" path={`${editing.id || 'new'}/landing-${Date.now()}`}
                 currentUrl={editing.landing_image_url as string} onUpload={(url) => setEditing({ ...editing, landing_image_url: url })} className="h-[140px]" />
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <VideoUrlInput
+                value={(editing.video_url as string) || null}
+                onChange={(url) => setEditing({ ...editing, video_url: url })}
+                label="강의 영상"
+              />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-2">뱃지 / 옵션</label>
