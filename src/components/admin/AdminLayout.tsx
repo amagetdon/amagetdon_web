@@ -7,7 +7,12 @@ const NAV_GROUPS = [
     label: '메인',
     items: [
       { path: '/admin', label: '대시보드', icon: 'ti-layout-dashboard' },
-      { path: '/admin/analytics', label: '분석', icon: 'ti-chart-bar' },
+    ],
+  },
+  {
+    label: '회원',
+    items: [
+      { path: '/admin/members', label: '회원 관리', icon: 'ti-user-circle' },
     ],
   },
   {

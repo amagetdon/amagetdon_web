@@ -34,6 +34,7 @@ import AdminSchedules from './pages/admin/AdminSchedules'
 import AdminFaqs from './pages/admin/AdminFaqs'
 import AdminSiteSettings from './pages/admin/AdminSiteSettings'
 import AdminAnalytics from './pages/admin/AdminAnalytics'
+import AdminMembers from './pages/admin/AdminMembers'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
 
@@ -74,6 +75,7 @@ function App() {
               <Route path="/admin/results" element={<AdminRoute><AdminResults /></AdminRoute>} />
               <Route path="/admin/schedules" element={<AdminRoute><AdminSchedules /></AdminRoute>} />
               <Route path="/admin/faqs" element={<AdminRoute><AdminFaqs /></AdminRoute>} />
+              <Route path="/admin/members" element={<AdminRoute><AdminMembers /></AdminRoute>} />
               <Route path="/admin/site-settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
               <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
             </Routes>
