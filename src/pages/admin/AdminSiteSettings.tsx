@@ -9,7 +9,7 @@ import { bannerService } from '../../services/bannerService'
 import { resultService } from '../../services/resultService'
 import type { Banner, Result } from '../../types'
 
-type SectionTab = 'banners' | 'results'
+type SectionTab = 'banners' | 'results' | 'bottomLinks'
 
 export default function AdminSiteSettings() {
   const [tab, setTab] = useState<SectionTab>('banners')
@@ -26,18 +26,26 @@ export default function AdminSiteSettings() {
   const [resultSaving, setResultSaving] = useState(false)
   const [resultDeleteTarget, setResultDeleteTarget] = useState<number | null>(null)
 
+  // 하단 링크
+  const [bottomLinks, setBottomLinks] = useState<Banner[]>([])
+  const [linkEditing, setLinkEditing] = useState<Record<string, unknown> | null>(null)
+  const [linkSaving, setLinkSaving] = useState(false)
+  const [linkDeleteTarget, setLinkDeleteTarget] = useState<number | null>(null)
+
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [bannerData, resultData] = await Promise.all([
+      const [bannerData, resultData, linkData] = await Promise.all([
         bannerService.getAllByPage('hero'),
         resultService.getAll({ perPage: 50 }),
+        bannerService.getAllByPage('bottom_links'),
       ])
       setBanners(bannerData)
       setResults(resultData.data)
+      setBottomLinks(linkData)
     } catch {
       toast.error('데이터를 불러오는데 실패했습니다.')
     } finally {
@@ -123,6 +131,43 @@ export default function AdminSiteSettings() {
     } catch { toast.error('삭제에 실패했습니다.') }
   }
 
+  // ── 하단 링크 CRUD ──
+  const handleLinkSave = async () => {
+    if (!linkEditing || !linkEditing.title) { toast.error('제목은 필수입니다.'); return }
+    try {
+      setLinkSaving(true)
+      if (linkEditing.id) {
+        const { id, created_at, ...updates } = linkEditing
+        void created_at
+        await bannerService.update(id as number, updates as Partial<Banner>)
+        toast.success('링크가 수정되었습니다.')
+      } else {
+        await bannerService.create({
+          page_key: 'bottom_links',
+          title: (linkEditing.title as string) || null,
+          subtitle: (linkEditing.subtitle as string) || null,
+          image_url: (linkEditing.image_url as string) || '',
+          link_url: (linkEditing.link_url as string) || null,
+          sort_order: (linkEditing.sort_order as number) || 0,
+          is_published: linkEditing.is_published !== false,
+        })
+        toast.success('새 링크가 등록되었습니다.')
+      }
+      setLinkEditing(null)
+      await fetchData()
+    } catch { toast.error('저장에 실패했습니다.') } finally { setLinkSaving(false) }
+  }
+
+  const handleLinkDelete = async () => {
+    if (!linkDeleteTarget) return
+    try {
+      await bannerService.delete(linkDeleteTarget)
+      toast.success('링크가 삭제되었습니다.')
+      setLinkDeleteTarget(null)
+      await fetchData()
+    } catch { toast.error('삭제에 실패했습니다.') }
+  }
+
   const filteredResults = results.filter((r) => r.author_name.includes(search) || r.title.includes(search))
 
   return (
@@ -149,6 +194,14 @@ export default function AdminSiteSettings() {
           }`}
         >
           리얼 성과
+        </button>
+        <button
+          onClick={() => setTab('bottomLinks')}
+          className={`px-5 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${
+            tab === 'bottomLinks' ? 'bg-[#04F87F] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          하단 링크
         </button>
       </div>
 
@@ -209,7 +262,7 @@ export default function AdminSiteSettings() {
             </div>
           )}
         </>
-      ) : (
+      ) : tab === 'results' ? (
         /* ── 리얼 성과 ── */
         <>
           <div className="flex items-center justify-between mb-4">
@@ -258,7 +311,91 @@ export default function AdminSiteSettings() {
             </table>
           </div>
         </>
+      ) : (
+        /* ── 하단 링크 ── */
+        <>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-500">메인 페이지 하단에 표시되는 링크 카드입니다. (브랜드 페이지, 유튜브 등)</p>
+            <button
+              onClick={() => setLinkEditing({ title: '', subtitle: '', image_url: '', link_url: '', sort_order: bottomLinks.length, is_published: true })}
+              className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5 shrink-0 ml-4"
+            >
+              <i className="ti ti-plus text-sm" /> 링크 추가
+            </button>
+          </div>
+
+          {bottomLinks.length === 0 ? (
+            <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-400">등록된 하단 링크가 없습니다.</div>
+          ) : (
+            <div className="space-y-3">
+              {bottomLinks.map((link) => (
+                <div key={link.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                  <div className="flex items-stretch">
+                    <div className="relative w-[200px] max-sm:w-[100px] shrink-0 bg-gray-900 flex items-center justify-center overflow-hidden">
+                      {link.image_url ? (
+                        <img src={link.image_url} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="text-gray-600 text-xs">이미지 없음</div>
+                      )}
+                    </div>
+                    <div className="flex-1 p-4 flex items-center justify-between">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${link.is_published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                            {link.is_published ? '공개' : '비공개'}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-gray-900 truncate">{link.title}</p>
+                        {link.link_url && <p className="text-xs text-gray-400 truncate mt-0.5">{link.link_url}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 ml-4">
+                        <button onClick={() => setLinkEditing(link as unknown as Record<string, unknown>)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
+                        <button onClick={() => setLinkDeleteTarget(link.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
+
+      {/* 하단 링크 모달 */}
+      <AdminFormModal isOpen={!!linkEditing} onClose={() => setLinkEditing(null)} title={linkEditing?.id ? '링크 수정' : '새 링크 등록'} onSubmit={handleLinkSave} loading={linkSaving}>
+        {linkEditing && (
+          <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">제목 *</label>
+              <input value={(linkEditing.title as string) || ''} onChange={(e) => setLinkEditing({ ...linkEditing, title: e.target.value })}
+                placeholder="아마겟돈 브랜드 페이지"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">링크 URL</label>
+              <input value={(linkEditing.link_url as string) || ''} onChange={(e) => setLinkEditing({ ...linkEditing, link_url: e.target.value })}
+                placeholder="https://..."
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">썸네일 이미지</label>
+              <ImageUploader bucket="banners" path={`bottom/${linkEditing.id || 'new'}-${Date.now()}`}
+                currentUrl={linkEditing.image_url as string} onUpload={(url) => setLinkEditing({ ...linkEditing, image_url: url })} className="h-[180px]" />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">정렬 순서</label>
+              <input type="number" value={(linkEditing.sort_order as number) ?? 0} onChange={(e) => setLinkEditing({ ...linkEditing, sort_order: Number(e.target.value) })}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer mt-6">
+                <input type="checkbox" checked={linkEditing.is_published !== false} onChange={(e) => setLinkEditing({ ...linkEditing, is_published: e.target.checked })} className="accent-[#04F87F]" />
+                공개
+              </label>
+            </div>
+          </div>
+        )}
+      </AdminFormModal>
 
       {/* 배너 모달 */}
       <AdminFormModal isOpen={!!bannerEditing} onClose={() => setBannerEditing(null)} title={bannerEditing?.id ? '배너 수정' : '새 배너 등록'} onSubmit={handleBannerSave} loading={bannerSaving}>
@@ -406,6 +543,7 @@ export default function AdminSiteSettings() {
 
       <ConfirmDialog isOpen={!!bannerDeleteTarget} onClose={() => setBannerDeleteTarget(null)} onConfirm={handleBannerDelete} title="배너 삭제" message="이 배너를 삭제하시겠습니까?" />
       <ConfirmDialog isOpen={!!resultDeleteTarget} onClose={() => setResultDeleteTarget(null)} onConfirm={handleResultDelete} title="성과 삭제" message="이 성과를 삭제하시겠습니까?" />
+      <ConfirmDialog isOpen={!!linkDeleteTarget} onClose={() => setLinkDeleteTarget(null)} onConfirm={handleLinkDelete} title="링크 삭제" message="이 링크를 삭제하시겠습니까?" />
     </AdminLayout>
   )
 }

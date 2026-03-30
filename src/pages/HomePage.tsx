@@ -4,6 +4,7 @@ import ScheduleCalendar from '../components/ScheduleCalendar'
 import FreeCourses from '../components/FreeCourses'
 import RealResults from '../components/RealResults'
 import InstructorSection from '../components/InstructorSection'
+import BottomLinks from '../components/BottomLinks'
 
 function HomePage() {
   return (
@@ -14,6 +15,7 @@ function HomePage() {
       <FreeCourses />
       <RealResults />
       <InstructorSection />
+      <BottomLinks />
     </>
   )
 }
