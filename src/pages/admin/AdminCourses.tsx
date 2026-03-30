@@ -33,12 +33,14 @@ export default function AdminCourses() {
     try {
       setSaving(true)
       if (editing.id) {
-        const { id, instructor, curriculum_items, created_at, updated_at, ...updates } = editing
-        void instructor; void curriculum_items; void created_at; void updated_at
+        const { id, instructor, curriculum_items, created_at, updated_at, is_hot, is_new, enrollment_start, ...updates } = editing
+        void instructor; void curriculum_items; void created_at; void updated_at; void is_hot; void is_new; void enrollment_start
         await courseService.update(id as number, updates)
         toast.success('강의가 수정되었습니다.')
       } else {
-        await courseService.create(editing as never)
+        const { instructor, curriculum_items, is_hot, is_new, enrollment_start, ...createData } = editing
+        void instructor; void curriculum_items; void is_hot; void is_new; void enrollment_start
+        await courseService.create(createData as never)
         toast.success('새 강의가 등록되었습니다.')
       }
       setEditing(null); await fetchData()
@@ -95,7 +97,7 @@ export default function AdminCourses() {
                 <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 강의가 없습니다.'}</td></tr>
               ) : filtered.map((course) => (

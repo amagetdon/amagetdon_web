@@ -28,9 +28,15 @@ export default function AdminEbooks() {
     try {
       setSaving(true)
       if (editing.id) {
-        const { id, instructor, created_at, updated_at, ...updates } = editing; void instructor; void created_at; void updated_at
+        const { id, instructor, created_at, updated_at, open_date, close_date, is_new, ...updates } = editing
+        void instructor; void created_at; void updated_at; void open_date; void close_date; void is_new
         await ebookService.update(id as number, updates); toast.success('전자책이 수정되었습니다.')
-      } else { await ebookService.create(editing); toast.success('새 전자책이 등록되었습니다.') }
+      } else {
+        const { instructor, open_date, close_date, is_new, ...createData } = editing
+        void instructor; void open_date; void close_date; void is_new
+        await ebookService.create(createData)
+        toast.success('새 전자책이 등록되었습니다.')
+      }
       setEditing(null); await fetchData()
     } catch { toast.error('저장에 실패했습니다.') } finally { setSaving(false) }
   }
@@ -68,7 +74,7 @@ export default function AdminEbooks() {
               <th className="px-4 py-3 text-center font-bold text-gray-600">가격</th>
               <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
             </tr></thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 전자책이 없습니다.'}</td></tr>
               ) : filtered.map((eb) => (

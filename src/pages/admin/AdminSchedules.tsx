@@ -79,7 +79,7 @@ export default function AdminSchedules() {
               <th className="px-4 py-3 text-center font-bold text-gray-600">일시</th>
               <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
             </tr></thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-gray-100">
               {schedules.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400">{year}년 {month}월 일정이 없습니다.</td></tr>
               ) : schedules.map((s) => (

@@ -2,6 +2,29 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { useInstructors } from '../hooks/useInstructors'
 
+interface SlideStyle {
+  transform: string
+  opacity: number
+  zIndex: number
+  pointerEvents: 'auto' | 'none'
+}
+
+const SLIDE_STYLES: Record<string, SlideStyle> = {
+  center: { transform: 'translateX(-50%) scale(1)', opacity: 1, zIndex: 10, pointerEvents: 'auto' },
+  left: { transform: 'translateX(-110%) scale(0.65)', opacity: 0.25, zIndex: 5, pointerEvents: 'auto' },
+  right: { transform: 'translateX(10%) scale(0.65)', opacity: 0.25, zIndex: 5, pointerEvents: 'auto' },
+  hidden: { transform: 'translateX(-50%) scale(0.5)', opacity: 0, zIndex: 0, pointerEvents: 'none' },
+}
+
+function getSlidePosition(slideIndex: number, activeIndex: number, total: number): string {
+  if (total <= 1) return 'center'
+  const diff = ((slideIndex - activeIndex) % total + total) % total
+  if (diff === 0) return 'center'
+  if (diff === 1) return 'right'
+  if (diff === total - 1) return 'left'
+  return 'hidden'
+}
+
 function InstructorSection() {
   const { instructors: allInstructors, loading } = useInstructors({ featured: true, limit: 6 })
   const instructors = allInstructors.filter((i) => i.thumbnail_url)
@@ -23,11 +46,6 @@ function InstructorSection() {
     return () => clearInterval(timer)
   }, [instructors.length, next])
 
-  const getIndex = (offset: number) => {
-    if (instructors.length === 0) return 0
-    return (activeIndex + offset + instructors.length) % instructors.length
-  }
-
   const getImage = (idx: number) => {
     const inst = instructors[idx]
     return inst.thumbnail_url || inst.image_url || `/introduce/${inst.name}.png`
@@ -47,9 +65,6 @@ function InstructorSection() {
     )
   }
 
-  const instructor = instructors[activeIndex]
-  const prevIdx = getIndex(-1)
-  const nextIdx = getIndex(1)
   const hasMultiple = instructors.length > 1
 
   return (
@@ -64,54 +79,42 @@ function InstructorSection() {
           </p>
         </div>
 
-        {/* 3D 캐러셀 */}
-        <div className="relative flex items-center justify-center h-[480px] max-sm:h-[340px]">
+        {/* 캐러셀 */}
+        <div className="relative h-[480px] max-sm:h-[340px]">
+          {instructors.map((inst, idx) => {
+            const pos = getSlidePosition(idx, activeIndex, instructors.length)
+            const style = SLIDE_STYLES[pos]
 
-          {/* 이전 슬라이드 */}
-          {hasMultiple && (
-            <button
-              onClick={prev}
-              className="absolute left-[2%] max-sm:left-0 z-0 h-[420px] max-sm:h-[280px] w-[360px] max-sm:w-[180px] rounded-2xl overflow-hidden bg-transparent border-none cursor-pointer p-0 transition-all duration-500"
-              style={{ transform: 'scale(0.85)', opacity: 0.5 }}
-              aria-label="이전 강사"
-            >
-              <img
-                src={getImage(prevIdx)}
-                alt={instructors[prevIdx].name}
-                className="w-full h-full object-contain object-center"
-              />
-            </button>
-          )}
-
-          {/* 현재 슬라이드 (메인) */}
-          <Link
-            to={`/instructors/${instructor.id}`}
-            className="relative z-10 block no-underline"
-          >
-            <div className="relative h-[480px] max-sm:h-[320px] w-[600px] max-sm:w-[260px] overflow-hidden rounded-2xl cursor-pointer transition-all duration-500">
-              <img
-                src={getImage(activeIndex)}
-                alt={instructor.name}
-                className="w-full h-full object-contain object-center"
-              />
-            </div>
-          </Link>
-
-          {/* 다음 슬라이드 */}
-          {hasMultiple && (
-            <button
-              onClick={next}
-              className="absolute right-[2%] max-sm:right-0 z-0 h-[420px] max-sm:h-[280px] w-[360px] max-sm:w-[180px] rounded-2xl overflow-hidden bg-transparent border-none cursor-pointer p-0 transition-all duration-500"
-              style={{ transform: 'scale(0.85)', opacity: 0.5 }}
-              aria-label="다음 강사"
-            >
-              <img
-                src={getImage(nextIdx)}
-                alt={instructors[nextIdx].name}
-                className="w-full h-full object-contain object-center"
-              />
-            </button>
-          )}
+            return (
+              <div
+                key={inst.id}
+                className="absolute left-1/2 top-0 h-[480px] max-sm:h-[320px] w-[600px] max-sm:w-[260px] rounded-2xl overflow-hidden"
+                style={{
+                  transform: style.transform,
+                  opacity: style.opacity,
+                  zIndex: style.zIndex,
+                  pointerEvents: style.pointerEvents,
+                  transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease',
+                }}
+              >
+                {pos === 'center' ? (
+                  <Link to={`/instructors/${inst.id}`} className="block w-full h-full no-underline">
+                    <img src={getImage(idx)} alt={inst.name} className="w-full h-full object-contain object-center cursor-pointer" />
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => {
+                      if (pos === 'left') prev()
+                      if (pos === 'right') next()
+                    }}
+                    className="w-full h-full bg-transparent border-none cursor-pointer p-0"
+                  >
+                    <img src={getImage(idx)} alt={inst.name} className="w-full h-full object-contain object-center" />
+                  </button>
+                )}
+              </div>
+            )
+          })}
 
           {/* 좌우 화살표 */}
           {hasMultiple && (
@@ -141,7 +144,7 @@ function InstructorSection() {
               <button
                 key={idx}
                 onClick={() => setActiveIndex(idx)}
-                className={`h-1.5 rounded-full border-none cursor-pointer transition-all ${
+                className={`h-1.5 rounded-full border-none cursor-pointer transition-all duration-300 ${
                   idx === activeIndex ? 'w-6 bg-[#04F87F]' : 'w-1.5 bg-gray-300 hover:bg-gray-400'
                 }`}
                 aria-label={`강사 ${idx + 1}`}

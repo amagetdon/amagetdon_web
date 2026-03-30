@@ -63,7 +63,7 @@ export default function AdminFaqs() {
               <th className="px-4 py-3 text-center font-bold text-gray-600">상태</th>
               <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
             </tr></thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
                 <tr><td colSpan={3} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 FAQ가 없습니다.'}</td></tr>
               ) : filtered.map((faq) => (

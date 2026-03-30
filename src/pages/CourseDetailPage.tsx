@@ -110,11 +110,11 @@ function CourseDetailPage() {
               <div className="border-t border-gray-200 my-6" />
 
               <p className="font-bold text-gray-900">결제 예상 금액</p>
-              {course.original_price && (
+              {course.original_price != null && course.original_price > 0 && (
                 <p className="text-sm text-gray-400 line-through mt-2">정가 {course.original_price.toLocaleString()}원</p>
               )}
               <p className="text-4xl font-extrabold text-gray-900 mt-1">
-                {course.sale_price ? `${course.sale_price.toLocaleString()}원` : course.course_type === 'free' ? '무료' : '가격 미정'}
+                {course.course_type === 'free' || (!course.sale_price && !course.original_price) ? '무료' : course.sale_price ? `${course.sale_price.toLocaleString()}원` : '가격 미정'}
               </p>
 
               {course.enrollment_deadline && (
