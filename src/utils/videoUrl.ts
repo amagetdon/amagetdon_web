@@ -19,15 +19,19 @@ function extractYouTubeId(url: string): string | null {
   return null
 }
 
-function extractVimeoId(url: string): string | null {
-  const patterns = [
-    /(?:vimeo\.com\/)(\d+)/,
-    /(?:player\.vimeo\.com\/video\/)(\d+)/,
-  ]
-  for (const pattern of patterns) {
-    const match = url.match(pattern)
-    if (match) return match[1]
-  }
+function extractVimeoInfo(url: string): { id: string; hash: string | null } | null {
+  // player.vimeo.com/video/ID?h=HASH
+  const playerMatch = url.match(/player\.vimeo\.com\/video\/(\d+)(?:\?h=([a-zA-Z0-9]+))?/)
+  if (playerMatch) return { id: playerMatch[1], hash: playerMatch[2] || null }
+
+  // vimeo.com/ID/HASH (비공개 영상)
+  const privateMatch = url.match(/vimeo\.com\/(\d+)\/([a-zA-Z0-9]+)/)
+  if (privateMatch) return { id: privateMatch[1], hash: privateMatch[2] }
+
+  // vimeo.com/ID (공개 영상)
+  const publicMatch = url.match(/vimeo\.com\/(\d+)/)
+  if (publicMatch) return { id: publicMatch[1], hash: null }
+
   return null
 }
 
@@ -50,12 +54,13 @@ export function parseVideoUrl(url: string): VideoInfo | null {
     }
   }
 
-  const vimeoId = extractVimeoId(url)
-  if (vimeoId) {
+  const vimeoInfo = extractVimeoInfo(url)
+  if (vimeoInfo) {
+    const hashParam = vimeoInfo.hash ? `?h=${vimeoInfo.hash}` : ''
     return {
       provider: 'vimeo',
-      videoId: vimeoId,
-      embedUrl: `https://player.vimeo.com/video/${vimeoId}`,
+      videoId: vimeoInfo.id,
+      embedUrl: `https://player.vimeo.com/video/${vimeoInfo.id}${hashParam}`,
       thumbnailUrl: null,
     }
   }
