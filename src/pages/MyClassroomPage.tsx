@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
 import { progressService } from '../services/progressService'
+import { reviewService } from '../services/reviewService'
 import VideoPlayerModal from '../components/VideoPlayerModal'
+import ReviewForm from '../components/ReviewForm'
 import ProgressBar from '../components/ProgressBar'
 import toast from 'react-hot-toast'
 
@@ -52,6 +54,8 @@ function MyClassroomPage() {
   const [completedItems, setCompletedItems] = useState<Record<number, Set<number>>>({})
   const [completionRates, setCompletionRates] = useState<Record<number, number>>({})
   const [togglingItems, setTogglingItems] = useState<Set<number>>(new Set())
+  const [reviewTarget, setReviewTarget] = useState<{ courseId: number; courseName: string } | null>(null)
+  const [reviewedCourses, setReviewedCourses] = useState<Set<number>>(new Set())
 
   const loadProgress = useCallback(async (userId: string, courseIds: number[]) => {
     const completedMap: Record<number, Set<number>> = {}
@@ -94,6 +98,14 @@ function MyClassroomPage() {
         .filter((id): id is number => id != null)
       if (courseIds.length > 0) {
         loadProgress(user.id, courseIds)
+        Promise.all(
+          courseIds.map(async (cid) => {
+            const existing = await reviewService.getByUser(user.id, cid)
+            return existing ? cid : null
+          })
+        ).then((results) => {
+          setReviewedCourses(new Set(results.filter((id): id is number => id != null)))
+        }).catch(() => {})
       }
     }).catch(() => {}).finally(() => setLoading(false))
   }, [user, loadProgress])
@@ -189,14 +201,26 @@ function MyClassroomPage() {
                 <ProgressBar value={completionRate} size="sm" />
               </div>
             )}
-            {course.curriculum_items.length === 0 && (
-              <button
-                onClick={() => navigate(`/course/${course.id}`)}
-                className="mt-4 bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
-              >
-                강의 상세보기
-              </button>
-            )}
+            <div className="flex gap-2 mt-4 flex-wrap">
+              {course.curriculum_items.length === 0 && (
+                <button
+                  onClick={() => navigate(`/course/${course.id}`)}
+                  className="bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
+                >
+                  강의 상세보기
+                </button>
+              )}
+              {reviewedCourses.has(course.id) ? (
+                <span className="text-xs text-gray-400 bg-gray-100 px-4 py-2 rounded-lg">후기 작성완료</span>
+              ) : (
+                <button
+                  onClick={() => setReviewTarget({ courseId: course.id, courseName: course.title })}
+                  className="bg-white border border-gray-300 text-gray-700 font-medium px-4 py-2 rounded-lg hover:border-[#04F87F] hover:text-[#04F87F] transition cursor-pointer text-sm"
+                >
+                  후기 작성
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -352,6 +376,19 @@ function MyClassroomPage() {
           onClose={() => setPlayingVideo(null)}
           videoUrl={playingVideo.url}
           title={playingVideo.title}
+        />
+      )}
+
+      {reviewTarget && (
+        <ReviewForm
+          courseId={reviewTarget.courseId}
+          courseName={reviewTarget.courseName}
+          isOpen={true}
+          onClose={() => setReviewTarget(null)}
+          onSuccess={() => {
+            setReviewedCourses((prev) => new Set(prev).add(reviewTarget.courseId))
+            setReviewTarget(null)
+          }}
         />
       )}
     </>
