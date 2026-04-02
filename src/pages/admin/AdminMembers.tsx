@@ -108,7 +108,7 @@ export default function AdminMembers() {
           type: pointForm.type,
           memo: pointForm.memo || null,
           admin_id: user.id,
-        })
+        } as never)
       if (logError) throw logError
 
       const { error: profileError } = await supabase

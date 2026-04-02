@@ -33,7 +33,7 @@ export const progressService = {
           is_completed: true,
           completed_at: new Date().toISOString(),
           last_watched_at: new Date().toISOString(),
-        },
+        } as never,
         { onConflict: 'user_id,curriculum_item_id' }
       )
     if (error) throw error
@@ -55,7 +55,7 @@ export const progressService = {
           is_completed: isCompleted,
           completed_at: isCompleted ? new Date().toISOString() : null,
           last_watched_at: new Date().toISOString(),
-        },
+        } as never,
         { onConflict: 'user_id,curriculum_item_id' }
       )
     if (error) throw error

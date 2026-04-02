@@ -102,7 +102,7 @@ export const purchaseService = {
     // 3. 포인트 차감 (optimistic locking: points 값이 예상과 다르면 실패)
     const { data: updatedRows, error: deductError } = await supabase
       .from('profiles')
-      .update({ points: newBalance })
+      .update({ points: newBalance } as never)
       .eq('id', userId)
       .gte('points', price)
       .select('id')
@@ -120,7 +120,7 @@ export const purchaseService = {
           title,
           price,
           expires_at: expiresAt,
-        })
+        } as never)
       if (purchaseError) throw purchaseError
 
       // 5. point_logs 기록
@@ -132,13 +132,13 @@ export const purchaseService = {
           balance: newBalance,
           type: 'use',
           memo: `${title} 구매`,
-        })
+        } as never)
       if (logError) throw logError
     } catch (err) {
       // 롤백: 포인트 복구
       await supabase
         .from('profiles')
-        .update({ points: profile.points })
+        .update({ points: profile.points } as never)
         .eq('id', userId)
       throw err
     }
@@ -168,7 +168,7 @@ export const purchaseService = {
         title,
         price: 0,
         expires_at: expiresAt,
-      })
+      } as never)
     if (error) throw error
   },
 }
