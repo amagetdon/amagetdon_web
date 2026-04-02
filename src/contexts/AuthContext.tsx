@@ -99,9 +99,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
+    // 탭 복귀 시 세션 자동 갱신 (토큰 만료 방지)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession().then(({ data: { session: s } }) => {
+          if (s) {
+            setSession(s)
+            setUser(s.user)
+          }
+        })
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       clearTimeout(timeout)
       subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 

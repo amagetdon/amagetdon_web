@@ -55,7 +55,7 @@ export default function ReviewForm({
         content: content.trim(),
         rating,
       })
-      toast.success('후기가 등록되었습니다. 관리자 승인 후 공개됩니다.')
+      toast.success('후기가 등록되었습니다.')
       setRating(5)
       setTitle('')
       setContent('')
