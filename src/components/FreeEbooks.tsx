@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useEbooks } from '../hooks/useEbooks'
+import type { EbookWithInstructor } from '../types'
 
-function FreeEbooks() {
-  const { ebooks, loading } = useEbooks({ isFree: true, limit: 3 })
-
+function FreeEbooks({ ebooks, loading }: { ebooks: EbookWithInstructor[]; loading: boolean }) {
   return (
     <section className="w-full bg-white py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">
@@ -29,12 +27,12 @@ function FreeEbooks() {
         ) : (
           <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
             {ebooks.map((book) => (
-              <Link key={book.id} to={`/course/${book.id}`} className="no-underline group">
+              <Link key={book.id} to={`/ebook/${book.id}`} className="no-underline group">
                 <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
                   {book.thumbnail_url ? (
                     <img src={book.thumbnail_url} alt={book.title} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-sm text-gray-400">썸네일<br />16:9</span>
+                    <span className="text-sm text-gray-400">썸네일</span>
                   )}
                 </div>
                 <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">

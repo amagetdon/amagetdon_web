@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useSchedules } from '../hooks/useSchedules'
+import type { ScheduleWithDetails } from '../types'
 
 const DAYS = ['월', '화', '수', '목', '금', '토', '일']
 
@@ -8,15 +9,21 @@ interface ScheduleCalendarProps {
   title?: string
   linkTo?: string
   hideHeader?: boolean
+  schedules?: ScheduleWithDetails[]
 }
 
-function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo = '/academy/free', hideHeader = false }: ScheduleCalendarProps) {
+function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo = '/academy/free', hideHeader = false, schedules: initialSchedules }: ScheduleCalendarProps) {
   const navigate = useNavigate()
   const today = new Date()
   const [currentYear, setCurrentYear] = useState(today.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1)
 
-  const { schedules } = useSchedules(currentYear, currentMonth)
+  const isInitialMonth = currentYear === today.getFullYear() && currentMonth === today.getMonth() + 1
+  const { schedules: fetchedSchedules } = useSchedules(
+    isInitialMonth ? 0 : currentYear,
+    isInitialMonth ? 0 : currentMonth
+  )
+  const schedules = isInitialMonth && initialSchedules ? initialSchedules : fetchedSchedules
 
   const lectureDays = useMemo(() => {
     return schedules.map((s) => new Date(s.scheduled_at).getDate())

@@ -1,9 +1,7 @@
 import { Link } from 'react-router-dom'
-import { useCourses } from '../hooks/useCourses'
+import type { CourseWithInstructor } from '../types'
 
-function FreeCourses() {
-  const { courses, loading } = useCourses('free')
-
+function FreeCourses({ courses, loading }: { courses: CourseWithInstructor[]; loading: boolean }) {
   return (
     <section className="w-full bg-white py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">

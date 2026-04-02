@@ -8,6 +8,10 @@ export function useSchedules(year: number, month: number) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!year || !month) {
+      setLoading(false)
+      return
+    }
     const fetch = async () => {
       try {
         setLoading(true)

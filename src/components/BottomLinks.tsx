@@ -1,14 +1,6 @@
-import { useEffect, useState } from 'react'
-import { bannerService } from '../services/bannerService'
 import type { Banner } from '../types'
 
-function BottomLinks() {
-  const [links, setLinks] = useState<Banner[]>([])
-
-  useEffect(() => {
-    bannerService.getByPage('bottom_links').then(setLinks).catch(() => {})
-  }, [])
-
+function BottomLinks({ links }: { links: Banner[] }) {
   if (links.length === 0) return null
 
   return (

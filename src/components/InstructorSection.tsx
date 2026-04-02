@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
-import { useInstructors } from '../hooks/useInstructors'
+import type { Instructor } from '../types'
 
 interface SlideStyle {
   transform: string
@@ -25,8 +25,7 @@ function getSlidePosition(slideIndex: number, activeIndex: number, total: number
   return 'hidden'
 }
 
-function InstructorSection() {
-  const { instructors: allInstructors, loading } = useInstructors({ featured: true, limit: 6 })
+function InstructorSection({ instructors: allInstructors, loading }: { instructors: Instructor[]; loading: boolean }) {
   const instructors = allInstructors.filter((i) => i.thumbnail_url)
   const [activeIndex, setActiveIndex] = useState(0)
 

@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useFeaturedResults } from '../hooks/useResults'
-import { useFeaturedReviews } from '../hooks/useReviews'
 import VideoEmbed from './VideoEmbed'
 import { getVideoThumbnail } from '../utils/videoUrl'
-import type { Result } from '../types'
+import type { Result, ReviewWithCourse } from '../types'
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -99,10 +97,10 @@ function ResultCard({ card, idx, onPlayVideo }: { card: Result; idx: number; onP
   )
 }
 
-function RealResults() {
-  const { results } = useFeaturedResults(4)
-  const { reviews } = useFeaturedReviews(5)
+function RealResults({ results, reviews, loading }: { results: Result[]; reviews: ReviewWithCourse[]; loading: boolean }) {
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null)
+
+  if (loading) return null
 
   const duplicatedReviews = [...reviews, ...reviews, ...reviews, ...reviews]
 

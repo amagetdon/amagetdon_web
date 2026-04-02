@@ -1,18 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
-import { bannerService } from '../services/bannerService'
 import type { Banner } from '../types'
 
-function HeroSection() {
-  const [banners, setBanners] = useState<Banner[]>([])
+function HeroSection({ banners, loading }: { banners: Banner[]; loading: boolean }) {
   const [current, setCurrent] = useState(0)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    bannerService.getByPage('hero')
-      .then(setBanners)
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [])
 
   const next = useCallback(() => {
     setCurrent((prev) => (prev + 1) % banners.length)
