@@ -285,6 +285,7 @@ export interface Banner {
   subtitle: string | null
   image_url: string
   link_url: string | null
+  overlay_opacity: number | null
   sort_order: number
   is_published: boolean
   created_at: string

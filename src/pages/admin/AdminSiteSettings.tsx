@@ -73,6 +73,7 @@ export default function AdminSiteSettings() {
           subtitle: (bannerEditing.subtitle as string) || null,
           image_url: (bannerEditing.image_url as string) || '',
           link_url: (bannerEditing.link_url as string) || null,
+          overlay_opacity: (bannerEditing.overlay_opacity as number) ?? 30,
           sort_order: (bannerEditing.sort_order as number) || 0,
           is_published: bannerEditing.is_published !== false,
         })
@@ -216,7 +217,7 @@ export default function AdminSiteSettings() {
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-500">등록된 배너 {banners.length}개</p>
             <button
-              onClick={() => setBannerEditing({ title: '', subtitle: '', image_url: '', link_url: '', sort_order: banners.length, is_published: true })}
+              onClick={() => setBannerEditing({ title: '', subtitle: '', image_url: '', link_url: '', overlay_opacity: 30, sort_order: banners.length, is_published: true })}
               className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"
             >
               <i className="ti ti-plus text-sm" /> 배너 추가
@@ -437,6 +438,17 @@ export default function AdminSiteSettings() {
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">배경 오버레이 투명도 ({(bannerEditing.overlay_opacity as number) ?? 30}%)</label>
+              <input type="range" min={0} max={100} value={(bannerEditing.overlay_opacity as number) ?? 30}
+                onChange={(e) => setBannerEditing({ ...bannerEditing, overlay_opacity: Number(e.target.value) })}
+                className="w-full accent-[#04F87F]" />
+              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <span>0 = 없음</span>
+                <span>50 = 반투명</span>
+                <span>100 = 검정</span>
+              </div>
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={bannerEditing.is_published !== false} onChange={(e) => setBannerEditing({ ...bannerEditing, is_published: e.target.checked })} className="accent-[#04F87F]" />
                 공개
@@ -445,7 +457,7 @@ export default function AdminSiteSettings() {
             <div className="col-span-2 max-sm:col-span-1">
               <p className="text-xs text-gray-400 mb-2">미리보기</p>
               <div className="relative rounded-xl overflow-hidden bg-black py-8 px-5">
-                {(bannerEditing.image_url as string) && <img src={bannerEditing.image_url as string} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />}
+                {(bannerEditing.image_url as string) && <img src={bannerEditing.image_url as string} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: ((bannerEditing.overlay_opacity as number) ?? 30) / 100 }} />}
                 <div className="relative">
                   {(bannerEditing.subtitle as string) && (
                     <div className="inline-block px-3 py-1 border border-gray-500 rounded-full mb-3">

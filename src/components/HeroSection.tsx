@@ -60,7 +60,7 @@ function HeroSection({ banners: propBanners, loading: propLoading }: { banners?:
   return (
     <section className="relative w-full bg-black py-20 max-sm:py-12 overflow-hidden">
       {banner.image_url && (
-        <img src={banner.image_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 transition-opacity duration-500" />
+        <img src={banner.image_url} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }} />
       )}
       <div className="relative max-w-[1200px] mx-auto px-5">
         {banner.subtitle && (

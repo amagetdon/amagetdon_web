@@ -157,6 +157,7 @@ CREATE TABLE banners (
   page_key TEXT NOT NULL,
   image_url TEXT NOT NULL,
   link_url TEXT,
+  overlay_opacity INTEGER DEFAULT 30,
   sort_order INTEGER DEFAULT 0,
   is_published BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT now()
