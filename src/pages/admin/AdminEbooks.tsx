@@ -182,6 +182,11 @@ export default function AdminEbooks() {
                 currentUrl={editing.thumbnail_url as string} onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })} className="h-[140px]" />
             </div>
             <div>
+              <label className="text-sm font-bold block mb-1">랜딩 이미지</label>
+              <ImageUploader bucket="ebooks" path={`${editing.id || 'new'}/landing-${Date.now()}`}
+                currentUrl={editing.landing_image_url as string} onUpload={(url) => setEditing({ ...editing, landing_image_url: url })} className="h-[140px]" />
+            </div>
+            <div>
               <label className="text-sm font-bold block mb-1">열람 기간 (일)</label>
               <input type="number" value={(editing.duration_days as number) ?? ''}
                 onChange={(e) => setEditing({ ...editing, duration_days: e.target.value ? Number(e.target.value) : null })}

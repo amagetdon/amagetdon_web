@@ -99,21 +99,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
-    // 탭 복귀 시 세션 자동 갱신 (토큰 만료 방지)
+    // 세션 자동 갱신: 탭 복귀 시 + 4분마다 (JWT 만료 방지)
+    const refreshSession = () => {
+      supabase.auth.getSession().then(({ data: { session: s } }) => {
+        if (s) {
+          setSession(s)
+          setUser(s.user)
+        }
+      })
+    }
+
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        supabase.auth.getSession().then(({ data: { session: s } }) => {
-          if (s) {
-            setSession(s)
-            setUser(s.user)
-          }
-        })
-      }
+      if (document.visibilityState === 'visible') refreshSession()
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
+    const refreshInterval = setInterval(refreshSession, 4 * 60 * 1000)
+
     return () => {
       clearTimeout(timeout)
+      clearInterval(refreshInterval)
       subscription.unsubscribe()
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }

@@ -151,6 +151,7 @@ export interface Ebook {
   instructor_id: number | null
   title: string
   thumbnail_url: string | null
+  landing_image_url: string | null
   file_url: string | null
   original_price: number | null
   sale_price: number | null

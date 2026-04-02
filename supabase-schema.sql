@@ -74,6 +74,7 @@ CREATE TABLE ebooks (
   instructor_id INTEGER REFERENCES instructors(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   thumbnail_url TEXT,
+  landing_image_url TEXT,
   file_url TEXT,
   original_price INTEGER,
   sale_price INTEGER,

@@ -187,7 +187,7 @@ function EbookDetailPage() {
       <section className="w-full bg-white py-10">
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="flex gap-8 max-md:flex-col">
-            {/* 왼쪽: 썸네일 */}
+            {/* 왼쪽: 표지 + 랜딩 이미지 */}
             <div className="flex-1">
               <div className="bg-gray-100 rounded-xl min-h-[500px] flex items-center justify-center overflow-hidden">
                 {ebook.thumbnail_url ? (
@@ -196,6 +196,11 @@ function EbookDetailPage() {
                   <span className="text-sm text-gray-400">전자책 표지 이미지</span>
                 )}
               </div>
+              {ebook.landing_image_url && (
+                <div className="bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center mt-6 overflow-hidden">
+                  <img src={ebook.landing_image_url} alt={ebook.title} className="w-full" />
+                </div>
+              )}
             </div>
 
             {/* 오른쪽: 정보 */}

@@ -202,14 +202,12 @@ function MyClassroomPage() {
               </div>
             )}
             <div className="flex gap-2 mt-4 flex-wrap">
-              {course.curriculum_items.length === 0 && (
-                <button
-                  onClick={() => navigate(`/course/${course.id}`)}
-                  className="bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
-                >
-                  강의 상세보기
-                </button>
-              )}
+              <button
+                onClick={() => navigate(`/course/${course.id}`)}
+                className="bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
+              >
+                강의 상세보기
+              </button>
               {reviewedCourses.has(course.id) ? (
                 <span className="text-xs text-gray-400 bg-gray-100 px-4 py-2 rounded-lg">후기 작성완료</span>
               ) : (
@@ -304,13 +302,21 @@ function MyClassroomPage() {
           </div>
           <h2 className="text-xl font-bold whitespace-pre-line">{ebook.title}</h2>
           <p className="text-sm text-gray-400 mt-1">{ebook.instructor?.name} 강사</p>
-          <button
-            onClick={() => navigate(`/my-ebooks/${ebook.id}/read`)}
-            disabled={!ebook.file_url || expired}
-            className="mt-4 bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition w-fit cursor-pointer border-none disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:brightness-100"
-          >
-            {!ebook.file_url ? 'PDF 준비중' : expired ? '열람 기간 만료' : '읽기'}
-          </button>
+          <div className="flex gap-2 mt-4 flex-wrap">
+            <button
+              onClick={() => navigate(`/ebook/${ebook.id}`)}
+              className="bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
+            >
+              전자책 상세보기
+            </button>
+            <button
+              onClick={() => navigate(`/my-ebooks/${ebook.id}/read`)}
+              disabled={!ebook.file_url || expired}
+              className="bg-white border border-gray-300 text-gray-700 font-medium px-5 py-2 rounded-lg hover:border-[#04F87F] hover:text-[#04F87F] transition cursor-pointer text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200"
+            >
+              {!ebook.file_url ? 'PDF 준비중' : expired ? '열람 기간 만료' : '읽기'}
+            </button>
+          </div>
         </div>
       </div>
     )
