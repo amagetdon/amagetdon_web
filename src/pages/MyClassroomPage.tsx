@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
 import { progressService } from '../services/progressService'
@@ -26,6 +27,7 @@ interface PurchaseData {
 }
 
 function MyClassroomPage() {
+  const navigate = useNavigate()
   const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string } | null>(null)
   const { user } = useAuth()
   const [purchases, setPurchases] = useState<PurchaseData[]>([])
@@ -193,6 +195,14 @@ function MyClassroomPage() {
                       <div className="mt-3">
                         <ProgressBar value={completionRate} size="sm" />
                       </div>
+                    )}
+                    {course.curriculum_items.length === 0 && (
+                      <button
+                        onClick={() => navigate(`/course/${course.id}`)}
+                        className="mt-4 bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
+                      >
+                        강의 상세보기
+                      </button>
                     )}
                   </div>
                 </div>

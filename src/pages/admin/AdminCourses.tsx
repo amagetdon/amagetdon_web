@@ -7,7 +7,17 @@ import ImageUploader from '../../components/admin/ImageUploader'
 import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import { courseService } from '../../services/courseService'
 import { instructorService } from '../../services/instructorService'
+import { supabase } from '../../lib/supabase'
 import type { CourseWithInstructor, Instructor } from '../../types'
+
+interface CurriculumItem {
+  id?: number
+  course_id?: number
+  week: number | null
+  label: string
+  video_url: string | null
+  sort_order: number
+}
 
 export default function AdminCourses() {
   const [courses, setCourses] = useState<CourseWithInstructor[]>([])
@@ -17,6 +27,7 @@ export default function AdminCourses() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [search, setSearch] = useState('')
+  const [curriculumItems, setCurriculumItems] = useState<CurriculumItem[]>([])
 
   const fetchData = async () => {
     try {
@@ -28,6 +39,49 @@ export default function AdminCourses() {
 
   useEffect(() => { fetchData() }, [])
 
+  useEffect(() => {
+    const loadCurriculum = async (courseId: number) => {
+      try {
+        const { data, error } = await supabase
+          .from('curriculum_items')
+          .select('*')
+          .eq('course_id', courseId)
+          .order('sort_order')
+        if (error) throw error
+        setCurriculumItems((data || []).map((item: Record<string, unknown>) => ({
+          id: item.id as number,
+          course_id: item.course_id as number,
+          week: item.week as number | null,
+          label: item.label as string,
+          video_url: item.video_url as string | null,
+          sort_order: item.sort_order as number,
+        })))
+      } catch {
+        toast.error('커리큘럼을 불러오는데 실패했습니다.')
+      }
+    }
+    if (editing?.id) {
+      loadCurriculum(editing.id as number)
+    } else {
+      setCurriculumItems([])
+    }
+  }, [editing?.id])
+
+  const saveCurriculum = async (courseId: number) => {
+    await supabase.from('curriculum_items').delete().eq('course_id', courseId)
+    if (curriculumItems.length > 0) {
+      const items = curriculumItems.map((item, idx) => ({
+        course_id: courseId,
+        week: item.week,
+        label: item.label,
+        video_url: item.video_url,
+        sort_order: idx + 1,
+      }))
+      const { error } = await supabase.from('curriculum_items').insert(items as never)
+      if (error) throw error
+    }
+  }
+
   const handleSave = async () => {
     if (!editing || !editing.title) { toast.error('강의명은 필수입니다.'); return }
     try {
@@ -36,11 +90,13 @@ export default function AdminCourses() {
         const { id, instructor, curriculum_items, created_at, updated_at, is_hot, is_new, enrollment_start, ...updates } = editing
         void instructor; void curriculum_items; void created_at; void updated_at; void is_hot; void is_new; void enrollment_start
         await courseService.update(id as number, updates)
+        await saveCurriculum(id as number)
         toast.success('강의가 수정되었습니다.')
       } else {
         const { instructor, curriculum_items, is_hot, is_new, enrollment_start, ...createData } = editing
         void instructor; void curriculum_items; void is_hot; void is_new; void enrollment_start
-        await courseService.create(createData as never)
+        const created = await courseService.create(createData as never)
+        await saveCurriculum(created.id)
         toast.success('새 강의가 등록되었습니다.')
       }
       setEditing(null); await fetchData()
@@ -59,6 +115,18 @@ export default function AdminCourses() {
   const handleTypeChange = (type: string) => {
     if (type === 'free') setEditing({ ...editing, course_type: type, original_price: 0, sale_price: 0 })
     else setEditing({ ...editing, course_type: type })
+  }
+
+  const addCurriculumItem = () => {
+    setCurriculumItems([...curriculumItems, { week: null, label: '', video_url: null, sort_order: curriculumItems.length + 1 }])
+  }
+
+  const updateCurriculumItem = (index: number, field: keyof CurriculumItem, value: unknown) => {
+    setCurriculumItems(curriculumItems.map((item, i) => i === index ? { ...item, [field]: value } : item))
+  }
+
+  const removeCurriculumItem = (index: number) => {
+    setCurriculumItems(curriculumItems.filter((_, i) => i !== index))
   }
 
   const isFree = editing?.course_type === 'free'
@@ -187,7 +255,7 @@ export default function AdminCourses() {
               <VideoUrlInput
                 value={(editing.video_url as string) || null}
                 onChange={(url) => setEditing({ ...editing, video_url: url })}
-                label="강의 영상"
+                label="홍보 영상"
               />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
@@ -197,6 +265,52 @@ export default function AdminCourses() {
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#04F87F]" /> NEW</label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개</label>
               </div>
+            </div>
+
+            <div className="col-span-2 max-sm:col-span-1 border-t border-gray-200 pt-4 mt-2">
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-bold">커리큘럼 관리</label>
+                <button type="button" onClick={addCurriculumItem}
+                  className="bg-[#04F87F] text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors flex items-center gap-1">
+                  <i className="ti ti-plus text-xs" /> 항목 추가
+                </button>
+              </div>
+              {curriculumItems.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-4">등록된 커리큘럼이 없습니다.</p>
+              ) : (
+                <div className="space-y-3">
+                  {curriculumItems.map((item, idx) => (
+                    <div key={idx} className="border border-gray-200 rounded-xl p-3 bg-gray-50 relative">
+                      <button type="button" onClick={() => removeCurriculumItem(idx)}
+                        className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors"
+                        aria-label="커리큘럼 항목 삭제">
+                        <i className="ti ti-x text-sm" />
+                      </button>
+                      <div className="grid grid-cols-[60px_1fr] max-sm:grid-cols-1 gap-2 pr-6">
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1">주차</label>
+                          <input type="number" value={item.week ?? ''} placeholder="-"
+                            onChange={(e) => updateCurriculumItem(idx, 'week', e.target.value ? Number(e.target.value) : null)}
+                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#04F87F]" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-gray-500 block mb-1">강의명</label>
+                          <input type="text" value={item.label} placeholder="강의 제목을 입력하세요"
+                            onChange={(e) => updateCurriculumItem(idx, 'label', e.target.value)}
+                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#04F87F]" />
+                        </div>
+                        <div className="col-span-full">
+                          <VideoUrlInput
+                            value={item.video_url}
+                            onChange={(url) => updateCurriculumItem(idx, 'video_url', url)}
+                            label="영상 URL"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

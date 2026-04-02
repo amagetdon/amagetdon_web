@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
@@ -6,6 +6,7 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
 import { ebookService } from '../../services/ebookService'
 import { instructorService } from '../../services/instructorService'
+import { storageService } from '../../services/storageService'
 import type { EbookWithInstructor, Instructor } from '../../types'
 
 export default function AdminEbooks() {
@@ -16,6 +17,34 @@ export default function AdminEbooks() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [search, setSearch] = useState('')
+  const [pdfUploading, setPdfUploading] = useState(false)
+  const pdfInputRef = useRef<HTMLInputElement>(null)
+
+  const handlePdfUpload = async (file: File) => {
+    if (!editing) return
+    if (file.type !== 'application/pdf') {
+      toast.error('PDF 파일만 업로드할 수 있습니다.')
+      return
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('파일 크기는 50MB 이하만 업로드할 수 있습니다.')
+      return
+    }
+    try {
+      setPdfUploading(true)
+      const ebookId = editing.id || `new-${Date.now()}`
+      const fileName = `${Date.now()}_${file.name}`
+      const uploadPath = `${ebookId}/${fileName}`
+      const resultPath = await storageService.uploadFile('ebooks', uploadPath, file)
+      const publicUrl = storageService.getPublicUrl('ebooks', resultPath)
+      setEditing({ ...editing, file_url: publicUrl })
+      toast.success('PDF 파일이 업로드되었습니다.')
+    } catch {
+      toast.error('PDF 업로드에 실패했습니다.')
+    } finally {
+      setPdfUploading(false)
+    }
+  }
 
   const fetchData = async () => {
     try { setLoading(true); const [e, i] = await Promise.all([ebookService.getAll(), instructorService.getAll()]); setEbooks(e); setInstructors(i) }
@@ -149,6 +178,57 @@ export default function AdminEbooks() {
               <label className="text-sm font-bold block mb-1">표지 이미지</label>
               <ImageUploader bucket="ebooks" path={`${editing.id || 'new'}/thumb-${Date.now()}`}
                 currentUrl={editing.thumbnail_url as string} onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })} className="h-[140px]" />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">열람 기간 (일)</label>
+              <input type="number" value={(editing.duration_days as number) ?? ''}
+                onChange={(e) => setEditing({ ...editing, duration_days: e.target.value ? Number(e.target.value) : null })}
+                placeholder="예: 30"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">PDF 파일</label>
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept=".pdf"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handlePdfUpload(file)
+                  e.target.value = ''
+                }}
+                className="hidden"
+              />
+              {(editing.file_url as string) ? (
+                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                  <i className="ti ti-file-type-pdf text-red-500 text-xl" />
+                  <a href={editing.file_url as string} target="_blank" rel="noopener noreferrer"
+                    className="text-sm text-blue-500 hover:underline truncate flex-1">
+                    {(editing.file_url as string).split('/').pop()}
+                  </a>
+                  <button type="button" onClick={() => pdfInputRef.current?.click()} disabled={pdfUploading}
+                    className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 hover:border-[#04F87F] cursor-pointer transition-colors">
+                    {pdfUploading ? '업로드 중...' : '재업로드'}
+                  </button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => !pdfUploading && pdfInputRef.current?.click()}
+                  className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#04F87F] transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => { if (e.key === 'Enter') pdfInputRef.current?.click() }}
+                >
+                  {pdfUploading ? (
+                    <div className="w-6 h-6 border-2 border-[#04F87F] border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <i className="ti ti-file-upload text-2xl text-gray-400" />
+                      <p className="text-xs text-gray-400 mt-1">PDF 파일 업로드</p>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-2">뱃지 / 옵션</label>
