@@ -62,6 +62,7 @@ CREATE TABLE curriculum_items (
   course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
   week INTEGER,
   label TEXT NOT NULL,
+  description TEXT,
   video_url TEXT,
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()

@@ -140,6 +140,7 @@ export interface CurriculumItem {
   course_id: number
   week: number | null
   label: string
+  description: string | null
   video_url: string | null
   sort_order: number
   created_at: string

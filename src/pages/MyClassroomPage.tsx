@@ -11,6 +11,7 @@ interface CurriculumItem {
   id: number
   week: number | null
   label: string
+  description: string | null
   video_url: string | null
 }
 
@@ -234,9 +235,14 @@ function MyClassroomPage() {
                             )}
                           </button>
 
-                          <p className={`text-sm font-bold whitespace-pre-line flex-1 ${itemCompleted ? 'line-through text-gray-400' : ''}`}>
-                            {item.week ? `[${item.week}주차]\n` : ''}{item.label}
-                          </p>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-sm font-bold whitespace-pre-line ${itemCompleted ? 'line-through text-gray-400' : ''}`}>
+                              {item.week ? `[${item.week}주차] ` : ''}{item.label}
+                            </p>
+                            {item.description && (
+                              <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>
+                            )}
+                          </div>
 
                           <button
                             onClick={() => {

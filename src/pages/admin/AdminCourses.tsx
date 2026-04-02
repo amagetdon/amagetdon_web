@@ -15,6 +15,7 @@ interface CurriculumItem {
   course_id?: number
   week: number | null
   label: string
+  description: string | null
   video_url: string | null
   sort_order: number
 }
@@ -53,6 +54,7 @@ export default function AdminCourses() {
           course_id: item.course_id as number,
           week: item.week as number | null,
           label: item.label as string,
+          description: item.description as string | null,
           video_url: item.video_url as string | null,
           sort_order: item.sort_order as number,
         })))
@@ -68,13 +70,16 @@ export default function AdminCourses() {
   }, [editing?.id])
 
   const saveCurriculum = async (courseId: number) => {
-    await supabase.from('curriculum_items').delete().eq('course_id', courseId)
-    if (curriculumItems.length > 0) {
-      const items = curriculumItems.map((item, idx) => ({
+    const { error: deleteError } = await supabase.from('curriculum_items').delete().eq('course_id', courseId)
+    if (deleteError) throw deleteError
+    const validItems = curriculumItems.filter((item) => item.label.trim())
+    if (validItems.length > 0) {
+      const items = validItems.map((item, idx) => ({
         course_id: courseId,
-        week: item.week,
-        label: item.label,
-        video_url: item.video_url,
+        week: item.week || null,
+        label: item.label.trim(),
+        description: item.description?.trim() || null,
+        video_url: item.video_url || null,
         sort_order: idx + 1,
       }))
       const { error } = await supabase.from('curriculum_items').insert(items as never)
@@ -100,7 +105,9 @@ export default function AdminCourses() {
         toast.success('새 강의가 등록되었습니다.')
       }
       setEditing(null); await fetchData()
-    } catch { toast.error('저장에 실패했습니다.') } finally { setSaving(false) }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '저장에 실패했습니다.')
+    } finally { setSaving(false) }
   }
 
   const handleDelete = async () => {
@@ -118,7 +125,7 @@ export default function AdminCourses() {
   }
 
   const addCurriculumItem = () => {
-    setCurriculumItems([...curriculumItems, { week: null, label: '', video_url: null, sort_order: curriculumItems.length + 1 }])
+    setCurriculumItems([...curriculumItems, { week: null, label: '', description: null, video_url: null, sort_order: curriculumItems.length + 1 }])
   }
 
   const updateCurriculumItem = (index: number, field: keyof CurriculumItem, value: unknown) => {
@@ -298,6 +305,13 @@ export default function AdminCourses() {
                           <input type="text" value={item.label} placeholder="강의 제목을 입력하세요"
                             onChange={(e) => updateCurriculumItem(idx, 'label', e.target.value)}
                             className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#04F87F]" />
+                        </div>
+                        <div className="col-span-full">
+                          <label className="text-xs text-gray-500 block mb-1">설명</label>
+                          <textarea value={item.description ?? ''} placeholder="강의 설명 (선택)"
+                            onChange={(e) => updateCurriculumItem(idx, 'description', e.target.value || null)}
+                            rows={2}
+                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#04F87F] resize-none" />
                         </div>
                         <div className="col-span-full">
                           <VideoUrlInput
