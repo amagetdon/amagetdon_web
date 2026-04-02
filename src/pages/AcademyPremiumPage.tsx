@@ -29,7 +29,7 @@ function AcademyPremiumPage() {
             <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="animate-pulse">
-                  <div className="bg-gray-200 rounded-xl h-[235px] mb-3" />
+                  <div className="bg-gray-200 rounded-xl aspect-video mb-3" />
                   <div className="bg-gray-200 h-4 rounded w-3/4 mb-2" />
                   <div className="bg-gray-200 h-3 rounded w-1/3" />
                 </div>
@@ -39,11 +39,11 @@ function AcademyPremiumPage() {
             <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">
               {courses.map((course) => (
                 <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">
-                  <div className="bg-gray-100 rounded-xl h-[235px] flex items-center justify-center mb-3 overflow-hidden">
+                  <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
                     {course.thumbnail_url ? (
                       <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-sm text-gray-400">썸네일<br />380*235px</span>
+                      <span className="text-sm text-gray-400">썸네일<br />16:9</span>
                     )}
                   </div>
                   <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">

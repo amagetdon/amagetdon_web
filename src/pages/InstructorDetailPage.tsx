@@ -88,10 +88,10 @@ function InstructorDetailPage() {
         {courses.length > 0 && (
           <div className="mb-16">
             <h2 className="text-xl font-bold text-gray-900 mb-6">관련 강의 신청하기</h2>
-            <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-5">
+            <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
               {courses.map((course) => (
                 <Link key={course.id} to={`/course/${course.id}`} className="no-underline cursor-pointer group">
-                  <div className="bg-gray-100 rounded-xl h-[235px] flex items-center justify-center mb-3 overflow-hidden">
+                  <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
                     {course.thumbnail_url ? (
                       <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
                     ) : (
@@ -109,10 +109,10 @@ function InstructorDetailPage() {
         {ebooks.length > 0 && (
           <div className="mb-16">
             <h2 className="text-xl font-bold text-gray-900 mb-6">관련 전자책 받기</h2>
-            <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-5">
+            <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
               {ebooks.map((ebook) => (
                 <Link key={ebook.id} to={`/ebook/${ebook.id}`} className="no-underline cursor-pointer group">
-                  <div className="bg-gray-100 rounded-xl h-[235px] flex items-center justify-center mb-3 overflow-hidden">
+                  <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
                     {ebook.thumbnail_url ? (
                       <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
                     ) : (

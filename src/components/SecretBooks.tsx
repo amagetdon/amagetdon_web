@@ -14,24 +14,24 @@ function SecretBooks() {
         </div>
         <p className="text-sm text-gray-400 mb-6">무료 전자책에서 더 깊게 배우고 싶다면?</p>
         {loading ? (
-          <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
+          <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
             {[1, 2, 3].map((i) => (
               <div key={i} className="animate-pulse">
-                <div className="bg-gray-800 rounded-xl h-[235px] mb-3" />
+                <div className="bg-gray-800 rounded-xl aspect-[3/4] mb-3" />
                 <div className="bg-gray-700 h-4 rounded w-3/4 mb-2" />
                 <div className="bg-gray-700 h-3 rounded w-1/4" />
               </div>
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
+          <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
             {ebooks.map((book) => (
               <div key={book.id} className="cursor-pointer group">
-                <div className="bg-gray-800 rounded-xl h-[235px] flex items-center justify-center mb-3 overflow-hidden">
+                <div className="bg-gray-800 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
                   {book.thumbnail_url ? (
                     <img src={book.thumbnail_url} alt={book.title} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-sm text-gray-500">썸네일<br />380*235px</span>
+                    <span className="text-sm text-gray-500">썸네일<br />16:9</span>
                   )}
                 </div>
                 <p className="text-sm font-bold text-white whitespace-pre-line leading-snug mb-2">
