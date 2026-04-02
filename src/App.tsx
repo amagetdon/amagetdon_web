@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext'
+import { supabase } from './lib/supabase'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -48,10 +49,19 @@ function PageLoader() {
   )
 }
 
+function SessionKeepAlive() {
+  const location = useLocation()
+  useEffect(() => {
+    supabase.auth.getSession()
+  }, [location.pathname])
+  return null
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <SessionKeepAlive />
         <div className="w-full font-sans bg-white min-h-screen flex flex-col">
           <Header />
           <main className="flex-1">

@@ -49,7 +49,7 @@ export function useHomeData(year: number, month: number) {
           supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order'),
           supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order'),
           supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').order('sort_order'),
-          supabase.from('instructors').select('*').eq('is_published', true).order('sort_order').limit(6),
+          supabase.from('instructors').select('*').eq('is_published', true).order('sort_order'),
           supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(4),
           supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).order('created_at', { ascending: false }).limit(5),
           supabase.from('schedules').select('*, course:courses(id, title), instructor:instructors(id, name)').gte('scheduled_at', startDate).lte('scheduled_at', endDate).order('scheduled_at'),

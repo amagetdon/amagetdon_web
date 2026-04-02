@@ -24,6 +24,7 @@ function Header() {
   const navItems = [
     { label: '아마겟돈', path: '/' },
     { label: '아카데미', path: '/academy' },
+    { label: '강사소개', path: '/instructors' },
     { label: '수강 후기', path: '/reviews' },
     { label: '공지사항', path: '/notice' },
     { label: 'FAQ', path: '/faq' },
@@ -32,6 +33,7 @@ function Header() {
   const isActiveNav = (itemPath: string) => {
     if (itemPath === '/') return currentPath === '/'
     if (itemPath === '/academy') return currentPath.startsWith('/academy')
+    if (itemPath === '/instructors') return currentPath.startsWith('/instructors')
     if (itemPath === '/reviews') return currentPath.startsWith('/reviews')
     if (itemPath === '/faq') return currentPath === '/faq'
     return currentPath === itemPath

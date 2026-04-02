@@ -11,7 +11,7 @@ function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: Ebo
 
   useEffect(() => {
     if (propEbooks) return
-    ebookService.getAll({ isFree: true, limit: 3 }).then(setSelfEbooks).catch(() => {}).finally(() => setSelfLoading(false))
+    ebookService.getAll({ isFree: true }).then(setSelfEbooks).catch(() => {}).finally(() => setSelfLoading(false))
   }, [propEbooks])
   return (
     <section className="w-full bg-white py-14 max-sm:py-10">

@@ -16,6 +16,7 @@ export default function AdminReviews() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [search, setSearch] = useState('')
+  const [courseSearch, setCourseSearch] = useState('')
 
   const fetchData = async () => {
     try {
@@ -202,20 +203,59 @@ export default function AdminReviews() {
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all resize-none"
               />
             </div>
-            <div>
+            <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">강의</label>
-              <select
-                value={(editing.course_id as number) || ''}
-                onChange={(e) => {
-                  const courseId = e.target.value ? Number(e.target.value) : null
-                  const course = courses.find((c) => c.id === courseId)
-                  setEditing({ ...editing, course_id: courseId, instructor_id: course?.instructor_id ?? null })
-                }}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
-              >
-                <option value="">선택 안함</option>
-                {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
+              <div className="border border-gray-300 rounded-xl overflow-hidden">
+                <div className="relative">
+                  <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                  <input
+                    value={courseSearch}
+                    onChange={(e) => setCourseSearch(e.target.value)}
+                    placeholder="강의 검색..."
+                    className="w-full pl-8 pr-3 py-2 text-sm border-none outline-none"
+                    style={{ borderBottom: '1px solid #e5e7eb' }}
+                  />
+                </div>
+                <div className="max-h-[160px] overflow-y-auto">
+                  <button
+                    type="button"
+                    onClick={() => setEditing({ ...editing, course_id: null, instructor_id: null })}
+                    className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer transition-colors ${
+                      !editing.course_id ? 'bg-[#04F87F]/10 text-gray-900' : 'bg-white text-gray-400 hover:bg-gray-50'
+                    }`}
+                  >
+                    선택 안함
+                  </button>
+                  {[...courses]
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .filter((c) => !courseSearch || c.title.includes(courseSearch) || (c.instructor?.name || '').includes(courseSearch))
+                    .map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          const isSelected = (editing.course_id as number) === c.id
+                          if (isSelected) {
+                            setEditing({ ...editing, course_id: null, instructor_id: null })
+                          } else {
+                            setEditing({ ...editing, course_id: c.id, instructor_id: c.instructor_id ?? null })
+                          }
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer transition-colors flex items-center justify-between ${
+                          (editing.course_id as number) === c.id
+                            ? 'bg-[#04F87F]/10 text-gray-900'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span>
+                          {c.instructor?.name && <span className="text-xs text-gray-400 mr-1">[{c.instructor.name}]</span>}
+                          {c.title}
+                        </span>
+                        {(editing.course_id as number) === c.id && <i className="ti ti-check text-[#04F87F] text-sm" />}
+                      </button>
+                    ))}
+                </div>
+              </div>
             </div>
             <div>
               <label className="text-sm font-bold block mb-2">옵션</label>
