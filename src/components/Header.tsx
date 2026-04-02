@@ -71,7 +71,7 @@ function Header() {
             <div className="flex items-center gap-3 max-md:hidden">
               {isAdmin && (
                 <Link to="/admin" className="no-underline">
-                  <span className="text-xs text-white bg-gray-800 px-3 py-1 rounded-full cursor-pointer">관리자</span>
+                  <span className="text-xs text-white bg-gray-800 px-3 py-1 rounded-full cursor-pointer">관리자 모드</span>
                 </Link>
               )}
               <Link to="/my-classroom" className="no-underline">
@@ -136,7 +136,7 @@ function Header() {
               <>
                 {isAdmin && (
                   <Link to="/admin" onClick={() => setIsMenuOpen(false)} className="text-sm text-gray-900 no-underline py-2 font-medium">
-                    관리자
+                    관리자 모드
                   </Link>
                 )}
                 <Link to="/my-classroom" onClick={() => setIsMenuOpen(false)} className="text-sm text-gray-900 no-underline py-2 font-medium">
