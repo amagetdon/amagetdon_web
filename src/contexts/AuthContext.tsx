@@ -58,11 +58,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (event, session) => {
         setSession(session)
         setUser(session?.user ?? null)
         if (session?.user) {
-          fetchProfile(session.user.id)
+          await fetchProfile(session.user.id)
+
+          if (event === 'SIGNED_IN' && window.location.pathname !== '/login') {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('phone, address')
+              .eq('id', session.user.id)
+              .single<{ phone: string | null; address: string | null }>()
+            const isIncomplete = !prof?.phone || !prof?.address
+            if (isIncomplete) {
+              window.location.replace('/mypage')
+            }
+          }
         } else {
           setProfile(null)
         }
