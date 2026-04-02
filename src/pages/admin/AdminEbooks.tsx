@@ -34,7 +34,8 @@ export default function AdminEbooks() {
     try {
       setPdfUploading(true)
       const ebookId = editing.id || `new-${Date.now()}`
-      const fileName = `${Date.now()}_${file.name}`
+      const ext = file.name.split('.').pop() || 'pdf'
+      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
       const uploadPath = `${ebookId}/${fileName}`
       const resultPath = await storageService.uploadFile('ebooks', uploadPath, file)
       const publicUrl = storageService.getPublicUrl('ebooks', resultPath)
