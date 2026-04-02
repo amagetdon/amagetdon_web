@@ -154,14 +154,16 @@ export default function AdminMembers() {
 
   const filtered = members.filter((m) =>
     (m.name || '').includes(search) ||
+    (m.email || '').includes(search) ||
     (m.phone || '').includes(search) ||
     m.id.includes(search)
   )
 
   const exportToExcel = (data: MemberWithPurchases[]) => {
-    const header = ['이름', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', '가입일']
+    const header = ['이름', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', '가입일']
     const rows = data.map((m) => [
       m.name || '',
+      m.email || '',
       m.phone || '',
       m.gender === 'male' ? '남' : m.gender === 'female' ? '여' : '',
       m.birth_date || '',
@@ -230,6 +232,7 @@ export default function AdminMembers() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-center font-bold text-gray-600">이름</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">이메일</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">전화번호</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">성별</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600">권한</th>
@@ -242,10 +245,11 @@ export default function AdminMembers() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}</td></tr>
+                  <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}</td></tr>
                 ) : filtered.map((m) => (
                   <tr key={m.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewMember(m)}>
                     <td className="px-4 py-3 text-center font-medium">{m.name || '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs">{m.email || '-'}</td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{m.phone || '-'}</td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{formatGender(m.gender)}</td>
                     <td className="px-4 py-3 text-center">
@@ -298,6 +302,7 @@ export default function AdminMembers() {
 
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   <InfoItem label="이름" value={viewing.name || '-'} />
+                  <InfoItem label="이메일" value={viewing.email || '-'} />
                   <InfoItem label="전화번호" value={viewing.phone || '-'} />
                   <InfoItem label="성별" value={formatGender(viewing.gender)} />
                   <InfoItem label="생년월일" value={viewing.birth_date ? formatDate(viewing.birth_date) : '-'} />

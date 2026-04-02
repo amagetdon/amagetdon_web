@@ -6,6 +6,7 @@
 -- 1. profiles (사용자 프로필)
 CREATE TABLE profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT,
   name TEXT,
   phone TEXT,
   birth_date DATE,
@@ -165,9 +166,10 @@ CREATE TABLE banners (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, name, gender, phone, address, birth_date)
+  INSERT INTO public.profiles (id, email, name, gender, phone, address, birth_date)
   VALUES (
     NEW.id,
+    NEW.email,
     NEW.raw_user_meta_data->>'name',
     NEW.raw_user_meta_data->>'gender',
     NEW.raw_user_meta_data->>'phone',

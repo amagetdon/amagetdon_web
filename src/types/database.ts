@@ -68,6 +68,7 @@ export interface Database {
 
 export interface Profile {
   id: string
+  email: string | null
   name: string | null
   phone: string | null
   birth_date: string | null
