@@ -150,12 +150,58 @@ export default function AdminCourses() {
 
   const isFree = editing?.course_type === 'free'
 
+  type SortKey = 'title' | 'instructor' | 'type' | 'price' | 'created'
+  const [sortKey, setSortKey] = useState<SortKey>('created')
+  const [sortAsc, setSortAsc] = useState(false)
+  const [page, setPage] = useState(1)
+  const PER_PAGE = 10
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortAsc(!sortAsc)
+    else { setSortKey(key); setSortAsc(key === 'title' || key === 'instructor') }
+    setPage(1)
+  }
+
   const filtered = courses.filter((c) => c.title.includes(search) || (c.instructor?.name || '').includes(search))
+
+  const sorted = [...filtered].sort((a, b) => {
+    const dir = sortAsc ? 1 : -1
+    switch (sortKey) {
+      case 'title': return dir * a.title.localeCompare(b.title)
+      case 'instructor': return dir * (a.instructor?.name || '').localeCompare(b.instructor?.name || '')
+      case 'type': return dir * a.course_type.localeCompare(b.course_type)
+      case 'price': return dir * ((a.sale_price ?? 0) - (b.sale_price ?? 0))
+      case 'created': return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      default: return 0
+    }
+  })
+
+  const totalPages = Math.ceil(sorted.length / PER_PAGE)
+  const paged = sorted.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  const SortHeader = ({ label, k, className = '' }: { label: string; k: SortKey; className?: string }) => (
+    <th
+      className={`px-4 py-3 font-bold text-gray-600 cursor-pointer select-none hover:text-gray-900 transition-colors ${className}`}
+      onClick={() => handleSort(k)}
+    >
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {sortKey === k ? (
+          <i className={`ti ti-chevron-${sortAsc ? 'up' : 'down'} text-[#04F87F] text-xs`} />
+        ) : (
+          <i className="ti ti-selector text-gray-300 text-xs" />
+        )}
+      </span>
+    </th>
+  )
 
   return (
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">강의 관리</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">강의 관리</h1>
+          <p className="text-sm text-gray-500 mt-1">전체 {courses.length}개</p>
+        </div>
         <button onClick={() => setEditing({ title: '', instructor_id: null, course_type: 'free', original_price: 0, sale_price: 0, is_published: true, enrollment_deadline: null, video_url: null })}
           className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 강의 추가</button>
       </div>
@@ -163,7 +209,7 @@ export default function AdminCourses() {
       <div className="mb-4">
         <div className="relative max-w-xs">
           <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="강의 검색..."
+          <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="강의 검색..."
             className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]" />
         </div>
       </div>
@@ -173,43 +219,70 @@ export default function AdminCourses() {
           {[1, 2, 3].map((i) => <div key={i} className="animate-pulse h-12 bg-gray-100 rounded" />)}
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-bold text-gray-600">강의명</th>
-                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">강사</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600">유형</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">가격</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 강의가 없습니다.'}</td></tr>
-              ) : filtered.map((course) => (
-                <tr key={course.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{course.title}</td>
-                  <td className="px-4 py-3 text-gray-500 max-sm:hidden">{course.instructor?.name || '-'}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${course.course_type === 'free' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                      {course.course_type === 'free' ? '무료' : '프리미엄'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">
-                    {course.course_type === 'free' ? '무료' : course.sale_price ? `${course.sale_price.toLocaleString()}원` : '-'}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => setEditing(course as unknown as Record<string, unknown>)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
-                      <button onClick={() => setDeleteTarget(course.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
-                    </div>
-                  </td>
+        <>
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <SortHeader label="강의명" k="title" className="text-left" />
+                  <SortHeader label="강사" k="instructor" className="text-left max-sm:hidden" />
+                  <SortHeader label="유형" k="type" className="text-center" />
+                  <SortHeader label="가격" k="price" className="text-center max-sm:hidden" />
+                  <SortHeader label="등록일" k="created" className="text-center max-sm:hidden" />
+                  <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
                 </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {paged.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 강의가 없습니다.'}</td></tr>
+                ) : paged.map((course) => (
+                  <tr key={course.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium">{course.title}</td>
+                    <td className="px-4 py-3 text-gray-500 max-sm:hidden">{course.instructor?.name || '-'}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${course.course_type === 'free' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
+                        {course.course_type === 'free' ? '무료' : '프리미엄'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">
+                      {course.course_type === 'free' ? '무료' : course.sale_price ? `${course.sale_price.toLocaleString()}원` : '-'}
+                    </td>
+                    <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">
+                      {new Date(course.created_at).toLocaleDateString('ko-KR')}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => setEditing(course as unknown as Record<string, unknown>)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
+                        <button onClick={() => setDeleteTarget(course.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-4">
+              <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                <i className="ti ti-chevron-left" />
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button key={p} onClick={() => setPage(p)}
+                  className={`w-8 h-8 flex items-center justify-center rounded-full text-sm border-none cursor-pointer ${
+                    p === page ? 'bg-[#04F87F] text-white' : 'bg-white text-gray-500 hover:bg-gray-100'
+                  }`}>
+                  {p}
+                </button>
               ))}
-            </tbody>
-          </table>
-        </div>
+              <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                <i className="ti ti-chevron-right" />
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       <AdminFormModal isOpen={!!editing} onClose={() => setEditing(null)} title={editing?.id ? '강의 수정' : '새 강의 등록'} onSubmit={handleSave} loading={saving}>

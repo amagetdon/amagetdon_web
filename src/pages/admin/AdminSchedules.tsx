@@ -17,6 +17,7 @@ export default function AdminSchedules() {
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [courseSearch, setCourseSearch] = useState('')
 
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(new Date().getMonth() + 1)
@@ -122,20 +123,69 @@ export default function AdminSchedules() {
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">강의</label>
-              <select value={(editing.course_id as number) || ''} onChange={(e) => setEditing({ ...editing, course_id: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all">
-                <option value="">선택</option>
-                {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
-              </select>
-            </div>
-            <div>
               <label className="text-sm font-bold block mb-1">강사</label>
-              <select value={(editing.instructor_id as number) || ''} onChange={(e) => setEditing({ ...editing, instructor_id: e.target.value ? Number(e.target.value) : null })}
+              <select value={(editing.instructor_id as number) || ''} onChange={(e) => {
+                const instructorId = e.target.value ? Number(e.target.value) : null
+                setEditing({ ...editing, instructor_id: instructorId, course_id: null })
+              }}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all">
-                <option value="">선택</option>
+                <option value="">전체</option>
                 {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">강의</label>
+              <div className="border border-gray-300 rounded-xl overflow-hidden">
+                <div className="relative">
+                  <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                  <input
+                    value={courseSearch}
+                    onChange={(e) => setCourseSearch(e.target.value)}
+                    placeholder="강의 검색..."
+                    className="w-full pl-8 pr-3 py-2 text-sm border-none outline-none border-b border-gray-200"
+                    style={{ borderBottom: '1px solid #e5e7eb' }}
+                  />
+                </div>
+                <div className="max-h-[160px] overflow-y-auto">
+                  {(() => {
+                    const filteredCourses = courses
+                      .filter((c) => !editing.instructor_id || c.instructor?.id === (editing.instructor_id as number))
+                      .filter((c) => !courseSearch || c.title.includes(courseSearch) || (c.instructor?.name || '').includes(courseSearch))
+                    if (filteredCourses.length === 0) return (
+                      <div className="px-3 py-4 text-sm text-gray-400 text-center">강의가 없습니다.</div>
+                    )
+                    return filteredCourses.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          const isSelected = (editing.course_id as number) === c.id
+                          if (isSelected) {
+                            setEditing({ ...editing, course_id: null })
+                          } else {
+                            setEditing({
+                              ...editing,
+                              course_id: c.id,
+                              ...(c.instructor?.id && !editing.instructor_id ? { instructor_id: c.instructor.id } : {}),
+                            })
+                          }
+                        }}
+                        className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer transition-colors flex items-center justify-between ${
+                          (editing.course_id as number) === c.id
+                            ? 'bg-[#04F87F]/10 text-gray-900'
+                            : 'bg-white text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span>
+                          {c.instructor?.name && <span className="text-xs text-gray-400 mr-1">[{c.instructor.name}]</span>}
+                          {c.title}
+                        </span>
+                        {(editing.course_id as number) === c.id && <i className="ti ti-check text-[#04F87F] text-sm" />}
+                      </button>
+                    ))
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
         )}
