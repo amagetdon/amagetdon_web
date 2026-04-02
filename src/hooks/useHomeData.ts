@@ -47,7 +47,7 @@ export function useHomeData(year: number, month: number) {
       try {
         const results = await withTimeout(Promise.all([
           supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order'),
-          supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order').limit(3),
+          supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order'),
           supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').order('sort_order'),
           supabase.from('instructors').select('*').eq('is_published', true).order('sort_order').limit(6),
           supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(4),
