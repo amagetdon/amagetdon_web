@@ -29,15 +29,15 @@ export default function AdminMembers() {
     try {
       setLoading(true)
 
-      const { data: profiles, error: profileError } = await withTimeout(supabase
+      const { data: profiles, error: profileError } = await withTimeout(Promise.resolve(supabase
         .from('profiles')
         .select('*')
-        .order('created_at', { ascending: false }))
+        .order('created_at', { ascending: false })))
       if (profileError) throw profileError
 
-      const { data: purchaseData } = await withTimeout(supabase
+      const { data: purchaseData } = await withTimeout(Promise.resolve(supabase
         .from('purchases')
-        .select('user_id, price'))
+        .select('user_id, price')))
 
       const purchaseMap = new Map<string, { count: number; total: number }>()
       if (purchaseData) {
