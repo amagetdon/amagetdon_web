@@ -346,6 +346,51 @@ CREATE POLICY "Admin manage banners" ON banners
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
   );
 
+-- 12. course_progress (학습 진도)
+CREATE TABLE course_progress (
+  id SERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  course_id INTEGER NOT NULL REFERENCES courses(id) ON DELETE CASCADE,
+  curriculum_item_id INTEGER NOT NULL REFERENCES curriculum_items(id) ON DELETE CASCADE,
+  is_completed BOOLEAN DEFAULT false,
+  completed_at TIMESTAMPTZ,
+  last_watched_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(user_id, curriculum_item_id)
+);
+
+ALTER TABLE course_progress ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can manage own progress" ON course_progress
+  FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Admin can view all progress" ON course_progress
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE INDEX idx_progress_user_course ON course_progress(user_id, course_id);
+
+-- 13. point_logs (포인트 충전/차감 내역)
+CREATE TABLE point_logs (
+  id SERIAL PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  amount INTEGER NOT NULL,
+  balance INTEGER NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('charge', 'deduct', 'use', 'refund')),
+  memo TEXT,
+  admin_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE point_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view own point logs" ON point_logs
+  FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Admin manage point logs" ON point_logs
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE INDEX idx_point_logs_user ON point_logs(user_id);
+
 -- ============================================
 -- 인덱스
 -- ============================================

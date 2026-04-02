@@ -46,4 +46,129 @@ export const purchaseService = {
     if (error) throw error
     return data
   },
+
+  async checkOwnership(
+    userId: string,
+    courseId?: number | null,
+    ebookId?: number | null
+  ): Promise<boolean> {
+    let query = supabase
+      .from('purchases')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+
+    if (courseId) {
+      query = query.eq('course_id', courseId)
+    } else if (ebookId) {
+      query = query.eq('ebook_id', ebookId)
+    } else {
+      return false
+    }
+
+    const { count, error } = await query
+    if (error) throw error
+    return (count ?? 0) > 0
+  },
+
+  async purchaseWithPoints(
+    userId: string,
+    item: { courseId?: number | null; ebookId?: number | null },
+    title: string,
+    price: number,
+    durationDays?: number | null
+  ): Promise<void> {
+    // 1. 현재 포인트 잔액 확인
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('points')
+      .eq('id', userId)
+      .single<{ points: number }>()
+    if (profileError) throw profileError
+    if (!profile || profile.points < price) {
+      throw new Error('포인트가 부족합니다.')
+    }
+
+    // 2. 이미 구매했는지 확인
+    const owned = await this.checkOwnership(userId, item.courseId, item.ebookId)
+    if (owned) {
+      throw new Error('이미 구매한 상품입니다.')
+    }
+
+    const newBalance = profile.points - price
+    const expiresAt = durationDays
+      ? new Date(Date.now() + durationDays * 86400000).toISOString()
+      : null
+
+    // 3. 포인트 차감 (optimistic locking: points 값이 예상과 다르면 실패)
+    const { data: updatedRows, error: deductError } = await supabase
+      .from('profiles')
+      .update({ points: newBalance })
+      .eq('id', userId)
+      .gte('points', price)
+      .select('id')
+    if (deductError) throw new Error('포인트 차감에 실패했습니다.')
+    if (!updatedRows || updatedRows.length === 0) throw new Error('포인트가 부족합니다.')
+
+    try {
+      // 4. purchases 레코드 생성
+      const { error: purchaseError } = await supabase
+        .from('purchases')
+        .insert({
+          user_id: userId,
+          course_id: item.courseId ?? null,
+          ebook_id: item.ebookId ?? null,
+          title,
+          price,
+          expires_at: expiresAt,
+        })
+      if (purchaseError) throw purchaseError
+
+      // 5. point_logs 기록
+      const { error: logError } = await supabase
+        .from('point_logs')
+        .insert({
+          user_id: userId,
+          amount: -price,
+          balance: newBalance,
+          type: 'use',
+          memo: `${title} 구매`,
+        })
+      if (logError) throw logError
+    } catch (err) {
+      // 롤백: 포인트 복구
+      await supabase
+        .from('profiles')
+        .update({ points: profile.points })
+        .eq('id', userId)
+      throw err
+    }
+  },
+
+  async enrollFree(
+    userId: string,
+    item: { courseId?: number | null; ebookId?: number | null },
+    title: string,
+    durationDays?: number | null
+  ): Promise<void> {
+    const owned = await this.checkOwnership(userId, item.courseId, item.ebookId)
+    if (owned) {
+      throw new Error('이미 등록한 상품입니다.')
+    }
+
+    const expiresAt = durationDays
+      ? new Date(Date.now() + durationDays * 86400000).toISOString()
+      : null
+
+    const { error } = await supabase
+      .from('purchases')
+      .insert({
+        user_id: userId,
+        course_id: item.courseId ?? null,
+        ebook_id: item.ebookId ?? null,
+        title,
+        price: 0,
+        expires_at: expiresAt,
+      })
+    if (error) throw error
+  },
 }

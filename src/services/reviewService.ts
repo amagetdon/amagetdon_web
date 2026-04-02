@@ -11,6 +11,7 @@ export const reviewService = {
     let query = supabase
       .from('reviews')
       .select('*, course:courses(id, title)', { count: 'exact' })
+      .eq('is_published', true)
       .order('created_at', { ascending: false })
       .range(from, to)
 
@@ -37,10 +38,52 @@ export const reviewService = {
     const { data, error } = await supabase
       .from('reviews')
       .select('*, course:courses(id, title)')
+      .eq('is_published', true)
       .order('created_at', { ascending: false })
       .limit(limit)
     if (error) throw error
     return data as ReviewWithCourse[]
+  },
+
+  async getByCourse(courseId: number, page = 1, perPage = 4) {
+    const from = (page - 1) * perPage
+    const to = from + perPage - 1
+
+    const { data, error, count } = await supabase
+      .from('reviews')
+      .select('*', { count: 'exact' })
+      .eq('course_id', courseId)
+      .eq('is_published', true)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+
+    if (error) throw error
+    return { data: data as Review[], count: count ?? 0 }
+  },
+
+  async getCourseStats(courseId: number) {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('rating')
+      .eq('course_id', courseId)
+      .eq('is_published', true)
+    if (error) throw error
+    const ratings = (data as { rating: number }[]) || []
+    const count = ratings.length
+    const avg = count > 0 ? ratings.reduce((sum, r) => sum + r.rating, 0) / count : 0
+    return { avgRating: avg, totalCount: count }
+  },
+
+  async getByUser(userId: string, courseId: number) {
+    const { data, error } = await supabase
+      .from('reviews')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('course_id', courseId)
+      .limit(1)
+
+    if (error) throw error
+    return data.length > 0 ? (data[0] as Review) : null
   },
 
   async create(review: Omit<Review, 'id' | 'created_at' | 'is_published'>) {

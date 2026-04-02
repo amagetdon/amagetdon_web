@@ -243,6 +243,28 @@ export interface PurchaseWithDetails extends Purchase {
   ebook: EbookWithInstructor | null
 }
 
+export interface CourseProgress {
+  id: number
+  user_id: string
+  course_id: number
+  curriculum_item_id: number
+  is_completed: boolean
+  completed_at: string | null
+  last_watched_at: string
+  created_at: string
+}
+
+export interface PointLog {
+  id: number
+  user_id: string
+  amount: number
+  balance: number
+  type: 'charge' | 'deduct' | 'use' | 'refund'
+  memo: string | null
+  admin_id: string | null
+  created_at: string
+}
+
 export interface Banner {
   id: number
   page_key: string

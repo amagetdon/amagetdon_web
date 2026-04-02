@@ -32,6 +32,7 @@ function LoginPage() {
 
     try {
       setLoading(true)
+      sessionStorage.setItem('pendingSignIn', '1')
       const { user } = await authService.signIn(email, password)
 
       // 프로필 정보가 비어있으면 마이페이지로, 아니면 홈으로
@@ -116,6 +117,7 @@ function LoginPage() {
 
   const handleOAuth = async (provider: 'google' | 'kakao') => {
     try {
+      sessionStorage.setItem('pendingSignIn', '1')
       await authService.signInWithOAuth(provider)
     } catch (err) {
       if (err instanceof Error) setError(err.message)

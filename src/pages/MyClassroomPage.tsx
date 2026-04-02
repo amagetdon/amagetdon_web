@@ -1,36 +1,135 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
+import { progressService } from '../services/progressService'
 import VideoPlayerModal from '../components/VideoPlayerModal'
+import ProgressBar from '../components/ProgressBar'
+import toast from 'react-hot-toast'
+
+interface CurriculumItem {
+  id: number
+  week: number | null
+  label: string
+  video_url: string | null
+}
+
+interface PurchaseData {
+  id: number
+  expires_at: string | null
+  course: {
+    id: number
+    title: string
+    thumbnail_url: string | null
+    instructor: { id: number; name: string } | null
+    curriculum_items: CurriculumItem[]
+  } | null
+}
 
 function MyClassroomPage() {
   const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string } | null>(null)
   const { user } = useAuth()
-  const [purchases, setPurchases] = useState<Array<{
-    id: number
-    expires_at: string | null
-    course: {
-      id: number
-      title: string
-      thumbnail_url: string | null
-      instructor: { id: number; name: string } | null
-      curriculum_items: Array<{ id: number; week: number | null; label: string; video_url: string | null }>
-    } | null
-  }>>([])
+  const [purchases, setPurchases] = useState<PurchaseData[]>([])
   const [loading, setLoading] = useState(true)
+  const [completedItems, setCompletedItems] = useState<Record<number, Set<number>>>({})
+  const [completionRates, setCompletionRates] = useState<Record<number, number>>({})
+  const [togglingItems, setTogglingItems] = useState<Set<number>>(new Set())
+
+  const loadProgress = useCallback(async (userId: string, courseIds: number[]) => {
+    const completedMap: Record<number, Set<number>> = {}
+    const ratesMap: Record<number, number> = {}
+
+    await Promise.all(
+      courseIds.map(async (courseId) => {
+        try {
+          const [progress, completion] = await Promise.all([
+            progressService.getCourseProgress(userId, courseId),
+            progressService.getCourseCompletion(userId, courseId),
+          ])
+          completedMap[courseId] = new Set(
+            progress.filter((p) => p.is_completed).map((p) => p.curriculum_item_id)
+          )
+          ratesMap[courseId] = completion
+        } catch {
+          completedMap[courseId] = new Set()
+          ratesMap[courseId] = 0
+        }
+      })
+    )
+
+    setCompletedItems(completedMap)
+    setCompletionRates(ratesMap)
+  }, [])
 
   useEffect(() => {
     if (!user) return
     purchaseService.getMyClassroom(user.id)
-      .then((data) => setPurchases(data as typeof purchases))
+      .then((data) => {
+        const purchaseData = data as PurchaseData[]
+        setPurchases(purchaseData)
+        const courseIds = purchaseData
+          .map((p) => p.course?.id)
+          .filter((id): id is number => id != null)
+        if (courseIds.length > 0) {
+          loadProgress(user.id, courseIds)
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [user])
+  }, [user, loadProgress])
 
   const getDDay = (expiresAt: string | null) => {
     if (!expiresAt) return null
     const diff = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
     return diff > 0 ? diff : 0
+  }
+
+  const isExpired = (expiresAt: string | null) => {
+    if (!expiresAt) return false
+    return new Date(expiresAt).getTime() < Date.now()
+  }
+
+  const handleToggleComplete = async (courseId: number, itemId: number) => {
+    if (!user || togglingItems.has(itemId)) return
+
+    const currentCompleted = completedItems[courseId] ?? new Set()
+    const newIsCompleted = !currentCompleted.has(itemId)
+
+    setTogglingItems((prev) => new Set(prev).add(itemId))
+
+    // Optimistic update
+    setCompletedItems((prev) => {
+      const updated = new Set(prev[courseId] ?? new Set<number>())
+      if (newIsCompleted) {
+        updated.add(itemId)
+      } else {
+        updated.delete(itemId)
+      }
+      return { ...prev, [courseId]: updated }
+    })
+
+    try {
+      await progressService.toggleCompleted(user.id, courseId, itemId, newIsCompleted)
+      const completion = await progressService.getCourseCompletion(user.id, courseId)
+      setCompletionRates((prev) => ({ ...prev, [courseId]: completion }))
+    } catch {
+      // Rollback
+      setCompletedItems((prev) => {
+        const rollback = new Set(prev[courseId] ?? new Set<number>())
+        if (newIsCompleted) {
+          rollback.delete(itemId)
+        } else {
+          rollback.add(itemId)
+        }
+        return { ...prev, [courseId]: rollback }
+      })
+      toast.error('진도 업데이트에 실패했습니다.')
+    } finally {
+      setTogglingItems((prev) => {
+        const next = new Set(prev)
+        next.delete(itemId)
+        return next
+      })
+    }
   }
 
   return (
@@ -62,6 +161,9 @@ function MyClassroomPage() {
             const course = purchase.course
             if (!course) return null
             const dDay = getDDay(purchase.expires_at)
+            const expired = isExpired(purchase.expires_at)
+            const courseCompleted = completedItems[course.id] ?? new Set<number>()
+            const completionRate = completionRates[course.id] ?? 0
 
             return (
               <div key={purchase.id} className="mb-16">
@@ -73,33 +175,87 @@ function MyClassroomPage() {
                       <span className="text-gray-600 text-sm">썸네일</span>
                     )}
                   </div>
-                  <div>
-                    {dDay !== null && (
-                      <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
-                        남은 수강기간 D-{dDay}
-                      </span>
-                    )}
+                  <div className="flex-1 max-sm:w-full">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      {expired ? (
+                        <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full inline-block">
+                          수강 기간 만료
+                        </span>
+                      ) : dDay !== null ? (
+                        <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full inline-block">
+                          남은 수강기간 D-{dDay}
+                        </span>
+                      ) : null}
+                    </div>
                     <h2 className="text-xl font-bold whitespace-pre-line">{course.title}</h2>
                     <p className="text-sm text-gray-400 mt-1">{course.instructor?.name} 강사</p>
+                    {course.curriculum_items.length > 0 && (
+                      <div className="mt-3">
+                        <ProgressBar value={completionRate} size="sm" />
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {course.curriculum_items.length > 0 && (
-                  <div className="border border-gray-200 rounded-xl mt-4 divide-y divide-gray-200">
-                    {course.curriculum_items.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between px-6 py-4">
-                        <p className="text-sm font-bold whitespace-pre-line">
-                          {item.week ? `[${item.week}주차]\n` : ''}{item.label}
-                        </p>
-                        <button
-                          onClick={() => item.video_url && setPlayingVideo({ url: item.video_url, title: item.label })}
-                          disabled={!item.video_url}
-                          className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${!item.video_url ? 'opacity-30 cursor-not-allowed' : 'hover:border-[#04F87F]'}`}
+                  <div className={`border border-gray-200 rounded-xl mt-4 divide-y divide-gray-200 relative ${expired ? 'opacity-60' : ''}`}>
+                    {course.curriculum_items.map((item) => {
+                      const itemCompleted = courseCompleted.has(item.id)
+                      const isToggling = togglingItems.has(item.id)
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`flex items-center gap-3 px-6 py-4 ${itemCompleted ? 'opacity-60' : ''}`}
                         >
-                          <i className={`ti ti-player-play ${item.video_url ? 'text-[#04F87F]' : 'text-gray-400'}`} />
-                        </button>
-                      </div>
-                    ))}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleComplete(course.id, item.id)}
+                            disabled={isToggling}
+                            className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
+                              itemCompleted
+                                ? 'bg-[#04F87F] border-[#04F87F]'
+                                : 'border-gray-300 hover:border-[#04F87F]'
+                            } ${isToggling ? 'opacity-50' : ''}`}
+                            aria-label={itemCompleted ? `${item.label} 완료 해제` : `${item.label} 완료 표시`}
+                          >
+                            {itemCompleted && (
+                              <i className="ti ti-check text-white text-xs" />
+                            )}
+                          </button>
+
+                          <p className={`text-sm font-bold whitespace-pre-line flex-1 ${itemCompleted ? 'line-through text-gray-400' : ''}`}>
+                            {item.week ? `[${item.week}주차]\n` : ''}{item.label}
+                          </p>
+
+                          <button
+                            onClick={() => {
+                              if (expired) {
+                                toast.error('수강 기간이 만료되었습니다.')
+                                return
+                              }
+                              if (item.video_url) {
+                                setPlayingVideo({ url: item.video_url, title: item.label })
+                              }
+                            }}
+                            disabled={!item.video_url}
+                            className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
+                              !item.video_url
+                                ? 'opacity-30 cursor-not-allowed'
+                                : expired
+                                  ? 'opacity-50 hover:border-gray-400'
+                                  : 'hover:border-[#04F87F]'
+                            }`}
+                          >
+                            {expired ? (
+                              <i className="ti ti-lock text-gray-400" />
+                            ) : (
+                              <i className={`ti ti-player-play ${item.video_url ? 'text-[#04F87F]' : 'text-gray-400'}`} />
+                            )}
+                          </button>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>

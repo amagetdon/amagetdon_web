@@ -4,7 +4,8 @@ import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { supabase } from '../../lib/supabase'
-import type { Profile } from '../../types'
+import { useAuth } from '../../contexts/AuthContext'
+import type { Profile, PointLog } from '../../types'
 
 interface MemberWithPurchases extends Profile {
   purchaseCount: number
@@ -12,12 +13,16 @@ interface MemberWithPurchases extends Profile {
 }
 
 export default function AdminMembers() {
+  const { user } = useAuth()
   const [members, setMembers] = useState<MemberWithPurchases[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [viewing, setViewing] = useState<MemberWithPurchases | null>(null)
   const [purchases, setPurchases] = useState<{ id: number; title: string; price: number; purchased_at: string; expires_at: string | null }[]>([])
   const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; newRole: 'user' | 'admin' } | null>(null)
+  const [pointLogs, setPointLogs] = useState<PointLog[]>([])
+  const [pointForm, setPointForm] = useState({ amount: '', memo: '', type: 'charge' as 'charge' | 'deduct' })
+  const [pointSubmitting, setPointSubmitting] = useState(false)
 
   const fetchData = async () => {
     try {
@@ -58,12 +63,77 @@ export default function AdminMembers() {
 
   const handleViewMember = async (member: MemberWithPurchases) => {
     setViewing(member)
-    const { data } = await supabase
-      .from('purchases')
-      .select('id, title, price, purchased_at, expires_at')
-      .eq('user_id', member.id)
-      .order('purchased_at', { ascending: false })
-    setPurchases((data as typeof purchases) || [])
+    setPointForm({ amount: '', memo: '', type: 'charge' })
+    const [purchaseRes, pointLogRes] = await Promise.all([
+      supabase
+        .from('purchases')
+        .select('id, title, price, purchased_at, expires_at')
+        .eq('user_id', member.id)
+        .order('purchased_at', { ascending: false }),
+      supabase
+        .from('point_logs')
+        .select('*')
+        .eq('user_id', member.id)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ])
+    setPurchases((purchaseRes.data as typeof purchases) || [])
+    setPointLogs((pointLogRes.data as PointLog[]) || [])
+  }
+
+  const handlePointSubmit = async () => {
+    if (!viewing || !user) return
+    const amount = parseInt(pointForm.amount)
+    if (!amount || amount <= 0) {
+      toast.error('금액을 올바르게 입력해주세요.')
+      return
+    }
+
+    const actualAmount = pointForm.type === 'deduct' ? -amount : amount
+    const newBalance = viewing.points + actualAmount
+
+    if (newBalance < 0) {
+      toast.error('차감 후 잔액이 0 미만이 됩니다.')
+      return
+    }
+
+    setPointSubmitting(true)
+    try {
+      const { error: logError } = await supabase
+        .from('point_logs')
+        .insert({
+          user_id: viewing.id,
+          amount: actualAmount,
+          balance: newBalance,
+          type: pointForm.type,
+          memo: pointForm.memo || null,
+          admin_id: user.id,
+        })
+      if (logError) throw logError
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ points: newBalance } as never)
+        .eq('id', viewing.id)
+      if (profileError) throw profileError
+
+      toast.success(`${amount.toLocaleString()}P ${pointForm.type === 'charge' ? '충전' : '차감'} 완료`)
+      setViewing({ ...viewing, points: newBalance })
+      setPointForm({ amount: '', memo: '', type: 'charge' })
+
+      const { data: newLogs } = await supabase
+        .from('point_logs')
+        .select('*')
+        .eq('user_id', viewing.id)
+        .order('created_at', { ascending: false })
+        .limit(20)
+      setPointLogs((newLogs as PointLog[]) || [])
+      await fetchData()
+    } catch {
+      toast.error('포인트 처리에 실패했습니다.')
+    } finally {
+      setPointSubmitting(false)
+    }
   }
 
   const handleRoleChange = async () => {
@@ -163,6 +233,7 @@ export default function AdminMembers() {
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">전화번호</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">성별</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600">권한</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">포인트</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">구매</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">총 결제</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">가입일</th>
@@ -171,7 +242,7 @@ export default function AdminMembers() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={8} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}</td></tr>
                 ) : filtered.map((m) => (
                   <tr key={m.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewMember(m)}>
                     <td className="px-4 py-3 text-center font-medium">{m.name || '-'}</td>
@@ -182,6 +253,11 @@ export default function AdminMembers() {
                         m.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
                       }`}>
                         {m.role === 'admin' ? '관리자' : '회원'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center max-sm:hidden">
+                      <span className={`text-sm font-medium ${m.points > 0 ? 'text-[#04F87F]' : 'text-gray-400'}`}>
+                        {m.points > 0 ? `${m.points.toLocaleString()}P` : '0P'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{m.purchaseCount}</td>
@@ -231,6 +307,96 @@ export default function AdminMembers() {
                   <InfoItem label="가입일" value={formatDate(viewing.created_at)} />
                   <InfoItem label="총 구매" value={`${viewing.purchaseCount}건`} />
                   <InfoItem label="총 결제" value={`${viewing.totalSpent.toLocaleString()}원`} />
+                </div>
+
+                {/* 포인트 관리 */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-bold text-gray-900 mb-3">포인트 관리</h3>
+                  <div className="bg-gray-50 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-gray-500">현재 잔액</span>
+                      <span className="text-lg font-bold text-[#04F87F]">{viewing.points.toLocaleString()}P</span>
+                    </div>
+                    <div className="flex gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setPointForm(prev => ({ ...prev, type: 'charge' }))}
+                        className={`flex-1 py-1.5 rounded-lg text-sm font-medium cursor-pointer border-none transition-colors ${
+                          pointForm.type === 'charge'
+                            ? 'bg-[#04F87F] text-gray-900'
+                            : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                        }`}
+                      >
+                        충전
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPointForm(prev => ({ ...prev, type: 'deduct' }))}
+                        className={`flex-1 py-1.5 rounded-lg text-sm font-medium cursor-pointer border-none transition-colors ${
+                          pointForm.type === 'deduct'
+                            ? 'bg-red-500 text-white'
+                            : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
+                        }`}
+                      >
+                        차감
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        value={pointForm.amount}
+                        onChange={(e) => setPointForm(prev => ({ ...prev, amount: e.target.value }))}
+                        placeholder="금액"
+                        min="1"
+                        className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]"
+                      />
+                      <input
+                        type="text"
+                        value={pointForm.memo}
+                        onChange={(e) => setPointForm(prev => ({ ...prev, memo: e.target.value }))}
+                        placeholder="사유 (예: 무통장입금)"
+                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]"
+                      />
+                      <button
+                        onClick={handlePointSubmit}
+                        disabled={pointSubmitting || !pointForm.amount}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                          pointForm.type === 'charge'
+                            ? 'bg-[#04F87F] text-gray-900 hover:bg-[#03d96e]'
+                            : 'bg-red-500 text-white hover:bg-red-600'
+                        }`}
+                      >
+                        {pointSubmitting ? '처리중...' : '확인'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {pointLogs.length > 0 && (
+                    <div className="mt-3 space-y-1.5">
+                      <p className="text-xs text-gray-400 font-medium">최근 포인트 내역</p>
+                      {pointLogs.map((log) => (
+                        <div key={log.id} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                              log.type === 'charge' ? 'bg-green-100 text-green-700'
+                              : log.type === 'deduct' ? 'bg-red-100 text-red-700'
+                              : log.type === 'use' ? 'bg-blue-100 text-blue-700'
+                              : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {log.type === 'charge' ? '충전' : log.type === 'deduct' ? '차감' : log.type === 'use' ? '사용' : '환불'}
+                            </span>
+                            <span className="text-sm text-gray-600 truncate">{log.memo || '-'}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-2">
+                            <span className={`text-sm font-semibold ${log.amount > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {log.amount > 0 ? '+' : ''}{log.amount.toLocaleString()}P
+                            </span>
+                            <span className="text-xs text-gray-400">{formatDate(log.created_at)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {purchases.length > 0 && (

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
 
 function MyEbooksPage() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [purchases, setPurchases] = useState<Array<{
     id: number
     expires_at: string | null
@@ -11,6 +13,7 @@ function MyEbooksPage() {
       id: number
       title: string
       thumbnail_url: string | null
+      file_url: string | null
       instructor: { id: number; name: string } | null
     } | null
   }>>([])
@@ -28,6 +31,11 @@ function MyEbooksPage() {
     if (!expiresAt) return null
     const diff = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000)
     return diff > 0 ? diff : 0
+  }
+
+  const isExpired = (expiresAt: string | null) => {
+    if (!expiresAt) return false
+    return new Date(expiresAt).getTime() < Date.now()
   }
 
   return (
@@ -67,14 +75,26 @@ function MyEbooksPage() {
                     <span className="text-gray-600 text-sm">썸네일</span>
                   )}
                 </div>
-                <div>
-                  {dDay !== null && (
-                    <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2">
+                <div className="flex flex-col">
+                  {dDay !== null && !isExpired(purchase.expires_at) && (
+                    <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2 w-fit">
                       남은 수강기간 D-{dDay}
+                    </span>
+                  )}
+                  {isExpired(purchase.expires_at) && (
+                    <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2 w-fit">
+                      열람 기간이 만료되었습니다
                     </span>
                   )}
                   <h2 className="text-xl font-bold whitespace-pre-line">{ebook.title}</h2>
                   <p className="text-sm text-gray-400 mt-1">{ebook.instructor?.name} 강사</p>
+                  <button
+                    onClick={() => navigate(`/my-ebooks/${ebook.id}/read`)}
+                    disabled={!ebook.file_url || isExpired(purchase.expires_at)}
+                    className="mt-4 bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition w-fit cursor-pointer disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:brightness-100"
+                  >
+                    읽기
+                  </button>
                 </div>
               </div>
             )

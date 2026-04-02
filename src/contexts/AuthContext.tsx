@@ -36,8 +36,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single()
       if (error) throw error
       setProfile(data)
+      return data as Profile
     } catch {
       setProfile(null)
+      return null
     }
   }
 
@@ -48,31 +50,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
+    let initialSessionHandled = false
+
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      initialSessionHandled = true
+      setSession(s)
+      setUser(s?.user ?? null)
+      if (s?.user) {
+        fetchProfile(s.user.id).then(() => setLoading(false))
+      } else {
+        setLoading(false)
       }
-      setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session)
-        setUser(session?.user ?? null)
-        if (session?.user) {
-          await fetchProfile(session.user.id)
+      async (event, newSession) => {
+        // 초기 세션 복원은 getSession에서 처리했으므로 스킵
+        if (!initialSessionHandled) return
 
-          if (event === 'SIGNED_IN' && window.location.pathname !== '/login') {
-            const { data: prof } = await supabase
-              .from('profiles')
-              .select('phone, address')
-              .eq('id', session.user.id)
-              .single<{ phone: string | null; address: string | null }>()
-            const isIncomplete = !prof?.phone || !prof?.address
-            if (isIncomplete) {
-              window.location.replace('/mypage')
+        setSession(newSession)
+        setUser(newSession?.user ?? null)
+
+        if (newSession?.user) {
+          const prof = await fetchProfile(newSession.user.id)
+
+          // 실제 새 로그인일 때만 프로필 완성 체크
+          if (event === 'SIGNED_IN') {
+            const flag = sessionStorage.getItem('pendingSignIn')
+            if (flag) {
+              sessionStorage.removeItem('pendingSignIn')
+              const isIncomplete = !prof?.phone || !prof?.address
+              if (isIncomplete) {
+                window.location.replace('/mypage')
+              }
             }
           }
         } else {
