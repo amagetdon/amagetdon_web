@@ -1,7 +1,8 @@
+import { Link } from 'react-router-dom'
 import { useEbooks } from '../hooks/useEbooks'
 
 function SecretBooks() {
-  const { ebooks, loading } = useEbooks({ isFree: false, limit: 3 })
+  const { ebooks, loading } = useEbooks({ isFree: false })
 
   return (
     <section className="w-full bg-black py-14 max-sm:py-10">
@@ -26,7 +27,7 @@ function SecretBooks() {
         ) : (
           <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
             {ebooks.map((book) => (
-              <div key={book.id} className="cursor-pointer group">
+              <Link key={book.id} to={`/ebook/${book.id}`} className="cursor-pointer group no-underline">
                 <div className="bg-gray-800 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
                   {book.thumbnail_url ? (
                     <img src={book.thumbnail_url} alt={book.title} className="w-full h-full object-cover" />
@@ -50,7 +51,7 @@ function SecretBooks() {
                     HOT
                   </span>
                 )}
-              </div>
+              </Link>
             ))}
           </div>
         )}

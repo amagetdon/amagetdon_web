@@ -8,12 +8,13 @@ import ImageUploader from '../../components/admin/ImageUploader'
 import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import { bannerService } from '../../services/bannerService'
 import { resultService } from '../../services/resultService'
+import { supabase } from '../../lib/supabase'
 import type { Banner, Result } from '../../types'
 
-type SectionTab = 'banners' | 'results' | 'bottomLinks'
+type SectionTab = 'banners' | 'results' | 'bottomLinks' | 'general'
 
 export default function AdminSiteSettings() {
-  const [tab, setTab] = useState<SectionTab>('banners')
+  const [tab, setTab] = useState<SectionTab>('general')
 
   // 배너
   const [banners, setBanners] = useState<Banner[]>([])
@@ -33,20 +34,28 @@ export default function AdminSiteSettings() {
   const [linkSaving, setLinkSaving] = useState(false)
   const [linkDeleteTarget, setLinkDeleteTarget] = useState<number | null>(null)
 
+  // 일반 설정
+  const [promoVideoUrl, setPromoVideoUrl] = useState('')
+  const [promoSaving, setPromoSaving] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [bannerData, resultData, linkData] = await withTimeout(Promise.all([
+      const [bannerData, resultData, linkData, settingsData] = await withTimeout(Promise.all([
         bannerService.getAllByPage('hero'),
         resultService.getAll({ perPage: 50 }),
         bannerService.getAllByPage('bottom_links'),
+        supabase.from('site_settings').select('*').eq('key', 'promo_video').single(),
       ]))
       setBanners(bannerData)
       setResults(resultData.data)
       setBottomLinks(linkData)
+      if (settingsData.data) {
+        setPromoVideoUrl((settingsData.data.value as Record<string, string>)?.url || '')
+      }
     } catch {
       toast.error('데이터를 불러오는데 실패했습니다.')
     } finally {
@@ -55,6 +64,22 @@ export default function AdminSiteSettings() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  // ── 프로모 영상 저장 ──
+  const handlePromoSave = async () => {
+    try {
+      setPromoSaving(true)
+      await supabase.from('site_settings').upsert(
+        { key: 'promo_video', value: { url: promoVideoUrl } } as never,
+        { onConflict: 'key' }
+      )
+      toast.success('프로모 영상이 저장되었습니다.')
+    } catch {
+      toast.error('저장에 실패했습니다.')
+    } finally {
+      setPromoSaving(false)
+    }
+  }
 
   // ── 배너 CRUD ──
   const handleBannerSave = async () => {
@@ -180,7 +205,15 @@ export default function AdminSiteSettings() {
       </div>
 
       {/* 탭 */}
-      <div className="flex gap-1 bg-white rounded-xl shadow-sm p-1.5 w-fit mb-6">
+      <div className="flex gap-1 bg-white rounded-xl shadow-sm p-1.5 w-fit mb-6 flex-wrap">
+        <button
+          onClick={() => setTab('general')}
+          className={`px-5 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${
+            tab === 'general' ? 'bg-[#04F87F] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          일반 설정
+        </button>
         <button
           onClick={() => setTab('banners')}
           className={`px-5 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${
@@ -210,6 +243,26 @@ export default function AdminSiteSettings() {
       {loading ? (
         <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
           {[1, 2, 3].map((i) => <div key={i} className="animate-pulse h-16 bg-gray-100 rounded" />)}
+        </div>
+      ) : tab === 'general' ? (
+        /* ── 일반 설정 ── */
+        <div className="bg-white rounded-xl shadow-sm p-6 space-y-6">
+          <div>
+            <h3 className="text-sm font-bold text-gray-900 mb-1">아카데미 프로모 영상</h3>
+            <p className="text-xs text-gray-400 mb-3">아카데미 페이지 상단에 표시되는 홍보/인트로 영상 URL (유튜브, 비메오)</p>
+            <VideoUrlInput
+              value={promoVideoUrl || null}
+              onChange={(url) => setPromoVideoUrl(url || '')}
+              label="프로모 영상 URL"
+            />
+            <button
+              onClick={handlePromoSave}
+              disabled={promoSaving}
+              className="mt-3 bg-[#04F87F] text-white px-5 py-2 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors disabled:opacity-50"
+            >
+              {promoSaving ? '저장 중...' : '저장'}
+            </button>
+          </div>
         </div>
       ) : tab === 'banners' ? (
         /* ── 히어로 배너 ── */
