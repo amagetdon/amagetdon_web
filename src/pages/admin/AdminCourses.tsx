@@ -91,16 +91,27 @@ export default function AdminCourses() {
     if (!editing || !editing.title) { toast.error('강의명은 필수입니다.'); return }
     try {
       setSaving(true)
+      const courseData = {
+        title: editing.title,
+        instructor_id: editing.instructor_id ?? null,
+        course_type: editing.course_type ?? 'free',
+        original_price: editing.original_price ?? null,
+        sale_price: editing.sale_price ?? null,
+        thumbnail_url: editing.thumbnail_url ?? null,
+        landing_image_url: editing.landing_image_url ?? null,
+        video_url: editing.video_url ?? null,
+        enrollment_deadline: editing.enrollment_deadline ?? null,
+        duration_days: editing.duration_days ?? 30,
+        is_published: editing.is_published !== false,
+        sort_order: editing.sort_order ?? 0,
+        description: editing.description ?? null,
+      }
       if (editing.id) {
-        const { id, instructor, curriculum_items, created_at, updated_at, is_hot, is_new, enrollment_start, ...updates } = editing
-        void instructor; void curriculum_items; void created_at; void updated_at; void is_hot; void is_new; void enrollment_start
-        await courseService.update(id as number, updates)
-        await saveCurriculum(id as number)
+        await courseService.update(editing.id as number, courseData)
+        await saveCurriculum(editing.id as number)
         toast.success('강의가 수정되었습니다.')
       } else {
-        const { instructor, curriculum_items, is_hot, is_new, enrollment_start, ...createData } = editing
-        void instructor; void curriculum_items; void is_hot; void is_new; void enrollment_start
-        const created = await courseService.create(createData as never) as { id: number }
+        const created = await courseService.create(courseData as never) as { id: number }
         await saveCurriculum(created.id)
         toast.success('새 강의가 등록되었습니다.')
       }
