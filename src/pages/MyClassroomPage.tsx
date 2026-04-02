@@ -15,7 +15,7 @@ interface CurriculumItem {
   video_url: string | null
 }
 
-interface PurchaseData {
+interface CoursePurchase {
   id: number
   expires_at: string | null
   course: {
@@ -27,12 +27,28 @@ interface PurchaseData {
   } | null
 }
 
+interface EbookPurchase {
+  id: number
+  expires_at: string | null
+  ebook: {
+    id: number
+    title: string
+    thumbnail_url: string | null
+    file_url: string | null
+    instructor: { id: number; name: string } | null
+  } | null
+}
+
+type TabType = 'all' | 'courses' | 'ebooks'
+
 function MyClassroomPage() {
   const navigate = useNavigate()
   const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string } | null>(null)
   const { user } = useAuth()
-  const [purchases, setPurchases] = useState<PurchaseData[]>([])
+  const [coursePurchases, setCoursePurchases] = useState<CoursePurchase[]>([])
+  const [ebookPurchases, setEbookPurchases] = useState<EbookPurchase[]>([])
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<TabType>('all')
   const [completedItems, setCompletedItems] = useState<Record<number, Set<number>>>({})
   const [completionRates, setCompletionRates] = useState<Record<number, number>>({})
   const [togglingItems, setTogglingItems] = useState<Set<number>>(new Set())
@@ -65,19 +81,21 @@ function MyClassroomPage() {
 
   useEffect(() => {
     if (!user) return
-    purchaseService.getMyClassroom(user.id)
-      .then((data) => {
-        const purchaseData = data as PurchaseData[]
-        setPurchases(purchaseData)
-        const courseIds = purchaseData
-          .map((p) => p.course?.id)
-          .filter((id): id is number => id != null)
-        if (courseIds.length > 0) {
-          loadProgress(user.id, courseIds)
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    Promise.all([
+      purchaseService.getMyClassroom(user.id),
+      purchaseService.getMyEbooks(user.id),
+    ]).then(([courseData, ebookData]) => {
+      const courses = courseData as CoursePurchase[]
+      const ebooks = ebookData as EbookPurchase[]
+      setCoursePurchases(courses)
+      setEbookPurchases(ebooks)
+      const courseIds = courses
+        .map((p) => p.course?.id)
+        .filter((id): id is number => id != null)
+      if (courseIds.length > 0) {
+        loadProgress(user.id, courseIds)
+      }
+    }).catch(() => {}).finally(() => setLoading(false))
   }, [user, loadProgress])
 
   const getDDay = (expiresAt: string | null) => {
@@ -99,14 +117,10 @@ function MyClassroomPage() {
 
     setTogglingItems((prev) => new Set(prev).add(itemId))
 
-    // Optimistic update
     setCompletedItems((prev) => {
       const updated = new Set(prev[courseId] ?? new Set<number>())
-      if (newIsCompleted) {
-        updated.add(itemId)
-      } else {
-        updated.delete(itemId)
-      }
+      if (newIsCompleted) updated.add(itemId)
+      else updated.delete(itemId)
       return { ...prev, [courseId]: updated }
     })
 
@@ -115,14 +129,10 @@ function MyClassroomPage() {
       const completion = await progressService.getCourseCompletion(user.id, courseId)
       setCompletionRates((prev) => ({ ...prev, [courseId]: completion }))
     } catch {
-      // Rollback
       setCompletedItems((prev) => {
         const rollback = new Set(prev[courseId] ?? new Set<number>())
-        if (newIsCompleted) {
-          rollback.delete(itemId)
-        } else {
-          rollback.add(itemId)
-        }
+        if (newIsCompleted) rollback.delete(itemId)
+        else rollback.add(itemId)
         return { ...prev, [courseId]: rollback }
       })
       toast.error('진도 업데이트에 실패했습니다.')
@@ -135,148 +145,204 @@ function MyClassroomPage() {
     }
   }
 
+  const tabs: { key: TabType; label: string }[] = [
+    { key: 'all', label: '모두보기' },
+    { key: 'courses', label: `강의 (${coursePurchases.length})` },
+    { key: 'ebooks', label: `전자책 (${ebookPurchases.length})` },
+  ]
+
+  const showCourses = tab === 'all' || tab === 'courses'
+  const showEbooks = tab === 'all' || tab === 'ebooks'
+  const isEmpty = coursePurchases.length === 0 && ebookPurchases.length === 0
+
+  const renderCourse = (purchase: CoursePurchase) => {
+    const course = purchase.course
+    if (!course) return null
+    const dDay = getDDay(purchase.expires_at)
+    const expired = isExpired(purchase.expires_at)
+    const courseCompleted = completedItems[course.id] ?? new Set<number>()
+    const completionRate = completionRates[course.id] ?? 0
+
+    return (
+      <div key={`course-${purchase.id}`} className="mb-12">
+        <div className="flex items-start gap-6 max-sm:flex-col">
+          <div className="bg-black rounded-xl w-[300px] aspect-video shrink-0 max-sm:w-full border-2 border-[#04F87F] overflow-hidden flex items-center justify-center">
+            {course.thumbnail_url ? (
+              <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-gray-600 text-sm">썸네일</span>
+            )}
+          </div>
+          <div className="flex-1 max-sm:w-full">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">강의</span>
+              {expired ? (
+                <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full">수강 기간 만료</span>
+              ) : dDay !== null ? (
+                <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full">D-{dDay}</span>
+              ) : null}
+            </div>
+            <h2 className="text-xl font-bold whitespace-pre-line">{course.title}</h2>
+            <p className="text-sm text-gray-400 mt-1">{course.instructor?.name} 강사</p>
+            {course.curriculum_items.length > 0 && (
+              <div className="mt-3">
+                <ProgressBar value={completionRate} size="sm" />
+              </div>
+            )}
+            {course.curriculum_items.length === 0 && (
+              <button
+                onClick={() => navigate(`/course/${course.id}`)}
+                className="mt-4 bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
+              >
+                강의 상세보기
+              </button>
+            )}
+          </div>
+        </div>
+
+        {course.curriculum_items.length > 0 && (
+          <div className={`border border-gray-200 rounded-xl mt-4 divide-y divide-gray-200 ${expired ? 'opacity-60' : ''}`}>
+            {course.curriculum_items.map((item) => {
+              const itemCompleted = courseCompleted.has(item.id)
+              const isToggling = togglingItems.has(item.id)
+
+              return (
+                <div key={item.id} className={`flex items-center gap-3 px-6 py-4 ${itemCompleted ? 'opacity-60' : ''}`}>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleComplete(course.id, item.id)}
+                    disabled={isToggling}
+                    className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
+                      itemCompleted ? 'bg-[#04F87F] border-[#04F87F]' : 'border-gray-300 hover:border-[#04F87F]'
+                    } ${isToggling ? 'opacity-50' : ''}`}
+                    aria-label={itemCompleted ? `${item.label} 완료 해제` : `${item.label} 완료 표시`}
+                  >
+                    {itemCompleted && <i className="ti ti-check text-white text-xs" />}
+                  </button>
+
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-bold whitespace-pre-line ${itemCompleted ? 'line-through text-gray-400' : ''}`}>
+                      {item.week ? `[${item.week}주차] ` : ''}{item.label}
+                    </p>
+                    {item.description && (
+                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      if (expired) { toast.error('수강 기간이 만료되었습니다.'); return }
+                      if (item.video_url) setPlayingVideo({ url: item.video_url, title: item.label })
+                    }}
+                    disabled={!item.video_url}
+                    className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
+                      !item.video_url ? 'opacity-30 cursor-not-allowed' : expired ? 'opacity-50 hover:border-gray-400' : 'hover:border-[#04F87F]'
+                    }`}
+                  >
+                    {expired ? (
+                      <i className="ti ti-lock text-gray-400" />
+                    ) : (
+                      <i className={`ti ti-player-play ${item.video_url ? 'text-[#04F87F]' : 'text-gray-400'}`} />
+                    )}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  const renderEbook = (purchase: EbookPurchase) => {
+    const ebook = purchase.ebook
+    if (!ebook) return null
+    const dDay = getDDay(purchase.expires_at)
+    const expired = isExpired(purchase.expires_at)
+
+    return (
+      <div key={`ebook-${purchase.id}`} className="flex items-start gap-6 mb-12 max-sm:flex-col">
+        <div className="bg-black rounded-xl w-[300px] aspect-[3/4] border-2 border-[#04F87F] shrink-0 max-sm:w-full overflow-hidden flex items-center justify-center">
+          {ebook.thumbnail_url ? (
+            <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-gray-600 text-sm">썸네일</span>
+          )}
+        </div>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-medium">전자책</span>
+            {expired ? (
+              <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">열람 기간 만료</span>
+            ) : dDay !== null ? (
+              <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full">D-{dDay}</span>
+            ) : null}
+          </div>
+          <h2 className="text-xl font-bold whitespace-pre-line">{ebook.title}</h2>
+          <p className="text-sm text-gray-400 mt-1">{ebook.instructor?.name} 강사</p>
+          <button
+            onClick={() => navigate(`/my-ebooks/${ebook.id}/read`)}
+            disabled={!ebook.file_url || expired}
+            className="mt-4 bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition w-fit cursor-pointer border-none disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:brightness-100"
+          >
+            {!ebook.file_url ? 'PDF 준비중' : expired ? '열람 기간 만료' : '읽기'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <>
       <div className="bg-black h-[200px] w-full" />
 
       <div className="max-w-[800px] mx-auto px-6">
-        <h1 className="text-3xl font-bold mt-16 mb-8">수강중인 클래스</h1>
+        <h1 className="text-3xl font-bold mt-16 mb-6">내 강의실</h1>
+
+        {/* 탭 */}
+        <div className="flex gap-2 mb-8 border-b border-gray-200">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
+                tab === t.key
+                  ? 'text-[#04F87F] border-b-2 border-[#04F87F] -mb-px'
+                  : 'text-gray-400 hover:text-gray-600'
+              }`}
+              style={tab === t.key ? { borderBottom: '2px solid #04F87F', marginBottom: '-1px' } : {}}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
 
         {loading ? (
           <div className="animate-pulse space-y-8">
             {[1, 2].map((i) => (
-              <div key={i}>
-                <div className="flex items-start gap-6">
-                  <div className="bg-gray-200 rounded-xl w-[300px] h-[200px]" />
-                  <div className="flex-1 space-y-3">
-                    <div className="h-6 bg-gray-200 rounded w-24" />
-                    <div className="h-5 bg-gray-200 rounded w-3/4" />
-                    <div className="h-4 bg-gray-200 rounded w-1/3" />
-                  </div>
+              <div key={i} className="flex items-start gap-6">
+                <div className="bg-gray-200 rounded-xl w-[300px] aspect-video" />
+                <div className="flex-1 space-y-3">
+                  <div className="h-6 bg-gray-200 rounded w-24" />
+                  <div className="h-5 bg-gray-200 rounded w-3/4" />
+                  <div className="h-4 bg-gray-200 rounded w-1/3" />
                 </div>
               </div>
             ))}
           </div>
-        ) : purchases.length === 0 ? (
-          <div className="text-center text-gray-400 py-20">수강중인 클래스가 없습니다.</div>
+        ) : isEmpty ? (
+          <div className="text-center text-gray-400 py-20">구매한 강의/전자책이 없습니다.</div>
         ) : (
-          purchases.map((purchase) => {
-            const course = purchase.course
-            if (!course) return null
-            const dDay = getDDay(purchase.expires_at)
-            const expired = isExpired(purchase.expires_at)
-            const courseCompleted = completedItems[course.id] ?? new Set<number>()
-            const completionRate = completionRates[course.id] ?? 0
-
-            return (
-              <div key={purchase.id} className="mb-16">
-                <div className="flex items-start gap-6 max-sm:flex-col">
-                  <div className="bg-black rounded-xl w-[300px] aspect-video shrink-0 max-sm:w-full border-2 border-[#04F87F] overflow-hidden flex items-center justify-center">
-                    {course.thumbnail_url ? (
-                      <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-gray-600 text-sm">썸네일</span>
-                    )}
-                  </div>
-                  <div className="flex-1 max-sm:w-full">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      {expired ? (
-                        <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full inline-block">
-                          수강 기간 만료
-                        </span>
-                      ) : dDay !== null ? (
-                        <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full inline-block">
-                          남은 수강기간 D-{dDay}
-                        </span>
-                      ) : null}
-                    </div>
-                    <h2 className="text-xl font-bold whitespace-pre-line">{course.title}</h2>
-                    <p className="text-sm text-gray-400 mt-1">{course.instructor?.name} 강사</p>
-                    {course.curriculum_items.length > 0 && (
-                      <div className="mt-3">
-                        <ProgressBar value={completionRate} size="sm" />
-                      </div>
-                    )}
-                    {course.curriculum_items.length === 0 && (
-                      <button
-                        onClick={() => navigate(`/course/${course.id}`)}
-                        className="mt-4 bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
-                      >
-                        강의 상세보기
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {course.curriculum_items.length > 0 && (
-                  <div className={`border border-gray-200 rounded-xl mt-4 divide-y divide-gray-200 relative ${expired ? 'opacity-60' : ''}`}>
-                    {course.curriculum_items.map((item) => {
-                      const itemCompleted = courseCompleted.has(item.id)
-                      const isToggling = togglingItems.has(item.id)
-
-                      return (
-                        <div
-                          key={item.id}
-                          className={`flex items-center gap-3 px-6 py-4 ${itemCompleted ? 'opacity-60' : ''}`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleToggleComplete(course.id, item.id)}
-                            disabled={isToggling}
-                            className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
-                              itemCompleted
-                                ? 'bg-[#04F87F] border-[#04F87F]'
-                                : 'border-gray-300 hover:border-[#04F87F]'
-                            } ${isToggling ? 'opacity-50' : ''}`}
-                            aria-label={itemCompleted ? `${item.label} 완료 해제` : `${item.label} 완료 표시`}
-                          >
-                            {itemCompleted && (
-                              <i className="ti ti-check text-white text-xs" />
-                            )}
-                          </button>
-
-                          <div className="flex-1 min-w-0">
-                            <p className={`text-sm font-bold whitespace-pre-line ${itemCompleted ? 'line-through text-gray-400' : ''}`}>
-                              {item.week ? `[${item.week}주차] ` : ''}{item.label}
-                            </p>
-                            {item.description && (
-                              <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>
-                            )}
-                          </div>
-
-                          <button
-                            onClick={() => {
-                              if (expired) {
-                                toast.error('수강 기간이 만료되었습니다.')
-                                return
-                              }
-                              if (item.video_url) {
-                                setPlayingVideo({ url: item.video_url, title: item.label })
-                              }
-                            }}
-                            disabled={!item.video_url}
-                            className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
-                              !item.video_url
-                                ? 'opacity-30 cursor-not-allowed'
-                                : expired
-                                  ? 'opacity-50 hover:border-gray-400'
-                                  : 'hover:border-[#04F87F]'
-                            }`}
-                          >
-                            {expired ? (
-                              <i className="ti ti-lock text-gray-400" />
-                            ) : (
-                              <i className={`ti ti-player-play ${item.video_url ? 'text-[#04F87F]' : 'text-gray-400'}`} />
-                            )}
-                          </button>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })
+          <>
+            {showCourses && coursePurchases.map(renderCourse)}
+            {showEbooks && ebookPurchases.map(renderEbook)}
+            {showCourses && coursePurchases.length === 0 && tab === 'courses' && (
+              <div className="text-center text-gray-400 py-20">구매한 강의가 없습니다.</div>
+            )}
+            {showEbooks && ebookPurchases.length === 0 && tab === 'ebooks' && (
+              <div className="text-center text-gray-400 py-20">구매한 전자책이 없습니다.</div>
+            )}
+          </>
         )}
       </div>
 
