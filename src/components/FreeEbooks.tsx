@@ -1,7 +1,18 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { ebookService } from '../services/ebookService'
 import type { EbookWithInstructor } from '../types'
 
-function FreeEbooks({ ebooks, loading }: { ebooks: EbookWithInstructor[]; loading: boolean }) {
+function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: EbookWithInstructor[]; loading?: boolean } = {}) {
+  const [selfEbooks, setSelfEbooks] = useState<EbookWithInstructor[]>([])
+  const [selfLoading, setSelfLoading] = useState(!propEbooks)
+  const ebooks = propEbooks ?? selfEbooks
+  const loading = propLoading ?? selfLoading
+
+  useEffect(() => {
+    if (propEbooks) return
+    ebookService.getAll({ isFree: true, limit: 3 }).then(setSelfEbooks).catch(() => {}).finally(() => setSelfLoading(false))
+  }, [propEbooks])
   return (
     <section className="w-full bg-white py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">

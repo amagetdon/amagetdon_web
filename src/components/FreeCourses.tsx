@@ -1,7 +1,18 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { courseService } from '../services/courseService'
 import type { CourseWithInstructor } from '../types'
 
-function FreeCourses({ courses, loading }: { courses: CourseWithInstructor[]; loading: boolean }) {
+function FreeCourses({ courses: propCourses, loading: propLoading }: { courses?: CourseWithInstructor[]; loading?: boolean } = {}) {
+  const [selfCourses, setSelfCourses] = useState<CourseWithInstructor[]>([])
+  const [selfLoading, setSelfLoading] = useState(!propCourses)
+  const courses = propCourses ?? selfCourses
+  const loading = propLoading ?? selfLoading
+
+  useEffect(() => {
+    if (propCourses) return
+    courseService.getAll('free').then(setSelfCourses).catch(() => {}).finally(() => setSelfLoading(false))
+  }, [propCourses])
   return (
     <section className="w-full bg-white py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">
