@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../types'
@@ -43,11 +43,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       await fetchProfile(user.id)
     }
-  }
+  }, [user])
 
   useEffect(() => {
     let initialSessionHandled = false
@@ -97,8 +97,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAdmin = profile?.role === 'admin'
 
+  const value = useMemo(
+    () => ({ user, profile, session, loading, isAdmin, refreshProfile }),
+    [user, profile, session, loading, isAdmin, refreshProfile]
+  )
+
   return (
-    <AuthContext.Provider value={{ user, profile, session, loading, isAdmin, refreshProfile }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

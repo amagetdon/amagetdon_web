@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { reviewService } from '../services/reviewService'
 import { usePurchaseCheck } from '../hooks/usePurchaseCheck'
@@ -29,56 +29,52 @@ export default function CourseReviewSection({
   const [formOpen, setFormOpen] = useState(false)
 
   const totalPages = Math.ceil(totalCount / PER_PAGE)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const fetchStats = useCallback(async () => {
-    try {
-      const stats = await reviewService.getCourseStats(courseId)
-      setAvgRating(stats.avgRating)
-      setTotalCount(stats.totalCount)
-    } catch {
-      // 통계 조회 실패 시 기본값 유지
+  useEffect(() => {
+    const loadStats = async () => {
+      try {
+        const stats = await reviewService.getCourseStats(courseId)
+        setAvgRating(stats.avgRating)
+        setTotalCount(stats.totalCount)
+      } catch {
+        // 통계 조회 실패 시 기본값 유지
+      }
     }
-  }, [courseId])
+    loadStats()
+  }, [courseId, refreshKey])
 
-  const fetchReviews = useCallback(async () => {
-    setLoading(true)
-    try {
-      const result = await reviewService.getByCourse(courseId, page, PER_PAGE)
-      setReviews(result.data)
-    } catch {
-      // 조회 실패 시 빈 상태 유지
-    } finally {
-      setLoading(false)
+  useEffect(() => {
+    const loadReviews = async () => {
+      setLoading(true)
+      try {
+        const result = await reviewService.getByCourse(courseId, page, PER_PAGE)
+        setReviews(result.data)
+      } catch {
+        // 조회 실패 시 빈 상태 유지
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [courseId, page])
+    loadReviews()
+  }, [courseId, page, refreshKey])
 
-  const checkUserReview = useCallback(async () => {
+  useEffect(() => {
     if (!user) return
-    try {
-      const existing = await reviewService.getByUser(user.id, courseId)
-      setAlreadyReviewed(existing !== null)
-    } catch {
-      // 확인 실패 시 기본 false 유지
+    const checkReview = async () => {
+      try {
+        const existing = await reviewService.getByUser(user.id, courseId)
+        setAlreadyReviewed(existing !== null)
+      } catch {
+        // 확인 실패 시 기본 false 유지
+      }
     }
-  }, [user, courseId])
-
-  useEffect(() => {
-    fetchStats()
-  }, [fetchStats])
-
-  useEffect(() => {
-    fetchReviews()
-  }, [fetchReviews])
-
-  useEffect(() => {
-    checkUserReview()
-  }, [checkUserReview])
+    checkReview()
+  }, [user, courseId, refreshKey])
 
   const handleSuccess = () => {
     setPage(1)
-    fetchReviews()
-    fetchStats()
-    checkUserReview()
+    setRefreshKey((k) => k + 1)
   }
 
   const renderStars = (rating: number) => {

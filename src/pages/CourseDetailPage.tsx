@@ -17,7 +17,7 @@ function CourseDetailPage() {
   const navigate = useNavigate()
   const { user, profile, refreshProfile } = useAuth()
 
-  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0, centiseconds: 0 })
+  const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
   const [owned, setOwned] = useState(false)
   const [ownershipLoading, setOwnershipLoading] = useState(true)
   const [confirmOpen, setConfirmOpen] = useState(false)
@@ -32,18 +32,17 @@ function CourseDetailPage() {
       const now = Date.now()
       const diff = deadline - now
       if (diff <= 0) {
-        setTimeLeft({ hours: 0, minutes: 0, seconds: 0, centiseconds: 0 })
+        setTimeLeft({ hours: 0, minutes: 0, seconds: 0 })
         return
       }
       const hours = Math.floor(diff / 3600000)
       const minutes = Math.floor((diff % 3600000) / 60000)
       const seconds = Math.floor((diff % 60000) / 1000)
-      const centiseconds = Math.floor((diff % 1000) / 10)
-      setTimeLeft({ hours, minutes, seconds, centiseconds })
+      setTimeLeft({ hours, minutes, seconds })
     }
 
     updateTimer()
-    const interval = setInterval(updateTimer, 10)
+    const interval = setInterval(updateTimer, 1000)
     return () => clearInterval(interval)
   }, [course?.enrollment_deadline, isClosed])
 
@@ -67,8 +66,8 @@ function CourseDetailPage() {
 
   const pad = (n: number) => String(n).padStart(2, '0')
   const hasDeadline = !!course?.enrollment_deadline
-  const isExpired = isClosed || (hasDeadline && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0 && timeLeft.centiseconds === 0)
-  const countdownText = isExpired ? '00:00:00' : `${pad(timeLeft.hours)}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}:${pad(timeLeft.centiseconds)}`
+  const isExpired = isClosed || (hasDeadline && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0)
+  const countdownText = isExpired ? '00:00:00' : `${pad(timeLeft.hours)}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
 
   const isFree = course?.course_type === 'free'
   const price = isFree ? 0 : (course?.sale_price ?? 0)
