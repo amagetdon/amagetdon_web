@@ -100,7 +100,7 @@ export default function AdminCourses() {
       } else {
         const { instructor, curriculum_items, is_hot, is_new, enrollment_start, ...createData } = editing
         void instructor; void curriculum_items; void is_hot; void is_new; void enrollment_start
-        const created = await courseService.create(createData as never)
+        const created = await courseService.create(createData as never) as { id: number }
         await saveCurriculum(created.id)
         toast.success('새 강의가 등록되었습니다.')
       }
