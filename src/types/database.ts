@@ -48,13 +48,23 @@ export interface Database {
       }
       purchases: {
         Row: Purchase
-        Insert: Omit<Purchase, 'id'>
+        Insert: Omit<Purchase, 'id' | 'purchased_at'> & { purchased_at?: string }
         Update: Partial<Omit<Purchase, 'id'>>
       }
       banners: {
         Row: Banner
         Insert: Omit<Banner, 'id' | 'created_at'>
         Update: Partial<Omit<Banner, 'id' | 'created_at'>>
+      }
+      point_logs: {
+        Row: PointLog
+        Insert: Omit<PointLog, 'id' | 'created_at'>
+        Update: Partial<Omit<PointLog, 'id' | 'created_at'>>
+      }
+      course_progress: {
+        Row: CourseProgress
+        Insert: Omit<CourseProgress, 'id' | 'created_at'>
+        Update: Partial<Omit<CourseProgress, 'id' | 'created_at'>>
       }
     }
     Views: Record<string, never>
