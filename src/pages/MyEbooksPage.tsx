@@ -68,7 +68,7 @@ function MyEbooksPage() {
 
             return (
               <div key={purchase.id} className="flex items-start gap-6 mb-12 max-sm:flex-col">
-                <div className="bg-black rounded-xl w-[300px] h-[200px] border-2 border-[#04F87F] shrink-0 max-sm:w-full overflow-hidden flex items-center justify-center">
+                <div className="bg-black rounded-xl w-[300px] aspect-video border-2 border-[#04F87F] shrink-0 max-sm:w-full overflow-hidden flex items-center justify-center">
                   {ebook.thumbnail_url ? (
                     <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
                   ) : (

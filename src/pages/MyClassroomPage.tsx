@@ -171,7 +171,7 @@ function MyClassroomPage() {
             return (
               <div key={purchase.id} className="mb-16">
                 <div className="flex items-start gap-6 max-sm:flex-col">
-                  <div className="bg-black rounded-xl w-[300px] h-[200px] shrink-0 max-sm:w-full border-2 border-[#04F87F] overflow-hidden flex items-center justify-center">
+                  <div className="bg-black rounded-xl w-[300px] aspect-video shrink-0 max-sm:w-full border-2 border-[#04F87F] overflow-hidden flex items-center justify-center">
                     {course.thumbnail_url ? (
                       <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
                     ) : (
