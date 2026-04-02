@@ -52,20 +52,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let initialSessionHandled = false
 
+    // 세션 복원 타임아웃: 5초 안에 안 되면 로딩 해제
+    const timeout = setTimeout(() => {
+      if (loading) setLoading(false)
+    }, 5000)
+
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      clearTimeout(timeout)
       initialSessionHandled = true
       setSession(s)
       setUser(s?.user ?? null)
       if (s?.user) {
-        fetchProfile(s.user.id).then(() => setLoading(false))
+        fetchProfile(s.user.id).finally(() => setLoading(false))
       } else {
         setLoading(false)
       }
+    }).catch(() => {
+      clearTimeout(timeout)
+      setLoading(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
-        // 초기 세션 복원은 getSession에서 처리했으므로 스킵
         if (!initialSessionHandled) return
 
         setSession(newSession)
@@ -74,7 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (newSession?.user) {
           const prof = await fetchProfile(newSession.user.id)
 
-          // 실제 새 로그인일 때만 프로필 완성 체크
           if (event === 'SIGNED_IN') {
             const flag = sessionStorage.getItem('pendingSignIn')
             if (flag) {
@@ -92,7 +99,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      clearTimeout(timeout)
+      subscription.unsubscribe()
+    }
   }, [])
 
   const isAdmin = profile?.role === 'admin'

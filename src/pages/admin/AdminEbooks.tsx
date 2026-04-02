@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
+import { withTimeout } from '../../lib/fetchWithTimeout'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -47,7 +48,7 @@ export default function AdminEbooks() {
   }
 
   const fetchData = async () => {
-    try { setLoading(true); const [e, i] = await Promise.all([ebookService.getAll(), instructorService.getAll()]); setEbooks(e); setInstructors(i) }
+    try { setLoading(true); const [e, i] = await withTimeout(Promise.all([ebookService.getAll(), instructorService.getAll()])); setEbooks(e); setInstructors(i) }
     catch { toast.error('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
   }
   useEffect(() => { fetchData() }, [])

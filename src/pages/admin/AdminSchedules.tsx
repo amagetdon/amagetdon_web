@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
+import { withTimeout } from '../../lib/fetchWithTimeout'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -23,7 +24,7 @@ export default function AdminSchedules() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [s, c, i] = await Promise.all([scheduleService.getByMonth(year, month), courseService.getAll(), instructorService.getAll()])
+      const [s, c, i] = await withTimeout(Promise.all([scheduleService.getByMonth(year, month), courseService.getAll(), instructorService.getAll()]))
       setSchedules(s); setCourses(c); setInstructors(i)
     } catch { toast.error('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
   }

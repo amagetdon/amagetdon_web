@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
+import { withTimeout } from '../../lib/fetchWithTimeout'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -28,15 +29,15 @@ export default function AdminMembers() {
     try {
       setLoading(true)
 
-      const { data: profiles, error: profileError } = await supabase
+      const { data: profiles, error: profileError } = await withTimeout(supabase
         .from('profiles')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }))
       if (profileError) throw profileError
 
-      const { data: purchaseData } = await supabase
+      const { data: purchaseData } = await withTimeout(supabase
         .from('purchases')
-        .select('user_id, price')
+        .select('user_id, price'))
 
       const purchaseMap = new Map<string, { count: number; total: number }>()
       if (purchaseData) {

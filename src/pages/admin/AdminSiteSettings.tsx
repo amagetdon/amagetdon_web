@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
+import { withTimeout } from '../../lib/fetchWithTimeout'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -38,11 +39,11 @@ export default function AdminSiteSettings() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [bannerData, resultData, linkData] = await Promise.all([
+      const [bannerData, resultData, linkData] = await withTimeout(Promise.all([
         bannerService.getAllByPage('hero'),
         resultService.getAll({ perPage: 50 }),
         bannerService.getAllByPage('bottom_links'),
-      ])
+      ]))
       setBanners(bannerData)
       setResults(resultData.data)
       setBottomLinks(linkData)

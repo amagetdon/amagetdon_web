@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
+import { withTimeout } from '../../lib/fetchWithTimeout'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -19,10 +20,10 @@ export default function AdminReviews() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [r, c] = await Promise.all([
+      const [r, c] = await withTimeout(Promise.all([
         reviewService.getAll({ perPage: 50 }),
         courseService.getAll(),
-      ])
+      ]))
       setReviews(r.data)
       setCourses(c)
     } catch {
