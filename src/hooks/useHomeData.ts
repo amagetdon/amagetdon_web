@@ -60,19 +60,19 @@ export function useHomeData(year: number, month: number) {
 
         if (cancelled) return
 
-        const getValue = <T,>(r: PromiseSettledResult<{ data: T | null }>, fallback: T): T =>
-          r.status === 'fulfilled' ? (r.data ?? fallback) : fallback
+        const getData = (r: PromiseSettledResult<{ data: unknown }>) =>
+          r.status === 'fulfilled' ? (r.value.data ?? []) : []
 
         const [hero, ebooks, courses, instructors, resultData, reviews, schedules, bottomLinks] = results
         setData({
-          heroBanners: getValue(hero, []) as Banner[],
-          freeEbooks: getValue(ebooks, []) as EbookWithInstructor[],
-          freeCourses: getValue(courses, []) as CourseWithInstructor[],
-          instructors: getValue(instructors, []) as Instructor[],
-          results: getValue(resultData, []) as Result[],
-          reviews: getValue(reviews, []) as ReviewWithCourse[],
-          schedules: getValue(schedules, []) as ScheduleWithDetails[],
-          bottomLinks: getValue(bottomLinks, []) as Banner[],
+          heroBanners: getData(hero) as Banner[],
+          freeEbooks: getData(ebooks) as EbookWithInstructor[],
+          freeCourses: getData(courses) as CourseWithInstructor[],
+          instructors: getData(instructors) as Instructor[],
+          results: getData(resultData) as Result[],
+          reviews: getData(reviews) as ReviewWithCourse[],
+          schedules: getData(schedules) as ScheduleWithDetails[],
+          bottomLinks: getData(bottomLinks) as Banner[],
         })
       } catch {
         if (!cancelled && attempt < 3) {

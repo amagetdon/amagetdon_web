@@ -192,6 +192,7 @@ export default function AdminSiteSettings() {
           subtitle: (linkEditing.subtitle as string) || null,
           image_url: (linkEditing.image_url as string) || '',
           link_url: (linkEditing.link_url as string) || null,
+          overlay_opacity: null,
           sort_order: (linkEditing.sort_order as number) || 0,
           is_published: linkEditing.is_published !== false,
         })

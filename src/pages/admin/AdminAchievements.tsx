@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import AdminLayout from '../../components/admin/AdminLayout'
@@ -8,7 +8,7 @@ import ImageUploader from '../../components/admin/ImageUploader'
 import { achievementService } from '../../services/achievementService'
 import { courseService } from '../../services/courseService'
 import { useAuth } from '../../contexts/AuthContext'
-import type { AchievementWithCourse, CourseWithInstructor } from '../../types'
+import type { Achievement, AchievementWithCourse, CourseWithInstructor } from '../../types'
 
 export default function AdminAchievements() {
   const { user } = useAuth()

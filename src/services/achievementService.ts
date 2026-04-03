@@ -63,7 +63,8 @@ export const achievementService = {
       .select('likes_count')
       .eq('id', id)
       .single()
-    const newCount = Math.max(0, (current?.likes_count ?? 0) + (increment ? 1 : -1))
+    const row = current as { likes_count: number } | null
+    const newCount = Math.max(0, (row?.likes_count ?? 0) + (increment ? 1 : -1))
     await supabase
       .from('achievements')
       .update({ likes_count: newCount } as never)
