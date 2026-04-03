@@ -40,23 +40,3 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     schema: 'public',
   },
 })
-
-// 탭 복귀 시 세션 갱신 + 리페치 이벤트
-let hiddenAt = 0
-
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'hidden') {
-    hiddenAt = Date.now()
-    return
-  }
-
-  if (hiddenAt && Date.now() - hiddenAt >= 10000) {
-    hiddenAt = 0
-    try {
-      await supabase.auth.refreshSession()
-    } catch {
-      try { await supabase.auth.getSession() } catch { /* */ }
-    }
-    window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
-  }
-})

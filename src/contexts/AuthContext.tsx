@@ -73,35 +73,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
+      (event, newSession) => {
         if (!initialSessionHandled) return
 
         setSession(newSession)
         setUser(newSession?.user ?? null)
 
         if (newSession?.user) {
-          const prof = await fetchProfile(newSession.user.id)
-
-          if (event === 'SIGNED_IN') {
-            const flag = sessionStorage.getItem('pendingSignIn')
-            if (flag) {
-              sessionStorage.removeItem('pendingSignIn')
-              const isIncomplete = !prof?.phone || !prof?.address
-              if (isIncomplete) {
-                window.location.replace('/mypage')
+          fetchProfile(newSession.user.id).then((prof) => {
+            if (event === 'SIGNED_IN') {
+              const flag = sessionStorage.getItem('pendingSignIn')
+              if (flag) {
+                sessionStorage.removeItem('pendingSignIn')
+                const isIncomplete = !prof?.phone || !prof?.address
+                if (isIncomplete) {
+                  window.location.replace('/mypage')
+                }
               }
             }
-          }
+            setLoading(false)
+          })
         } else {
           setProfile(null)
+          setLoading(false)
         }
-        setLoading(false)
       }
     )
+
+    // 탭 복귀 시 자동 세션 갱신 재시작
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.startAutoRefresh()
+      } else {
+        supabase.auth.stopAutoRefresh()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     return () => {
       clearTimeout(timeout)
       subscription.unsubscribe()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [])
 
