@@ -207,7 +207,7 @@ function ReviewResultsPage() {
                       onClick={(e) => { e.stopPropagation(); handleLike(item.id) }}
                       className={`flex items-center gap-1.5 text-sm border-none bg-transparent cursor-pointer transition-colors ${likedIds.has(item.id) ? 'text-[#04F87F]' : 'text-gray-400 hover:text-[#04F87F]'}`}
                     >
-                      <i className={`ti ${likedIds.has(item.id) ? 'ti-thumb-up-filled' : 'ti-thumb-up'}`} />
+                      <i className={`ti ${likedIds.has(item.id) ? 'ti-thumb-up' : 'ti-thumb-up'}`} />
                       {item.likes_count > 0 && item.likes_count}
                     </button>
                     {item.course && (
@@ -256,7 +256,7 @@ function ReviewResultsPage() {
                           : 'border-gray-200 text-gray-500 bg-white hover:border-[#04F87F]'
                       }`}
                     >
-                      <i className={`ti ${likedIds.has(selectedAchievement.id) ? 'ti-thumb-up-filled' : 'ti-thumb-up'}`} />
+                      <i className={`ti ${likedIds.has(selectedAchievement.id) ? 'ti-thumb-up' : 'ti-thumb-up'}`} />
                       {selectedAchievement.likes_count}
                     </button>
                   </div>
