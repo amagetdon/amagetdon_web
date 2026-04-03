@@ -4,37 +4,22 @@ import type { Database } from '../types/database'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// 고아 잠금 빠르게 복구 - 잠금 사용 가능하면 바로 실행, 없으면 1초만 대기 후 탈취
+// 잠금 사용 가능하면 즉시 실행, 아니면 잠금 없이 바로 실행
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const quickLock = async (name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
   if (typeof navigator === 'undefined' || !navigator.locks) {
     return fn()
   }
 
-  // 잠금이 비어있으면 즉시 획득
   const result = await navigator.locks.request(name, { ifAvailable: true }, async (lock) => {
     if (lock) return { ok: true as const, value: await fn() }
     return { ok: false as const }
   })
+
   if (result.ok) return result.value
 
-  // 잠금이 있으면 1초만 대기 후 강제 탈취
-  return new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      navigator.locks.request(name, { steal: true }, () => fn()).then(resolve, reject)
-    }, 1000)
-
-    navigator.locks.request(name, () => fn()).then((val) => {
-      clearTimeout(timeout)
-      resolve(val)
-    }, (err) => {
-      // steal에 의해 abort된 경우 무시 (steal 쪽에서 처리)
-      if (err.name !== 'AbortError') {
-        clearTimeout(timeout)
-        reject(err)
-      }
-    })
-  })
+  // 잠금이 점유 중이면 대기하지 않고 바로 실행
+  return fn()
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
