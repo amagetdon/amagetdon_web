@@ -10,13 +10,24 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'implicit',
-  },
-  global: {
-    headers: {
-      'x-connection-keep-alive': 'true',
-    },
+    storageKey: 'sb-auth-token',
   },
   db: {
     schema: 'public',
   },
 })
+
+// 페이지 포커스 시 즉시 세션 갱신
+let lastRefresh = 0
+function refreshIfStale() {
+  const now = Date.now()
+  if (now - lastRefresh > 60000) {
+    lastRefresh = now
+    supabase.auth.getSession()
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refreshIfStale()
+})
+window.addEventListener('focus', refreshIfStale)

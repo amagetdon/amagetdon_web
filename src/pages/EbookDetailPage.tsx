@@ -68,7 +68,7 @@ function EbookDetailPage() {
     }
 
     if (owned) {
-      navigate('/my-ebooks')
+      navigate('/my-classroom')
       return
     }
 
@@ -163,10 +163,10 @@ function EbookDetailPage() {
     if (owned) {
       return (
         <button
-          onClick={() => navigate('/my-ebooks')}
+          onClick={() => navigate('/my-classroom')}
           className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-6 cursor-pointer border-none"
         >
-          내 전자책으로 이동
+          내 강의실로 이동
         </button>
       )
     }

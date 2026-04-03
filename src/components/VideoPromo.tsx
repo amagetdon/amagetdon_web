@@ -9,7 +9,7 @@ function VideoPromo() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    supabase.from('site_settings').select('value').eq('key', 'promo_video').single()
+    supabase.from('site_settings').select('value').eq('key', 'promo_video').maybeSingle()
       .then(({ data }) => {
         if (data) setVideoUrl((data.value as Record<string, string>)?.url || null)
       })
@@ -18,30 +18,34 @@ function VideoPromo() {
   return (
     <section className="w-full bg-white py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">
-        <div className="flex gap-6 max-md:flex-col items-stretch">
-          {/* 영상 */}
-          <div className="flex-1 bg-gray-100 rounded-xl overflow-hidden flex items-center justify-center min-h-[280px]">
-            {videoUrl ? (
-              <VideoEmbed url={videoUrl} className="w-full" />
-            ) : (
-              <span className="text-sm text-gray-400">아마겟돈 인트로 홍보 영상</span>
-            )}
+        <div className="flex max-md:flex-col max-md:gap-5">
+          {/* 영상 - 왼쪽 */}
+          <div className="w-[60%] max-md:w-full shrink-0 pr-5 max-md:pr-0">
+            <div className="bg-gray-100 rounded-2xl overflow-hidden h-full flex items-center justify-center">
+              {videoUrl ? (
+                <VideoEmbed url={videoUrl} className="w-full" />
+              ) : (
+                <div className="aspect-video flex items-center justify-center w-full">
+                  <span className="text-sm text-gray-400">아마겟돈 인트로 홍보 영상</span>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* 후기 리스트 */}
-          <div className="w-[400px] max-md:w-full shrink-0 flex flex-col justify-center">
+          {/* 후기 - 오른쪽, 영상 높이에 맞춤 */}
+          <div className="flex-1 flex flex-col">
             {reviews.map((review, idx) => (
               <Link
                 key={review.id}
                 to="/reviews"
-                className={`block no-underline py-5 hover:bg-gray-50 transition-colors ${
-                  idx < reviews.length - 1 ? 'border-b border-gray-100' : ''
+                className={`flex-1 no-underline bg-white border border-gray-200 px-6 flex flex-col justify-center hover:bg-gray-50 transition-colors ${
+                  idx === 0 ? 'rounded-t-2xl pt-5 pb-4 border-b-0' : idx === reviews.length - 1 ? 'rounded-b-2xl pt-4 pb-5' : 'py-4 border-b-0'
                 }`}
               >
                 <p className="text-sm text-[#04F87F] font-bold mb-1.5">
                   {review.course?.title || '수강 후기'}
                 </p>
-                <p className="text-base font-bold text-gray-900 leading-snug whitespace-pre-line line-clamp-2">
+                <p className="text-[17px] font-bold text-gray-900 leading-relaxed line-clamp-2">
                   {review.content}
                 </p>
                 <p className="text-xs text-gray-400 mt-2">

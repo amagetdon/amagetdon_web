@@ -1,8 +1,7 @@
-import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext'
-import { supabase } from './lib/supabase'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/auth/ProtectedRoute'
@@ -23,7 +22,6 @@ const SignUpPage = lazy(() => import('./pages/SignUpPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const MyPage = lazy(() => import('./pages/MyPage'))
 const MyClassroomPage = lazy(() => import('./pages/MyClassroomPage'))
-const MyEbooksPage = lazy(() => import('./pages/MyEbooksPage'))
 const EbookDetailPage = lazy(() => import('./pages/EbookDetailPage'))
 const EbookReaderPage = lazy(() => import('./pages/EbookReaderPage'))
 const SearchPage = lazy(() => import('./pages/SearchPage'))
@@ -49,19 +47,10 @@ function PageLoader() {
   )
 }
 
-function SessionKeepAlive() {
-  const location = useLocation()
-  useEffect(() => {
-    supabase.auth.getSession()
-  }, [location.pathname])
-  return null
-}
-
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <SessionKeepAlive />
         <div className="w-full font-sans bg-white min-h-screen flex flex-col">
           <Header />
           <main className="flex-1">
@@ -86,7 +75,6 @@ function App() {
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
                 <Route path="/my-classroom" element={<ProtectedRoute><MyClassroomPage /></ProtectedRoute>} />
-                <Route path="/my-ebooks" element={<ProtectedRoute><MyEbooksPage /></ProtectedRoute>} />
                 <Route path="/my-ebooks/:id/read" element={<ProtectedRoute><EbookReaderPage /></ProtectedRoute>} />
                 <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="/admin/instructors" element={<AdminRoute><AdminInstructors /></AdminRoute>} />

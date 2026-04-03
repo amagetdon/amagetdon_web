@@ -4,6 +4,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
+import { withTimeout } from '../../lib/fetchWithTimeout'
 import AdminLayout from '../../components/admin/AdminLayout'
 
 const UMAMI_SHARE_URL = 'https://umami-ama.vercel.app/share/LuxmmqXDx2i6kFBo'
@@ -101,7 +102,7 @@ export default function AdminDashboard() {
         { data: revenueRaw },
         { data: purchaseItems },
         { data: reviewRatings },
-      ] = await Promise.all([
+      ] = await withTimeout(Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', startOfToday),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', startOfWeek),
@@ -127,7 +128,7 @@ export default function AdminDashboard() {
         supabase.from('purchases').select('purchased_at, price').gte('purchased_at', days30Ago),
         supabase.from('purchases').select('title, course_id, ebook_id'),
         supabase.from('reviews').select('rating'),
-      ])
+      ]), 15000)
 
       const sum = (arr: { price: number }[] | null) => arr?.reduce((s, p) => s + p.price, 0) || 0
 
@@ -220,7 +221,7 @@ export default function AdminDashboard() {
         topCourses, topEbooks, avgRating, ratingDist,
       })
     } catch {
-      // 에러 시 기본값
+      // 타임아웃 또는 에러 시 기본값 유지
     } finally {
       setLoading(false)
     }
