@@ -290,8 +290,14 @@ export interface Achievement {
   title: string
   content: string
   image_url: string | null
+  course_id: number | null
+  likes_count: number
   is_published: boolean
   created_at: string
+}
+
+export interface AchievementWithCourse extends Achievement {
+  course: { id: number; title: string } | null
 }
 
 export interface Banner {

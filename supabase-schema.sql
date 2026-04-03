@@ -163,6 +163,32 @@ CREATE TABLE banners (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- 14. achievements (수강 성과 게시판)
+CREATE TABLE achievements (
+  id SERIAL PRIMARY KEY,
+  user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  author_name TEXT NOT NULL,
+  title TEXT NOT NULL,
+  content TEXT NOT NULL,
+  image_url TEXT,
+  course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+  likes_count INTEGER DEFAULT 0,
+  is_published BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE achievements ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read achievements" ON achievements
+  FOR SELECT USING (is_published = true);
+CREATE POLICY "Users can create achievements" ON achievements
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Admin manage achievements" ON achievements
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE INDEX idx_achievements_user ON achievements(user_id);
+
 -- ============================================
 -- 트리거: 새 사용자 가입 시 profiles 자동 생성
 -- ============================================

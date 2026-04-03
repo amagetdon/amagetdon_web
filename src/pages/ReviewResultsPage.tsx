@@ -1,28 +1,41 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { Dialog } from '@headlessui/react'
 import toast from 'react-hot-toast'
 import { ReviewTabs } from './ReviewsPage'
 import Pagination from '../components/Pagination'
 import { achievementService } from '../services/achievementService'
+import { purchaseService } from '../services/purchaseService'
 import { storageService } from '../services/storageService'
 import { useAuth } from '../contexts/AuthContext'
-import type { Achievement } from '../types'
+import type { AchievementWithCourse } from '../types'
+
+interface MyPurchasedCourse {
+  course_id: number | null
+  course: { id: number; title: string } | null
+}
 
 function ReviewResultsPage() {
   const { user, profile } = useAuth()
   const [currentPage, setCurrentPage] = useState(1)
-  const [achievements, setAchievements] = useState<Achievement[]>([])
+  const [achievements, setAchievements] = useState<AchievementWithCourse[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null)
+  const [selectedAchievement, setSelectedAchievement] = useState<AchievementWithCourse | null>(null)
+  const [likedIds, setLikedIds] = useState<Set<number>>(() => {
+    const saved = localStorage.getItem('liked_achievements')
+    return saved ? new Set(JSON.parse(saved)) : new Set()
+  })
 
-  // 작성 모달 상태
+  // 작성 모달
   const [writeOpen, setWriteOpen] = useState(false)
   const [writeTitle, setWriteTitle] = useState('')
   const [writeContent, setWriteContent] = useState('')
+  const [writeCourseId, setWriteCourseId] = useState<number | null>(null)
   const [writeImage, setWriteImage] = useState<File | null>(null)
   const [writeImagePreview, setWriteImagePreview] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [myCourses, setMyCourses] = useState<MyPurchasedCourse[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const perPage = 4
@@ -43,6 +56,14 @@ function ReviewResultsPage() {
 
   useEffect(() => { fetchAchievements() }, [currentPage])
 
+  // 작성 모달 열 때 내 강의 로드
+  useEffect(() => {
+    if (!writeOpen || !user) return
+    purchaseService.getMyClassroom(user.id).then((data) => {
+      setMyCourses((data as MyPurchasedCourse[]).filter((p) => p.course_id))
+    }).catch(() => {})
+  }, [writeOpen, user])
+
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -55,6 +76,7 @@ function ReviewResultsPage() {
   const resetWriteForm = () => {
     setWriteTitle('')
     setWriteContent('')
+    setWriteCourseId(null)
     setWriteImage(null)
     setWriteImagePreview(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -69,27 +91,24 @@ function ReviewResultsPage() {
       toast.error('로그인이 필요합니다.')
       return
     }
-
     try {
       setSubmitting(true)
       let imageUrl: string | null = null
-
       if (writeImage) {
         const ext = writeImage.name.split('.').pop() || 'png'
         const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
-        const path = `achievements/${fileName}`
+        const path = `user/${fileName}`
         await storageService.uploadFile('achievements', path, writeImage)
         imageUrl = storageService.getPublicUrl('achievements', path)
       }
-
       await achievementService.create({
         user_id: user.id,
         author_name: profile.name,
         title: writeTitle.trim(),
         content: writeContent.trim(),
         image_url: imageUrl,
+        course_id: writeCourseId,
       })
-
       toast.success('성과가 등록되었습니다.')
       setWriteOpen(false)
       resetWriteForm()
@@ -102,10 +121,34 @@ function ReviewResultsPage() {
     }
   }
 
+  const handleLike = async (id: number) => {
+    const isLiked = likedIds.has(id)
+    const newLikedIds = new Set(likedIds)
+    if (isLiked) newLikedIds.delete(id)
+    else newLikedIds.add(id)
+    setLikedIds(newLikedIds)
+    localStorage.setItem('liked_achievements', JSON.stringify([...newLikedIds]))
+
+    // optimistic update
+    setAchievements((prev) => prev.map((a) => a.id === id ? { ...a, likes_count: a.likes_count + (isLiked ? -1 : 1) } : a))
+    if (selectedAchievement?.id === id) {
+      setSelectedAchievement((prev) => prev ? { ...prev, likes_count: prev.likes_count + (isLiked ? -1 : 1) } : prev)
+    }
+
+    try {
+      await achievementService.toggleLike(id, !isLiked)
+    } catch {
+      // rollback
+      if (isLiked) newLikedIds.add(id)
+      else newLikedIds.delete(id)
+      setLikedIds(new Set(newLikedIds))
+      setAchievements((prev) => prev.map((a) => a.id === id ? { ...a, likes_count: a.likes_count + (isLiked ? 1 : -1) } : a))
+    }
+  }
+
   return (
     <section className="w-full bg-white">
       <div className="w-full h-[200px] bg-black" />
-
       <ReviewTabs />
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">
@@ -126,11 +169,7 @@ function ReviewResultsPage() {
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="animate-pulse border border-gray-200 rounded-xl overflow-hidden">
                 <div className="bg-gray-200 h-[280px]" />
-                <div className="p-5">
-                  <div className="h-3 bg-gray-200 rounded w-32 mb-2" />
-                  <div className="h-5 bg-gray-200 rounded w-3/4 mb-2" />
-                  <div className="h-3 bg-gray-200 rounded w-full" />
-                </div>
+                <div className="p-5"><div className="h-3 bg-gray-200 rounded w-32 mb-2" /><div className="h-5 bg-gray-200 rounded w-3/4 mb-2" /><div className="h-3 bg-gray-200 rounded w-full" /></div>
               </div>
             ))}
           </div>
@@ -147,11 +186,14 @@ function ReviewResultsPage() {
                 tabIndex={0}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setSelectedAchievement(item) }}
               >
-                <div className="bg-gray-100 h-[280px] flex items-center justify-center overflow-hidden">
+                <div className="bg-gray-50 h-[280px] flex items-center justify-center overflow-hidden">
                   {item.image_url ? (
                     <img src={item.image_url} alt={item.title} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-sm text-gray-400">게시판 첨부 이미지</span>
+                    <div className="flex flex-col items-center gap-3 text-gray-300">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></svg>
+                      <span className="text-xs">이미지 없음</span>
+                    </div>
                   )}
                 </div>
                 <div className="p-5">
@@ -160,6 +202,18 @@ function ReviewResultsPage() {
                   </span>
                   <h3 className="text-base font-bold text-gray-900 mt-2 mb-2">{item.title}</h3>
                   <p className="text-sm text-gray-500 leading-relaxed line-clamp-3">{item.content}</p>
+                  <div className="flex items-center justify-between mt-3">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleLike(item.id) }}
+                      className={`flex items-center gap-1.5 text-sm border-none bg-transparent cursor-pointer transition-colors ${likedIds.has(item.id) ? 'text-[#04F87F]' : 'text-gray-400 hover:text-[#04F87F]'}`}
+                    >
+                      <i className={`ti ${likedIds.has(item.id) ? 'ti-thumb-up-filled' : 'ti-thumb-up'}`} />
+                      {item.likes_count > 0 && item.likes_count}
+                    </button>
+                    {item.course && (
+                      <span className="text-xs text-gray-400">{item.course.title}</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -171,7 +225,7 @@ function ReviewResultsPage() {
         )}
       </div>
 
-      {/* 성과 상세 모달 */}
+      {/* 상세 모달 */}
       <Dialog open={!!selectedAchievement} onClose={() => setSelectedAchievement(null)} className="relative z-50">
         <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
@@ -179,11 +233,7 @@ function ReviewResultsPage() {
             {selectedAchievement && (
               <>
                 {selectedAchievement.image_url && (
-                  <img
-                    src={selectedAchievement.image_url}
-                    alt={selectedAchievement.title}
-                    className="w-full h-auto rounded-t-2xl"
-                  />
+                  <img src={selectedAchievement.image_url} alt={selectedAchievement.title} className="w-full h-auto rounded-t-2xl" />
                 )}
                 <div className="p-6">
                   <span className="text-xs text-[#04F87F] font-medium">
@@ -195,9 +245,39 @@ function ReviewResultsPage() {
                   <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">
                     {selectedAchievement.content}
                   </p>
+
+                  {/* 좋아요 */}
+                  <div className="flex items-center gap-3 mt-6 pt-4 border-t border-gray-100">
+                    <button
+                      onClick={() => handleLike(selectedAchievement.id)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm cursor-pointer transition-colors ${
+                        likedIds.has(selectedAchievement.id)
+                          ? 'border-[#04F87F] text-[#04F87F] bg-[#04F87F]/5'
+                          : 'border-gray-200 text-gray-500 bg-white hover:border-[#04F87F]'
+                      }`}
+                    >
+                      <i className={`ti ${likedIds.has(selectedAchievement.id) ? 'ti-thumb-up-filled' : 'ti-thumb-up'}`} />
+                      {selectedAchievement.likes_count}
+                    </button>
+                  </div>
+
+                  {/* 선택한 강의 */}
+                  {selectedAchievement.course && (
+                    <Link
+                      to={`/course/${selectedAchievement.course.id}`}
+                      onClick={() => setSelectedAchievement(null)}
+                      className="mt-4 flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl no-underline hover:bg-gray-100 transition-colors border border-gray-200"
+                    >
+                      <span className="text-sm font-medium text-gray-900">이 수강생이 선택한 강의</span>
+                      <span className="text-sm text-[#04F87F] font-bold flex items-center gap-1">
+                        {selectedAchievement.course.title} <i className="ti ti-chevron-right text-xs" />
+                      </span>
+                    </Link>
+                  )}
+
                   <button
                     onClick={() => setSelectedAchievement(null)}
-                    className="mt-6 w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-gray-200 transition-colors"
+                    className="mt-4 w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-gray-200 transition-colors"
                   >
                     닫기
                   </button>
@@ -234,6 +314,23 @@ function ReviewResultsPage() {
                   rows={6}
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all resize-none"
                 />
+              </div>
+              <div>
+                <label className="text-sm font-bold block mb-1">수강한 강의</label>
+                {myCourses.length === 0 ? (
+                  <p className="text-xs text-gray-400">구매한 강의가 없습니다.</p>
+                ) : (
+                  <select
+                    value={writeCourseId ?? ''}
+                    onChange={(e) => setWriteCourseId(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
+                  >
+                    <option value="">선택 안함</option>
+                    {myCourses.map((p) => p.course && (
+                      <option key={p.course.id} value={p.course.id}>{p.course.title}</option>
+                    ))}
+                  </select>
+                )}
               </div>
               <div>
                 <label className="text-sm font-bold block mb-1">이미지 (선택)</label>
