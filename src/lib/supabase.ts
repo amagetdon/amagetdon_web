@@ -17,9 +17,40 @@ const quickLock = async (name: string, _acquireTimeout: number, fn: () => Promis
   })
 
   if (result.ok) return result.value
-
-  // 잠금이 점유 중이면 대기하지 않고 바로 실행
   return fn()
+}
+
+// 세션 갱신 중복 방지
+let refreshing: Promise<void> | null = null
+
+async function ensureFreshSession() {
+  if (refreshing) return refreshing
+  refreshing = (async () => {
+    try {
+      await supabase.auth.refreshSession()
+    } catch {
+      try { await supabase.auth.getSession() } catch { /* 무시 */ }
+    } finally {
+      refreshing = null
+    }
+  })()
+  return refreshing
+}
+
+// 401 시 세션 갱신 후 재시도 (auth 엔드포인트는 제외)
+const fetchWithRetry: typeof fetch = async (input, init) => {
+  const response = await fetch(input, init)
+
+  if (response.status === 401) {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+    // auth 엔드포인트는 재시도하면 무한루프 → 스킵
+    if (url.includes('/auth/')) return response
+
+    await ensureFreshSession()
+    return fetch(input, init)
+  }
+
+  return response
 }
 
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
@@ -34,6 +65,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   db: {
     schema: 'public',
   },
+  global: {
+    fetch: fetchWithRetry,
+  },
 })
 
 // 탭 복귀 시 즉시 세션 갱신 + 데이터 리페치 이벤트 발행
@@ -47,11 +81,7 @@ document.addEventListener('visibilitychange', async () => {
 
   if (hiddenAt && Date.now() - hiddenAt >= 30000) {
     hiddenAt = 0
-    try {
-      await supabase.auth.refreshSession()
-    } catch {
-      try { await supabase.auth.getSession() } catch { /* 무시 */ }
-    }
+    await ensureFreshSession()
     window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
   }
 })
@@ -59,11 +89,7 @@ document.addEventListener('visibilitychange', async () => {
 window.addEventListener('focus', async () => {
   if (hiddenAt && Date.now() - hiddenAt >= 30000) {
     hiddenAt = 0
-    try {
-      await supabase.auth.refreshSession()
-    } catch {
-      try { await supabase.auth.getSession() } catch { /* 무시 */ }
-    }
+    await ensureFreshSession()
     window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
   }
 })
