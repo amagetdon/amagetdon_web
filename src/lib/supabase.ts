@@ -44,6 +44,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     flowType: 'implicit',
     storageKey: 'sb-auth-token',
+    // navigator.locks 타임아웃 방지 - 백그라운드 탭 복귀 시 5초 대기 제거
+    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<unknown>) => fn(),
   },
   db: {
     schema: 'public',
