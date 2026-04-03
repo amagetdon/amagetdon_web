@@ -44,12 +44,22 @@ export default function AdminAchievements() {
       toast.error('제목과 내용은 필수입니다.')
       return
     }
+    if (!editing.course_id) {
+      toast.error('강의를 선택해주세요.')
+      return
+    }
     try {
       setSaving(true)
       if (editing.id) {
-        const { id, created_at, ...updates } = editing
-        void created_at
-        await achievementService.update(id as number, updates as Partial<Achievement>)
+        await achievementService.update(editing.id as number, {
+          author_name: (editing.author_name as string) || '관리자',
+          title: (editing.title as string).trim(),
+          content: (editing.content as string).trim(),
+          image_url: (editing.image_url as string) || null,
+          course_id: (editing.course_id as number) || null,
+          likes_count: (editing.likes_count as number) ?? 0,
+          is_published: editing.is_published !== false,
+        })
         toast.success('성과가 수정되었습니다.')
       } else {
         await achievementService.create({

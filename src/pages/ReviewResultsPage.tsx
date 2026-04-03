@@ -27,8 +27,9 @@ function ReviewResultsPage() {
     return saved ? new Set(JSON.parse(saved)) : new Set()
   })
 
-  // 작성 모달
+  // 작성/수정 모달
   const [writeOpen, setWriteOpen] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [writeTitle, setWriteTitle] = useState('')
   const [writeContent, setWriteContent] = useState('')
   const [writeCourseId, setWriteCourseId] = useState<number | null>(null)
@@ -74,6 +75,7 @@ function ReviewResultsPage() {
   }
 
   const resetWriteForm = () => {
+    setEditingId(null)
     setWriteTitle('')
     setWriteContent('')
     setWriteCourseId(null)
@@ -82,9 +84,23 @@ function ReviewResultsPage() {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  const openEdit = (item: AchievementWithCourse) => {
+    setEditingId(item.id)
+    setWriteTitle(item.title)
+    setWriteContent(item.content)
+    setWriteCourseId(item.course_id)
+    setWriteImagePreview(item.image_url)
+    setSelectedAchievement(null)
+    setWriteOpen(true)
+  }
+
   const handleSubmit = async () => {
     if (!writeTitle.trim() || !writeContent.trim()) {
       toast.error('제목과 내용을 입력해주세요.')
+      return
+    }
+    if (!writeCourseId) {
+      toast.error('강의를 선택해주세요.')
       return
     }
     if (!user || !profile?.name) {
@@ -93,7 +109,7 @@ function ReviewResultsPage() {
     }
     try {
       setSubmitting(true)
-      let imageUrl: string | null = null
+      let imageUrl: string | null = writeImagePreview && !writeImage ? writeImagePreview : null
       if (writeImage) {
         const ext = writeImage.name.split('.').pop() || 'png'
         const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
@@ -101,15 +117,24 @@ function ReviewResultsPage() {
         await storageService.uploadFile('achievements', path, writeImage)
         imageUrl = storageService.getPublicUrl('achievements', path)
       }
-      await achievementService.create({
-        user_id: user.id,
-        author_name: profile.name,
-        title: writeTitle.trim(),
-        content: writeContent.trim(),
-        image_url: imageUrl,
-        course_id: writeCourseId,
-      })
-      toast.success('성과가 등록되었습니다.')
+      if (editingId) {
+        await achievementService.update(editingId, {
+          title: writeTitle.trim(),
+          content: writeContent.trim(),
+          image_url: imageUrl,
+          course_id: writeCourseId,
+        })
+      } else {
+        await achievementService.create({
+          user_id: user.id,
+          author_name: profile.name,
+          title: writeTitle.trim(),
+          content: writeContent.trim(),
+          image_url: imageUrl,
+          course_id: writeCourseId,
+        })
+      }
+      toast.success(editingId ? '성과가 수정되었습니다.' : '성과가 등록되었습니다.')
       setWriteOpen(false)
       resetWriteForm()
       setCurrentPage(1)
@@ -275,12 +300,22 @@ function ReviewResultsPage() {
                     </Link>
                   )}
 
-                  <button
-                    onClick={() => setSelectedAchievement(null)}
-                    className="mt-4 w-full py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-gray-200 transition-colors"
-                  >
-                    닫기
-                  </button>
+                  <div className="flex gap-3 mt-4">
+                    {user && selectedAchievement.user_id === user.id && (
+                      <button
+                        onClick={() => openEdit(selectedAchievement)}
+                        className="flex-1 py-2.5 bg-[#04F87F] text-white rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors"
+                      >
+                        수정하기
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setSelectedAchievement(null)}
+                      className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-gray-200 transition-colors"
+                    >
+                      닫기
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -293,7 +328,7 @@ function ReviewResultsPage() {
         <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <Dialog.Panel className="bg-white rounded-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto shadow-xl p-6">
-            <Dialog.Title className="text-lg font-bold text-gray-900 mb-6">성과 작성하기</Dialog.Title>
+            <Dialog.Title className="text-lg font-bold text-gray-900 mb-6">{editingId ? '성과 수정하기' : '성과 작성하기'}</Dialog.Title>
 
             <div className="space-y-4">
               <div>
@@ -316,16 +351,16 @@ function ReviewResultsPage() {
                 />
               </div>
               <div>
-                <label className="text-sm font-bold block mb-1">수강한 강의</label>
+                <label className="text-sm font-bold block mb-1">수강한 강의 *</label>
                 {myCourses.length === 0 ? (
-                  <p className="text-xs text-gray-400">구매한 강의가 없습니다.</p>
+                  <p className="text-xs text-gray-400">구매한 강의가 없습니다. 강의를 구매한 후 성과를 작성할 수 있습니다.</p>
                 ) : (
                   <select
                     value={writeCourseId ?? ''}
                     onChange={(e) => setWriteCourseId(e.target.value ? Number(e.target.value) : null)}
                     className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
                   >
-                    <option value="">선택 안함</option>
+                    <option value="">강의를 선택해주세요</option>
                     {myCourses.map((p) => p.course && (
                       <option key={p.course.id} value={p.course.id}>{p.course.title}</option>
                     ))}
