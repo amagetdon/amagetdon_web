@@ -2,7 +2,7 @@
  * Promise에 타임아웃을 추가합니다.
  * 지정 시간 내 응답이 없으면 reject됩니다.
  */
-export function withTimeout<T>(promise: Promise<T>, ms = 15000): Promise<T> {
+export function withTimeout<T>(promise: PromiseLike<T>, ms = 15000): Promise<T> {
   let timeoutId: ReturnType<typeof setTimeout>
   return Promise.race([
     promise,
