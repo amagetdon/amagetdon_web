@@ -3,16 +3,17 @@ import { parseVideoUrl } from '../utils/videoUrl'
 interface VideoEmbedProps {
   url: string
   className?: string
+  aspectRatio?: string
 }
 
-export default function VideoEmbed({ url, className = '' }: VideoEmbedProps) {
+export default function VideoEmbed({ url, className = '', aspectRatio = 'aspect-video' }: VideoEmbedProps) {
   const videoInfo = parseVideoUrl(url)
 
   if (!videoInfo) return null
 
   if (videoInfo.provider === 'youtube' || videoInfo.provider === 'vimeo') {
     return (
-      <div className={`aspect-video rounded-xl overflow-hidden ${className}`}>
+      <div className={`${aspectRatio} rounded-xl overflow-hidden ${className}`}>
         <iframe
           src={videoInfo.embedUrl}
           title="동영상 플레이어"
@@ -26,7 +27,7 @@ export default function VideoEmbed({ url, className = '' }: VideoEmbedProps) {
   }
 
   return (
-    <div className={`aspect-video rounded-xl overflow-hidden ${className}`}>
+    <div className={`${aspectRatio} rounded-xl overflow-hidden ${className}`}>
       <video
         src={videoInfo.embedUrl}
         controls

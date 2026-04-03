@@ -23,7 +23,7 @@ function VideoPromo() {
           <div className="w-[60%] max-md:w-full shrink-0 pr-5 max-md:pr-0">
             <div className="bg-gray-100 rounded-2xl overflow-hidden h-full flex items-center justify-center">
               {videoUrl ? (
-                <VideoEmbed url={videoUrl} className="w-full" />
+                <VideoEmbed url={videoUrl} className="w-full" aspectRatio="aspect-[16/10]" />
               ) : (
                 <div className="aspect-video flex items-center justify-center w-full">
                   <span className="text-sm text-gray-400">아마겟돈 인트로 홍보 영상</span>

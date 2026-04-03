@@ -1,7 +1,8 @@
-import { useState, memo } from 'react'
+import { useState, useEffect, memo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
+import { supabase } from '../lib/supabase'
 
 function Header() {
   const location = useLocation()
@@ -10,6 +11,14 @@ function Header() {
   const currentPath = location.pathname
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [kakaoLink, setKakaoLink] = useState('')
+
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'kakao_link').maybeSingle()
+      .then(({ data }) => {
+        if (data) setKakaoLink(((data as Record<string, unknown>).value as Record<string, string>)?.url || '')
+      })
+  }, [])
 
 
   const handleLogout = async () => {
@@ -27,8 +36,8 @@ function Header() {
     { label: '강사소개', path: '/instructors' },
     { label: '수강 후기', path: '/reviews' },
     { label: '수강 성과', path: '/results' },
-    { label: '공지사항', path: '/notice' },
     { label: 'FAQ', path: '/faq' },
+    { label: '카카오채널', path: kakaoLink || '#', external: true },
   ]
 
   const isActiveNav = (itemPath: string) => {
@@ -125,16 +134,29 @@ function Header() {
           </div>
           <div className="flex flex-col gap-3">
             {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setIsMenuOpen(false)}
-                className={`text-sm no-underline py-2 ${
-                  isActiveNav(item.path) ? 'text-gray-900 font-bold' : 'text-gray-500'
-                }`}
-              >
-                {item.label}
-              </Link>
+              'external' in item && item.external ? (
+                <a
+                  key={item.path}
+                  href={item.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-sm no-underline py-2 text-gray-500"
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`text-sm no-underline py-2 ${
+                    isActiveNav(item.path) ? 'text-gray-900 font-bold' : 'text-gray-500'
+                  }`}
+                >
+                  {item.label}
+                </Link>
+              )
             ))}
             {user ? (
               <>
@@ -169,6 +191,19 @@ function Header() {
       <div className="border-b border-gray-200 max-md:hidden">
         <nav className="max-w-[1200px] mx-auto px-5 flex items-center gap-8">
           {navItems.map((item) => {
+            if ('external' in item && item.external) {
+              return (
+                <a
+                  key={item.path}
+                  href={item.path}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-3 text-sm no-underline border-b-2 border-transparent text-gray-400 font-normal hover:text-gray-600 transition-colors"
+                >
+                  {item.label}
+                </a>
+              )
+            }
             const isActive = isActiveNav(item.path)
             return (
               <Link

@@ -43,7 +43,6 @@ export default function AdminSiteSettings() {
   // 일반 설정
   const [promoVideoUrl, setPromoVideoUrl] = useState('')
   const [kakaoLink, setKakaoLink] = useState('')
-  const [noticeText, setNoticeText] = useState('')
   const [generalSaving, setGeneralSaving] = useState(false)
 
   const [loading, setLoading] = useState(true)
@@ -69,7 +68,6 @@ export default function AdminSiteSettings() {
         for (const s of settingsData.data as { key: string; value: Record<string, string> }[]) {
           if (s.key === 'promo_video') setPromoVideoUrl(s.value?.url || '')
           if (s.key === 'kakao_link') setKakaoLink(s.value?.url || '')
-          if (s.key === 'notice_text') setNoticeText(s.value?.text || '')
         }
       }
     } catch {
@@ -88,7 +86,6 @@ export default function AdminSiteSettings() {
       await Promise.all([
         supabase.from('site_settings').upsert({ key: 'promo_video', value: { url: promoVideoUrl } } as never, { onConflict: 'key' }),
         supabase.from('site_settings').upsert({ key: 'kakao_link', value: { url: kakaoLink } } as never, { onConflict: 'key' }),
-        supabase.from('site_settings').upsert({ key: 'notice_text', value: { text: noticeText } } as never, { onConflict: 'key' }),
       ])
       toast.success('설정이 저장되었습니다.')
     } catch {
@@ -276,25 +273,13 @@ export default function AdminSiteSettings() {
           </div>
 
           <div className="border-t border-gray-100 pt-6">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">카카오톡 상담 링크</h3>
-            <p className="text-xs text-gray-400 mb-3">카카오톡 오픈채팅 또는 채널 상담 URL</p>
+            <h3 className="text-sm font-bold text-gray-900 mb-1">카카오채널 링크</h3>
+            <p className="text-xs text-gray-400 mb-3">헤더 네비게이션에 카카오채널 링크로 표시됩니다</p>
             <input
               value={kakaoLink}
               onChange={(e) => setKakaoLink(e.target.value)}
-              placeholder="https://open.kakao.com/..."
+              placeholder="https://pf.kakao.com/..."
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
-            />
-          </div>
-
-          <div className="border-t border-gray-100 pt-6">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">공지사항</h3>
-            <p className="text-xs text-gray-400 mb-3">공지사항 페이지에 표시될 텍스트</p>
-            <textarea
-              value={noticeText}
-              onChange={(e) => setNoticeText(e.target.value)}
-              placeholder="공지사항 내용을 입력하세요..."
-              rows={5}
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all resize-none"
             />
           </div>
 

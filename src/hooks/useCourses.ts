@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { courseService } from '../services/courseService'
+import { useStaleRefreshKey } from './useVisibilityRefresh'
 import type { CourseWithInstructor, CourseWithCurriculum } from '../types'
 
 export function useCourses(type?: 'free' | 'premium') {
   const [courses, setCourses] = useState<CourseWithInstructor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     const fetch = async () => {
@@ -20,7 +22,7 @@ export function useCourses(type?: 'free' | 'premium') {
       }
     }
     fetch()
-  }, [type])
+  }, [type, refreshKey])
 
   return { courses, loading, error }
 }
@@ -29,6 +31,7 @@ export function useCourse(id: number | null) {
   const [course, setCourse] = useState<CourseWithCurriculum | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     if (!id) return
@@ -44,7 +47,7 @@ export function useCourse(id: number | null) {
       }
     }
     fetch()
-  }, [id])
+  }, [id, refreshKey])
 
   return { course, loading, error }
 }
@@ -53,6 +56,7 @@ export function useCoursesByInstructor(instructorId: number | null) {
   const [courses, setCourses] = useState<CourseWithInstructor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     if (!instructorId) return
@@ -68,7 +72,7 @@ export function useCoursesByInstructor(instructorId: number | null) {
       }
     }
     fetch()
-  }, [instructorId])
+  }, [instructorId, refreshKey])
 
   return { courses, loading, error }
 }

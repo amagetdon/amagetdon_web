@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { instructorService } from '../services/instructorService'
+import { useStaleRefreshKey } from './useVisibilityRefresh'
 import type { Instructor } from '../types'
 
 export function useInstructors(options?: { featured?: boolean; limit?: number }) {
   const [instructors, setInstructors] = useState<Instructor[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     const fetch = async () => {
@@ -22,7 +24,7 @@ export function useInstructors(options?: { featured?: boolean; limit?: number })
       }
     }
     fetch()
-  }, [options?.featured, options?.limit])
+  }, [options?.featured, options?.limit, refreshKey])
 
   return { instructors, loading, error }
 }
@@ -31,6 +33,7 @@ export function useInstructor(id: number | null) {
   const [instructor, setInstructor] = useState<Instructor | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     if (!id) return
@@ -46,7 +49,7 @@ export function useInstructor(id: number | null) {
       }
     }
     fetch()
-  }, [id])
+  }, [id, refreshKey])
 
   return { instructor, loading, error }
 }

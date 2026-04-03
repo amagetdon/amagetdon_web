@@ -6,6 +6,7 @@ import type { Banner } from '../types'
 import ReviewModal from '../components/ReviewModal'
 import Pagination from '../components/Pagination'
 import { useReviews } from '../hooks/useReviews'
+import { useStaleRefreshKey } from '../hooks/useVisibilityRefresh'
 import type { ReviewWithCourse } from '../types'
 
 function StarRating({ rating }: { rating: number }) {
@@ -27,6 +28,7 @@ function ReviewsPage() {
   const [pageBanners, setPageBanners] = useState<Banner[]>([])
   const [eventBanners, setEventBanners] = useState<Banner[]>([])
   const [bannerLoading, setBannerLoading] = useState(true)
+  const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     Promise.all([
@@ -39,7 +41,7 @@ function ReviewsPage() {
       setPageBanners([])
       setEventBanners([])
     }).finally(() => setBannerLoading(false))
-  }, [])
+  }, [refreshKey])
 
   const totalPages = Math.ceil(totalCount / 8)
 

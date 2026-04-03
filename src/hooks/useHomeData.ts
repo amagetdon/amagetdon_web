@@ -33,10 +33,12 @@ const EMPTY: HomeData = {
 }
 
 import { withTimeout } from '../lib/fetchWithTimeout'
+import { useStaleRefreshKey } from './useVisibilityRefresh'
 
 export function useHomeData(year: number, month: number) {
   const [data, setData] = useState<HomeData>(EMPTY)
   const [loading, setLoading] = useState(true)
+  const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     let cancelled = false
@@ -87,7 +89,7 @@ export function useHomeData(year: number, month: number) {
 
     load()
     return () => { cancelled = true }
-  }, [year, month])
+  }, [year, month, refreshKey])
 
   return { data, loading }
 }

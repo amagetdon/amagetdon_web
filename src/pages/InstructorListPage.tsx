@@ -59,7 +59,7 @@ function InstructorListPage() {
                     alt={instructor.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#04F87F]/80 via-[#04F87F]/10 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 h-1/4 bg-gradient-to-t from-black/80 to-transparent" />
                   <div className="absolute bottom-0 left-0 right-0 p-6">
                     <h3 className="text-2xl font-bold text-white mb-1">{instructor.name}</h3>
                     <p className="text-sm text-white/80 leading-snug">{instructor.title}</p>

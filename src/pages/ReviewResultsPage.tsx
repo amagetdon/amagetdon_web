@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { useStaleRefreshKey } from '../hooks/useVisibilityRefresh'
 import { Dialog } from '@headlessui/react'
 import toast from 'react-hot-toast'
 import Pagination from '../components/Pagination'
@@ -19,6 +20,7 @@ interface MyPurchasedCourse {
 
 function ReviewResultsPage() {
   const { user, profile } = useAuth()
+  const refreshKey = useStaleRefreshKey()
   const [currentPage, setCurrentPage] = useState(1)
   const [achievements, setAchievements] = useState<AchievementWithCourse[]>([])
   const [totalCount, setTotalCount] = useState(0)
@@ -64,7 +66,7 @@ function ReviewResultsPage() {
     }
   }
 
-  useEffect(() => { fetchAchievements() }, [currentPage])
+  useEffect(() => { fetchAchievements() }, [currentPage, refreshKey])
 
   useEffect(() => {
     Promise.all([
@@ -77,7 +79,7 @@ function ReviewResultsPage() {
       setPageBanners([])
       setEventBanners([])
     }).finally(() => setBannerLoading(false))
-  }, [])
+  }, [refreshKey])
 
   // 작성 모달 열 때 내 강의 로드
   useEffect(() => {

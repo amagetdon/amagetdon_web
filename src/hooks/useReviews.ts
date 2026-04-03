@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { reviewService } from '../services/reviewService'
+import { useVisibilityRefresh } from './useVisibilityRefresh'
 import type { ReviewWithCourse } from '../types'
 
 export function useReviews(options?: { page?: number; perPage?: number; instructorId?: number }) {
@@ -46,6 +47,8 @@ export function useReviews(options?: { page?: number; perPage?: number; instruct
     doFetch()
     return () => { cancelled = true }
   }, [page, perPage, instructorId])
+
+  useVisibilityRefresh(fetch)
 
   return { reviews, totalCount, loading, error, refetch: fetch }
 }
