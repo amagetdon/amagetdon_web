@@ -37,6 +37,10 @@ const fetchWithRetry: typeof fetch = async (input, init) => {
   return response
 }
 
+// navigator.locks 타임아웃 방지 - 백그라운드 탭 복귀 시 5초 대기 제거
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const noopLock = async (_name: string, _acquireTimeout: number, fn: () => Promise<any>) => fn()
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -44,8 +48,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     flowType: 'implicit',
     storageKey: 'sb-auth-token',
-    // navigator.locks 타임아웃 방지 - 백그라운드 탭 복귀 시 5초 대기 제거
-    lock: async (_name: string, _acquireTimeout: number, fn: () => Promise<unknown>) => fn(),
+    lock: noopLock,
   },
   db: {
     schema: 'public',
