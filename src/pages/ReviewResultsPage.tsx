@@ -4,6 +4,8 @@ import { Dialog } from '@headlessui/react'
 import toast from 'react-hot-toast'
 import Pagination from '../components/Pagination'
 import { supabase } from '../lib/supabase'
+import HeroSection from '../components/HeroSection'
+import EventBanner from '../components/EventBanner'
 import { achievementService } from '../services/achievementService'
 import { purchaseService } from '../services/purchaseService'
 import { storageService } from '../services/storageService'
@@ -38,8 +40,9 @@ function ReviewResultsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [myCourses, setMyCourses] = useState<MyPurchasedCourse[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [bannerUrl, setBannerUrl] = useState<string | null>(null)
-  const [eventUrl, setEventUrl] = useState<string | null>(null)
+  const [pageBanners, setPageBanners] = useState<import('../types').Banner[]>([])
+  const [eventBanners, setEventBanners] = useState<import('../types').Banner[]>([])
+  const [bannerLoading, setBannerLoading] = useState(true)
 
   const perPage = 4
   const totalPages = Math.ceil(totalCount / perPage)
@@ -61,12 +64,12 @@ function ReviewResultsPage() {
 
   useEffect(() => {
     Promise.all([
-      supabase.from('banners').select('image_url').eq('page_key', 'results').eq('is_published', true).order('sort_order').limit(1),
-      supabase.from('banners').select('image_url').eq('page_key', 'results_event').eq('is_published', true).order('sort_order').limit(1),
+      supabase.from('banners').select('*').eq('page_key', 'results').eq('is_published', true).order('sort_order'),
+      supabase.from('banners').select('*').eq('page_key', 'results_event').eq('is_published', true).order('sort_order'),
     ]).then(([bannerRes, eventRes]) => {
-      if (bannerRes.data?.[0]) setBannerUrl(bannerRes.data[0].image_url)
-      if (eventRes.data?.[0]) setEventUrl(eventRes.data[0].image_url)
-    })
+      setPageBanners((bannerRes.data ?? []) as import('../types').Banner[])
+      setEventBanners((eventRes.data ?? []) as import('../types').Banner[])
+    }).finally(() => setBannerLoading(false))
   }, [])
 
   // 작성 모달 열 때 내 강의 로드
@@ -185,18 +188,8 @@ function ReviewResultsPage() {
 
   return (
     <section className="w-full bg-white">
-      {bannerUrl ? (
-        <div className="w-full bg-black overflow-hidden">
-          <img src={bannerUrl} alt="" className="w-full h-auto" />
-        </div>
-      ) : (
-        <div className="w-full h-[200px] bg-black" />
-      )}
-      {eventUrl && (
-        <div className="w-full bg-black overflow-hidden">
-          <img src={eventUrl} alt="" className="w-full h-auto" />
-        </div>
-      )}
+      <HeroSection banners={pageBanners} loading={bannerLoading} />
+      {eventBanners.length > 0 && <EventBanner banner={eventBanners[0]} />}
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">
         <div className="flex items-center justify-between mt-10 mb-8">

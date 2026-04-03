@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import HeroSection from '../components/HeroSection'
+import EventBanner from '../components/EventBanner'
+import type { Banner } from '../types'
 import ReviewModal from '../components/ReviewModal'
 import Pagination from '../components/Pagination'
 import { useReviews } from '../hooks/useReviews'
@@ -21,35 +24,26 @@ function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const { reviews, totalCount, loading } = useReviews({ page: currentPage, perPage: 8 })
   const [selectedReview, setSelectedReview] = useState<ReviewWithCourse | null>(null)
-  const [bannerUrl, setBannerUrl] = useState<string | null>(null)
-  const [eventUrl, setEventUrl] = useState<string | null>(null)
+  const [pageBanners, setPageBanners] = useState<Banner[]>([])
+  const [eventBanners, setEventBanners] = useState<Banner[]>([])
+  const [bannerLoading, setBannerLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
-      supabase.from('banners').select('image_url').eq('page_key', 'reviews').eq('is_published', true).order('sort_order').limit(1),
-      supabase.from('banners').select('image_url').eq('page_key', 'reviews_event').eq('is_published', true).order('sort_order').limit(1),
+      supabase.from('banners').select('*').eq('page_key', 'reviews').eq('is_published', true).order('sort_order'),
+      supabase.from('banners').select('*').eq('page_key', 'reviews_event').eq('is_published', true).order('sort_order'),
     ]).then(([bannerRes, eventRes]) => {
-      if (bannerRes.data?.[0]) setBannerUrl(bannerRes.data[0].image_url)
-      if (eventRes.data?.[0]) setEventUrl(eventRes.data[0].image_url)
-    })
+      setPageBanners((bannerRes.data ?? []) as Banner[])
+      setEventBanners((eventRes.data ?? []) as Banner[])
+    }).finally(() => setBannerLoading(false))
   }, [])
 
   const totalPages = Math.ceil(totalCount / 8)
 
   return (
     <section className="w-full bg-white">
-      {bannerUrl ? (
-        <div className="w-full bg-black overflow-hidden">
-          <img src={bannerUrl} alt="" className="w-full h-auto" />
-        </div>
-      ) : (
-        <div className="w-full h-[200px] bg-black" />
-      )}
-      {eventUrl && (
-        <div className="w-full bg-black overflow-hidden">
-          <img src={eventUrl} alt="" className="w-full h-auto" />
-        </div>
-      )}
+      <HeroSection banners={pageBanners} loading={bannerLoading} />
+      {eventBanners.length > 0 && <EventBanner banner={eventBanners[0]} />}
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">
         <h1 className="text-2xl font-bold text-gray-900 mt-10 mb-8">조작없는 100% 수강생 후기</h1>

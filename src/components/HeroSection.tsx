@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { bannerService } from '../services/bannerService'
 import type { Banner } from '../types'
 
-function HeroSection({ banners: propBanners, loading: propLoading }: { banners?: Banner[]; loading?: boolean } = {}) {
+function HeroSection({ banners: propBanners, loading: propLoading, height }: { banners?: Banner[]; loading?: boolean; height?: string } = {}) {
   const [selfBanners, setSelfBanners] = useState<Banner[]>([])
   const [selfLoading, setSelfLoading] = useState(!propBanners)
   const [current, setCurrent] = useState(0)
@@ -66,7 +66,8 @@ function HeroSection({ banners: propBanners, loading: propLoading }: { banners?:
 
   return (
     <section
-      className={`relative w-full bg-black py-20 max-sm:py-12 overflow-hidden ${banner.link_url ? 'cursor-pointer' : ''}`}
+      className={`relative w-full bg-black overflow-hidden ${banner.link_url ? 'cursor-pointer' : ''} ${height ? 'flex items-center' : 'py-20 max-sm:py-12'}`}
+      style={height ? { height } : undefined}
       onClick={banner.link_url ? handleBannerClick : undefined}
     >
       {banner.image_url && (
