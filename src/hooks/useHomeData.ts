@@ -46,21 +46,22 @@ export function useHomeData(year: number, month: number) {
     const load = async (attempt = 1) => {
       try {
         const queries = [
-          supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order'),
-          supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order'),
-          supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').order('sort_order'),
-          supabase.from('instructors').select('*').eq('is_published', true).order('sort_order'),
-          supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(4),
-          supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).order('created_at', { ascending: false }).limit(5),
-          supabase.from('schedules').select('*, course:courses(id, title), instructor:instructors(id, name)').gte('scheduled_at', startDate).lte('scheduled_at', endDate).order('scheduled_at'),
-          supabase.from('banners').select('*').eq('page_key', 'bottom_links').eq('is_published', true).order('sort_order'),
+          supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order').then((r) => r),
+          supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order').then((r) => r),
+          supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').order('sort_order').then((r) => r),
+          supabase.from('instructors').select('*').eq('is_published', true).order('sort_order').then((r) => r),
+          supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(4).then((r) => r),
+          supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).order('created_at', { ascending: false }).limit(5).then((r) => r),
+          supabase.from('schedules').select('*, course:courses(id, title), instructor:instructors(id, name)').gte('scheduled_at', startDate).lte('scheduled_at', endDate).order('scheduled_at').then((r) => r),
+          supabase.from('banners').select('*').eq('page_key', 'bottom_links').eq('is_published', true).order('sort_order').then((r) => r),
         ]
 
         const results = await Promise.allSettled(queries.map((q) => withTimeout(q, 15000)))
 
         if (cancelled) return
 
-        const getData = (r: PromiseSettledResult<{ data: unknown }>) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const getData = (r: PromiseSettledResult<any>) =>
           r.status === 'fulfilled' ? (r.value.data ?? []) : []
 
         const [hero, ebooks, courses, instructors, resultData, reviews, schedules, bottomLinks] = results

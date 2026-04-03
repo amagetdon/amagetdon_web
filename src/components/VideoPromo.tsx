@@ -11,7 +11,7 @@ function VideoPromo() {
   useEffect(() => {
     supabase.from('site_settings').select('value').eq('key', 'promo_video').maybeSingle()
       .then(({ data }) => {
-        if (data) setVideoUrl((data.value as Record<string, string>)?.url || null)
+        if (data) setVideoUrl(((data as Record<string, unknown>).value as Record<string, string>)?.url || null)
       })
   }, [])
 
