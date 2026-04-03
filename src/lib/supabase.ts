@@ -4,55 +4,6 @@ import type { Database } from '../types/database'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// 잠금 사용 가능하면 즉시 실행, 아니면 잠금 없이 바로 실행
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const quickLock = async (name: string, _acquireTimeout: number, fn: () => Promise<any>) => {
-  if (typeof navigator === 'undefined' || !navigator.locks) {
-    return fn()
-  }
-
-  const result = await navigator.locks.request(name, { ifAvailable: true }, async (lock) => {
-    if (lock) return { ok: true as const, value: await fn() }
-    return { ok: false as const }
-  })
-
-  if (result.ok) return result.value
-  return fn()
-}
-
-// 세션 갱신 중복 방지
-let refreshing: Promise<void> | null = null
-
-async function ensureFreshSession() {
-  if (refreshing) return refreshing
-  refreshing = (async () => {
-    try {
-      await supabase.auth.refreshSession()
-    } catch {
-      try { await supabase.auth.getSession() } catch { /* 무시 */ }
-    } finally {
-      refreshing = null
-    }
-  })()
-  return refreshing
-}
-
-// 401 시 세션 갱신 후 재시도 (auth 엔드포인트는 제외)
-const fetchWithRetry: typeof fetch = async (input, init) => {
-  const response = await fetch(input, init)
-
-  if (response.status === 401) {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-    // auth 엔드포인트는 재시도하면 무한루프 → 스킵
-    if (url.includes('/auth/')) return response
-
-    await ensureFreshSession()
-    return fetch(input, init)
-  }
-
-  return response
-}
-
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -60,17 +11,13 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     flowType: 'implicit',
     storageKey: 'sb-auth-token',
-    lock: quickLock,
   },
   db: {
     schema: 'public',
   },
-  global: {
-    fetch: fetchWithRetry,
-  },
 })
 
-// 탭 복귀 시 즉시 세션 갱신 + 데이터 리페치 이벤트 발행
+// 탭 복귀 시 세션 갱신 + 리페치 이벤트
 let hiddenAt = 0
 
 document.addEventListener('visibilitychange', async () => {
@@ -79,17 +26,13 @@ document.addEventListener('visibilitychange', async () => {
     return
   }
 
-  if (hiddenAt && Date.now() - hiddenAt >= 30000) {
+  if (hiddenAt && Date.now() - hiddenAt >= 10000) {
     hiddenAt = 0
-    await ensureFreshSession()
-    window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
-  }
-})
-
-window.addEventListener('focus', async () => {
-  if (hiddenAt && Date.now() - hiddenAt >= 30000) {
-    hiddenAt = 0
-    await ensureFreshSession()
+    try {
+      await supabase.auth.refreshSession()
+    } catch {
+      try { await supabase.auth.getSession() } catch { /* */ }
+    }
     window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
   }
 })

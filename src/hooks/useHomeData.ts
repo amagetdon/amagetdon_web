@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { withTimeout } from '../lib/fetchWithTimeout'
+import { useStaleRefreshKey } from './useVisibilityRefresh'
 import type {
   Banner,
   CourseWithInstructor,
@@ -32,9 +34,6 @@ const EMPTY: HomeData = {
   bottomLinks: [],
 }
 
-import { withTimeout } from '../lib/fetchWithTimeout'
-import { useStaleRefreshKey } from './useVisibilityRefresh'
-
 export function useHomeData(year: number, month: number) {
   const [data, setData] = useState<HomeData>(EMPTY)
   const [loading, setLoading] = useState(true)
@@ -66,6 +65,20 @@ export function useHomeData(year: number, month: number) {
         const getData = (r: PromiseSettledResult<any>) =>
           r.status === 'fulfilled' ? (r.value.data ?? []) : []
 
+        // 모든 쿼리가 빈 데이터면 세션 문제일 수 있음 → 세션 갱신 후 재시도
+        const allEmpty = results.every((r) =>
+          r.status !== 'fulfilled' || !r.value.data || r.value.data.length === 0
+        )
+
+        if (allEmpty && attempt < 3) {
+          try { await supabase.auth.refreshSession() } catch { /* */ }
+          if (!cancelled) {
+            await new Promise((r) => setTimeout(r, 500))
+            return load(attempt + 1)
+          }
+          return
+        }
+
         const [hero, ebooks, courses, instructors, resultData, reviews, schedules, bottomLinks] = results
         setData({
           heroBanners: getData(hero) as Banner[],
@@ -79,6 +92,7 @@ export function useHomeData(year: number, month: number) {
         })
       } catch {
         if (!cancelled && attempt < 3) {
+          try { await supabase.auth.refreshSession() } catch { /* */ }
           await new Promise((r) => setTimeout(r, 1000 * attempt))
           return load(attempt + 1)
         }
