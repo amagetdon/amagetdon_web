@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
+import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -61,6 +62,7 @@ export default function AdminMembers() {
   }
 
   useEffect(() => { fetchData() }, [])
+  useVisibilityRefresh(fetchData)
 
   const handleViewMember = async (member: MemberWithPurchases) => {
     setViewing(member)

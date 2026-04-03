@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
+import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
@@ -30,6 +31,7 @@ export default function AdminSchedules() {
     } catch { toast.error('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
   }
   useEffect(() => { fetchData() }, [year, month])
+  useVisibilityRefresh(fetchData)
 
   const handleSave = async () => {
     if (!editing || !editing.title || !editing.scheduled_at) { toast.error('제목과 일시는 필수입니다.'); return }

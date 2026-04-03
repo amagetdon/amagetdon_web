@@ -20,20 +20,39 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
 // 탭 복귀 시 세션 갱신 + 데이터 리페치 이벤트 발행
 let lastRefresh = 0
 let hiddenAt = 0
-const STALE_THRESHOLD = 120000 // 2분 이상 백그라운드에 있었으면 리페치
+const STALE_THRESHOLD = 30000 // 30초 이상 백그라운드에 있었으면 리페치
 
 async function refreshIfStale() {
   const now = Date.now()
-  if (now - lastRefresh < 60000) return
+  const elapsed = hiddenAt ? now - hiddenAt : 0
+  const isStale = elapsed >= STALE_THRESHOLD
+
+  // 중복 호출 방지 (10초 이내)
+  if (now - lastRefresh < 10000) {
+    if (isStale) {
+      window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
+    }
+    return
+  }
   lastRefresh = now
+
   try {
-    await supabase.auth.getSession()
+    // refreshSession으로 토큰 확실히 갱신
+    const { data } = await supabase.auth.refreshSession()
+    if (!data.session) {
+      // refresh 실패 시 getSession fallback
+      await supabase.auth.getSession()
+    }
   } catch {
-    // 세션 갱신 실패해도 리페치 시도
+    try {
+      await supabase.auth.getSession()
+    } catch {
+      // 세션 갱신 완전 실패
+    }
   }
 
-  // 2분 이상 백그라운드였으면 데이터 리페치 이벤트 발행
-  if (hiddenAt && now - hiddenAt >= STALE_THRESHOLD) {
+  if (isStale) {
+    hiddenAt = 0
     window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
   }
 }
