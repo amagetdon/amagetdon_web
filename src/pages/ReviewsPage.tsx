@@ -35,6 +35,9 @@ function ReviewsPage() {
     ]).then(([bannerRes, eventRes]) => {
       setPageBanners((bannerRes.data ?? []) as Banner[])
       setEventBanners((eventRes.data ?? []) as Banner[])
+    }).catch(() => {
+      setPageBanners([])
+      setEventBanners([])
     }).finally(() => setBannerLoading(false))
   }, [])
 

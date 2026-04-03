@@ -14,10 +14,14 @@ function SearchPage() {
 
   useEffect(() => {
     if (!query.trim()) {
+      setCourses([])
+      setInstructors([])
+      setEbooks([])
       setLoading(false)
       return
     }
 
+    let cancelled = false
     const search = async () => {
       try {
         setLoading(true)
@@ -29,16 +33,22 @@ function SearchPage() {
           supabase.from('ebooks').select('*, instructor:instructors(id, name)').ilike('title', keyword),
         ])
 
+        if (cancelled) return
         setCourses((coursesRes.data || []) as CourseWithInstructor[])
         setInstructors((instructorsRes.data || []) as Instructor[])
         setEbooks((ebooksRes.data || []) as EbookWithInstructor[])
       } catch {
-        // 검색 실패 시 빈 결과
+        if (!cancelled) {
+          setCourses([])
+          setInstructors([])
+          setEbooks([])
+        }
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     search()
+    return () => { cancelled = true }
   }, [query])
 
   const totalResults = courses.length + instructors.length + ebooks.length

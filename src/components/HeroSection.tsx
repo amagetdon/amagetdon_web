@@ -59,8 +59,17 @@ function HeroSection({ banners: propBanners, loading: propLoading, height }: { b
 
   const handleBannerClick = () => {
     if (banner.link_url) {
-      if (banner.link_url.startsWith('http')) window.open(banner.link_url, '_blank')
-      else window.location.href = banner.link_url
+      try {
+        const url = new URL(banner.link_url, window.location.origin)
+        if (['http:', 'https:'].includes(url.protocol)) {
+          if (banner.link_url.startsWith('http')) window.open(banner.link_url, '_blank', 'noopener')
+          else window.location.href = banner.link_url
+        }
+      } catch {
+        if (banner.link_url.startsWith('/')) {
+          window.location.href = banner.link_url
+        }
+      }
     }
   }
 

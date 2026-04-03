@@ -25,8 +25,12 @@ function ReviewResultsPage() {
   const [loading, setLoading] = useState(true)
   const [selectedAchievement, setSelectedAchievement] = useState<AchievementWithCourse | null>(null)
   const [likedIds, setLikedIds] = useState<Set<number>>(() => {
-    const saved = localStorage.getItem('liked_achievements')
-    return saved ? new Set(JSON.parse(saved)) : new Set()
+    try {
+      const saved = localStorage.getItem('liked_achievements')
+      return saved ? new Set(JSON.parse(saved)) : new Set()
+    } catch {
+      return new Set()
+    }
   })
 
   // 작성/수정 모달
@@ -69,6 +73,9 @@ function ReviewResultsPage() {
     ]).then(([bannerRes, eventRes]) => {
       setPageBanners((bannerRes.data ?? []) as import('../types').Banner[])
       setEventBanners((eventRes.data ?? []) as import('../types').Banner[])
+    }).catch(() => {
+      setPageBanners([])
+      setEventBanners([])
     }).finally(() => setBannerLoading(false))
   }, [])
 

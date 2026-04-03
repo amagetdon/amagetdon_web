@@ -22,6 +22,9 @@ function EbookDetailPage() {
 
   useEffect(() => {
     if (!id) return
+    setLoading(true)
+    setOwned(false)
+    setOwnershipLoading(true)
     const fetchEbook = async () => {
       try {
         const { data, error } = await supabase

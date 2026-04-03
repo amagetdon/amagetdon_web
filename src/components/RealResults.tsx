@@ -1,8 +1,19 @@
-import { useState } from 'react'
+import { useState, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import VideoEmbed from './VideoEmbed'
 import { getVideoThumbnail } from '../utils/videoUrl'
 import type { Result, ReviewWithCourse } from '../types'
+
+function formatBoldText(text: string) {
+  const parts = text.split(/(\*\*.+?\*\*)/g)
+  return parts.map((part, idx) =>
+    part.startsWith('**') && part.endsWith('**') ? (
+      <strong key={idx} className="text-white font-bold">{part.slice(2, -2)}</strong>
+    ) : (
+      <Fragment key={idx}>{part}</Fragment>
+    )
+  )
+}
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -124,9 +135,9 @@ function RealResults({ results, reviews, loading }: { results: Result[]; reviews
               <span className="inline-block bg-[#04F87F] text-black text-xs font-bold px-4 py-1.5 rounded-full mb-3">
                 {card.author_name}
               </span>
-              <p className="text-sm text-gray-300 mb-4 text-center" dangerouslySetInnerHTML={{
-                __html: (card.preview || card.title).replace(/\*\*(.+?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
-              }} />
+              <p className="text-sm text-gray-300 mb-4 text-center">
+                {formatBoldText(card.preview || card.title)}
+              </p>
               <ResultCard card={card} idx={idx} onPlayVideo={setActiveVideoUrl} />
             </div>
           ))}
@@ -167,7 +178,7 @@ function RealResults({ results, reviews, loading }: { results: Result[]; reviews
           <div className="max-w-[1200px] mx-auto px-5 marquee-container">
             <div className="flex gap-5 animate-marquee w-fit py-10">
               {duplicatedReviews.map((review, idx) => (
-                <ReviewCard key={idx} review={review} />
+                <ReviewCard key={`${review.id ?? 0}-${idx}`} review={review} />
               ))}
             </div>
           </div>

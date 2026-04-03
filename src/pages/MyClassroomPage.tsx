@@ -85,29 +85,53 @@ function MyClassroomPage() {
 
   useEffect(() => {
     if (!user) return
-    Promise.all([
-      purchaseService.getMyClassroom(user.id),
-      purchaseService.getMyEbooks(user.id),
-    ]).then(([courseData, ebookData]) => {
-      const courses = courseData as CoursePurchase[]
-      const ebooks = ebookData as EbookPurchase[]
-      setCoursePurchases(courses)
-      setEbookPurchases(ebooks)
-      const courseIds = courses
-        .map((p) => p.course?.id)
-        .filter((id): id is number => id != null)
-      if (courseIds.length > 0) {
-        loadProgress(user.id, courseIds)
-        Promise.all(
-          courseIds.map(async (cid) => {
-            const existing = await reviewService.getByUser(user.id, cid)
-            return existing ? cid : null
-          })
-        ).then((results) => {
-          setReviewedCourses(new Set(results.filter((id): id is number => id != null)))
-        }).catch(() => {})
+    let cancelled = false
+
+    const loadData = async () => {
+      try {
+        const [courseData, ebookData] = await Promise.all([
+          purchaseService.getMyClassroom(user.id),
+          purchaseService.getMyEbooks(user.id),
+        ])
+        if (cancelled) return
+
+        const courses = courseData as CoursePurchase[]
+        const ebooks = ebookData as EbookPurchase[]
+        setCoursePurchases(courses)
+        setEbookPurchases(ebooks)
+
+        const courseIds = courses
+          .map((p) => p.course?.id)
+          .filter((id): id is number => id != null)
+
+        if (courseIds.length > 0) {
+          await Promise.all([
+            loadProgress(user.id, courseIds),
+            Promise.all(
+              courseIds.map(async (cid) => {
+                try {
+                  const existing = await reviewService.getByUser(user.id, cid)
+                  return existing ? cid : null
+                } catch {
+                  return null
+                }
+              })
+            ).then((results) => {
+              if (!cancelled) {
+                setReviewedCourses(new Set(results.filter((id): id is number => id != null)))
+              }
+            }),
+          ])
+        }
+      } catch {
+        // 데이터 로드 실패
+      } finally {
+        if (!cancelled) setLoading(false)
       }
-    }).catch(() => {}).finally(() => setLoading(false))
+    }
+
+    loadData()
+    return () => { cancelled = true }
   }, [user, loadProgress])
 
   const getDDay = (expiresAt: string | null) => {

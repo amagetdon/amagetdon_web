@@ -47,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       await fetchProfile(user.id)
     }
-  }, [user])
+  }, [user?.id])
 
   useEffect(() => {
     let initialSessionHandled = false

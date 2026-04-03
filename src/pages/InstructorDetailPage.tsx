@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useInstructor } from '../hooks/useInstructors'
 import { useCoursesByInstructor } from '../hooks/useCourses'
@@ -25,6 +25,10 @@ function InstructorDetailPage() {
   const { ebooks } = useEbooksByInstructor(instructorId)
   const [currentPage, setCurrentPage] = useState(1)
   const { reviews, totalCount } = useReviews({ page: currentPage, perPage: 4, instructorId: instructorId ?? undefined })
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [instructorId])
 
   const totalPages = Math.ceil(totalCount / 4)
 

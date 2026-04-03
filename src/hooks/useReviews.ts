@@ -8,10 +8,14 @@ export function useReviews(options?: { page?: number; perPage?: number; instruct
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const page = options?.page
+  const perPage = options?.perPage
+  const instructorId = options?.instructorId
+
   const fetch = useCallback(async () => {
     try {
       setLoading(true)
-      const { data, count } = await reviewService.getAll(options)
+      const { data, count } = await reviewService.getAll({ page, perPage, instructorId })
       setReviews(data)
       setTotalCount(count)
     } catch (err) {
@@ -19,11 +23,29 @@ export function useReviews(options?: { page?: number; perPage?: number; instruct
     } finally {
       setLoading(false)
     }
-  }, [options?.page, options?.perPage, options?.instructorId])
+  }, [page, perPage, instructorId])
 
   useEffect(() => {
-    fetch()
-  }, [fetch])
+    let cancelled = false
+    const doFetch = async () => {
+      try {
+        setLoading(true)
+        const { data, count } = await reviewService.getAll({ page, perPage, instructorId })
+        if (!cancelled) {
+          setReviews(data)
+          setTotalCount(count)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : '후기를 불러오는데 실패했습니다')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    doFetch()
+    return () => { cancelled = true }
+  }, [page, perPage, instructorId])
 
   return { reviews, totalCount, loading, error, refetch: fetch }
 }

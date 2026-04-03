@@ -47,6 +47,8 @@ function CourseDetailPage() {
   }, [course?.enrollment_deadline, isClosed])
 
   useEffect(() => {
+    setOwned(false)
+    setOwnershipLoading(true)
     if (!user || !courseId) {
       setOwnershipLoading(false)
       return
