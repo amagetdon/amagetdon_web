@@ -12,6 +12,7 @@ const AcademyPage = lazy(() => import('./pages/AcademyPage'))
 const InstructorListPage = lazy(() => import('./pages/InstructorListPage'))
 const InstructorDetailPage = lazy(() => import('./pages/InstructorDetailPage'))
 const ReviewsPage = lazy(() => import('./pages/ReviewsPage'))
+const ReviewResultsPage = lazy(() => import('./pages/ReviewResultsPage'))
 const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage'))
 const AcademyFreePage = lazy(() => import('./pages/AcademyFreePage'))
 const AcademyPremiumPage = lazy(() => import('./pages/AcademyPremiumPage'))
@@ -38,6 +39,7 @@ const AdminFaqs = lazy(() => import('./pages/admin/AdminFaqs'))
 const AdminSiteSettings = lazy(() => import('./pages/admin/AdminSiteSettings'))
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
 const AdminMembers = lazy(() => import('./pages/admin/AdminMembers'))
+const AdminAchievements = lazy(() => import('./pages/admin/AdminAchievements'))
 
 function PageLoader() {
   return (
@@ -61,6 +63,7 @@ function App() {
                 <Route path="/instructors" element={<InstructorListPage />} />
                 <Route path="/instructors/:id" element={<InstructorDetailPage />} />
                 <Route path="/reviews" element={<ReviewsPage />} />
+                <Route path="/reviews/results" element={<ReviewResultsPage />} />
                 <Route path="/academy/free" element={<AcademyFreePage />} />
                 <Route path="/academy/premium" element={<AcademyPremiumPage />} />
                 <Route path="/course/:id" element={<CourseDetailPage />} />
@@ -85,6 +88,7 @@ function App() {
                 <Route path="/admin/schedules" element={<AdminRoute><AdminSchedules /></AdminRoute>} />
                 <Route path="/admin/faqs" element={<AdminRoute><AdminFaqs /></AdminRoute>} />
                 <Route path="/admin/members" element={<AdminRoute><AdminMembers /></AdminRoute>} />
+                <Route path="/admin/achievements" element={<AdminRoute><AdminAchievements /></AdminRoute>} />
                 <Route path="/admin/site-settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
                 <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
               </Routes>

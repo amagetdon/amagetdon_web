@@ -11,6 +11,7 @@ export type {
   Review,
   ReviewWithCourse,
   Result,
+  Achievement,
   Schedule,
   ScheduleWithDetails,
   Faq,

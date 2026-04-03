@@ -66,6 +66,11 @@ export interface Database {
         Insert: Omit<CourseProgress, 'id' | 'created_at'>
         Update: Partial<Omit<CourseProgress, 'id' | 'created_at'>>
       }
+      achievements: {
+        Row: Achievement
+        Insert: Omit<Achievement, 'id' | 'created_at'>
+        Update: Partial<Omit<Achievement, 'id' | 'created_at'>>
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -275,6 +280,17 @@ export interface PointLog {
   type: 'charge' | 'deduct' | 'use' | 'refund'
   memo: string | null
   admin_id: string | null
+  created_at: string
+}
+
+export interface Achievement {
+  id: number
+  user_id: string
+  author_name: string
+  title: string
+  content: string
+  image_url: string | null
+  is_published: boolean
   created_at: string
 }
 
