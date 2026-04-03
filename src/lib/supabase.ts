@@ -4,6 +4,39 @@ import type { Database } from '../types/database'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+// 세션 갱신 중복 방지
+let refreshPromise: Promise<void> | null = null
+
+async function refreshSession() {
+  if (refreshPromise) return refreshPromise
+  refreshPromise = (async () => {
+    try {
+      const { data } = await supabase.auth.refreshSession()
+      if (!data.session) {
+        await supabase.auth.getSession()
+      }
+    } catch {
+      try { await supabase.auth.getSession() } catch { /* 무시 */ }
+    } finally {
+      refreshPromise = null
+    }
+  })()
+  return refreshPromise
+}
+
+// 401 에러 시 세션 갱신 후 자동 재시도하는 커스텀 fetch
+const fetchWithRetry: typeof fetch = async (input, init) => {
+  const response = await fetch(input, init)
+
+  // 401이면 세션 갱신 후 한 번 재시도
+  if (response.status === 401) {
+    await refreshSession()
+    return fetch(input, init)
+  }
+
+  return response
+}
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
@@ -15,55 +48,32 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   db: {
     schema: 'public',
   },
+  global: {
+    fetch: fetchWithRetry,
+  },
 })
 
-// 탭 복귀 시 세션 갱신 + 데이터 리페치 이벤트 발행
-let lastRefresh = 0
+// 탭 복귀 시 즉시 세션 갱신 + 데이터 리페치 이벤트 발행
 let hiddenAt = 0
-const STALE_THRESHOLD = 30000 // 30초 이상 백그라운드에 있었으면 리페치
 
-async function refreshIfStale() {
-  const now = Date.now()
-  const elapsed = hiddenAt ? now - hiddenAt : 0
-  const isStale = elapsed >= STALE_THRESHOLD
-
-  // 중복 호출 방지 (10초 이내)
-  if (now - lastRefresh < 10000) {
-    if (isStale) {
-      window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
-    }
-    return
-  }
-  lastRefresh = now
-
-  try {
-    // refreshSession으로 토큰 확실히 갱신
-    const { data } = await supabase.auth.refreshSession()
-    if (!data.session) {
-      // refresh 실패 시 getSession fallback
-      await supabase.auth.getSession()
-    }
-  } catch {
-    try {
-      await supabase.auth.getSession()
-    } catch {
-      // 세션 갱신 완전 실패
-    }
-  }
-
-  if (isStale) {
-    hiddenAt = 0
-    window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
-  }
-}
-
-const handleVisibilityChange = () => {
+document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'hidden') {
     hiddenAt = Date.now()
-  } else if (document.visibilityState === 'visible') {
-    refreshIfStale()
+    return
   }
-}
 
-document.addEventListener('visibilitychange', handleVisibilityChange)
-window.addEventListener('focus', () => refreshIfStale())
+  // visible로 복귀
+  if (hiddenAt && Date.now() - hiddenAt >= 30000) {
+    hiddenAt = 0
+    await refreshSession()
+    window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
+  }
+})
+
+window.addEventListener('focus', async () => {
+  if (hiddenAt && Date.now() - hiddenAt >= 30000) {
+    hiddenAt = 0
+    await refreshSession()
+    window.dispatchEvent(new CustomEvent('supabase:stale-refresh'))
+  }
+})
