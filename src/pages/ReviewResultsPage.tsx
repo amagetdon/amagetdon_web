@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Dialog } from '@headlessui/react'
 import toast from 'react-hot-toast'
-import { ReviewTabs } from './ReviewsPage'
 import Pagination from '../components/Pagination'
 import { achievementService } from '../services/achievementService'
 import { purchaseService } from '../services/purchaseService'
@@ -174,7 +173,6 @@ function ReviewResultsPage() {
   return (
     <section className="w-full bg-white">
       <div className="w-full h-[200px] bg-black" />
-      <ReviewTabs />
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">
         <div className="flex items-center justify-between mt-10 mb-8">

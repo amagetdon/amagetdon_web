@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom'
+
 interface ReviewData {
   title: string
   author: string
@@ -5,6 +7,7 @@ interface ReviewData {
   rating: number
   content: string
   courseName: string
+  courseId: number | null
 }
 
 interface ReviewModalProps {
@@ -40,7 +43,6 @@ function ReviewModal({ isOpen, onClose, review }: ReviewModalProps) {
         className="bg-white rounded-xl p-8 max-w-[600px] w-full mx-4 relative max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close button */}
         <button
           onClick={onClose}
           className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer text-gray-400 hover:text-gray-600"
@@ -49,28 +51,33 @@ function ReviewModal({ isOpen, onClose, review }: ReviewModalProps) {
           <i className="ti ti-x text-xl" />
         </button>
 
-        {/* Author & date */}
         <div className="mb-3">
           <span className="text-xs text-gray-400">{review.author} | {review.date}</span>
         </div>
 
-        {/* Title */}
         <h2 className="text-lg font-bold text-gray-900 mb-3">{review.title}</h2>
 
-        {/* Star rating */}
         <div className="mb-4">
           <StarRating rating={review.rating} />
         </div>
 
-        {/* Full content text - not truncated */}
         <p className="text-sm text-gray-600 leading-relaxed mb-8 whitespace-pre-line">
           {review.content}
         </p>
 
-        {/* Course link button */}
-        <button className="bg-[#04F87F] text-white rounded-full px-6 py-3 text-sm font-medium border-none cursor-pointer hover:bg-[#03d46d] transition-colors">
-          이 수강생이 선택한 강의 &gt;
-        </button>
+        {review.courseId ? (
+          <Link
+            to={`/course/${review.courseId}`}
+            onClick={onClose}
+            className="inline-block bg-[#04F87F] text-white rounded-full px-6 py-3 text-sm font-medium no-underline hover:bg-[#03d46d] transition-colors"
+          >
+            이 수강생이 선택한 강의 &gt;
+          </Link>
+        ) : review.courseName ? (
+          <span className="inline-block bg-gray-100 text-gray-500 rounded-full px-6 py-3 text-sm font-medium">
+            {review.courseName}
+          </span>
+        ) : null}
       </div>
     </div>
   )

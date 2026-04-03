@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
 import ReviewModal from '../components/ReviewModal'
 import Pagination from '../components/Pagination'
 import { useReviews } from '../hooks/useReviews'
@@ -16,33 +15,6 @@ function StarRating({ rating }: { rating: number }) {
   )
 }
 
-export function ReviewTabs() {
-  const location = useLocation()
-  const isResults = location.pathname === '/reviews/results'
-
-  return (
-    <div className="max-w-[1200px] mx-auto px-5">
-      <div className="flex gap-6 border-b border-gray-200 mt-10">
-        <Link
-          to="/reviews"
-          className={`py-3 text-sm no-underline border-b-2 transition-colors ${
-            !isResults ? 'text-gray-900 font-bold border-gray-900' : 'text-gray-400 border-transparent hover:text-gray-600'
-          }`}
-        >
-          수강 후기
-        </Link>
-        <Link
-          to="/reviews/results"
-          className={`py-3 text-sm no-underline border-b-2 transition-colors ${
-            isResults ? 'text-gray-900 font-bold border-gray-900' : 'text-gray-400 border-transparent hover:text-gray-600'
-          }`}
-        >
-          수강 성과
-        </Link>
-      </div>
-    </div>
-  )
-}
 
 function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1)
@@ -54,8 +26,6 @@ function ReviewsPage() {
   return (
     <section className="w-full bg-white">
       <div className="w-full h-[200px] bg-black" />
-
-      <ReviewTabs />
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">
         <h1 className="text-2xl font-bold text-gray-900 mt-10 mb-8">조작없는 100% 수강생 후기</h1>
@@ -109,6 +79,7 @@ function ReviewsPage() {
             rating: selectedReview.rating,
             content: selectedReview.content,
             courseName: selectedReview.course?.title || '',
+            courseId: selectedReview.course_id,
           }}
         />
       )}

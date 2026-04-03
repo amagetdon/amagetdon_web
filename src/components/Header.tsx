@@ -26,6 +26,7 @@ function Header() {
     { label: '아카데미', path: '/academy' },
     { label: '강사소개', path: '/instructors' },
     { label: '수강 후기', path: '/reviews' },
+    { label: '수강 성과', path: '/results' },
     { label: '공지사항', path: '/notice' },
     { label: 'FAQ', path: '/faq' },
   ]
@@ -34,7 +35,8 @@ function Header() {
     if (itemPath === '/') return currentPath === '/'
     if (itemPath === '/academy') return currentPath.startsWith('/academy')
     if (itemPath === '/instructors') return currentPath.startsWith('/instructors')
-    if (itemPath === '/reviews') return currentPath.startsWith('/reviews')
+    if (itemPath === '/results') return currentPath === '/results'
+    if (itemPath === '/reviews') return currentPath === '/reviews'
     if (itemPath === '/faq') return currentPath === '/faq'
     return currentPath === itemPath
   }
