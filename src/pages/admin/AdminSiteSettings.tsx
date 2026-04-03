@@ -17,10 +17,16 @@ export default function AdminSiteSettings() {
   const [tab, setTab] = useState<SectionTab>('general')
 
   // 배너
-  const [banners, setBanners] = useState<Banner[]>([])
+  type BannerSubTab = 'hero' | 'reviews' | 'results'
+  const [bannerSubTab, setBannerSubTab] = useState<BannerSubTab>('hero')
+  const [allBanners, setAllBanners] = useState<Record<string, Banner[]>>({ hero: [], reviews: [], results: [], reviews_event: [], results_event: [] })
   const [bannerEditing, setBannerEditing] = useState<Record<string, unknown> | null>(null)
   const [bannerSaving, setBannerSaving] = useState(false)
   const [bannerDeleteTarget, setBannerDeleteTarget] = useState<number | null>(null)
+  const [editingPageKey, setEditingPageKey] = useState<string>('hero')
+  const banners = allBanners[bannerSubTab]
+  const eventKey = `${bannerSubTab}_event` as string
+  const eventBanners = allBanners[eventKey] || []
 
   // 성과
   const [results, setResults] = useState<Result[]>([])
@@ -46,13 +52,17 @@ export default function AdminSiteSettings() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [bannerData, resultData, linkData, settingsData] = await withTimeout(Promise.all([
+      const [heroBanners, reviewsBanners, resultsBanners, reviewsEvent, resultsEvent, resultData, linkData, settingsData] = await withTimeout(Promise.all([
         bannerService.getAllByPage('hero'),
+        bannerService.getAllByPage('reviews'),
+        bannerService.getAllByPage('results'),
+        bannerService.getAllByPage('reviews_event'),
+        bannerService.getAllByPage('results_event'),
         resultService.getAll({ perPage: 50 }),
         bannerService.getAllByPage('bottom_links'),
         supabase.from('site_settings').select('*'),
       ]))
-      setBanners(bannerData)
+      setAllBanners({ hero: heroBanners, reviews: reviewsBanners, results: resultsBanners, reviews_event: reviewsEvent, results_event: resultsEvent })
       setResults(resultData.data)
       setBottomLinks(linkData)
       if (settingsData.data) {
@@ -100,7 +110,7 @@ export default function AdminSiteSettings() {
         toast.success('배너가 수정되었습니다.')
       } else {
         await bannerService.create({
-          page_key: 'hero',
+          page_key: editingPageKey,
           title: (bannerEditing.title as string) || null,
           subtitle: (bannerEditing.subtitle as string) || null,
           image_url: (bannerEditing.image_url as string) || '',
@@ -296,12 +306,25 @@ export default function AdminSiteSettings() {
           </button>
         </div>
       ) : tab === 'banners' ? (
-        /* ── 히어로 배너 ── */
+        /* ── 배너 관리 ── */
         <>
+          <div className="flex gap-2 mb-4">
+            {([['hero', '메인 히어로'], ['reviews', '수강 후기'], ['results', '수강 성과']] as const).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setBannerSubTab(key)}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${
+                  bannerSubTab === key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-500">등록된 배너 {banners.length}개</p>
             <button
-              onClick={() => setBannerEditing({ title: '', subtitle: '', image_url: '', link_url: '', overlay_opacity: 30, sort_order: banners.length, is_published: true })}
+              onClick={() => { setEditingPageKey(bannerSubTab); setBannerEditing({ title: '', subtitle: '', image_url: '', link_url: '', overlay_opacity: 30, sort_order: banners.length, is_published: true }) }}
               className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"
             >
               <i className="ti ti-plus text-sm" /> 배너 추가
@@ -338,7 +361,7 @@ export default function AdminSiteSettings() {
                         {banner.subtitle && <p className="text-xs text-gray-500 truncate mt-0.5">{banner.subtitle}</p>}
                       </div>
                       <div className="flex items-center gap-1 ml-4">
-                        <button onClick={() => setBannerEditing(banner as unknown as Record<string, unknown>)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
+                        <button onClick={() => { setEditingPageKey(banner.page_key); setBannerEditing(banner as unknown as Record<string, unknown>) }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
                         <button onClick={() => setBannerDeleteTarget(banner.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
                       </div>
                     </div>
@@ -346,6 +369,57 @@ export default function AdminSiteSettings() {
                 </div>
               ))}
             </div>
+          )}
+
+          {/* 이벤트 안내 (reviews/results 서브탭만) */}
+          {bannerSubTab !== 'hero' && (
+            <>
+              <div className="flex items-center justify-between mb-4 mt-8 pt-6 border-t border-gray-200">
+                <div>
+                  <p className="text-sm font-bold text-gray-900">이벤트 안내 이미지</p>
+                  <p className="text-xs text-gray-400 mt-0.5">배너 아래에 표시되는 이벤트/안내 이미지 ({eventBanners.length}개)</p>
+                </div>
+                <button
+                  onClick={() => { setEditingPageKey(eventKey); setBannerEditing({ title: '이벤트 안내', subtitle: '', image_url: '', link_url: '', overlay_opacity: 0, sort_order: eventBanners.length, is_published: true }) }}
+                  className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"
+                >
+                  <i className="ti ti-plus text-sm" /> 이벤트 안내 추가
+                </button>
+              </div>
+              {eventBanners.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">등록된 이벤트 안내가 없습니다.</div>
+              ) : (
+                <div className="space-y-3">
+                  {eventBanners.map((banner) => (
+                    <div key={banner.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
+                      <div className="flex items-stretch">
+                        <div className="relative w-[240px] max-sm:w-[120px] shrink-0 bg-black flex items-center justify-center overflow-hidden">
+                          {banner.image_url ? (
+                            <img src={banner.image_url} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="text-gray-600 text-xs">이미지 없음</div>
+                          )}
+                        </div>
+                        <div className="flex-1 p-4 flex items-center justify-between">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full ${banner.is_published ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                                {banner.is_published ? '공개' : '비공개'}
+                              </span>
+                            </div>
+                            <p className="text-sm font-bold text-gray-900 truncate">{banner.title || '이벤트 안내'}</p>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0 ml-3">
+                            <button onClick={() => { setEditingPageKey(banner.page_key); setBannerEditing(banner as unknown as Record<string, unknown>) }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
+                            <button onClick={() => setBannerDeleteTarget(banner.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </>
       ) : tab === 'results' ? (

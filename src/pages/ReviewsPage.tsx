@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 import ReviewModal from '../components/ReviewModal'
 import Pagination from '../components/Pagination'
 import { useReviews } from '../hooks/useReviews'
@@ -20,12 +21,35 @@ function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const { reviews, totalCount, loading } = useReviews({ page: currentPage, perPage: 8 })
   const [selectedReview, setSelectedReview] = useState<ReviewWithCourse | null>(null)
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null)
+  const [eventUrl, setEventUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('banners').select('image_url').eq('page_key', 'reviews').eq('is_published', true).order('sort_order').limit(1),
+      supabase.from('banners').select('image_url').eq('page_key', 'reviews_event').eq('is_published', true).order('sort_order').limit(1),
+    ]).then(([bannerRes, eventRes]) => {
+      if (bannerRes.data?.[0]) setBannerUrl(bannerRes.data[0].image_url)
+      if (eventRes.data?.[0]) setEventUrl(eventRes.data[0].image_url)
+    })
+  }, [])
 
   const totalPages = Math.ceil(totalCount / 8)
 
   return (
     <section className="w-full bg-white">
-      <div className="w-full h-[200px] bg-black" />
+      {bannerUrl ? (
+        <div className="w-full bg-black overflow-hidden">
+          <img src={bannerUrl} alt="" className="w-full h-auto" />
+        </div>
+      ) : (
+        <div className="w-full h-[200px] bg-black" />
+      )}
+      {eventUrl && (
+        <div className="w-full bg-black overflow-hidden">
+          <img src={eventUrl} alt="" className="w-full h-auto" />
+        </div>
+      )}
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">
         <h1 className="text-2xl font-bold text-gray-900 mt-10 mb-8">조작없는 100% 수강생 후기</h1>

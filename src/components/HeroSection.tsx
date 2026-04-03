@@ -57,8 +57,18 @@ function HeroSection({ banners: propBanners, loading: propLoading }: { banners?:
 
   const banner = banners[current]
 
+  const handleBannerClick = () => {
+    if (banner.link_url) {
+      if (banner.link_url.startsWith('http')) window.open(banner.link_url, '_blank')
+      else window.location.href = banner.link_url
+    }
+  }
+
   return (
-    <section className="relative w-full bg-black py-20 max-sm:py-12 overflow-hidden">
+    <section
+      className={`relative w-full bg-black py-20 max-sm:py-12 overflow-hidden ${banner.link_url ? 'cursor-pointer' : ''}`}
+      onClick={banner.link_url ? handleBannerClick : undefined}
+    >
       {banner.image_url && (
         <img src={banner.image_url} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }} />
       )}
