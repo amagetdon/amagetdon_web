@@ -49,9 +49,9 @@ export default function ConfirmDialog({
           >
             <DialogPanel className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
-                confirmColor === 'red' ? 'bg-red-50' : 'bg-[#5FFF85]/10'
+                confirmColor === 'red' ? 'bg-red-50' : 'bg-[#2ED573]/10'
               }`}>
-                <i className={`ti ${confirmColor === 'red' ? 'ti-trash text-red-500' : 'ti-check text-[#08924F]'} text-xl`} />
+                <i className={`ti ${confirmColor === 'red' ? 'ti-trash text-red-500' : 'ti-check text-[#2ED573]'} text-xl`} />
               </div>
               <DialogTitle className="text-base font-bold text-gray-900">{title}</DialogTitle>
               <p className="text-sm text-gray-500 mt-2 leading-relaxed">{message}</p>
@@ -66,7 +66,7 @@ export default function ConfirmDialog({
                   onClick={onConfirm}
                   disabled={loading}
                   className={`flex-1 px-4 py-2.5 text-sm text-white rounded-xl cursor-pointer border-none disabled:opacity-50 transition-colors ${
-                    confirmColor === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-[#5FFF85] hover:bg-[#4de673]'
+                    confirmColor === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-[#2ED573] hover:bg-[#25B866]'
                   }`}
                 >
                   {loading ? '처리 중...' : confirmText}

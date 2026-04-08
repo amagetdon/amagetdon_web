@@ -68,7 +68,7 @@ function ResultModal({ isOpen, onClose, result }: ResultModalProps) {
         <button
           onClick={handleLike}
           className={`flex items-center gap-2 mt-4 border-none bg-transparent cursor-pointer ${
-            liked ? 'text-[#08924F]' : 'text-gray-500'
+            liked ? 'text-[#2ED573]' : 'text-gray-500'
           }`}
           aria-label={liked ? '좋아요 취소' : '좋아요'}
         >
@@ -80,7 +80,7 @@ function ResultModal({ isOpen, onClose, result }: ResultModalProps) {
           <Link
             to="/academy"
             onClick={onClose}
-            className="block bg-[#5FFF85] text-white rounded-full px-6 py-3 font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors text-center no-underline"
+            className="block bg-[#2ED573] text-white rounded-full px-6 py-3 font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors text-center no-underline"
           >
             강의 둘러보기 &gt;
           </Link>

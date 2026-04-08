@@ -23,7 +23,7 @@ function InstructorListPage() {
             onClick={() => setActiveTab('all')}
             className={`rounded-full px-5 py-1.5 text-sm font-medium cursor-pointer transition-colors ${
               activeTab === 'all'
-                ? 'bg-[#5FFF85] text-white border-none'
+                ? 'bg-[#2ED573] text-white border-none'
                 : 'border border-gray-300 text-gray-600 bg-white'
             }`}
           >
@@ -33,7 +33,7 @@ function InstructorListPage() {
             onClick={() => setActiveTab('active')}
             className={`rounded-full px-5 py-1.5 text-sm font-medium cursor-pointer transition-colors ${
               activeTab === 'active'
-                ? 'bg-[#5FFF85] text-white border-none'
+                ? 'bg-[#2ED573] text-white border-none'
                 : 'border border-gray-300 text-gray-600 bg-white'
             }`}
           >

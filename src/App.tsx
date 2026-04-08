@@ -44,7 +44,7 @@ const AdminAchievements = lazy(() => import('./pages/admin/AdminAchievements'))
 function PageLoader() {
   return (
     <div className="flex items-center justify-center py-20">
-      <div className="w-8 h-8 border-3 border-[#5FFF85] border-t-transparent rounded-full animate-spin" />
+      <div className="w-8 h-8 border-3 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
     </div>
   )
 }

@@ -138,7 +138,7 @@ function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="이메일 주소를 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
             />
           </div>
 
@@ -149,7 +149,7 @@ function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="비밀번호를 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
             />
           </div>
 
@@ -161,14 +161,14 @@ function LoginPage() {
             <button
               type="button"
               onClick={handleResend}
-              className="text-sm text-[#08924F] font-bold cursor-pointer bg-transparent border-none underline"
+              className="text-sm text-[#2ED573] font-bold cursor-pointer bg-transparent border-none underline"
             >
               인증 메일 재발송
             </button>
           )}
 
           {resendMessage && (
-            <p className={`text-sm ${resendMessage.includes('재발송') ? 'text-[#08924F]' : 'text-red-400'}`}>
+            <p className={`text-sm ${resendMessage.includes('재발송') ? 'text-[#2ED573]' : 'text-red-400'}`}>
               {resendMessage}
             </p>
           )}
@@ -176,7 +176,7 @@ function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#5FFF85] text-white font-bold py-3 rounded-lg cursor-pointer disabled:opacity-50 mt-2"
+            className="w-full bg-[#2ED573] text-white font-bold py-3 rounded-lg cursor-pointer disabled:opacity-50 mt-2"
           >
             {loading ? '로그인 중...' : '로그인'}
           </button>
@@ -224,7 +224,7 @@ function LoginPage() {
 
         <div className="mt-8 text-center text-sm text-gray-500">
           아직 회원이 아니신가요?{' '}
-          <Link to="/signup" className="text-[#08924F] font-bold no-underline">
+          <Link to="/signup" className="text-[#2ED573] font-bold no-underline">
             회원가입
           </Link>
         </div>
@@ -263,13 +263,13 @@ function LoginPage() {
                   value={resetEmail}
                   onChange={(e) => { setResetEmail(e.target.value); setResetMessage('') }}
                   placeholder="이메일 주소를 입력해주세요."
-                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
                   onKeyDown={(e) => { if (e.key === 'Enter') handleResetPassword() }}
                 />
               </div>
 
               {resetMessage && (
-                <p className={`text-sm mb-4 ${resetMessage.includes('발송되었습니다') ? 'text-[#08924F]' : 'text-red-400'}`}>
+                <p className={`text-sm mb-4 ${resetMessage.includes('발송되었습니다') ? 'text-[#2ED573]' : 'text-red-400'}`}>
                   {resetMessage}
                 </p>
               )}
@@ -277,7 +277,7 @@ function LoginPage() {
               <button
                 onClick={handleResetPassword}
                 disabled={resetSending}
-                className="w-full bg-[#5FFF85] text-white font-bold py-3 rounded-lg cursor-pointer border-none disabled:opacity-50"
+                className="w-full bg-[#2ED573] text-white font-bold py-3 rounded-lg cursor-pointer border-none disabled:opacity-50"
               >
                 {resetSending ? '발송 중...' : '재설정 링크 보내기'}
               </button>

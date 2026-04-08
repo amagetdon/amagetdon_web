@@ -92,7 +92,7 @@ export default function AdminReviews() {
         <h1 className="text-2xl font-bold text-gray-900">후기 관리</h1>
         <button
           onClick={() => setEditing({ author_name: '', title: '', content: '', rating: 5, course_id: null, is_published: true })}
-          className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"
+          className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"
         >
           <i className="ti ti-plus text-sm" /> 후기 추가
         </button>
@@ -105,7 +105,7 @@ export default function AdminReviews() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="후기 검색..."
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#5FFF85]"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
           />
         </div>
       </div>
@@ -168,7 +168,7 @@ export default function AdminReviews() {
               <input
                 value={(editing.author_name as string) || ''}
                 onChange={(e) => setEditing({ ...editing, author_name: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
               />
             </div>
             <div>
@@ -193,7 +193,7 @@ export default function AdminReviews() {
               <input
                 value={(editing.title as string) || ''}
                 onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
               />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
@@ -202,7 +202,7 @@ export default function AdminReviews() {
                 value={(editing.content as string) || ''}
                 onChange={(e) => setEditing({ ...editing, content: e.target.value })}
                 rows={5}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all resize-none"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all resize-none"
               />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
@@ -223,7 +223,7 @@ export default function AdminReviews() {
                     type="button"
                     onClick={() => setEditing({ ...editing, course_id: null, instructor_id: null })}
                     className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer transition-colors ${
-                      !editing.course_id ? 'bg-[#5FFF85]/10 text-gray-900' : 'bg-white text-gray-400 hover:bg-gray-50'
+                      !editing.course_id ? 'bg-[#2ED573]/10 text-gray-900' : 'bg-white text-gray-400 hover:bg-gray-50'
                     }`}
                   >
                     선택 안함
@@ -245,7 +245,7 @@ export default function AdminReviews() {
                         }}
                         className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer transition-colors flex items-center justify-between ${
                           (editing.course_id as number) === c.id
-                            ? 'bg-[#5FFF85]/10 text-gray-900'
+                            ? 'bg-[#2ED573]/10 text-gray-900'
                             : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
                       >
@@ -253,7 +253,7 @@ export default function AdminReviews() {
                           {c.instructor?.name && <span className="text-xs text-gray-400 mr-1">[{c.instructor.name}]</span>}
                           {c.title}
                         </span>
-                        {(editing.course_id as number) === c.id && <i className="ti ti-check text-[#08924F] text-sm" />}
+                        {(editing.course_id as number) === c.id && <i className="ti ti-check text-[#2ED573] text-sm" />}
                       </button>
                     ))}
                 </div>
@@ -266,7 +266,7 @@ export default function AdminReviews() {
                   type="checkbox"
                   checked={editing.is_published !== false}
                   onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })}
-                  className="accent-[#5FFF85]"
+                  className="accent-[#2ED573]"
                 />
                 공개
               </label>

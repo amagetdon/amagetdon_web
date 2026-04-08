@@ -178,7 +178,7 @@ function EbookDetailPage() {
       <button
         onClick={handlePurchaseClick}
         disabled={purchasing}
-        className="w-full py-4 bg-[#5FFF85] text-white font-bold text-center rounded-xl mt-6 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-6 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {purchasing ? '처리 중...' : isFree ? '무료로 받기' : '구매하기'}
       </button>
@@ -210,14 +210,14 @@ function EbookDetailPage() {
             <div className="w-[340px] max-md:w-full shrink-0">
               <div className="sticky top-4">
                 {ebook.instructor && (
-                  <Link to={`/instructors/${ebook.instructor.id}`} className="text-sm text-[#08924F] font-medium no-underline hover:underline">
+                  <Link to={`/instructors/${ebook.instructor.id}`} className="text-sm text-[#2ED573] font-medium no-underline hover:underline">
                     {ebook.instructor.name} 강사
                   </Link>
                 )}
                 <h1 className="text-xl font-bold text-gray-900 mt-1">{ebook.title}</h1>
 
                 {ebook.is_hot && (
-                  <span className="inline-block mt-3 px-3 py-1 bg-[#5FFF85] text-white text-xs font-bold rounded-full">
+                  <span className="inline-block mt-3 px-3 py-1 bg-[#2ED573] text-white text-xs font-bold rounded-full">
                     HOT
                   </span>
                 )}
@@ -244,11 +244,11 @@ function EbookDetailPage() {
 
                 <div className="text-sm text-gray-500 space-y-2">
                   <div className="flex items-center gap-2">
-                    <i className="ti ti-clock text-[#08924F]" />
+                    <i className="ti ti-clock text-[#2ED573]" />
                     <span>열람 기간: {ebook.duration_days}일</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <i className="ti ti-device-mobile text-[#08924F]" />
+                    <i className="ti ti-device-mobile text-[#2ED573]" />
                     <span>PC, 모바일 열람 가능</span>
                   </div>
                 </div>
@@ -294,7 +294,7 @@ function EbookDetailPage() {
                     <p>전자책: <span className="font-medium text-gray-900">{ebook.title}</span></p>
                     <p>결제 금액: <span className="font-bold text-gray-900">{price.toLocaleString()}P</span></p>
                     <p>보유 포인트: <span className="font-bold text-gray-900">{(profile?.points ?? 0).toLocaleString()}P</span></p>
-                    <p>결제 후 잔액: <span className="font-bold text-[#08924F]">{((profile?.points ?? 0) - price).toLocaleString()}P</span></p>
+                    <p>결제 후 잔액: <span className="font-bold text-[#2ED573]">{((profile?.points ?? 0) - price).toLocaleString()}P</span></p>
                   </div>
 
                   {(profile?.points ?? 0) < price ? (
@@ -313,7 +313,7 @@ function EbookDetailPage() {
                     <button
                       onClick={handleConfirmPurchase}
                       disabled={purchasing || (profile?.points ?? 0) < price}
-                      className="flex-1 rounded-xl bg-[#5FFF85] py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 rounded-xl bg-[#2ED573] py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {purchasing ? '처리 중...' : '구매하기'}
                     </button>

@@ -10,7 +10,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 const UMAMI_SHARE_URL = 'https://umami-ama.vercel.app/share/LuxmmqXDx2i6kFBo'
 const UMAMI_DASHBOARD_URL = 'https://umami-ama.vercel.app/websites'
 
-const COLORS = ['#5FFF85', '#6366f1', '#f59e0b', '#ef4444', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6']
+const COLORS = ['#2ED573', '#6366f1', '#f59e0b', '#ef4444', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6']
 
 interface DashboardData {
   // 핵심 지표
@@ -263,7 +263,7 @@ export default function AdminDashboard() {
 
       {/* ── 핵심 지표 ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-        <BigCard icon="ti-users" label="전체 회원" value={data.totalUsers} sub={`오늘 +${data.newUsersToday}`} color="#5FFF85" />
+        <BigCard icon="ti-users" label="전체 회원" value={data.totalUsers} sub={`오늘 +${data.newUsersToday}`} color="#2ED573" />
         <BigCard icon="ti-currency-won" label="총 매출" value={data.totalRevenue} isCurrency sub={`이번 달 ${data.monthRevenue.toLocaleString()}원`} color="#6366f1" />
         <BigCard icon="ti-shopping-cart" label="총 구매" value={data.totalPurchases} sub={`오늘 매출 ${data.todayRevenue.toLocaleString()}원`} color="#f59e0b" />
         <BigCard icon="ti-star" label="평균 평점" value={Number(data.avgRating.toFixed(1))} sub={`후기 ${data.totalReviews}개`} color="#ef4444" isStar />
@@ -286,15 +286,15 @@ export default function AdminDashboard() {
             <AreaChart data={data.signupTrend}>
               <defs>
                 <linearGradient id="signupGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#5FFF85" stopOpacity={0.3} />
-                  <stop offset="100%" stopColor="#5FFF85" stopOpacity={0} />
+                  <stop offset="0%" stopColor="#2ED573" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#2ED573" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip contentStyle={{ borderRadius: 12, border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', fontSize: 12 }} />
-              <Area type="monotone" dataKey="count" stroke="#5FFF85" strokeWidth={2} fill="url(#signupGrad)" name="가입자" />
+              <Area type="monotone" dataKey="count" stroke="#2ED573" strokeWidth={2} fill="url(#signupGrad)" name="가입자" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -427,7 +427,7 @@ export default function AdminDashboard() {
               {data.recentMembers.map((m, i) => (
                 <div key={i} className="flex items-center justify-between">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#5FFF85] to-emerald-400 flex items-center justify-center shrink-0">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#2ED573] to-emerald-400 flex items-center justify-center shrink-0">
                       <span className="text-[10px] text-white font-bold">{(m.name || '?')[0]}</span>
                     </div>
                     <div className="min-w-0">
@@ -505,7 +505,7 @@ export default function AdminDashboard() {
           className="w-full flex items-center justify-between px-5 py-4 bg-transparent border-none cursor-pointer hover:bg-gray-50 transition-colors"
         >
           <div className="flex items-center gap-3">
-            <i className="ti ti-chart-dots text-lg text-[#08924F]" />
+            <i className="ti ti-chart-dots text-lg text-[#2ED573]" />
             <div className="text-left">
               <h2 className="text-sm font-bold text-gray-900">트래픽 분석</h2>
               <p className="text-[11px] text-gray-400">Umami Analytics 제공</p>
@@ -518,7 +518,7 @@ export default function AdminDashboard() {
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="text-xs text-[#08924F] no-underline hover:underline flex items-center gap-1"
+              className="text-xs text-[#2ED573] no-underline hover:underline flex items-center gap-1"
             >
               <i className="ti ti-external-link text-xs" /> 열기
             </a>
@@ -531,7 +531,7 @@ export default function AdminDashboard() {
         {!umamiOpen && (
           <button
             onClick={() => { setUmamiOpen(true); localStorage.setItem('admin_umami_open', '1') }}
-            className="w-full py-3 bg-gray-50 border-none cursor-pointer text-sm text-gray-500 hover:text-[#08924F] hover:bg-gray-100 transition-colors flex items-center justify-center gap-1.5"
+            className="w-full py-3 bg-gray-50 border-none cursor-pointer text-sm text-gray-500 hover:text-[#2ED573] hover:bg-gray-100 transition-colors flex items-center justify-center gap-1.5"
           >
             <i className="ti ti-chevron-down text-sm" /> 전체 보기
           </button>
@@ -601,10 +601,10 @@ function RankRow({ rank, label, value, maxValue, currentValue }: {
 }) {
   return (
     <div className="relative">
-      <div className="absolute inset-0 bg-[#5FFF85]/5 rounded-lg" style={{ width: `${(currentValue / maxValue) * 100}%` }} />
+      <div className="absolute inset-0 bg-[#2ED573]/5 rounded-lg" style={{ width: `${(currentValue / maxValue) * 100}%` }} />
       <div className="relative flex items-center justify-between px-3 py-2">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className={`text-xs font-bold w-5 text-center shrink-0 ${rank <= 3 ? 'text-[#08924F]' : 'text-gray-400'}`}>{rank}</span>
+          <span className={`text-xs font-bold w-5 text-center shrink-0 ${rank <= 3 ? 'text-[#2ED573]' : 'text-gray-400'}`}>{rank}</span>
           <span className="text-sm text-gray-700 truncate">{label}</span>
         </div>
         <span className="text-xs font-semibold text-gray-900 shrink-0 ml-2">{value}</span>

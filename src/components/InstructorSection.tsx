@@ -144,7 +144,7 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
                 key={idx}
                 onClick={() => setActiveIndex(idx)}
                 className={`h-1.5 rounded-full border-none cursor-pointer transition-all duration-300 ${
-                  idx === activeIndex ? 'w-6 bg-[#5FFF85]' : 'w-1.5 bg-gray-300 hover:bg-gray-400'
+                  idx === activeIndex ? 'w-6 bg-[#2ED573]' : 'w-1.5 bg-gray-300 hover:bg-gray-400'
                 }`}
                 aria-label={`강사 ${idx + 1}`}
               />

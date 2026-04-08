@@ -98,7 +98,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height }: { b
             </button>
             <div className="flex gap-1.5">
               {banners.map((_, idx) => (
-                <button key={idx} onClick={() => setCurrent(idx)} className={`h-1.5 rounded-full border-none cursor-pointer transition-all ${idx === current ? 'w-6 bg-[#5FFF85]' : 'w-1.5 bg-gray-600 hover:bg-gray-500'}`} aria-label={`배너 ${idx + 1}`} />
+                <button key={idx} onClick={() => setCurrent(idx)} className={`h-1.5 rounded-full border-none cursor-pointer transition-all ${idx === current ? 'w-6 bg-[#2ED573]' : 'w-1.5 bg-gray-600 hover:bg-gray-500'}`} aria-label={`배너 ${idx + 1}`} />
               ))}
             </div>
             <button onClick={next} className="w-8 h-8 rounded-full border border-gray-600 bg-transparent text-gray-400 hover:text-white hover:border-gray-400 flex items-center justify-center cursor-pointer transition-colors" aria-label="다음">

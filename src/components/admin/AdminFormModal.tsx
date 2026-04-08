@@ -74,7 +74,7 @@ export default function AdminFormModal({
                 <button
                   onClick={onSubmit}
                   disabled={loading}
-                  className="px-5 py-2.5 text-sm text-white bg-[#5FFF85] rounded-xl cursor-pointer border-none disabled:opacity-50 font-bold hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20"
+                  className="px-5 py-2.5 text-sm text-white bg-[#2ED573] rounded-xl cursor-pointer border-none disabled:opacity-50 font-bold hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">

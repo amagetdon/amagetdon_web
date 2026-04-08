@@ -42,7 +42,7 @@ function VideoPromo() {
                   idx === 0 ? 'rounded-t-2xl pt-5 pb-4 border-b-0' : idx === reviews.length - 1 ? 'rounded-b-2xl pt-4 pb-5' : 'py-4 border-b-0'
                 }`}
               >
-                <p className="text-sm text-[#08924F] font-bold mb-1.5">
+                <p className="text-sm text-[#2ED573] font-bold mb-1.5">
                   {review.course?.title || '수강 후기'}
                 </p>
                 <p className="text-[17px] font-bold text-gray-900 leading-relaxed line-clamp-2">

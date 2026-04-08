@@ -116,7 +116,7 @@ export default function ReviewForm({
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="후기 제목을 입력해주세요"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#5FFF85] focus:ring-1 focus:ring-[#5FFF85] focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-[#2ED573] focus:ring-1 focus:ring-[#2ED573] focus:outline-none"
                     maxLength={100}
                   />
                 </div>
@@ -130,7 +130,7 @@ export default function ReviewForm({
                     onChange={(e) => setContent(e.target.value)}
                     placeholder="강의에 대한 솔직한 후기를 작성해주세요"
                     rows={4}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:border-[#5FFF85] focus:ring-1 focus:ring-[#5FFF85] focus:outline-none"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:border-[#2ED573] focus:ring-1 focus:ring-[#2ED573] focus:outline-none"
                     maxLength={1000}
                   />
                 </div>
@@ -148,7 +148,7 @@ export default function ReviewForm({
                   type="button"
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="flex-1 rounded-lg bg-[#5FFF85] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#4de673] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className="flex-1 rounded-lg bg-[#2ED573] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#25B866] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {submitting ? '등록 중...' : '후기 등록'}
                 </button>

@@ -189,7 +189,7 @@ export default function AdminCourses() {
       <span className="inline-flex items-center gap-1">
         {label}
         {sortKey === k ? (
-          <i className={`ti ti-chevron-${sortAsc ? 'up' : 'down'} text-[#08924F] text-xs`} />
+          <i className={`ti ti-chevron-${sortAsc ? 'up' : 'down'} text-[#2ED573] text-xs`} />
         ) : (
           <i className="ti ti-selector text-gray-300 text-xs" />
         )}
@@ -205,14 +205,14 @@ export default function AdminCourses() {
           <p className="text-sm text-gray-500 mt-1">전체 {courses.length}개</p>
         </div>
         <button onClick={() => setEditing({ title: '', instructor_id: null, course_type: 'free', original_price: 0, sale_price: 0, is_published: true, enrollment_deadline: null, video_url: null })}
-          className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 강의 추가</button>
+          className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 강의 추가</button>
       </div>
 
       <div className="mb-4">
         <div className="relative max-w-xs">
           <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
           <input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1) }} placeholder="강의 검색..."
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#5FFF85]" />
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]" />
         </div>
       </div>
 
@@ -273,7 +273,7 @@ export default function AdminCourses() {
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
                 <button key={p} onClick={() => setPage(p)}
                   className={`w-8 h-8 flex items-center justify-center rounded-full text-sm border-none cursor-pointer ${
-                    p === page ? 'bg-[#5FFF85] text-white' : 'bg-white text-gray-500 hover:bg-gray-100'
+                    p === page ? 'bg-[#2ED573] text-white' : 'bg-white text-gray-500 hover:bg-gray-100'
                   }`}>
                   {p}
                 </button>
@@ -293,12 +293,12 @@ export default function AdminCourses() {
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">강의명 *</label>
               <input value={(editing.title as string) || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">강사</label>
               <select value={(editing.instructor_id as number) || ''} onChange={(e) => setEditing({ ...editing, instructor_id: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all">
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all">
                 <option value="">선택</option>
                 {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
@@ -306,7 +306,7 @@ export default function AdminCourses() {
             <div>
               <label className="text-sm font-bold block mb-1">유형</label>
               <select value={(editing.course_type as string) || 'free'} onChange={(e) => handleTypeChange(e.target.value)}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all">
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all">
                 <option value="free">무료</option>
                 <option value="premium">프리미엄</option>
               </select>
@@ -315,25 +315,25 @@ export default function AdminCourses() {
               <label className="text-sm font-bold block mb-1">정가 (원)</label>
               <input type="number" value={isFree ? 0 : (editing.original_price as number) || ''} disabled={isFree}
                 onChange={(e) => setEditing({ ...editing, original_price: e.target.value ? Number(e.target.value) : null })}
-                className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#5FFF85]'}`} />
+                className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">할인가 (원)</label>
               <input type="number" value={isFree ? 0 : (editing.sale_price as number) || ''} disabled={isFree}
                 onChange={(e) => setEditing({ ...editing, sale_price: e.target.value ? Number(e.target.value) : null })}
-                className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#5FFF85]'}`} />
+                className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">오픈일</label>
               <input type="date" value={(editing.enrollment_start as string)?.slice(0, 10) || ''}
                 onChange={(e) => setEditing({ ...editing, enrollment_start: e.target.value ? e.target.value + 'T00:00:00+09:00' : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">마감일</label>
               <input type="date" value={(editing.enrollment_deadline as string)?.slice(0, 10) || ''}
                 onChange={(e) => setEditing({ ...editing, enrollment_deadline: e.target.value ? e.target.value + 'T23:59:59+09:00' : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">썸네일 이미지</label>
@@ -355,9 +355,9 @@ export default function AdminCourses() {
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-2">뱃지 / 옵션</label>
               <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#5FFF85]" /> HOT</label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#5FFF85]" /> NEW</label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#5FFF85]" /> 공개</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#2ED573]" /> HOT</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#2ED573]" /> NEW</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" /> 공개</label>
               </div>
             </div>
 
@@ -365,7 +365,7 @@ export default function AdminCourses() {
               <div className="flex items-center justify-between mb-3">
                 <label className="text-sm font-bold">커리큘럼 관리</label>
                 <button type="button" onClick={addCurriculumItem}
-                  className="bg-[#5FFF85] text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors flex items-center gap-1">
+                  className="bg-[#2ED573] text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors flex items-center gap-1">
                   <i className="ti ti-plus text-xs" /> 항목 추가
                 </button>
               </div>
@@ -385,20 +385,20 @@ export default function AdminCourses() {
                           <label className="text-xs text-gray-500 block mb-1">주차</label>
                           <input type="number" value={item.week ?? ''} placeholder="-"
                             onChange={(e) => updateCurriculumItem(idx, 'week', e.target.value ? Number(e.target.value) : null)}
-                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#5FFF85]" />
+                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#2ED573]" />
                         </div>
                         <div>
                           <label className="text-xs text-gray-500 block mb-1">강의명</label>
                           <input type="text" value={item.label} placeholder="강의 제목을 입력하세요"
                             onChange={(e) => updateCurriculumItem(idx, 'label', e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#5FFF85]" />
+                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#2ED573]" />
                         </div>
                         <div className="col-span-full">
                           <label className="text-xs text-gray-500 block mb-1">설명</label>
                           <textarea value={item.description ?? ''} placeholder="강의 설명 (선택)"
                             onChange={(e) => updateCurriculumItem(idx, 'description', e.target.value || null)}
                             rows={2}
-                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#5FFF85] resize-none" />
+                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#2ED573] resize-none" />
                         </div>
                         <div className="col-span-full">
                           <VideoUrlInput

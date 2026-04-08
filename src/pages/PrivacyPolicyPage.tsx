@@ -300,7 +300,7 @@ function PrivacyPolicyPage() {
                 이메일:{' '}
                 <a
                   href="mailto:info@amag-class.kr"
-                  className="text-[#08924F] hover:underline"
+                  className="text-[#2ED573] hover:underline"
                 >
                   info@amag-class.kr
                 </a>
@@ -324,7 +324,7 @@ function PrivacyPolicyPage() {
                   href="https://www.kopico.go.kr"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#08924F] hover:underline"
+                  className="text-[#2ED573] hover:underline"
                 >
                   www.kopico.go.kr
                 </a>{' '}
@@ -336,7 +336,7 @@ function PrivacyPolicyPage() {
                   href="https://privacy.kisa.or.kr"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#08924F] hover:underline"
+                  className="text-[#2ED573] hover:underline"
                 >
                   privacy.kisa.or.kr
                 </a>{' '}
@@ -348,7 +348,7 @@ function PrivacyPolicyPage() {
                   href="https://www.spo.go.kr"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#08924F] hover:underline"
+                  className="text-[#2ED573] hover:underline"
                 >
                   www.spo.go.kr
                 </a>{' '}
@@ -360,7 +360,7 @@ function PrivacyPolicyPage() {
                   href="https://ecrm.police.go.kr"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[#08924F] hover:underline"
+                  className="text-[#2ED573] hover:underline"
                 >
                   ecrm.police.go.kr
                 </a>{' '}
@@ -409,7 +409,7 @@ function PrivacyPolicyPage() {
               이메일:{' '}
               <a
                 href="mailto:info@amag-class.kr"
-                className="text-[#08924F] hover:underline"
+                className="text-[#2ED573] hover:underline"
               >
                 info@amag-class.kr
               </a>{' '}
