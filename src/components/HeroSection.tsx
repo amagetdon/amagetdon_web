@@ -15,6 +15,9 @@ function getEmbedUrl(url: string): { type: 'youtube' | 'raw'; src: string } | nu
   return { type: 'raw', src: url }
 }
 
+const bannerCache = new Map<string, Banner[]>()
+const settingsCache = { loaded: false, data: null as Record<string, { height?: string; speed?: string }> | null }
+
 interface HeroSectionProps {
   banners?: Banner[]
   loading?: boolean
@@ -24,8 +27,9 @@ interface HeroSectionProps {
 }
 
 function HeroSection({ banners: propBanners, loading: propLoading, height: propHeight, speed: propSpeed, pageKey = 'hero' }: HeroSectionProps) {
-  const [selfBanners, setSelfBanners] = useState<Banner[]>([])
-  const [selfLoading, setSelfLoading] = useState(!propBanners)
+  const cached = bannerCache.get(pageKey)
+  const [selfBanners, setSelfBanners] = useState<Banner[]>(cached || [])
+  const [selfLoading, setSelfLoading] = useState(!propBanners && !cached)
   const [current, setCurrent] = useState(0)
   const [heroHeight, setHeroHeight] = useState<string>(propHeight || 'auto')
   const [heroSpeed, setHeroSpeed] = useState<number>(propSpeed || 5)
@@ -35,18 +39,34 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
 
   useEffect(() => {
     if (propBanners) return
+    if (bannerCache.has(pageKey)) {
+      setSelfBanners(bannerCache.get(pageKey)!)
+      setSelfLoading(false)
+      return
+    }
     bannerService.getByPage(pageKey)
-      .then(setSelfBanners)
+      .then((data) => {
+        bannerCache.set(pageKey, data)
+        setSelfBanners(data)
+      })
       .catch(() => {})
       .finally(() => setSelfLoading(false))
   }, [propBanners, pageKey])
 
   useEffect(() => {
     if (propHeight && propSpeed) return
+    if (settingsCache.loaded && settingsCache.data) {
+      const s = settingsCache.data[pageKey]
+      if (!propHeight && s?.height) setHeroHeight(s.height)
+      if (!propSpeed && s?.speed) setHeroSpeed(Number(s.speed) || 5)
+      return
+    }
     supabase.from('site_settings').select('value').eq('key', 'banner_settings').maybeSingle()
       .then(({ data }) => {
         if (data) {
           const settings = (data as Record<string, unknown>).value as Record<string, { height?: string; speed?: string }>
+          settingsCache.loaded = true
+          settingsCache.data = settings
           const s = settings?.[pageKey]
           if (!propHeight && s?.height) setHeroHeight(s.height)
           if (!propSpeed && s?.speed) setHeroSpeed(Number(s.speed) || 5)
@@ -74,8 +94,17 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
     return (
       <section className="w-full bg-black py-20 max-sm:py-12">
         <div className="max-w-[1200px] mx-auto px-5">
-          <div className="h-6 w-48 bg-gray-800 rounded animate-pulse mb-6" />
-          <div className="h-12 w-96 max-sm:w-full bg-gray-800 rounded animate-pulse" />
+          <div className="h-5 w-40 bg-gray-800 rounded-full animate-pulse mb-6" />
+          <div className="h-12 w-[420px] max-sm:w-full bg-gray-800 rounded animate-pulse mb-3" />
+          <div className="h-12 w-72 max-sm:w-3/4 bg-gray-800 rounded animate-pulse" />
+          <div className="flex items-center gap-3 mt-10">
+            <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
+            <div className="flex gap-1.5">
+              <div className="w-6 h-1.5 rounded-full bg-gray-800 animate-pulse" />
+              <div className="w-1.5 h-1.5 rounded-full bg-gray-800 animate-pulse" />
+            </div>
+            <div className="w-8 h-8 rounded-full bg-gray-800 animate-pulse" />
+          </div>
         </div>
       </section>
     )
@@ -115,6 +144,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
 
   return (
     <section
+     
       className={`relative w-full bg-black overflow-hidden ${banner.link_url ? 'cursor-pointer' : ''} ${hasFixedHeight ? 'flex items-center justify-start' : 'py-20 max-sm:py-12'}`}
       style={hasFixedHeight ? { height: heroHeight } : undefined}
       onClick={banner.link_url ? handleBannerClick : undefined}

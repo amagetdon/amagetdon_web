@@ -3,10 +3,12 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext'
 import Header from './components/Header'
+import LoadingBar from './components/LoadingBar'
 import Footer from './components/Footer'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import AdminRoute from './components/auth/AdminRoute'
 import HomePage from './pages/HomePage'
+import { useGlobalFadeIn } from './hooks/useGlobalFadeIn'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
 const InstructorListPage = lazy(() => import('./pages/InstructorListPage'))
@@ -50,12 +52,19 @@ function PageLoader() {
   )
 }
 
+function FadeInProvider({ children }: { children: React.ReactNode }) {
+  useGlobalFadeIn()
+  return <>{children}</>
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <div className="w-full font-sans bg-white min-h-screen flex flex-col">
+          <LoadingBar />
           <Header />
+          <FadeInProvider />
           <main className="flex-1">
             <Suspense fallback={<PageLoader />}>
               <Routes>

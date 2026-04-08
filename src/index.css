@@ -10,6 +10,18 @@ body {
   margin: 0;
 }
 
+/* Scroll fade-in */
+.fade-in-up {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.fade-in-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* Star rating */
 .star-filled {
   color: #facc15;
