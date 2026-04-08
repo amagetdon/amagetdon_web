@@ -2,7 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth()
+  const { user, profile, loading } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -15,6 +15,12 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />
+  }
+
+  // 프로필 미완성 시 마이페이지로 리다이렉트 (마이페이지 자체는 허용)
+  const isIncomplete = profile && (!profile.phone || !profile.address || !profile.name || !profile.gender || !profile.birth_date)
+  if (isIncomplete && location.pathname !== '/mypage') {
+    return <Navigate to="/mypage" replace />
   }
 
   return <>{children}</>

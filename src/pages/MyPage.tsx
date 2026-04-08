@@ -202,15 +202,27 @@ function MyPage() {
   const days = Array.from({ length: 31 }, (_, i) => i + 1)
 
   const displayName = profile?.name || user?.email?.split('@')[0] || ''
+  const isIncomplete = !profile?.phone || !profile?.address || !profile?.name || !profile?.gender || !profile?.birth_date
+  const isSocialLogin = user?.app_metadata?.provider && user.app_metadata.provider !== 'email'
 
   return (
     <>
       <div className="bg-black h-[200px] w-full" />
 
       <div className="max-w-[800px] mx-auto px-6">
+        {isIncomplete && (
+          <div className="mt-8 mb-4 bg-yellow-50 border border-yellow-200 rounded-xl p-5 flex items-start gap-3">
+            <i className="ti ti-alert-triangle text-yellow-500 text-xl shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-yellow-800">회원정보를 입력해주세요</p>
+              <p className="text-xs text-yellow-600 mt-1">서비스 이용을 위해 아래 필수 정보를 모두 입력해주세요. 정보 입력이 완료되어야 강의 수강, 전자책 열람 등 모든 기능을 이용할 수 있습니다.</p>
+            </div>
+          </div>
+        )}
         <div className="mt-16 mb-10">
-          <p className="text-2xl font-bold text-[#2ED573]">{displayName}님</p>
-          <p className="text-2xl font-bold">안녕하세요 아마겟돈 클래스입니다 :)</p>
+          <p className="text-2xl max-md:text-lg font-bold">
+            <span className="text-[#2ED573]">{displayName}</span>님, 안녕하세요! 아마겟돈 클래스입니다 :)
+          </p>
         </div>
 
         <div>
@@ -320,32 +332,34 @@ function MyPage() {
             </div>
           </div>
 
-          {/* 비밀번호 */}
-          <div className="flex items-start gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
-            <label className="w-[100px] font-bold text-sm shrink-0 pt-1">비밀번호 변경</label>
-            <div className="flex-1 max-sm:w-full">
-              <input
-                type="password"
-                value={form.password}
-                onChange={(e) => handleChange('password', e.target.value)}
-                placeholder="새 비밀번호 (변경 시에만 입력)"
-                className="border-b px-2 py-1 text-sm w-full outline-none"
-              />
-              <p className="text-xs mt-1 text-red-400">
-                {errors.password || '8~18자의 영문/숫자/특수문자를 함께 입력해주세요.'}
-              </p>
-              <input
-                type="password"
-                value={form.passwordConfirm}
-                onChange={(e) => handleChange('passwordConfirm', e.target.value)}
-                placeholder="비밀번호를 다시 입력해주세요."
-                className="border-b px-2 py-1 text-sm w-full outline-none mt-3"
-              />
-              {errors.passwordConfirm && (
-                <p className="text-xs text-red-500 mt-1">{errors.passwordConfirm}</p>
-              )}
+          {/* 비밀번호 (소셜 로그인이 아닌 경우만) */}
+          {!isSocialLogin && (
+            <div className="flex items-start gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
+              <label className="w-[100px] font-bold text-sm shrink-0 pt-1">비밀번호 변경</label>
+              <div className="flex-1 max-sm:w-full">
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  placeholder="새 비밀번호 (변경 시에만 입력)"
+                  className="border-b px-2 py-1 text-sm w-full outline-none"
+                />
+                <p className="text-xs mt-1 text-red-400">
+                  {errors.password || '8~18자의 영문/숫자/특수문자를 함께 입력해주세요.'}
+                </p>
+                <input
+                  type="password"
+                  value={form.passwordConfirm}
+                  onChange={(e) => handleChange('passwordConfirm', e.target.value)}
+                  placeholder="비밀번호를 다시 입력해주세요."
+                  className="border-b px-2 py-1 text-sm w-full outline-none mt-3"
+                />
+                {errors.passwordConfirm && (
+                  <p className="text-xs text-red-500 mt-1">{errors.passwordConfirm}</p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* 휴대폰 번호 */}
           <div className="flex items-center gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">

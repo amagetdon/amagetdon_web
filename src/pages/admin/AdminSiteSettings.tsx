@@ -44,6 +44,8 @@ export default function AdminSiteSettings() {
   // 일반 설정
   const [promoVideoUrl, setPromoVideoUrl] = useState('')
   const [kakaoLink, setKakaoLink] = useState('')
+  const [companyLink, setCompanyLink] = useState('')
+  const [recruitLink, setRecruitLink] = useState('')
   const [bannerSettings, setBannerSettings] = useState<Record<string, { height: string; speed: string }>>({
     hero: { height: 'auto', speed: '5' },
     reviews: { height: 'auto', speed: '5' },
@@ -75,6 +77,8 @@ export default function AdminSiteSettings() {
         for (const s of settingsData.data as { key: string; value: Record<string, string> }[]) {
           if (s.key === 'promo_video') setPromoVideoUrl(s.value?.url || '')
           if (s.key === 'kakao_link') setKakaoLink(s.value?.url || '')
+          if (s.key === 'company_link') setCompanyLink(s.value?.url || '')
+          if (s.key === 'recruit_link') setRecruitLink(s.value?.url || '')
           if (s.key === 'banner_settings') {
             const val = s.value as Record<string, { height?: string; speed?: string }>
             setBannerSettings((prev) => ({
@@ -103,6 +107,8 @@ export default function AdminSiteSettings() {
       await Promise.all([
         supabase.from('site_settings').upsert({ key: 'promo_video', value: { url: promoVideoUrl } } as never, { onConflict: 'key' }),
         supabase.from('site_settings').upsert({ key: 'kakao_link', value: { url: kakaoLink } } as never, { onConflict: 'key' }),
+        supabase.from('site_settings').upsert({ key: 'company_link', value: { url: companyLink } } as never, { onConflict: 'key' }),
+        supabase.from('site_settings').upsert({ key: 'recruit_link', value: { url: recruitLink } } as never, { onConflict: 'key' }),
       ])
       toast.success('설정이 저장되었습니다.')
     } catch {
@@ -307,6 +313,28 @@ export default function AdminSiteSettings() {
               value={kakaoLink}
               onChange={(e) => setKakaoLink(e.target.value)}
               placeholder="https://pf.kakao.com/..."
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+            />
+          </div>
+
+          <div className="border-t border-gray-100 pt-6">
+            <h3 className="text-sm font-bold text-gray-900 mb-1">회사소개 링크</h3>
+            <p className="text-xs text-gray-400 mb-3">푸터 "회사소개" 클릭 시 이동할 URL. 외부 링크는 새 창, 내부 경로(/notice 등)는 같은 창에서 이동합니다. 비워두면 공지사항 페이지로 이동합니다.</p>
+            <input
+              value={companyLink}
+              onChange={(e) => setCompanyLink(e.target.value)}
+              placeholder="https://아마겟돈브랜드페이지..."
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+            />
+          </div>
+
+          <div className="border-t border-gray-100 pt-6">
+            <h3 className="text-sm font-bold text-gray-900 mb-1">인재채용 링크</h3>
+            <p className="text-xs text-gray-400 mb-3">푸터 "인재채용" 클릭 시 이동할 URL. 외부 링크는 새 창, 내부 경로는 같은 창에서 이동합니다. 비워두면 비활성 상태입니다.</p>
+            <input
+              value={recruitLink}
+              onChange={(e) => setRecruitLink(e.target.value)}
+              placeholder="https://..."
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
             />
           </div>

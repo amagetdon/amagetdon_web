@@ -84,6 +84,12 @@ function EbookDetailPage() {
       return
     }
 
+    if (profile && (!profile.phone || !profile.address || !profile.name || !profile.gender || !profile.birth_date)) {
+      toast.error('회원정보를 먼저 입력해주세요.')
+      navigate('/mypage')
+      return
+    }
+
     if (owned) {
       navigate('/my-classroom')
       return

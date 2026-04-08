@@ -39,6 +39,7 @@ export const authService = {
       provider,
       options: {
         redirectTo: `${window.location.origin}/`,
+        scopes: provider === 'kakao' ? 'account_email gender age_range' : undefined,
       },
     })
     if (error) throw error
