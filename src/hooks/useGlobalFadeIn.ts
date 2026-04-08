@@ -9,8 +9,15 @@ export function useGlobalFadeIn() {
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) {
-            entry.target.classList.add('visible')
-            observer.unobserve(entry.target)
+            const el = entry.target as HTMLElement
+            el.classList.add('visible')
+            observer.unobserve(el)
+            // transition 완료 후 transform/opacity 속성 완전 제거
+            el.addEventListener('transitionend', () => {
+              el.style.transform = ''
+              el.style.opacity = ''
+              el.classList.remove('fade-in-up', 'visible')
+            }, { once: true })
           }
         }
       },

@@ -66,8 +66,8 @@ function App() {
           <LoadingBar />
           <Header />
           <FadeInProvider />
-          <GlobalHero />
           <main className="flex-1">
+            <GlobalHero />
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/" element={<HomePage />} />

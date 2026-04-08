@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { createPortal } from 'react-dom'
 
 interface ReviewData {
   title: string
@@ -32,7 +33,7 @@ function StarRating({ rating }: { rating: number }) {
 function ReviewModal({ isOpen, onClose, review }: ReviewModalProps) {
   if (!isOpen) return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
       onClick={onClose}
@@ -79,7 +80,8 @@ function ReviewModal({ isOpen, onClose, review }: ReviewModalProps) {
           </span>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

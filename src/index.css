@@ -19,7 +19,7 @@ body {
 
 .fade-in-up.visible {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
 
 /* Star rating */
