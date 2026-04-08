@@ -91,6 +91,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               })
             }
 
+            // 활성 시간 갱신 (5분 이내 중복 방지)
+            const lastUpdate = sessionStorage.getItem('lastActiveUpdate')
+            if (!lastUpdate || Date.now() - Number(lastUpdate) > 300000) {
+              sessionStorage.setItem('lastActiveUpdate', String(Date.now()))
+              supabase.from('profiles').update({ last_active_at: new Date().toISOString() } as never).eq('id', newSession.user.id).then(() => {})
+            }
+
             if (event === 'SIGNED_IN') {
               const flag = sessionStorage.getItem('pendingSignIn')
               if (flag) {
