@@ -305,17 +305,13 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <AdminLayout>
-        <div className="space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-40 animate-pulse" />
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-xl p-5 animate-pulse h-24" />
-            ))}
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <div className="relative mb-6">
+            <div className="w-16 h-16 border-4 border-gray-200 rounded-full" />
+            <div className="absolute inset-0 w-16 h-16 border-4 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-xl p-5 animate-pulse h-72" />
-            <div className="bg-white rounded-xl p-5 animate-pulse h-72" />
-          </div>
+          <p className="text-sm font-bold text-gray-900 mb-1">대시보드를 준비하고 있습니다</p>
+          <p className="text-xs text-gray-400">운영 현황 데이터를 불러오는 중입니다...</p>
         </div>
       </AdminLayout>
     )

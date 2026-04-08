@@ -9,9 +9,10 @@ import AdminLayout from '../../components/admin/AdminLayout'
 
 const COLORS = ['#2ED573', '#6366f1', '#f59e0b', '#ef4444', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6']
 
-type Period = '7d' | '30d' | '90d' | 'all'
+type Period = '7d' | '30d' | '90d' | 'all' | 'custom'
 
 interface ProfileRow {
+  id?: string
   gender: string | null
   birth_date: string | null
   address: string | null
@@ -21,6 +22,9 @@ interface ProfileRow {
   created_at: string
   last_active_at: string | null
   points: number
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
 }
 
 interface PurchaseRow {
@@ -38,6 +42,8 @@ interface CouponClaimRow {
 
 export default function AdminAnalytics() {
   const [period, setPeriod] = useState<Period>('30d')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
   const [loading, setLoading] = useState(true)
   const [profiles, setProfiles] = useState<ProfileRow[]>([])
   const [purchases, setPurchases] = useState<PurchaseRow[]>([])
@@ -48,7 +54,7 @@ export default function AdminAnalytics() {
       try {
         setLoading(true)
         const [profileRes, purchaseRes, couponRes] = await withTimeout(Promise.all([
-          supabase.from('profiles').select('gender, birth_date, address, provider, phone, name, created_at, last_active_at, points'),
+          supabase.from('profiles').select('id, gender, birth_date, address, provider, phone, name, created_at, last_active_at, points, utm_source, utm_medium, utm_campaign'),
           supabase.from('purchases').select('user_id, price, purchased_at, course_id, ebook_id'),
           supabase.from('coupon_claims').select('coupon_id, used_at'),
         ]), 15000)
@@ -63,11 +69,15 @@ export default function AdminAnalytics() {
   }, [])
 
   const now = new Date()
-  const periodMs = period === '7d' ? 7 * 86400000 : period === '30d' ? 30 * 86400000 : period === '90d' ? 90 * 86400000 : Infinity
-  const periodStart = periodMs === Infinity ? new Date(0) : new Date(now.getTime() - periodMs)
+  const periodStart = period === 'custom' && customFrom ? new Date(customFrom)
+    : period === '7d' ? new Date(now.getTime() - 7 * 86400000)
+    : period === '30d' ? new Date(now.getTime() - 30 * 86400000)
+    : period === '90d' ? new Date(now.getTime() - 90 * 86400000)
+    : new Date(0)
+  const periodEnd = period === 'custom' && customTo ? new Date(customTo + 'T23:59:59') : now
 
-  const filteredProfiles = period === 'all' ? profiles : profiles.filter((p) => new Date(p.created_at) >= periodStart)
-  const filteredPurchases = period === 'all' ? purchases : purchases.filter((p) => new Date(p.purchased_at) >= periodStart)
+  const filteredProfiles = profiles.filter((p) => { const d = new Date(p.created_at); return d >= periodStart && d <= periodEnd })
+  const filteredPurchases = purchases.filter((p) => { const d = new Date(p.purchased_at); return d >= periodStart && d <= periodEnd })
 
   // ── DAU / WAU / MAU ──
   const dau = profiles.filter((p) => p.last_active_at && new Date(p.last_active_at) >= new Date(now.getTime() - 86400000)).length
@@ -95,7 +105,9 @@ export default function AdminAnalytics() {
   const avgPurchaseCount = purchasedUsers > 0 ? (filteredPurchases.length / purchasedUsers).toFixed(1) : '0'
 
   // ── 활성 유저 추이 (일별) ──
-  const days = period === '7d' ? 7 : period === '90d' ? 90 : 30
+  const days = period === 'custom' && customFrom
+    ? Math.min(180, Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / 86400000)))
+    : period === '7d' ? 7 : period === '90d' ? 90 : period === 'all' ? 30 : 30
   const activeByDay: { date: string; active: number; signup: number }[] = []
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
@@ -157,14 +169,100 @@ export default function AdminAnalytics() {
   }
   const hourDist = hourCount.map((count, h) => ({ hour: `${h}시`, count }))
 
+  // ── 접속 시간대 ──
+  const activeHourCount = new Array(24).fill(0)
+  for (const p of profiles) {
+    if (p.last_active_at) activeHourCount[new Date(p.last_active_at).getHours()]++
+  }
+  const activeHourDist = activeHourCount.map((count, h) => ({ hour: `${h}시`, count }))
+
+  // ── 요일별 활성 ──
+  const dayNames = ['일', '월', '화', '수', '목', '금', '토']
+  const activeDayCount = new Array(7).fill(0)
+  for (const p of profiles) {
+    if (p.last_active_at) activeDayCount[new Date(p.last_active_at).getDay()]++
+  }
+  const activeDayDist = dayNames.map((name, i) => ({ name, value: activeDayCount[i] }))
+
+  // ── 구매 시간대 ──
+  const purchaseHourCount = new Array(24).fill(0)
+  for (const p of filteredPurchases) {
+    purchaseHourCount[new Date(p.purchased_at).getHours()]++
+  }
+  const purchaseHourDist = purchaseHourCount.map((count, h) => ({ hour: `${h}시`, count }))
+
+  // ── 구매 요일 ──
+  const purchaseDayCount = new Array(7).fill(0)
+  for (const p of filteredPurchases) {
+    purchaseDayCount[new Date(p.purchased_at).getDay()]++
+  }
+  const purchaseDayDist = dayNames.map((name, i) => ({ name, value: purchaseDayCount[i] }))
+
+  // ── 재구매율 ──
+  const userPurchaseCount = new Map<string, number>()
+  for (const p of purchases) {
+    userPurchaseCount.set(p.user_id, (userPurchaseCount.get(p.user_id) || 0) + 1)
+  }
+  const repeatBuyers = Array.from(userPurchaseCount.values()).filter((c) => c >= 2).length
+  const repeatRate = purchasedUsers > 0 ? Math.round((repeatBuyers / purchasedUsers) * 100) : 0
+
+  // ── 포인트 보유 분포 ──
+  const pointRanges = [
+    { name: '0P', min: 0, max: 0 },
+    { name: '1~1천', min: 1, max: 1000 },
+    { name: '1천~5천', min: 1001, max: 5000 },
+    { name: '5천~1만', min: 5001, max: 10000 },
+    { name: '1만~5만', min: 10001, max: 50000 },
+    { name: '5만+', min: 50001, max: Infinity },
+  ]
+  const pointDist = pointRanges.map((r) => ({
+    name: r.name,
+    value: profiles.filter((p) => p.points >= r.min && p.points <= r.max).length,
+  })).filter((d) => d.value > 0)
+
+  // ── 가입 후 첫 구매까지 평균 기간 ──
+  const firstPurchaseByUser = new Map<string, string>()
+  for (const p of purchases) {
+    const prev = firstPurchaseByUser.get(p.user_id)
+    if (!prev || p.purchased_at < prev) firstPurchaseByUser.set(p.user_id, p.purchased_at)
+  }
+  const daysToFirstPurchase: number[] = []
+  for (const p of profiles) {
+    const fp = firstPurchaseByUser.get(p.id || '')
+    if (fp) {
+      const diff = (new Date(fp).getTime() - new Date(p.created_at).getTime()) / 86400000
+      if (diff >= 0) daysToFirstPurchase.push(diff)
+    }
+  }
+  const avgDaysToFirstPurchase = daysToFirstPurchase.length > 0
+    ? (daysToFirstPurchase.reduce((s, d) => s + d, 0) / daysToFirstPurchase.length).toFixed(1)
+    : '-'
+
+  // ── UTM 소스별 가입 ──
+  const utmSourceCount: Record<string, number> = {}
+  for (const p of filteredProfiles) {
+    const src = p.utm_source || '직접 유입'
+    utmSourceCount[src] = (utmSourceCount[src] || 0) + 1
+  }
+  const utmSourceDist = Object.entries(utmSourceCount).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, value]) => ({ name, value }))
+
+  // ── UTM 캠페인별 ──
+  const utmCampaignCount: Record<string, number> = {}
+  for (const p of filteredProfiles) {
+    if (p.utm_campaign) utmCampaignCount[p.utm_campaign] = (utmCampaignCount[p.utm_campaign] || 0) + 1
+  }
+  const utmCampaignDist = Object.entries(utmCampaignCount).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, value]) => ({ name, value }))
+
   if (loading) {
     return (
       <AdminLayout>
-        <div className="space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-40 animate-pulse" />
-          <div className="grid grid-cols-4 gap-3">
-            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="bg-white rounded-xl p-5 animate-pulse h-24" />)}
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
+          <div className="relative mb-6">
+            <div className="w-16 h-16 border-4 border-gray-200 rounded-full" />
+            <div className="absolute inset-0 w-16 h-16 border-4 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
           </div>
+          <p className="text-sm font-bold text-gray-900 mb-1">통계 데이터를 분석하고 있습니다</p>
+          <p className="text-xs text-gray-400">유저 행동 패턴 및 전환율을 계산하는 중입니다...</p>
         </div>
       </AdminLayout>
     )
@@ -177,18 +275,27 @@ export default function AdminAnalytics() {
           <h1 className="text-2xl font-bold text-gray-900">회원 분석</h1>
           <p className="text-sm text-gray-500 mt-1">상세 회원 통계 및 활성도 분석</p>
         </div>
-        <div className="flex gap-1 bg-white rounded-lg shadow-sm p-1">
-          {([['7d', '7일'], ['30d', '30일'], ['90d', '90일'], ['all', '전체']] as const).map(([v, l]) => (
-            <button
-              key={v}
-              onClick={() => setPeriod(v)}
-              className={`px-3 py-1.5 rounded text-xs font-medium border-none cursor-pointer transition-colors ${
-                period === v ? 'bg-gray-900 text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
-              }`}
-            >
-              {l}
-            </button>
-          ))}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex gap-1 bg-white rounded-lg shadow-sm p-1">
+            {([['7d', '7일'], ['30d', '30일'], ['90d', '90일'], ['all', '전체']] as const).map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setPeriod(v)}
+                className={`px-3 py-1.5 rounded text-xs font-medium border-none cursor-pointer transition-colors ${
+                  period === v ? 'bg-gray-900 text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
+                }`}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 bg-white rounded-lg shadow-sm p-1">
+            <input type="date" value={customFrom} onChange={(e) => { setCustomFrom(e.target.value); if (e.target.value) setPeriod('custom') }}
+              className="px-2 py-1 text-xs border-none outline-none bg-transparent" />
+            <span className="text-xs text-gray-400">~</span>
+            <input type="date" value={customTo} onChange={(e) => { setCustomTo(e.target.value); if (e.target.value) setPeriod('custom') }}
+              className="px-2 py-1 text-xs border-none outline-none bg-transparent" />
+          </div>
         </div>
       </div>
 
@@ -362,6 +469,129 @@ export default function AdminAnalytics() {
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      {/* ── 행동 패턴 ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">접속 시간대</h3>
+          <ResponsiveContainer width="100%" height={150}>
+            <BarChart data={activeHourDist} barSize={8}>
+              <XAxis dataKey="hour" tick={{ fontSize: 8 }} interval={2} />
+              <YAxis hide />
+              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Bar dataKey="count" fill="#2ED573" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">요일별 활성</h3>
+          <ResponsiveContainer width="100%" height={150}>
+            <BarChart data={activeDayDist} barSize={24}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis hide />
+              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">구매 시간대</h3>
+          <ResponsiveContainer width="100%" height={150}>
+            <BarChart data={purchaseHourDist} barSize={8}>
+              <XAxis dataKey="hour" tick={{ fontSize: 8 }} interval={2} />
+              <YAxis hide />
+              <Tooltip formatter={(v: number) => `${v}건`} />
+              <Bar dataKey="count" fill="#f59e0b" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">구매 요일</h3>
+          <ResponsiveContainer width="100%" height={150}>
+            <BarChart data={purchaseDayDist} barSize={24}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis hide />
+              <Tooltip formatter={(v: number) => `${v}건`} />
+              <Bar dataKey="value" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ── 구매 심화 + 포인트 ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-4">재구매율</h3>
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs text-gray-400">재구매율 (2회+)</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-2xl font-bold text-[#2ED573]">{repeatRate}%</p>
+                <p className="text-xs text-gray-400">{repeatBuyers}명 / {purchasedUsers}명</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400">가입 후 첫 구매까지</p>
+              <p className="text-2xl font-bold text-gray-900">{avgDaysToFirstPurchase}<span className="text-sm font-normal text-gray-400 ml-1">일</span></p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">포인트 보유 분포</h3>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={pointDist} barSize={24}>
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis hide />
+              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Bar dataKey="value" fill="#a855f7" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">UTM 유입 소스</h3>
+          {utmSourceDist.length > 0 ? (
+            <div className="space-y-1.5">
+              {utmSourceDist.map((d, i) => (
+                <div key={d.name} className="flex items-center gap-2">
+                  <span className="text-xs text-gray-400 w-4 text-right">{i + 1}</span>
+                  <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+                    <div
+                      className="h-full rounded-full flex items-center px-2"
+                      style={{ width: `${Math.max(20, (d.value / (utmSourceDist[0]?.value || 1)) * 100)}%`, background: COLORS[i % COLORS.length] }}
+                    >
+                      <span className="text-[10px] text-white font-bold truncate">{d.name}</span>
+                    </div>
+                  </div>
+                  <span className="text-xs text-gray-500 w-8 text-right">{d.value}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-6">UTM 데이터 없음</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── UTM 캠페인 ── */}
+      {utmCampaignDist.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">UTM 캠페인별 가입</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={utmCampaignDist} barSize={28}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Bar dataKey="value" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </AdminLayout>
   )
 }
