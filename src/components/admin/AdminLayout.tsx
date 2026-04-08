@@ -22,6 +22,7 @@ const NAV_GROUPS = [
       { path: '/admin/courses', label: '강의', icon: 'ti-book-2' },
       { path: '/admin/ebooks', label: '전자책', icon: 'ti-notebook' },
       { path: '/admin/schedules', label: '일정', icon: 'ti-calendar-event' },
+      { path: '/admin/coupons', label: '쿠폰', icon: 'ti-ticket' },
     ],
   },
   {

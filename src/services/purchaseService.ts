@@ -123,23 +123,18 @@ export const purchaseService = {
         } as never)
       if (purchaseError) throw purchaseError
 
-      // 5. point_logs 기록
-      const { error: logError } = await supabase
-        .from('point_logs')
-        .insert({
-          user_id: userId,
-          amount: -price,
-          balance: newBalance,
-          type: 'use',
-          memo: `${title} 구매`,
-        } as never)
+      // 5. point_logs 기록 (SECURITY DEFINER 함수로 RLS 우회)
+      const { error: logError } = await supabase.rpc('insert_point_log', {
+        p_user_id: userId,
+        p_amount: -price,
+        p_balance: newBalance,
+        p_type: 'use',
+        p_memo: `${title} 구매`,
+      })
       if (logError) throw logError
     } catch (err) {
-      // 롤백: 포인트 복구
-      await supabase
-        .from('profiles')
-        .update({ points: profile.points } as never)
-        .eq('id', userId)
+      // 롤백: 차감한 만큼만 복구 (increment)
+      await supabase.rpc('add_points', { user_id_input: userId, amount_input: price })
       throw err
     }
   },

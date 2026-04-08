@@ -7,6 +7,7 @@ import FreeCourses from '../components/FreeCourses'
 import RealResults from '../components/RealResults'
 import InstructorSection from '../components/InstructorSection'
 import BottomLinks from '../components/BottomLinks'
+import CouponBanner from '../components/CouponBanner'
 
 function HomePage() {
   const today = new Date()
@@ -18,6 +19,7 @@ function HomePage() {
     <>
       <HeroSection banners={data.heroBanners} loading={loading} />
       <FreeEbooks ebooks={data.freeEbooks} loading={loading} />
+      <CouponBanner />
       <ScheduleCalendar schedules={data.schedules} />
       <FreeCourses courses={data.freeCourses} loading={loading} />
       <RealResults results={data.results} reviews={data.reviews} loading={loading} />

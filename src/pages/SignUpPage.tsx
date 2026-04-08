@@ -1,5 +1,5 @@
-import { useState, useCallback } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useCallback, useMemo } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '../services/authService'
 
 declare global {
@@ -42,6 +42,14 @@ interface FormErrors {
 
 function SignUpPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const utmParams = useMemo(() => ({
+    utm_source: searchParams.get('utm_source') || undefined,
+    utm_medium: searchParams.get('utm_medium') || undefined,
+    utm_campaign: searchParams.get('utm_campaign') || undefined,
+    utm_content: searchParams.get('utm_content') || undefined,
+    utm_term: searchParams.get('utm_term') || undefined,
+  }), [searchParams])
   const [form, setForm] = useState<SignUpForm>({
     name: '',
     email: '',
@@ -138,6 +146,7 @@ function SignUpPage() {
         phone,
         address: form.address ? `${form.zonecode}|${form.address}|${form.addressDetail}` : undefined,
         birth_date: birthDate,
+        ...utmParams,
       })
       setSuccess(true)
     } catch (err) {
@@ -176,9 +185,13 @@ function SignUpPage() {
             <i className="ti ti-check text-white text-3xl" />
           </div>
           <h1 className="text-2xl font-bold mb-4">회원가입 완료</h1>
-          <p className="text-gray-500 mb-8">
-            회원가입이 완료되었습니다.<br />
-            로그인하여 아마겟돈 클래스를 시작하세요.
+          <p className="text-sm font-medium text-gray-900 mb-2">{form.email}</p>
+          <p className="text-gray-500 mb-4">
+            가입하신 이메일로 인증 메일이 발송되었습니다.<br />
+            이메일 인증을 완료하신 후 로그인해주세요.
+          </p>
+          <p className="text-xs text-gray-400 mb-8">
+            메일이 오지 않는 경우 스팸함을 확인해주세요.
           </p>
           <button
             onClick={() => navigate('/login')}

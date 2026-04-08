@@ -40,6 +40,7 @@ const AdminSiteSettings = lazy(() => import('./pages/admin/AdminSiteSettings'))
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
 const AdminMembers = lazy(() => import('./pages/admin/AdminMembers'))
 const AdminAchievements = lazy(() => import('./pages/admin/AdminAchievements'))
+const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'))
 
 function PageLoader() {
   return (
@@ -90,6 +91,7 @@ function App() {
                 <Route path="/admin/members" element={<AdminRoute><AdminMembers /></AdminRoute>} />
                 <Route path="/admin/achievements" element={<AdminRoute><AdminAchievements /></AdminRoute>} />
                 <Route path="/admin/site-settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
+                <Route path="/admin/coupons" element={<AdminRoute><AdminCoupons /></AdminRoute>} />
                 <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
               </Routes>
             </Suspense>

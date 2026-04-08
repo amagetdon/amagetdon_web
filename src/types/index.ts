@@ -19,6 +19,8 @@ export type {
   Purchase,
   PurchaseWithDetails,
   Banner,
+  Coupon,
+  CouponClaim,
   CourseProgress,
   PointLog,
   SiteSetting,

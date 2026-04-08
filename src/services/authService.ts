@@ -8,6 +8,11 @@ export const authService = {
     phone?: string
     address?: string
     birth_date?: string
+    utm_source?: string
+    utm_medium?: string
+    utm_campaign?: string
+    utm_content?: string
+    utm_term?: string
   }) {
     const { data, error } = await supabase.auth.signUp({
       email,

@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
 import { Dialog, Transition } from '@headlessui/react'
 import toast from 'react-hot-toast'
-import type { EbookWithInstructor } from '../types'
+import { couponService } from '../services/couponService'
+import type { EbookWithInstructor, Coupon } from '../types'
 
 function EbookDetailPage() {
   const { id } = useParams()
@@ -19,6 +20,8 @@ function EbookDetailPage() {
   const [ownershipLoading, setOwnershipLoading] = useState(true)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [purchasing, setPurchasing] = useState(false)
+  const [myCoupons, setMyCoupons] = useState<Coupon[]>([])
+  const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -61,8 +64,19 @@ function EbookDetailPage() {
     checkOwned()
   }, [user, ebookId])
 
+  useEffect(() => {
+    if (!user) return
+    couponService.getUsableCoupons(user.id).then(setMyCoupons).catch(() => {})
+  }, [user])
+
   const isFree = ebook?.is_free === true
   const price = isFree ? 0 : (ebook?.sale_price ?? 0)
+  const couponDiscount = selectedCoupon
+    ? selectedCoupon.discount_type === 'percent'
+      ? Math.floor(price * selectedCoupon.discount_value / 100)
+      : Math.min(selectedCoupon.discount_value, price)
+    : 0
+  const finalPrice = Math.max(0, price - couponDiscount)
 
   const handlePurchaseClick = () => {
     if (!user) {
@@ -112,12 +126,14 @@ function EbookDetailPage() {
         user.id,
         { ebookId },
         ebook.title,
-        price,
+        finalPrice,
         ebook.duration_days
       )
+      if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
       toast.success('전자책을 구매했습니다!')
       setOwned(true)
       setConfirmOpen(false)
+      setSelectedCoupon(null)
       await refreshProfile()
     } catch (err) {
       const message = err instanceof Error ? err.message : '구매에 실패했습니다.'
@@ -293,11 +309,38 @@ function EbookDetailPage() {
                   <div className="mt-4 space-y-2 text-sm text-gray-600">
                     <p>전자책: <span className="font-medium text-gray-900">{ebook.title}</span></p>
                     <p>결제 금액: <span className="font-bold text-gray-900">{price.toLocaleString()}P</span></p>
+
+                    {myCoupons.length > 0 && price > 0 && (
+                      <div className="pt-2 pb-1">
+                        <p className="text-xs font-bold text-gray-500 mb-1.5">쿠폰 적용</p>
+                        <select
+                          value={selectedCoupon?.id ?? ''}
+                          onChange={(e) => {
+                            const c = myCoupons.find((c) => c.id === Number(e.target.value))
+                            setSelectedCoupon(c || null)
+                          }}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] bg-white cursor-pointer"
+                        >
+                          <option value="">쿠폰을 선택하세요</option>
+                          {myCoupons.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.discount_type === 'percent' ? `${c.discount_value}%` : `${c.discount_value.toLocaleString()}원`} 할인 — {c.title.split('\n')[0]}
+                            </option>
+                          ))}
+                        </select>
+                        {selectedCoupon && (
+                          <p className="text-xs text-[#2ED573] font-bold mt-1">-{couponDiscount.toLocaleString()}P 할인 적용</p>
+                        )}
+                      </div>
+                    )}
+
+                    {selectedCoupon && <p>할인 적용: <span className="font-bold text-[#2ED573]">-{couponDiscount.toLocaleString()}P</span></p>}
+                    <p>최종 결제: <span className="font-bold text-gray-900">{finalPrice.toLocaleString()}P</span></p>
                     <p>보유 포인트: <span className="font-bold text-gray-900">{(profile?.points ?? 0).toLocaleString()}P</span></p>
-                    <p>결제 후 잔액: <span className="font-bold text-[#2ED573]">{((profile?.points ?? 0) - price).toLocaleString()}P</span></p>
+                    <p>결제 후 잔액: <span className="font-bold text-[#2ED573]">{((profile?.points ?? 0) - finalPrice).toLocaleString()}P</span></p>
                   </div>
 
-                  {(profile?.points ?? 0) < price ? (
+                  {(profile?.points ?? 0) < finalPrice ? (
                     <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                       포인트가 부족합니다. 충전 후 다시 시도해 주세요.
                     </div>
@@ -312,10 +355,10 @@ function EbookDetailPage() {
                     </button>
                     <button
                       onClick={handleConfirmPurchase}
-                      disabled={purchasing || (profile?.points ?? 0) < price}
+                      disabled={purchasing || (profile?.points ?? 0) < finalPrice}
                       className="flex-1 rounded-xl bg-[#2ED573] py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {purchasing ? '처리 중...' : '구매하기'}
+                      {purchasing ? '처리 중...' : `${finalPrice.toLocaleString()}P 구매하기`}
                     </button>
                   </div>
                 </Dialog.Panel>

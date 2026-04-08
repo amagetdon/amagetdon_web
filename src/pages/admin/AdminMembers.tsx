@@ -7,7 +7,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
-import type { Profile, PointLog } from '../../types'
+import type { Profile, PointLog, Coupon } from '../../types'
 
 interface MemberWithPurchases extends Profile {
   purchaseCount: number
@@ -25,6 +25,7 @@ export default function AdminMembers() {
   const [pointLogs, setPointLogs] = useState<PointLog[]>([])
   const [pointForm, setPointForm] = useState({ amount: '', memo: '', type: 'charge' as 'charge' | 'deduct' })
   const [pointSubmitting, setPointSubmitting] = useState(false)
+  const [memberCoupons, setMemberCoupons] = useState<{ claim_id: number; coupon: Coupon; used_at: string | null; claimed_at: string }[]>([])
 
   const fetchData = async () => {
     try {
@@ -67,7 +68,8 @@ export default function AdminMembers() {
   const handleViewMember = async (member: MemberWithPurchases) => {
     setViewing(member)
     setPointForm({ amount: '', memo: '', type: 'charge' })
-    const [purchaseRes, pointLogRes] = await Promise.all([
+    setMemberCoupons([])
+    const [purchaseRes, pointLogRes, couponRes] = await Promise.all([
       supabase
         .from('purchases')
         .select('id, title, price, purchased_at, expires_at')
@@ -79,9 +81,45 @@ export default function AdminMembers() {
         .eq('user_id', member.id)
         .order('created_at', { ascending: false })
         .limit(20),
+      supabase
+        .from('coupon_claims')
+        .select('id, coupon_id, used_at, claimed_at, coupons(*)')
+        .eq('user_id', member.id)
+        .order('claimed_at', { ascending: false }),
     ])
     setPurchases((purchaseRes.data as typeof purchases) || [])
     setPointLogs((pointLogRes.data as PointLog[]) || [])
+    setMemberCoupons(
+      (couponRes.data ?? []).map((d: { id: number; coupon_id: number; used_at: string | null; claimed_at: string; coupons: Coupon }) => ({
+        claim_id: d.id,
+        coupon: d.coupons,
+        used_at: d.used_at,
+        claimed_at: d.claimed_at,
+      }))
+    )
+  }
+
+  const handleDeletePurchase = async (purchaseId: number) => {
+    if (!viewing) return
+    try {
+      const { error } = await supabase.from('purchases').delete().eq('id', purchaseId)
+      if (error) throw error
+      setPurchases((prev) => prev.filter((p) => p.id !== purchaseId))
+      toast.success('구매 내역이 삭제되었습니다.')
+    } catch {
+      toast.error('삭제에 실패했습니다.')
+    }
+  }
+
+  const handleDeleteCouponClaim = async (claimId: number) => {
+    try {
+      const { error } = await supabase.from('coupon_claims').delete().eq('id', claimId)
+      if (error) throw error
+      setMemberCoupons((prev) => prev.filter((c) => c.claim_id !== claimId))
+      toast.success('쿠폰이 회수되었습니다.')
+    } catch {
+      toast.error('삭제에 실패했습니다.')
+    }
   }
 
   const handlePointSubmit = async () => {
@@ -102,26 +140,26 @@ export default function AdminMembers() {
 
     setPointSubmitting(true)
     try {
-      const { error: logError } = await supabase
-        .from('point_logs')
-        .insert({
-          user_id: viewing.id,
-          amount: actualAmount,
-          balance: newBalance,
-          type: pointForm.type,
-          memo: pointForm.memo || null,
-          admin_id: user.id,
-        } as never)
-      if (logError) throw logError
+      // 1. 포인트 먼저 변경 (SECURITY DEFINER 함수로 RLS 우회)
+      const { error: pointError } = await supabase.rpc('add_points', {
+        user_id_input: viewing.id,
+        amount_input: actualAmount,
+      })
+      if (pointError) throw pointError
 
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ points: newBalance } as never)
-        .eq('id', viewing.id)
-      if (profileError) throw profileError
+      // 2. 로그 기록 (SECURITY DEFINER 함수)
+      await supabase.rpc('insert_point_log', {
+        p_user_id: viewing.id,
+        p_amount: actualAmount,
+        p_balance: newBalance,
+        p_type: pointForm.type,
+        p_memo: pointForm.memo || null,
+      })
 
       toast.success(`${amount.toLocaleString()}P ${pointForm.type === 'charge' ? '충전' : '차감'} 완료`)
-      setViewing({ ...viewing, points: newBalance })
+      // DB에서 최신 포인트 다시 읽기
+      const { data: freshProfile } = await supabase.from('profiles').select('points').eq('id', viewing.id).single()
+      setViewing({ ...viewing, points: freshProfile?.points ?? newBalance })
       setPointForm({ amount: '', memo: '', type: 'charge' })
 
       const { data: newLogs } = await supabase
@@ -368,7 +406,7 @@ export default function AdminMembers() {
                       <button
                         onClick={handlePointSubmit}
                         disabled={pointSubmitting || !pointForm.amount}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                        className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap ${
                           pointForm.type === 'charge'
                             ? 'bg-[#2ED573] text-gray-900 hover:bg-[#25B866]'
                             : 'bg-red-500 text-white hover:bg-red-600'
@@ -409,7 +447,7 @@ export default function AdminMembers() {
 
                 {purchases.length > 0 && (
                   <div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-2">구매 내역</h3>
+                    <h3 className="text-sm font-bold text-gray-900 mb-2">구매 내역 ({purchases.length}건)</h3>
                     <div className="space-y-2">
                       {purchases.map((p) => (
                         <div key={p.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
@@ -417,6 +455,49 @@ export default function AdminMembers() {
                           <div className="flex items-center gap-2 shrink-0 ml-3">
                             <span className="text-sm font-semibold text-gray-900">{p.price.toLocaleString()}원</span>
                             <span className="text-xs text-gray-400">{formatDate(p.purchased_at)}</span>
+                            <button
+                              onClick={() => handleDeletePurchase(p.id)}
+                              className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors"
+                              aria-label="삭제"
+                            >
+                              <i className="ti ti-x text-xs" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 쿠폰 발급 내역 */}
+                {memberCoupons.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-sm font-bold text-gray-900 mb-2">쿠폰 ({memberCoupons.length}건)</h3>
+                    <div className="space-y-2">
+                      {memberCoupons.map((c) => (
+                        <div key={c.claim_id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
+                              c.used_at ? 'bg-gray-200 text-gray-500' : 'bg-green-100 text-green-700'
+                            }`}>
+                              {c.used_at ? '사용됨' : '미사용'}
+                            </span>
+                            <span className="text-sm text-gray-700 truncate">
+                              {c.coupon.title?.split('\n')[0]}
+                            </span>
+                            <span className="text-xs text-gray-400 shrink-0">
+                              {c.coupon.discount_type === 'percent' ? `${c.coupon.discount_value}%` : `${c.coupon.discount_value.toLocaleString()}원`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-3">
+                            <span className="text-xs text-gray-400">{formatDate(c.claimed_at)}</span>
+                            <button
+                              onClick={() => handleDeleteCouponClaim(c.claim_id)}
+                              className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors"
+                              aria-label="회수"
+                            >
+                              <i className="ti ti-x text-xs" />
+                            </button>
                           </div>
                         </div>
                       ))}

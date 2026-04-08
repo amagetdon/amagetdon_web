@@ -91,6 +91,11 @@ export interface Profile {
   address: string | null
   points: number
   role: 'user' | 'admin'
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
+  utm_content: string | null
+  utm_term: string | null
   created_at: string
   updated_at: string
 }
@@ -298,6 +303,33 @@ export interface Achievement {
 
 export interface AchievementWithCourse extends Achievement {
   course: { id: number; title: string } | null
+}
+
+export interface Coupon {
+  id: number
+  title: string
+  description: string | null
+  discount_type: 'fixed' | 'percent'
+  discount_value: number
+  min_purchase: number
+  brand_name: string | null
+  banner_image_url: string | null
+  banner_bg_color: string | null
+  banner_text_color: string | null
+  code: string
+  max_claims: number | null
+  claims_count: number
+  expires_at: string | null
+  is_published: boolean
+  created_at: string
+}
+
+export interface CouponClaim {
+  id: number
+  coupon_id: number
+  user_id: string
+  used_at: string | null
+  claimed_at: string
 }
 
 export interface Banner {
