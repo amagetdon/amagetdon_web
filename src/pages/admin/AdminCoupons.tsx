@@ -39,8 +39,8 @@ export default function AdminCoupons() {
     try {
       setSaving(true)
       if (editing.id) {
-        const { id, created_at, ...updates } = editing
-        void created_at
+        const { id, created_at, _expiryMode, ...updates } = editing
+        void created_at; void _expiryMode
         await couponService.update(id as number, updates as Partial<Coupon>)
         toast.success('쿠폰이 수정되었습니다.')
       } else {
@@ -57,6 +57,7 @@ export default function AdminCoupons() {
           banner_text_color: (editing.banner_text_color as string) || null,
           code: editing.code as string,
           max_claims: editing.max_claims ? Number(editing.max_claims) : null,
+          use_days: editing.use_days ? Number(editing.use_days) : null,
           expires_at: (editing.expires_at as string) || null,
           is_published: editing.is_published !== false,
         })
@@ -111,6 +112,7 @@ export default function AdminCoupons() {
             banner_text_color: '#171717',
             code: generateCode(),
             max_claims: null,
+            use_days: null,
             expires_at: '',
             is_published: true,
           })}
@@ -166,7 +168,7 @@ export default function AdminCoupons() {
                       {c.claims_count}{c.max_claims ? `/${c.max_claims}` : ''}
                     </td>
                     <td className="px-4 py-3 text-center text-xs text-gray-400 max-sm:hidden">
-                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString('ko-KR') : '무기한'}
+                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString('ko-KR') : c.use_days ? `발급 후 ${c.use_days}일` : '무기한'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${
@@ -274,11 +276,39 @@ export default function AdminCoupons() {
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
               <p className="text-xs text-gray-400 mt-1">비워두면 무제한</p>
             </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">만료일</label>
-              <input type="date" value={(editing.expires_at as string)?.split('T')[0] || ''} onChange={(e) => setEditing({ ...editing, expires_at: e.target.value ? `${e.target.value}T23:59:59` : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-              <p className="text-xs text-gray-400 mt-1">비워두면 무기한</p>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1.5">유효기간 방식</label>
+              <div className="flex gap-2 mb-3">
+                <button type="button" onClick={() => setEditing({ ...editing, use_days: null, expires_at: editing.expires_at, _expiryMode: 'date' })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${(editing._expiryMode || (editing.expires_at ? 'date' : editing.use_days ? 'days' : 'none')) === 'date' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                  만료일 지정
+                </button>
+                <button type="button" onClick={() => setEditing({ ...editing, expires_at: null, use_days: editing.use_days || 30, _expiryMode: 'days' })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${(editing._expiryMode || (editing.use_days ? 'days' : 'none')) === 'days' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                  발급 후 D-day
+                </button>
+                <button type="button" onClick={() => setEditing({ ...editing, expires_at: null, use_days: null, _expiryMode: 'none' })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${(editing._expiryMode || (!editing.expires_at && !editing.use_days ? 'none' : '')) === 'none' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                  무기한
+                </button>
+              </div>
+              {(editing._expiryMode || (editing.expires_at ? 'date' : editing.use_days ? 'days' : 'none')) === 'date' && (
+                <div>
+                  <input type="date" value={(editing.expires_at as string)?.split('T')[0] || ''} onChange={(e) => setEditing({ ...editing, expires_at: e.target.value ? `${e.target.value}T23:59:59` : null })}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                  <p className="text-xs text-gray-400 mt-1">해당 날짜까지 사용 가능</p>
+                </div>
+              )}
+              {(editing._expiryMode || (editing.use_days ? 'days' : '')) === 'days' && (
+                <div>
+                  <div className="flex items-center gap-2">
+                    <input type="number" value={(editing.use_days as number) ?? 30} onChange={(e) => setEditing({ ...editing, use_days: Number(e.target.value) || null })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                    <span className="text-sm text-gray-500 shrink-0">일</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">쿠폰 발급(받기) 후 N일간 사용 가능</p>
+                </div>
+              )}
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">배너 배경색</label>

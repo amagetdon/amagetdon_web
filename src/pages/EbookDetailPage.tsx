@@ -7,6 +7,7 @@ import { Dialog, Transition } from '@headlessui/react'
 import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
+import CouponSelector from '../components/CouponSelector'
 import type { EbookWithInstructor, Coupon } from '../types'
 
 function EbookDetailPage() {
@@ -324,29 +325,7 @@ function EbookDetailPage() {
                     <p>전자책: <span className="font-medium text-gray-900">{ebook.title}</span></p>
                     <p>결제 금액: <span className="font-bold text-gray-900">{price.toLocaleString()}P</span></p>
 
-                    {myCoupons.length > 0 && price > 0 && (
-                      <div className="pt-2 pb-1">
-                        <p className="text-xs font-bold text-gray-500 mb-1.5">쿠폰 적용</p>
-                        <select
-                          value={selectedCoupon?.id ?? ''}
-                          onChange={(e) => {
-                            const c = myCoupons.find((c) => c.id === Number(e.target.value))
-                            setSelectedCoupon(c || null)
-                          }}
-                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] bg-white cursor-pointer"
-                        >
-                          <option value="">쿠폰을 선택하세요</option>
-                          {myCoupons.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.discount_type === 'percent' ? `${c.discount_value}%` : `${c.discount_value.toLocaleString()}원`} 할인 — {c.title.split('\n')[0]}
-                            </option>
-                          ))}
-                        </select>
-                        {selectedCoupon && (
-                          <p className="text-xs text-[#2ED573] font-bold mt-1">-{couponDiscount.toLocaleString()}P 할인 적용</p>
-                        )}
-                      </div>
-                    )}
+                    <CouponSelector coupons={myCoupons} selected={selectedCoupon} onSelect={setSelectedCoupon} price={price} />
 
                     {selectedCoupon && <p>할인 적용: <span className="font-bold text-[#2ED573]">-{couponDiscount.toLocaleString()}P</span></p>}
                     <p>최종 결제: <span className="font-bold text-gray-900">{finalPrice.toLocaleString()}P</span></p>

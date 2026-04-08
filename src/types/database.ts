@@ -324,6 +324,7 @@ export interface Coupon {
   code: string
   max_claims: number | null
   claims_count: number
+  use_days: number | null
   expires_at: string | null
   is_published: boolean
   created_at: string

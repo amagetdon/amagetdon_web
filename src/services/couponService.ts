@@ -80,13 +80,31 @@ export const couponService = {
   async getUsableCoupons(userId: string) {
     const { data, error } = await supabase
       .from('coupon_claims')
-      .select('coupon_id, coupons(*)')
+      .select('coupon_id, claimed_at, coupons(*)')
       .eq('user_id', userId)
       .is('used_at', null)
     if (error) throw error
+    const now = Date.now()
     return (data ?? [])
-      .map((d: { coupon_id: number; coupons: Coupon }) => d.coupons)
-      .filter((c: Coupon) => c.is_published && (!c.expires_at || new Date(c.expires_at) > new Date()))
+      .filter((d: { coupon_id: number; claimed_at: string; coupons: Coupon }) => {
+        const c = d.coupons
+        if (!c.is_published) return false
+        if (c.expires_at && new Date(c.expires_at).getTime() < now) return false
+        if (c.use_days && d.claimed_at) {
+          const deadline = new Date(d.claimed_at).getTime() + c.use_days * 86400000
+          if (deadline < now) return false
+        }
+        return true
+      })
+      .map((d: { coupon_id: number; claimed_at: string; coupons: Coupon }) => {
+        const c = d.coupons
+        // use_days가 있으면 claimed_at 기준 만료일 계산해서 expires_at에 덮어씌움
+        if (c.use_days && d.claimed_at) {
+          const deadline = new Date(new Date(d.claimed_at).getTime() + c.use_days * 86400000).toISOString()
+          return { ...c, expires_at: c.expires_at && c.expires_at < deadline ? c.expires_at : deadline }
+        }
+        return c
+      })
   },
 
   /** 쿠폰 사용 처리 */
