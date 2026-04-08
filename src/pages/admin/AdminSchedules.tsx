@@ -62,7 +62,7 @@ export default function AdminSchedules() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">일정 관리</h1>
         <button onClick={() => setEditing({ title: '', scheduled_at: '', course_id: null, instructor_id: null })}
-          className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 일정 추가</button>
+          className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 일정 추가</button>
       </div>
 
       {/* 월 네비게이션 */}
@@ -110,7 +110,7 @@ export default function AdminSchedules() {
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">제목 *</label>
               <input value={(editing.title as string) || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">일시 *</label>
@@ -122,7 +122,7 @@ export default function AdminSchedules() {
                   return `${kr.getFullYear()}-${String(kr.getMonth()+1).padStart(2,'0')}-${String(kr.getDate()).padStart(2,'0')}T${String(kr.getHours()).padStart(2,'0')}:${String(kr.getMinutes()).padStart(2,'0')}`
                 })()}
                 onChange={(e) => setEditing({ ...editing, scheduled_at: e.target.value ? e.target.value + ':00+09:00' : '' })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">강사</label>
@@ -130,7 +130,7 @@ export default function AdminSchedules() {
                 const instructorId = e.target.value ? Number(e.target.value) : null
                 setEditing({ ...editing, instructor_id: instructorId, course_id: null })
               }}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all">
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all">
                 <option value="">전체</option>
                 {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
@@ -174,7 +174,7 @@ export default function AdminSchedules() {
                         }}
                         className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer transition-colors flex items-center justify-between ${
                           (editing.course_id as number) === c.id
-                            ? 'bg-[#04F87F]/10 text-gray-900'
+                            ? 'bg-[#5FFF85]/10 text-gray-900'
                             : 'bg-white text-gray-700 hover:bg-gray-50'
                         }`}
                       >
@@ -182,7 +182,7 @@ export default function AdminSchedules() {
                           {c.instructor?.name && <span className="text-xs text-gray-400 mr-1">[{c.instructor.name}]</span>}
                           {c.title}
                         </span>
-                        {(editing.course_id as number) === c.id && <i className="ti ti-check text-[#04F87F] text-sm" />}
+                        {(editing.course_id as number) === c.id && <i className="ti ti-check text-[#08924F] text-sm" />}
                       </button>
                     ))
                   })()}

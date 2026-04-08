@@ -60,7 +60,7 @@ function ResetPasswordPage() {
       <>
         <div className="bg-black h-[200px] w-full" />
         <div className="max-w-[440px] mx-auto px-6 py-16 text-center">
-          <div className="w-8 h-8 border-4 border-[#04F87F] border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="w-8 h-8 border-4 border-[#5FFF85] border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-gray-500 mt-4 text-sm">인증 확인 중...</p>
         </div>
       </>
@@ -84,7 +84,7 @@ function ResetPasswordPage() {
           </p>
           <button
             onClick={() => navigate('/login')}
-            className="bg-[#04F87F] text-white font-bold px-8 py-3 rounded-lg cursor-pointer"
+            className="bg-[#5FFF85] text-white font-bold px-8 py-3 rounded-lg cursor-pointer"
           >
             로그인 페이지로
           </button>
@@ -135,7 +135,7 @@ function ResetPasswordPage() {
       <>
         <div className="bg-black h-[200px] w-full" />
         <div className="max-w-[440px] mx-auto px-6 py-16 text-center">
-          <div className="w-16 h-16 bg-[#04F87F] rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-16 h-16 bg-[#5FFF85] rounded-full flex items-center justify-center mx-auto mb-6">
             <i className="ti ti-check text-white text-3xl" />
           </div>
           <h1 className="text-2xl font-bold mb-4">비밀번호 변경 완료</h1>
@@ -145,7 +145,7 @@ function ResetPasswordPage() {
           </p>
           <button
             onClick={() => navigate('/login')}
-            className="bg-[#04F87F] text-white font-bold px-8 py-3 rounded-lg cursor-pointer"
+            className="bg-[#5FFF85] text-white font-bold px-8 py-3 rounded-lg cursor-pointer"
           >
             로그인 하러가기
           </button>
@@ -169,7 +169,7 @@ function ResetPasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="8~18자 영문/숫자/특수문자"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#04F87F] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
             />
             <p className="text-xs text-red-400 mt-1">8~18자의 영문/숫자/특수문자를 함께 입력해주세요.</p>
           </div>
@@ -181,7 +181,7 @@ function ResetPasswordPage() {
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
               placeholder="비밀번호를 다시 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#04F87F] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
             />
           </div>
 
@@ -192,7 +192,7 @@ function ResetPasswordPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#04F87F] text-white font-bold py-3 rounded-lg cursor-pointer disabled:opacity-50 mt-2"
+            className="w-full bg-[#5FFF85] text-white font-bold py-3 rounded-lg cursor-pointer disabled:opacity-50 mt-2"
           >
             {loading ? '변경 중...' : '비밀번호 변경'}
           </button>

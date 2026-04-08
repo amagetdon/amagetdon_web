@@ -226,7 +226,7 @@ export default function AdminSiteSettings() {
         <button
           onClick={() => setTab('general')}
           className={`px-5 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${
-            tab === 'general' ? 'bg-[#04F87F] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
+            tab === 'general' ? 'bg-[#5FFF85] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
           }`}
         >
           일반 설정
@@ -234,7 +234,7 @@ export default function AdminSiteSettings() {
         <button
           onClick={() => setTab('banners')}
           className={`px-5 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${
-            tab === 'banners' ? 'bg-[#04F87F] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
+            tab === 'banners' ? 'bg-[#5FFF85] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
           }`}
         >
           히어로 배너
@@ -242,7 +242,7 @@ export default function AdminSiteSettings() {
         <button
           onClick={() => setTab('results')}
           className={`px-5 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${
-            tab === 'results' ? 'bg-[#04F87F] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
+            tab === 'results' ? 'bg-[#5FFF85] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
           }`}
         >
           리얼 성과
@@ -250,7 +250,7 @@ export default function AdminSiteSettings() {
         <button
           onClick={() => setTab('bottomLinks')}
           className={`px-5 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${
-            tab === 'bottomLinks' ? 'bg-[#04F87F] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
+            tab === 'bottomLinks' ? 'bg-[#5FFF85] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
           }`}
         >
           하단 링크
@@ -281,14 +281,14 @@ export default function AdminSiteSettings() {
               value={kakaoLink}
               onChange={(e) => setKakaoLink(e.target.value)}
               placeholder="https://pf.kakao.com/..."
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all"
             />
           </div>
 
           <button
             onClick={handleGeneralSave}
             disabled={generalSaving}
-            className="bg-[#04F87F] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors disabled:opacity-50"
+            className="bg-[#5FFF85] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors disabled:opacity-50"
           >
             {generalSaving ? '저장 중...' : '전체 저장'}
           </button>
@@ -313,7 +313,7 @@ export default function AdminSiteSettings() {
             <p className="text-sm text-gray-500">등록된 배너 {banners.length}개</p>
             <button
               onClick={() => { setEditingPageKey(bannerSubTab); setBannerEditing({ title: '', subtitle: '', image_url: '', link_url: '', overlay_opacity: 30, sort_order: banners.length, is_published: true }) }}
-              className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"
+              className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"
             >
               <i className="ti ti-plus text-sm" /> 배너 추가
             </button>
@@ -369,7 +369,7 @@ export default function AdminSiteSettings() {
                 </div>
                 <button
                   onClick={() => { setEditingPageKey(eventKey); setBannerEditing({ title: '이벤트 안내', subtitle: '', image_url: '', link_url: '', overlay_opacity: 0, sort_order: eventBanners.length, is_published: true }) }}
-                  className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"
+                  className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"
                 >
                   <i className="ti ti-plus text-sm" /> 이벤트 안내 추가
                 </button>
@@ -417,11 +417,11 @@ export default function AdminSiteSettings() {
             <div className="relative max-w-xs">
               <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="성과 검색..."
-                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]" />
+                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#5FFF85]" />
             </div>
             <button
               onClick={() => setResultEditing({ author_name: '', title: '', preview: '', content: '', image_url: null, video_url: null, link_url: null, sort_order: results.length, is_published: true })}
-              className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"
+              className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"
             >
               <i className="ti ti-plus text-sm" /> 성과 추가
             </button>
@@ -466,7 +466,7 @@ export default function AdminSiteSettings() {
             <p className="text-sm text-gray-500">메인 페이지 하단에 표시되는 링크 카드입니다. (브랜드 페이지, 유튜브 등)</p>
             <button
               onClick={() => setLinkEditing({ title: '', subtitle: '', image_url: '', link_url: '', sort_order: bottomLinks.length, is_published: true })}
-              className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5 shrink-0 ml-4"
+              className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5 shrink-0 ml-4"
             >
               <i className="ti ti-plus text-sm" /> 링크 추가
             </button>
@@ -517,13 +517,13 @@ export default function AdminSiteSettings() {
               <label className="text-sm font-bold block mb-1">제목 *</label>
               <input value={(linkEditing.title as string) || ''} onChange={(e) => setLinkEditing({ ...linkEditing, title: e.target.value })}
                 placeholder="아마겟돈 브랜드 페이지"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">링크 URL</label>
               <input value={(linkEditing.link_url as string) || ''} onChange={(e) => setLinkEditing({ ...linkEditing, link_url: e.target.value })}
                 placeholder="https://..."
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">썸네일 이미지</label>
@@ -533,17 +533,17 @@ export default function AdminSiteSettings() {
             <div>
               <label className="text-sm font-bold block mb-1">검은 오버레이 투명도</label>
               <input type="number" min={0} max={100} value={(linkEditing.subtitle as number) ?? 0} onChange={(e) => setLinkEditing({ ...linkEditing, subtitle: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
               <p className="text-xs text-gray-400 mt-1">0 = 없음, 50 = 반투명, 100 = 완전 검정</p>
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">정렬 순서</label>
               <input type="number" value={(linkEditing.sort_order as number) ?? 0} onChange={(e) => setLinkEditing({ ...linkEditing, sort_order: Number(e.target.value) })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={linkEditing.is_published !== false} onChange={(e) => setLinkEditing({ ...linkEditing, is_published: e.target.checked })} className="accent-[#04F87F]" />
+                <input type="checkbox" checked={linkEditing.is_published !== false} onChange={(e) => setLinkEditing({ ...linkEditing, is_published: e.target.checked })} className="accent-[#5FFF85]" />
                 공개
               </label>
             </div>
@@ -559,14 +559,14 @@ export default function AdminSiteSettings() {
               <label className="text-sm font-bold block mb-1">타이틀 *</label>
               <textarea value={(bannerEditing.title as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, title: e.target.value })}
                 placeholder="한번 배워서 평생 써먹는&#10;300 벌고 시작하는 보험 비즈니스" rows={3}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all resize-none" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all resize-none" />
               <p className="text-xs text-gray-400 mt-1">줄바꿈은 Enter로 구분됩니다.</p>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">뱃지 텍스트</label>
               <input value={(bannerEditing.subtitle as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, subtitle: e.target.value })}
                 placeholder="무료강의 | 12월 25일(목) 19:30"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">배경 이미지</label>
@@ -576,18 +576,18 @@ export default function AdminSiteSettings() {
             <div>
               <label className="text-sm font-bold block mb-1">링크 URL</label>
               <input value={(bannerEditing.link_url as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, link_url: e.target.value })}
-                placeholder="https://..." className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                placeholder="https://..." className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">정렬 순서</label>
               <input type="number" value={(bannerEditing.sort_order as number) ?? 0} onChange={(e) => setBannerEditing({ ...bannerEditing, sort_order: Number(e.target.value) })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">배경 오버레이 투명도 ({(bannerEditing.overlay_opacity as number) ?? 30}%)</label>
               <input type="range" min={0} max={100} value={(bannerEditing.overlay_opacity as number) ?? 30}
                 onChange={(e) => setBannerEditing({ ...bannerEditing, overlay_opacity: Number(e.target.value) })}
-                className="w-full accent-[#04F87F]" />
+                className="w-full accent-[#5FFF85]" />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
                 <span>0 = 없음</span>
                 <span>50 = 반투명</span>
@@ -596,7 +596,7 @@ export default function AdminSiteSettings() {
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={bannerEditing.is_published !== false} onChange={(e) => setBannerEditing({ ...bannerEditing, is_published: e.target.checked })} className="accent-[#04F87F]" />
+                <input type="checkbox" checked={bannerEditing.is_published !== false} onChange={(e) => setBannerEditing({ ...bannerEditing, is_published: e.target.checked })} className="accent-[#5FFF85]" />
                 공개
               </label>
             </div>
@@ -625,25 +625,25 @@ export default function AdminSiteSettings() {
             <div>
               <label className="text-sm font-bold block mb-1">작성자명 *</label>
               <input value={(resultEditing.author_name as string) || ''} onChange={(e) => setResultEditing({ ...resultEditing, author_name: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">제목 *</label>
               <input value={(resultEditing.title as string) || ''} onChange={(e) => setResultEditing({ ...resultEditing, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">미리보기 텍스트</label>
               <input value={(resultEditing.preview as string) || ''} onChange={(e) => setResultEditing({ ...resultEditing, preview: e.target.value })}
                 placeholder="어떻게 하루에 잠깐 일하고 **월 4천**을 벌까요?"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
               <p className="text-xs text-gray-400 mt-1">**텍스트** 로 감싸면 <strong>볼드 강조</strong>됩니다.</p>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">메모</label>
               <textarea value={(resultEditing.content as string) || ''} onChange={(e) => setResultEditing({ ...resultEditing, content: e.target.value })}
                 placeholder="관리용 메모 (외부에 노출되지 않습니다)"
-                rows={2} className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all resize-none" />
+                rows={2} className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all resize-none" />
               <p className="text-xs text-gray-400 mt-1">외부에 노출되지 않는 관리용 메모입니다.</p>
             </div>
             <div>
@@ -658,18 +658,18 @@ export default function AdminSiteSettings() {
               <label className="text-sm font-bold block mb-1">링크 URL</label>
               <input value={(resultEditing.link_url as string) || ''} onChange={(e) => setResultEditing({ ...resultEditing, link_url: e.target.value })}
                 placeholder="https://... (동영상 없을 때 클릭 시 이동할 링크)"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
               <p className="text-xs text-gray-400 mt-1">동영상 URL이 있으면 동영상이 우선 재생됩니다.</p>
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">정렬 순서</label>
               <input type="number" value={(resultEditing.sort_order as number) ?? 0} onChange={(e) => setResultEditing({ ...resultEditing, sort_order: Number(e.target.value) })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
               <p className="text-xs text-gray-400 mt-1">숫자가 작을수록 먼저 표시됩니다.</p>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" checked={resultEditing.is_published !== false} onChange={(e) => setResultEditing({ ...resultEditing, is_published: e.target.checked })} className="accent-[#04F87F]" />
+                <input type="checkbox" checked={resultEditing.is_published !== false} onChange={(e) => setResultEditing({ ...resultEditing, is_published: e.target.checked })} className="accent-[#5FFF85]" />
                 공개
               </label>
             </div>
@@ -677,7 +677,7 @@ export default function AdminSiteSettings() {
             <div className="col-span-2 max-sm:col-span-1">
               <p className="text-xs text-gray-400 mb-2">미리보기</p>
               <div className="bg-[#0a0a0a] rounded-xl p-6 flex flex-col items-center">
-                <span className="inline-block bg-[#04F87F] text-black text-xs font-bold px-4 py-1.5 rounded-full mb-3">
+                <span className="inline-block bg-[#5FFF85] text-black text-xs font-bold px-4 py-1.5 rounded-full mb-3">
                   {(resultEditing.author_name as string) || '작성자'}
                 </span>
                 <p className="text-sm text-gray-300 mb-3 text-center" dangerouslySetInnerHTML={{

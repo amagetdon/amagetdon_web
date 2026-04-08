@@ -199,7 +199,7 @@ function CourseDetailPage() {
       <button
         onClick={handlePurchaseClick}
         disabled={purchasing}
-        className="w-full py-4 bg-[#04F87F] text-white font-bold text-center rounded-xl mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-full py-4 bg-[#5FFF85] text-white font-bold text-center rounded-xl mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {purchasing ? '처리 중...' : isFree ? '무료로 신청하기' : '선착순 마감 전에 신청하기'}
       </button>
@@ -230,7 +230,7 @@ function CourseDetailPage() {
 
             <div className="w-[340px] max-md:w-full shrink-0">
               <div className="sticky top-4">
-                <p className="text-sm text-[#04F87F] font-medium">{course.instructor?.name} 강사</p>
+                <p className="text-sm text-[#08924F] font-medium">{course.instructor?.name} 강사</p>
                 <h1 className="text-xl font-bold text-gray-900 mt-1">{course.title}</h1>
 
                 {course.curriculum_items.length > 0 && (
@@ -263,7 +263,7 @@ function CourseDetailPage() {
                 {course.enrollment_deadline && (
                   <div className="text-center mt-6">
                     <p className="text-sm text-gray-600">강의 모집 마감까지</p>
-                    <p className={`text-2xl font-bold mt-1 ${isExpired ? 'text-gray-400' : 'text-[#04F87F]'}`}>
+                    <p className={`text-2xl font-bold mt-1 ${isExpired ? 'text-gray-400' : 'text-[#08924F]'}`}>
                       {countdownText}
                     </p>
                   </div>
@@ -317,7 +317,7 @@ function CourseDetailPage() {
                     <p>강의명: <span className="font-medium text-gray-900">{course.title}</span></p>
                     <p>결제 금액: <span className="font-bold text-gray-900">{price.toLocaleString()}P</span></p>
                     <p>보유 포인트: <span className="font-bold text-gray-900">{(profile?.points ?? 0).toLocaleString()}P</span></p>
-                    <p>결제 후 잔액: <span className="font-bold text-[#04F87F]">{((profile?.points ?? 0) - price).toLocaleString()}P</span></p>
+                    <p>결제 후 잔액: <span className="font-bold text-[#08924F]">{((profile?.points ?? 0) - price).toLocaleString()}P</span></p>
                   </div>
 
                   {(profile?.points ?? 0) < price ? (
@@ -336,7 +336,7 @@ function CourseDetailPage() {
                     <button
                       onClick={handleConfirmPurchase}
                       disabled={purchasing || (profile?.points ?? 0) < price}
-                      className="flex-1 rounded-xl bg-[#04F87F] py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 rounded-xl bg-[#5FFF85] py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {purchasing ? '처리 중...' : '구매하기'}
                     </button>

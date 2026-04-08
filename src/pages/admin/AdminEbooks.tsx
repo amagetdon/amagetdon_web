@@ -87,13 +87,13 @@ export default function AdminEbooks() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">전자책 관리</h1>
         <button onClick={() => setEditing({ title: '', instructor_id: null, is_free: false, is_hot: false, original_price: null, sale_price: null, is_published: true, duration_days: 30 })}
-          className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 전자책 추가</button>
+          className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 전자책 추가</button>
       </div>
 
       <div className="mb-4"><div className="relative max-w-xs">
         <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="전자책 검색..."
-          className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]" />
+          className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#5FFF85]" />
       </div></div>
 
       {loading ? (
@@ -112,7 +112,7 @@ export default function AdminEbooks() {
                 <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 전자책이 없습니다.'}</td></tr>
               ) : filtered.map((eb) => (
                 <tr key={eb.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{eb.title}{eb.is_hot && <span className="ml-2 text-xs bg-[#04F87F] text-white px-1.5 py-0.5 rounded">HOT</span>}</td>
+                  <td className="px-4 py-3 font-medium">{eb.title}{eb.is_hot && <span className="ml-2 text-xs bg-[#5FFF85] text-white px-1.5 py-0.5 rounded">HOT</span>}</td>
                   <td className="px-4 py-3 text-gray-500 max-sm:hidden">{eb.instructor?.name || '-'}</td>
                   <td className="px-4 py-3 text-center text-gray-500">{eb.is_free ? '무료' : eb.sale_price ? `${eb.sale_price.toLocaleString()}원` : '-'}</td>
                   <td className="px-4 py-3 text-center">
@@ -134,12 +134,12 @@ export default function AdminEbooks() {
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">제목 *</label>
               <input value={(editing.title as string) || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">강사</label>
               <select value={(editing.instructor_id as number) || ''} onChange={(e) => setEditing({ ...editing, instructor_id: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all">
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all">
                 <option value="">선택</option>
                 {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
               </select>
@@ -149,7 +149,7 @@ export default function AdminEbooks() {
               <select value={editing.is_free ? 'free' : 'paid'} onChange={(e) => {
                 const isFree = e.target.value === 'free'
                 setEditing({ ...editing, is_free: isFree, ...(isFree ? { original_price: 0, sale_price: 0 } : {}) })
-              }} className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all">
+              }} className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all">
                 <option value="free">무료</option>
                 <option value="paid">유료</option>
               </select>
@@ -158,25 +158,25 @@ export default function AdminEbooks() {
               <label className="text-sm font-bold block mb-1">정가 (원)</label>
               <input type="number" value={editing.is_free ? 0 : (editing.original_price as number) || ''} disabled={!!editing.is_free}
                 onChange={(e) => setEditing({ ...editing, original_price: e.target.value ? Number(e.target.value) : null })}
-                className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10'}`} />
+                className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10'}`} />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">할인가 (원)</label>
               <input type="number" value={editing.is_free ? 0 : (editing.sale_price as number) || ''} disabled={!!editing.is_free}
                 onChange={(e) => setEditing({ ...editing, sale_price: e.target.value ? Number(e.target.value) : null })}
-                className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10'}`} />
+                className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10'}`} />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">오픈일</label>
               <input type="date" value={(editing.open_date as string)?.slice(0, 10) || ''}
                 onChange={(e) => setEditing({ ...editing, open_date: e.target.value ? e.target.value + 'T00:00:00+09:00' : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">마감일</label>
               <input type="date" value={(editing.close_date as string)?.slice(0, 10) || ''}
                 onChange={(e) => setEditing({ ...editing, close_date: e.target.value ? e.target.value + 'T23:59:59+09:00' : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">표지 이미지</label>
@@ -193,7 +193,7 @@ export default function AdminEbooks() {
               <input type="number" value={(editing.duration_days as number) ?? ''}
                 onChange={(e) => setEditing({ ...editing, duration_days: e.target.value ? Number(e.target.value) : null })}
                 placeholder="예: 30"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">PDF 파일</label>
@@ -216,20 +216,20 @@ export default function AdminEbooks() {
                     {(editing.file_url as string).split('/').pop()}
                   </a>
                   <button type="button" onClick={() => pdfInputRef.current?.click()} disabled={pdfUploading}
-                    className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 hover:border-[#04F87F] cursor-pointer transition-colors">
+                    className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 hover:border-[#5FFF85] cursor-pointer transition-colors">
                     {pdfUploading ? '업로드 중...' : '재업로드'}
                   </button>
                 </div>
               ) : (
                 <div
                   onClick={() => !pdfUploading && pdfInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#04F87F] transition-colors"
+                  className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#5FFF85] transition-colors"
                   role="button"
                   tabIndex={0}
                   onKeyDown={(e) => { if (e.key === 'Enter') pdfInputRef.current?.click() }}
                 >
                   {pdfUploading ? (
-                    <div className="w-6 h-6 border-2 border-[#04F87F] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-[#5FFF85] border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <>
                       <i className="ti ti-file-upload text-2xl text-gray-400" />
@@ -242,9 +242,9 @@ export default function AdminEbooks() {
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-2">뱃지 / 옵션</label>
               <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#04F87F]" /> HOT</label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#04F87F]" /> NEW</label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#5FFF85]" /> HOT</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#5FFF85]" /> NEW</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#5FFF85]" /> 공개</label>
               </div>
             </div>
           </div>

@@ -97,7 +97,7 @@ function EbookReaderPage() {
     return (
       <div className="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-3 border-[#04F87F] border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-3 border-[#5FFF85] border-t-transparent rounded-full animate-spin" />
           <p className="text-gray-300 text-sm">전자책을 불러오는 중...</p>
         </div>
       </div>
@@ -117,7 +117,7 @@ function EbookReaderPage() {
           <p className="text-gray-400 text-sm mb-6">{error}</p>
           <button
             onClick={handleClose}
-            className="bg-[#04F87F] text-black font-bold px-6 py-2.5 rounded-lg hover:brightness-110 transition cursor-pointer"
+            className="bg-[#5FFF85] text-black font-bold px-6 py-2.5 rounded-lg hover:brightness-110 transition cursor-pointer"
           >
             돌아가기
           </button>

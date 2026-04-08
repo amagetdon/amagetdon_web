@@ -209,12 +209,12 @@ function MyPage() {
 
       <div className="max-w-[800px] mx-auto px-6">
         <div className="mt-16 mb-10">
-          <p className="text-2xl font-bold text-[#04F87F]">{displayName}님</p>
+          <p className="text-2xl font-bold text-[#08924F]">{displayName}님</p>
           <p className="text-2xl font-bold">안녕하세요 아마겟돈 클래스입니다 :)</p>
         </div>
 
         <div>
-          <h2 className="font-bold border-b-2 border-[#04F87F] pb-2">회원정보입력</h2>
+          <h2 className="font-bold border-b-2 border-[#5FFF85] pb-2">회원정보입력</h2>
 
           {/* 이메일 (읽기 전용) */}
           <div className="flex items-center gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
@@ -256,7 +256,7 @@ function MyPage() {
                   name="gender"
                   checked={form.gender === 'male'}
                   onChange={() => handleChange('gender', 'male')}
-                  className="accent-[#04F87F]"
+                  className="accent-[#5FFF85]"
                 />
                 <span className="text-sm">남성</span>
               </label>
@@ -266,7 +266,7 @@ function MyPage() {
                   name="gender"
                   checked={form.gender === 'female'}
                   onChange={() => handleChange('gender', 'female')}
-                  className="accent-[#04F87F]"
+                  className="accent-[#5FFF85]"
                 />
                 <span className="text-sm">여성</span>
               </label>
@@ -430,13 +430,13 @@ function MyPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="bg-[#04F87F] text-white px-8 py-3 rounded-lg cursor-pointer disabled:opacity-50"
+              className="bg-[#5FFF85] text-white px-8 py-3 rounded-lg cursor-pointer disabled:opacity-50"
             >
               {saving ? '저장 중...' : '저장'}
             </button>
           </div>
           {saveMessage && (
-            <p className={`text-center text-sm mt-3 ${saveMessage === '저장되었습니다.' ? 'text-[#04F87F]' : 'text-red-400'}`}>
+            <p className={`text-center text-sm mt-3 ${saveMessage === '저장되었습니다.' ? 'text-[#08924F]' : 'text-red-400'}`}>
               {saveMessage}
             </p>
           )}
@@ -444,10 +444,10 @@ function MyPage() {
 
         {/* 내 포인트 섹션 */}
         <div className="mt-12">
-          <h2 className="font-bold border-b-2 border-[#04F87F] pb-2">내 포인트</h2>
+          <h2 className="font-bold border-b-2 border-[#5FFF85] pb-2">내 포인트</h2>
           <div className="flex items-center gap-4 py-4">
             <span className="font-bold text-sm">포인트</span>
-            <span className="text-[#04F87F] font-bold">
+            <span className="text-[#08924F] font-bold">
               {(profile?.points ?? 0).toLocaleString()}포인트
             </span>
           </div>
@@ -455,7 +455,7 @@ function MyPage() {
 
         {/* 내 구매내역 섹션 */}
         <div className="mt-12 mb-16">
-          <h2 className="font-bold border-b-2 border-[#04F87F] pb-2">내 구매내역</h2>
+          <h2 className="font-bold border-b-2 border-[#5FFF85] pb-2">내 구매내역</h2>
           <div className="divide-y">
             {purchases.length === 0 ? (
               <div className="py-8 text-center text-gray-400 text-sm">

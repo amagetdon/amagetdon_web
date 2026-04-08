@@ -118,7 +118,7 @@ export default function AdminAchievements() {
         <h1 className="text-2xl font-bold text-gray-900">수강 성과 관리</h1>
         <button
           onClick={() => setEditing({ author_name: '관리자', title: '', content: '', image_url: '', course_id: null, likes_count: 0, is_published: true })}
-          className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"
+          className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"
         >
           <i className="ti ti-plus text-sm" /> 성과 추가
         </button>
@@ -131,7 +131,7 @@ export default function AdminAchievements() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="성과 검색..."
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#5FFF85]"
           />
         </div>
       </div>
@@ -180,7 +180,7 @@ export default function AdminAchievements() {
                       disabled={toggling === item.id}
                       className={`w-8 h-8 flex items-center justify-center rounded-lg border-none cursor-pointer transition-colors mx-auto ${
                         item.is_published
-                          ? 'text-[#04F87F] hover:bg-green-50 bg-transparent'
+                          ? 'text-[#08924F] hover:bg-green-50 bg-transparent'
                           : 'text-gray-300 hover:bg-gray-100 bg-transparent'
                       } disabled:opacity-50`}
                       aria-label={item.is_published ? '비공개로 전환' : '공개로 전환'}
@@ -222,7 +222,7 @@ export default function AdminAchievements() {
               <input
                 value={(editing.author_name as string) || ''}
                 onChange={(e) => setEditing({ ...editing, author_name: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all"
               />
             </div>
             <div>
@@ -232,7 +232,7 @@ export default function AdminAchievements() {
                 value={(editing.likes_count as number) ?? 0}
                 onChange={(e) => setEditing({ ...editing, likes_count: Number(e.target.value) || 0 })}
                 min={0}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all"
               />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
@@ -240,7 +240,7 @@ export default function AdminAchievements() {
               <select
                 value={(editing.course_id as number) || ''}
                 onChange={(e) => setEditing({ ...editing, course_id: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all"
               >
                 <option value="">선택 안함</option>
                 {courses.map((c) => (
@@ -250,7 +250,7 @@ export default function AdminAchievements() {
             </div>
             <div>
               <label className="flex items-center gap-2 text-sm cursor-pointer mt-2">
-                <input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" />
+                <input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#5FFF85]" />
                 공개
               </label>
             </div>
@@ -259,7 +259,7 @@ export default function AdminAchievements() {
               <input
                 value={(editing.title as string) || ''}
                 onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all"
               />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
@@ -268,7 +268,7 @@ export default function AdminAchievements() {
                 value={(editing.content as string) || ''}
                 onChange={(e) => setEditing({ ...editing, content: e.target.value })}
                 rows={6}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all resize-none"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all resize-none"
               />
             </div>
             <div className="col-span-2 max-sm:col-span-1">

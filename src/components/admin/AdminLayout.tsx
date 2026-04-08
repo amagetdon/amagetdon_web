@@ -50,7 +50,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* 로고/프로필 영역 */}
       <div className="px-5 pt-6 pb-4">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-9 h-9 rounded-lg bg-[#04F87F] flex items-center justify-center">
+          <div className="w-9 h-9 rounded-lg bg-[#5FFF85] flex items-center justify-center">
             <i className="ti ti-bolt text-white text-lg" />
           </div>
           <div>
@@ -61,8 +61,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* 관리자 정보 */}
         <div className="flex items-center gap-3 px-3 py-2.5 bg-white/5 rounded-xl">
-          <div className="w-8 h-8 rounded-full bg-[#04F87F]/20 flex items-center justify-center">
-            <i className="ti ti-user text-[#04F87F] text-sm" />
+          <div className="w-8 h-8 rounded-full bg-[#5FFF85]/20 flex items-center justify-center">
+            <i className="ti ti-user text-[#5FFF85] text-sm" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-white truncate">{profile?.name || '관리자'}</p>
@@ -87,13 +87,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   onClick={() => setMobileOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] no-underline mb-0.5 transition-all ${
                     isActive
-                      ? 'bg-[#04F87F]/15 text-[#04F87F] font-semibold'
+                      ? 'bg-[#5FFF85]/15 text-[#5FFF85] font-semibold'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <i className={`ti ${item.icon} text-base`} />
                   {item.label}
-                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#04F87F]" />}
+                  {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#5FFF85]" />}
                 </Link>
               )
             })}

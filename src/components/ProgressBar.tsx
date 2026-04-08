@@ -15,7 +15,7 @@ function ProgressBar({ value, size = 'md' }: ProgressBarProps) {
           className={`${height} rounded-full transition-all duration-500 ease-out`}
           style={{
             width: `${clampedValue}%`,
-            backgroundColor: '#04F87F',
+            backgroundColor: '#5FFF85',
           }}
         />
       </div>

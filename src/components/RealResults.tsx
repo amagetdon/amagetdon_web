@@ -38,7 +38,7 @@ function ReviewCard({ review }: { review: { author_name: string; title: string; 
       </div>
       <Link
         to="/reviews"
-        className="relative flex h-[250px] bg-white rounded-2xl p-5 cursor-pointer no-underline flex-col border-2 border-[#04F87F]/40 shadow-[0_0_20px_rgba(4,248,127,0.15)] overflow-hidden"
+        className="relative flex h-[250px] bg-white rounded-2xl p-5 cursor-pointer no-underline flex-col border-2 border-[#5FFF85]/40 shadow-[0_0_20px_rgba(4,248,127,0.15)] overflow-hidden"
       >
         <StarRating rating={review.rating} />
         <h3 className="text-[13px] font-bold text-gray-900 mt-2.5 mb-2 leading-snug line-clamp-2">{review.title}</h3>
@@ -132,7 +132,7 @@ function RealResults({ results, reviews, loading }: { results: Result[]; reviews
         <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-x-8 gap-y-10">
           {results.map((card, idx) => (
             <div key={card.id} className="flex flex-col items-center">
-              <span className="inline-block bg-[#04F87F] text-black text-xs font-bold px-4 py-1.5 rounded-full mb-3">
+              <span className="inline-block bg-[#5FFF85] text-black text-xs font-bold px-4 py-1.5 rounded-full mb-3">
                 {card.author_name}
               </span>
               <p className="text-sm text-gray-300 mb-4 text-center">

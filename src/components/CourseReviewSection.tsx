@@ -113,7 +113,7 @@ export default function CourseReviewSection({
             className={`rounded-lg px-4 py-2 text-sm font-medium cursor-pointer ${
               alreadyReviewed
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-[#04F87F] text-white hover:bg-[#03d96e]'
+                : 'bg-[#5FFF85] text-white hover:bg-[#4de673]'
             }`}
           >
             {alreadyReviewed ? '이미 후기를 작성했습니다' : '후기 작성'}

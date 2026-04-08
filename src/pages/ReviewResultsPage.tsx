@@ -206,7 +206,7 @@ function ReviewResultsPage() {
           {user && profile?.name && (
             <button
               onClick={() => setWriteOpen(true)}
-              className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"
+              className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"
             >
               <i className="ti ti-pencil-plus text-sm" /> 성과 작성하기
             </button>
@@ -246,7 +246,7 @@ function ReviewResultsPage() {
                   )}
                 </div>
                 <div className="p-5">
-                  <span className="text-xs text-[#04F87F] font-medium">
+                  <span className="text-xs text-[#08924F] font-medium">
                     {item.author_name} | {new Date(item.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
                   </span>
                   <h3 className="text-base font-bold text-gray-900 mt-2 mb-2">{item.title}</h3>
@@ -254,7 +254,7 @@ function ReviewResultsPage() {
                   <div className="flex items-center justify-between mt-3">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleLike(item.id) }}
-                      className={`flex items-center gap-1.5 text-sm border-none bg-transparent cursor-pointer transition-colors ${likedIds.has(item.id) ? 'text-[#04F87F]' : 'text-gray-400 hover:text-[#04F87F]'}`}
+                      className={`flex items-center gap-1.5 text-sm border-none bg-transparent cursor-pointer transition-colors ${likedIds.has(item.id) ? 'text-[#08924F]' : 'text-gray-400 hover:text-[#08924F]'}`}
                     >
                       <i className={`ti ${likedIds.has(item.id) ? 'ti-thumb-up' : 'ti-thumb-up'}`} />
                       {item.likes_count > 0 && item.likes_count}
@@ -285,7 +285,7 @@ function ReviewResultsPage() {
                   <img src={selectedAchievement.image_url} alt={selectedAchievement.title} className="w-full h-auto rounded-t-2xl" />
                 )}
                 <div className="p-6">
-                  <span className="text-xs text-[#04F87F] font-medium">
+                  <span className="text-xs text-[#08924F] font-medium">
                     {selectedAchievement.author_name} | {new Date(selectedAchievement.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}
                   </span>
                   <Dialog.Title className="text-lg font-bold text-gray-900 mt-2 mb-4">
@@ -301,8 +301,8 @@ function ReviewResultsPage() {
                       onClick={() => handleLike(selectedAchievement.id)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm cursor-pointer transition-colors ${
                         likedIds.has(selectedAchievement.id)
-                          ? 'border-[#04F87F] text-[#04F87F] bg-[#04F87F]/5'
-                          : 'border-gray-200 text-gray-500 bg-white hover:border-[#04F87F]'
+                          ? 'border-[#5FFF85] text-[#08924F] bg-[#5FFF85]/5'
+                          : 'border-gray-200 text-gray-500 bg-white hover:border-[#5FFF85]'
                       }`}
                     >
                       <i className={`ti ${likedIds.has(selectedAchievement.id) ? 'ti-thumb-up' : 'ti-thumb-up'}`} />
@@ -318,7 +318,7 @@ function ReviewResultsPage() {
                       className="mt-4 flex items-center justify-between px-4 py-3 bg-gray-50 rounded-xl no-underline hover:bg-gray-100 transition-colors border border-gray-200"
                     >
                       <span className="text-sm font-medium text-gray-900">이 수강생이 선택한 강의</span>
-                      <span className="text-sm text-[#04F87F] font-bold flex items-center gap-1">
+                      <span className="text-sm text-[#08924F] font-bold flex items-center gap-1">
                         {selectedAchievement.course.title} <i className="ti ti-chevron-right text-xs" />
                       </span>
                     </Link>
@@ -328,7 +328,7 @@ function ReviewResultsPage() {
                     {user && selectedAchievement.user_id === user.id && (
                       <button
                         onClick={() => openEdit(selectedAchievement)}
-                        className="flex-1 py-2.5 bg-[#04F87F] text-white rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors"
+                        className="flex-1 py-2.5 bg-[#5FFF85] text-white rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors"
                       >
                         수정하기
                       </button>
@@ -361,7 +361,7 @@ function ReviewResultsPage() {
                   value={writeTitle}
                   onChange={(e) => setWriteTitle(e.target.value)}
                   placeholder="성과 제목을 입력하세요"
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all"
                 />
               </div>
               <div>
@@ -371,7 +371,7 @@ function ReviewResultsPage() {
                   onChange={(e) => setWriteContent(e.target.value)}
                   placeholder="성과 내용을 작성해주세요"
                   rows={6}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all resize-none"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all resize-none"
                 />
               </div>
               <div>
@@ -382,7 +382,7 @@ function ReviewResultsPage() {
                   <select
                     value={writeCourseId ?? ''}
                     onChange={(e) => setWriteCourseId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all"
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all"
                   >
                     <option value="">강의를 선택해주세요</option>
                     {myCourses.map((p) => p.course && (
@@ -426,7 +426,7 @@ function ReviewResultsPage() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="flex-1 py-2.5 bg-[#04F87F] text-white rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-2.5 bg-[#5FFF85] text-white rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? '등록 중...' : '등록하기'}
               </button>

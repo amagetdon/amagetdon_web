@@ -68,7 +68,7 @@ function MyEbooksPage() {
 
             return (
               <div key={purchase.id} className="flex items-start gap-6 mb-12 max-sm:flex-col">
-                <div className="bg-black rounded-xl w-[300px] aspect-video border-2 border-[#04F87F] shrink-0 max-sm:w-full overflow-hidden flex items-center justify-center">
+                <div className="bg-black rounded-xl w-[300px] aspect-video border-2 border-[#5FFF85] shrink-0 max-sm:w-full overflow-hidden flex items-center justify-center">
                   {ebook.thumbnail_url ? (
                     <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
                   ) : (
@@ -77,7 +77,7 @@ function MyEbooksPage() {
                 </div>
                 <div className="flex flex-col">
                   {dDay !== null && !isExpired(purchase.expires_at) && (
-                    <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2 w-fit">
+                    <span className="bg-[#5FFF85] text-white text-xs font-bold px-3 py-1 rounded-full inline-block mb-2 w-fit">
                       남은 수강기간 D-{dDay}
                     </span>
                   )}
@@ -91,7 +91,7 @@ function MyEbooksPage() {
                   <button
                     onClick={() => navigate(`/my-ebooks/${ebook.id}/read`)}
                     disabled={!ebook.file_url || isExpired(purchase.expires_at)}
-                    className="mt-4 bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition w-fit cursor-pointer disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:brightness-100"
+                    className="mt-4 bg-[#5FFF85] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition w-fit cursor-pointer disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:brightness-100"
                   >
                     읽기
                   </button>

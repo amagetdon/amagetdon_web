@@ -47,13 +47,13 @@ export default function AdminFaqs() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">FAQ 관리</h1>
         <button onClick={() => setEditing({ question: '', answer: '', is_published: true })}
-          className="bg-[#04F87F] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#03d46d] transition-colors shadow-sm shadow-[#04F87F]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> FAQ 추가</button>
+          className="bg-[#5FFF85] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#4de673] transition-colors shadow-sm shadow-[#5FFF85]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> FAQ 추가</button>
       </div>
 
       <div className="mb-4"><div className="relative max-w-xs">
         <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
         <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="FAQ 검색..."
-          className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]" />
+          className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#5FFF85]" />
       </div></div>
 
       {loading ? (
@@ -96,12 +96,12 @@ export default function AdminFaqs() {
             <div>
               <label className="text-sm font-bold block mb-1">질문 *</label>
               <input value={editing.question || ''} onChange={(e) => setEditing({ ...editing, question: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">답변 *</label>
               <textarea value={editing.answer || ''} onChange={(e) => setEditing({ ...editing, answer: e.target.value })}
-                rows={5} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#04F87F]" />
+                rows={5} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#5FFF85]" />
             </div>
             <div>
               <VideoUrlInput
@@ -113,15 +113,15 @@ export default function AdminFaqs() {
             <div>
               <label className="text-sm font-bold block mb-1">첨부파일 URL</label>
               <input value={editing.file_url || ''} onChange={(e) => setEditing({ ...editing, file_url: e.target.value || null })} placeholder="https://..."
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">첨부파일명</label>
               <input value={editing.file_name || ''} onChange={(e) => setEditing({ ...editing, file_name: e.target.value || null })} placeholder="파일명.xlsx"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all" />
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all" />
             </div>
             <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#04F87F]" /> 공개
+              <input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#5FFF85]" /> 공개
             </label>
           </div>
         )}

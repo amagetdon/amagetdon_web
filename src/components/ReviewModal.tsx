@@ -69,7 +69,7 @@ function ReviewModal({ isOpen, onClose, review }: ReviewModalProps) {
           <Link
             to={`/course/${review.courseId}`}
             onClick={onClose}
-            className="inline-block bg-[#04F87F] text-white rounded-full px-6 py-3 text-sm font-medium no-underline hover:bg-[#03d46d] transition-colors"
+            className="inline-block bg-[#5FFF85] text-white rounded-full px-6 py-3 text-sm font-medium no-underline hover:bg-[#4de673] transition-colors"
           >
             이 수강생이 선택한 강의 &gt;
           </Link>

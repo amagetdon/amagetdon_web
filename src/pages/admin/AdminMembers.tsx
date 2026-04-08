@@ -219,7 +219,7 @@ export default function AdminMembers() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="이름, 전화번호 검색..."
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]"
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#5FFF85]"
           />
         </div>
       </div>
@@ -263,7 +263,7 @@ export default function AdminMembers() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center max-sm:hidden">
-                      <span className={`text-sm font-medium ${m.points > 0 ? 'text-[#04F87F]' : 'text-gray-400'}`}>
+                      <span className={`text-sm font-medium ${m.points > 0 ? 'text-[#08924F]' : 'text-gray-400'}`}>
                         {m.points > 0 ? `${m.points.toLocaleString()}P` : '0P'}
                       </span>
                     </td>
@@ -323,7 +323,7 @@ export default function AdminMembers() {
                   <div className="bg-gray-50 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm text-gray-500">현재 잔액</span>
-                      <span className="text-lg font-bold text-[#04F87F]">{viewing.points.toLocaleString()}P</span>
+                      <span className="text-lg font-bold text-[#08924F]">{viewing.points.toLocaleString()}P</span>
                     </div>
                     <div className="flex gap-2 mb-2">
                       <button
@@ -331,7 +331,7 @@ export default function AdminMembers() {
                         onClick={() => setPointForm(prev => ({ ...prev, type: 'charge' }))}
                         className={`flex-1 py-1.5 rounded-lg text-sm font-medium cursor-pointer border-none transition-colors ${
                           pointForm.type === 'charge'
-                            ? 'bg-[#04F87F] text-gray-900'
+                            ? 'bg-[#5FFF85] text-gray-900'
                             : 'bg-gray-200 text-gray-500 hover:bg-gray-300'
                         }`}
                       >
@@ -356,21 +356,21 @@ export default function AdminMembers() {
                         onChange={(e) => setPointForm(prev => ({ ...prev, amount: e.target.value }))}
                         placeholder="금액"
                         min="1"
-                        className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]"
+                        className="w-28 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#5FFF85]"
                       />
                       <input
                         type="text"
                         value={pointForm.memo}
                         onChange={(e) => setPointForm(prev => ({ ...prev, memo: e.target.value }))}
                         placeholder="사유 (예: 무통장입금)"
-                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#04F87F]"
+                        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#5FFF85]"
                       />
                       <button
                         onClick={handlePointSubmit}
                         disabled={pointSubmitting || !pointForm.amount}
                         className={`px-4 py-2 rounded-lg text-sm font-medium cursor-pointer border-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
                           pointForm.type === 'charge'
-                            ? 'bg-[#04F87F] text-gray-900 hover:bg-[#03d96e]'
+                            ? 'bg-[#5FFF85] text-gray-900 hover:bg-[#4de673]'
                             : 'bg-red-500 text-white hover:bg-red-600'
                         }`}
                       >

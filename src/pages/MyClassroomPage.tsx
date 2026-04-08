@@ -202,7 +202,7 @@ function MyClassroomPage() {
     return (
       <div key={`course-${purchase.id}`} className="mb-12">
         <div className="flex items-start gap-6 max-sm:flex-col">
-          <div className="bg-black rounded-xl w-[300px] aspect-video shrink-0 max-sm:w-full border-2 border-[#04F87F] overflow-hidden flex items-center justify-center">
+          <div className="bg-black rounded-xl w-[300px] aspect-video shrink-0 max-sm:w-full border-2 border-[#5FFF85] overflow-hidden flex items-center justify-center">
             {course.thumbnail_url ? (
               <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
             ) : (
@@ -215,7 +215,7 @@ function MyClassroomPage() {
               {expired ? (
                 <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full">수강 기간 만료</span>
               ) : dDay !== null ? (
-                <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full">D-{dDay}</span>
+                <span className="bg-[#5FFF85] text-white text-xs font-bold px-3 py-1 rounded-full">D-{dDay}</span>
               ) : null}
             </div>
             <h2 className="text-xl font-bold whitespace-pre-line">{course.title}</h2>
@@ -228,7 +228,7 @@ function MyClassroomPage() {
             <div className="flex gap-2 mt-4 flex-wrap">
               <button
                 onClick={() => navigate(`/course/${course.id}`)}
-                className="bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
+                className="bg-[#5FFF85] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
               >
                 강의 상세보기
               </button>
@@ -237,7 +237,7 @@ function MyClassroomPage() {
               ) : (
                 <button
                   onClick={() => setReviewTarget({ courseId: course.id, courseName: course.title })}
-                  className="bg-white border border-gray-300 text-gray-700 font-medium px-4 py-2 rounded-lg hover:border-[#04F87F] hover:text-[#04F87F] transition cursor-pointer text-sm"
+                  className="bg-white border border-gray-300 text-gray-700 font-medium px-4 py-2 rounded-lg hover:border-[#5FFF85] hover:text-[#08924F] transition cursor-pointer text-sm"
                 >
                   후기 작성
                 </button>
@@ -259,7 +259,7 @@ function MyClassroomPage() {
                     onClick={() => handleToggleComplete(course.id, item.id)}
                     disabled={isToggling}
                     className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
-                      itemCompleted ? 'bg-[#04F87F] border-[#04F87F]' : 'border-gray-300 hover:border-[#04F87F]'
+                      itemCompleted ? 'bg-[#5FFF85] border-[#5FFF85]' : 'border-gray-300 hover:border-[#5FFF85]'
                     } ${isToggling ? 'opacity-50' : ''}`}
                     aria-label={itemCompleted ? `${item.label} 완료 해제` : `${item.label} 완료 표시`}
                   >
@@ -282,13 +282,13 @@ function MyClassroomPage() {
                     }}
                     disabled={!item.video_url}
                     className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
-                      !item.video_url ? 'opacity-30 cursor-not-allowed' : expired ? 'opacity-50 hover:border-gray-400' : 'hover:border-[#04F87F]'
+                      !item.video_url ? 'opacity-30 cursor-not-allowed' : expired ? 'opacity-50 hover:border-gray-400' : 'hover:border-[#5FFF85]'
                     }`}
                   >
                     {expired ? (
                       <i className="ti ti-lock text-gray-400" />
                     ) : (
-                      <i className={`ti ti-player-play ${item.video_url ? 'text-[#04F87F]' : 'text-gray-400'}`} />
+                      <i className={`ti ti-player-play ${item.video_url ? 'text-[#08924F]' : 'text-gray-400'}`} />
                     )}
                   </button>
                 </div>
@@ -308,7 +308,7 @@ function MyClassroomPage() {
 
     return (
       <div key={`ebook-${purchase.id}`} className="flex items-start gap-6 mb-12 max-sm:flex-col">
-        <div className="bg-black rounded-xl w-[300px] aspect-[3/4] border-2 border-[#04F87F] shrink-0 max-sm:w-full overflow-hidden flex items-center justify-center">
+        <div className="bg-black rounded-xl w-[300px] aspect-[3/4] border-2 border-[#5FFF85] shrink-0 max-sm:w-full overflow-hidden flex items-center justify-center">
           {ebook.thumbnail_url ? (
             <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
           ) : (
@@ -321,7 +321,7 @@ function MyClassroomPage() {
             {expired ? (
               <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">열람 기간 만료</span>
             ) : dDay !== null ? (
-              <span className="bg-[#04F87F] text-white text-xs font-bold px-3 py-1 rounded-full">D-{dDay}</span>
+              <span className="bg-[#5FFF85] text-white text-xs font-bold px-3 py-1 rounded-full">D-{dDay}</span>
             ) : null}
           </div>
           <h2 className="text-xl font-bold whitespace-pre-line">{ebook.title}</h2>
@@ -329,14 +329,14 @@ function MyClassroomPage() {
           <div className="flex gap-2 mt-4 flex-wrap">
             <button
               onClick={() => navigate(`/ebook/${ebook.id}`)}
-              className="bg-[#04F87F] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
+              className="bg-[#5FFF85] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
             >
               전자책 상세보기
             </button>
             <button
               onClick={() => navigate(`/my-ebooks/${ebook.id}/read`)}
               disabled={!ebook.file_url || expired}
-              className="bg-white border border-gray-300 text-gray-700 font-medium px-5 py-2 rounded-lg hover:border-[#04F87F] hover:text-[#04F87F] transition cursor-pointer text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200"
+              className="bg-white border border-gray-300 text-gray-700 font-medium px-5 py-2 rounded-lg hover:border-[#5FFF85] hover:text-[#08924F] transition cursor-pointer text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200"
             >
               {!ebook.file_url ? 'PDF 준비중' : expired ? '열람 기간 만료' : '읽기'}
             </button>
@@ -361,10 +361,10 @@ function MyClassroomPage() {
               onClick={() => setTab(t.key)}
               className={`px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
                 tab === t.key
-                  ? 'text-[#04F87F] border-b-2 border-[#04F87F] -mb-px'
+                  ? 'text-[#08924F] border-b-2 border-[#5FFF85] -mb-px'
                   : 'text-gray-400 hover:text-gray-600'
               }`}
-              style={tab === t.key ? { borderBottom: '2px solid #04F87F', marginBottom: '-1px' } : {}}
+              style={tab === t.key ? { borderBottom: '2px solid #5FFF85', marginBottom: '-1px' } : {}}
             >
               {t.label}
             </button>

@@ -46,7 +46,7 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
 
   return (
     <div
-      className={`relative border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-[#04F87F] transition-colors overflow-hidden ${className}`}
+      className={`relative border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-[#5FFF85] transition-colors overflow-hidden ${className}`}
       onClick={() => fileRef.current?.click()}
       role="button"
       tabIndex={0}
@@ -60,7 +60,7 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
         className="hidden"
       />
       {uploading ? (
-        <div className="w-6 h-6 border-2 border-[#04F87F] border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-[#5FFF85] border-t-transparent rounded-full animate-spin" />
       ) : preview ? (
         <>
           <img src={preview} alt="미리보기" className="w-full h-full object-cover" />

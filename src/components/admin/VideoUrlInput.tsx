@@ -42,7 +42,7 @@ export default function VideoUrlInput({ value, onChange, label }: VideoUrlInputP
           value={value || ''}
           onChange={handleChange}
           placeholder="https://youtube.com/watch?v=... 또는 https://vimeo.com/..."
-          className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#04F87F] focus:ring-2 focus:ring-[#04F87F]/10 transition-all pr-9"
+          className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#5FFF85] focus:ring-2 focus:ring-[#5FFF85]/10 transition-all pr-9"
         />
         {value && (
           <button

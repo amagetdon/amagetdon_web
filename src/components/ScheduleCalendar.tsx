@@ -107,9 +107,9 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
                   {day > 0 && (
                     <span className={`w-10 h-9 flex items-center justify-center text-sm rounded ${
                       isToday(day)
-                        ? 'bg-[#04F87F] text-black font-bold'
+                        ? 'bg-[#5FFF85] text-black font-bold'
                         : hasLecture(day)
-                          ? 'border-[1.5px] border-[#04F87F] text-gray-700'
+                          ? 'border-[1.5px] border-[#5FFF85] text-gray-700'
                           : 'text-gray-700'
                     }`}>
                       {day}
@@ -132,7 +132,7 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
                 <div key={item.id} className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-gray-200 rounded-full shrink-0 overflow-hidden" />
                   <div className="flex-1">
-                    <p className="text-xs text-[#04F87F] font-bold mb-1">{formatScheduleDate(item.scheduled_at)}</p>
+                    <p className="text-xs text-[#08924F] font-bold mb-1">{formatScheduleDate(item.scheduled_at)}</p>
                     <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">
                       {item.title}
                     </p>

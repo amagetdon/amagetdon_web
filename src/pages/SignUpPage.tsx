@@ -172,7 +172,7 @@ function SignUpPage() {
       <>
         <div className="bg-black h-[200px] w-full" />
         <div className="max-w-[440px] mx-auto px-6 py-16 text-center">
-          <div className="w-16 h-16 bg-[#04F87F] rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-16 h-16 bg-[#5FFF85] rounded-full flex items-center justify-center mx-auto mb-6">
             <i className="ti ti-check text-white text-3xl" />
           </div>
           <h1 className="text-2xl font-bold mb-4">회원가입 완료</h1>
@@ -182,7 +182,7 @@ function SignUpPage() {
           </p>
           <button
             onClick={() => navigate('/login')}
-            className="bg-[#04F87F] text-white font-bold px-8 py-3 rounded-lg cursor-pointer"
+            className="bg-[#5FFF85] text-white font-bold px-8 py-3 rounded-lg cursor-pointer"
           >
             로그인 하러가기
           </button>
@@ -206,7 +206,7 @@ function SignUpPage() {
               value={form.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="이름을 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#04F87F] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
             />
             {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
           </div>
@@ -219,7 +219,7 @@ function SignUpPage() {
               value={form.email}
               onChange={(e) => handleChange('email', e.target.value)}
               placeholder="이메일 주소를 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#04F87F] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
             />
             {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
           </div>
@@ -232,12 +232,12 @@ function SignUpPage() {
               value={form.password}
               onChange={(e) => handleChange('password', e.target.value)}
               placeholder="8~18자 영문/숫자/특수문자"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#04F87F] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
             />
             {errors.password ? (
               <p className="text-xs text-red-500 mt-1">{errors.password}</p>
             ) : (
-              <p className="text-xs text-[#04F87F] mt-1">8~18자의 영문/숫자/특수문자를 함께 입력해주세요.</p>
+              <p className="text-xs text-[#08924F] mt-1">8~18자의 영문/숫자/특수문자를 함께 입력해주세요.</p>
             )}
           </div>
 
@@ -249,7 +249,7 @@ function SignUpPage() {
               value={form.passwordConfirm}
               onChange={(e) => handleChange('passwordConfirm', e.target.value)}
               placeholder="비밀번호를 다시 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#04F87F] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
             />
             {errors.passwordConfirm && (
               <p className="text-xs text-red-500 mt-1">{errors.passwordConfirm}</p>
@@ -266,7 +266,7 @@ function SignUpPage() {
                   name="gender"
                   checked={form.gender === 'male'}
                   onChange={() => handleChange('gender', 'male')}
-                  className="accent-[#04F87F]"
+                  className="accent-[#5FFF85]"
                 />
                 <span className="text-sm">남성</span>
               </label>
@@ -276,7 +276,7 @@ function SignUpPage() {
                   name="gender"
                   checked={form.gender === 'female'}
                   onChange={() => handleChange('gender', 'female')}
-                  className="accent-[#04F87F]"
+                  className="accent-[#5FFF85]"
                 />
                 <span className="text-sm">여성</span>
               </label>
@@ -293,7 +293,7 @@ function SignUpPage() {
                 value={form.phone1}
                 onChange={(e) => handleChange('phone1', e.target.value)}
                 maxLength={3}
-                className="w-[80px] border border-gray-300 rounded-lg px-3 py-3 text-sm text-center outline-none focus:border-[#04F87F]"
+                className="w-[80px] border border-gray-300 rounded-lg px-3 py-3 text-sm text-center outline-none focus:border-[#5FFF85]"
               />
               <span className="text-gray-400">-</span>
               <input
@@ -301,7 +301,7 @@ function SignUpPage() {
                 value={form.phone2}
                 onChange={(e) => handleChange('phone2', e.target.value.replace(/\D/g, ''))}
                 maxLength={4}
-                className="w-[80px] border border-gray-300 rounded-lg px-3 py-3 text-sm text-center outline-none focus:border-[#04F87F]"
+                className="w-[80px] border border-gray-300 rounded-lg px-3 py-3 text-sm text-center outline-none focus:border-[#5FFF85]"
               />
               <span className="text-gray-400">-</span>
               <input
@@ -309,7 +309,7 @@ function SignUpPage() {
                 value={form.phone3}
                 onChange={(e) => handleChange('phone3', e.target.value.replace(/\D/g, ''))}
                 maxLength={4}
-                className="w-[80px] border border-gray-300 rounded-lg px-3 py-3 text-sm text-center outline-none focus:border-[#04F87F]"
+                className="w-[80px] border border-gray-300 rounded-lg px-3 py-3 text-sm text-center outline-none focus:border-[#5FFF85]"
               />
             </div>
             {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
@@ -356,7 +356,7 @@ function SignUpPage() {
               value={form.addressDetail}
               onChange={(e) => handleChange('addressDetail', e.target.value)}
               placeholder="상세주소를 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#04F87F] transition-colors"
+              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#5FFF85] transition-colors"
             />
             {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
           </div>
@@ -368,7 +368,7 @@ function SignUpPage() {
               <select
                 value={form.birthYear}
                 onChange={(e) => handleChange('birthYear', e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-3 text-sm outline-none focus:border-[#04F87F]"
+                className="border border-gray-300 rounded-lg px-3 py-3 text-sm outline-none focus:border-[#5FFF85]"
               >
                 <option value="">년도</option>
                 {years.map((y) => <option key={y} value={y}>{y}</option>)}
@@ -376,7 +376,7 @@ function SignUpPage() {
               <select
                 value={form.birthMonth}
                 onChange={(e) => handleChange('birthMonth', e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-3 text-sm outline-none focus:border-[#04F87F]"
+                className="border border-gray-300 rounded-lg px-3 py-3 text-sm outline-none focus:border-[#5FFF85]"
               >
                 <option value="">월</option>
                 {months.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -384,7 +384,7 @@ function SignUpPage() {
               <select
                 value={form.birthDay}
                 onChange={(e) => handleChange('birthDay', e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-3 text-sm outline-none focus:border-[#04F87F]"
+                className="border border-gray-300 rounded-lg px-3 py-3 text-sm outline-none focus:border-[#5FFF85]"
               >
                 <option value="">일</option>
                 {days.map((d) => <option key={d} value={d}>{d}</option>)}
@@ -400,7 +400,7 @@ function SignUpPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#04F87F] text-white font-bold py-3 rounded-lg cursor-pointer disabled:opacity-50 mt-2"
+            className="w-full bg-[#5FFF85] text-white font-bold py-3 rounded-lg cursor-pointer disabled:opacity-50 mt-2"
           >
             {loading ? '가입 중...' : '회원가입'}
           </button>
@@ -439,7 +439,7 @@ function SignUpPage() {
 
         <div className="mt-8 text-center text-sm text-gray-500">
           이미 회원이신가요?{' '}
-          <Link to="/login" className="text-[#04F87F] font-bold no-underline">
+          <Link to="/login" className="text-[#08924F] font-bold no-underline">
             로그인
           </Link>
         </div>
