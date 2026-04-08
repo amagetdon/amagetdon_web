@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useFaqs } from '../hooks/useFaqs'
+import { supabase } from '../lib/supabase'
 import Pagination from '../components/Pagination'
 import VideoEmbed from '../components/VideoEmbed'
 
@@ -7,6 +8,14 @@ function FAQPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [kakaoLink, setKakaoLink] = useState('')
+
+  useEffect(() => {
+    supabase.from('site_settings').select('value').eq('key', 'kakao_link').maybeSingle()
+      .then(({ data }) => {
+        if (data) setKakaoLink(((data as Record<string, unknown>).value as Record<string, string>)?.url || '')
+      })
+  }, [])
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -96,6 +105,30 @@ function FAQPage() {
 
           {totalPages > 1 && (
             <Pagination current={currentPage} total={totalPages} onPageChange={setCurrentPage} />
+          )}
+
+          {/* 카카오 상담 유도 */}
+          {kakaoLink && (
+            <div className="mt-16 bg-gray-50 rounded-2xl p-8 max-sm:p-6 text-center">
+              <div className="w-14 h-14 bg-[#FEE500] rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="#3C1E1E">
+                  <path d="M12 3C6.48 3 2 6.58 2 10.9c0 2.78 1.86 5.22 4.65 6.6l-.96 3.56c-.08.3.26.54.52.37l4.23-2.82c.51.06 1.03.09 1.56.09 5.52 0 10-3.58 10-7.9S17.52 3 12 3z"/>
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">답변을 찾지 못하셨나요?</h3>
+              <p className="text-sm text-gray-500 mb-5">카카오톡 채널로 1:1 상담을 받아보세요.</p>
+              <a
+                href={kakaoLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 bg-[#FEE500] text-[#3C1E1E] font-bold px-6 py-3 rounded-full text-sm no-underline hover:brightness-95 transition"
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="#3C1E1E">
+                  <path d="M12 3C6.48 3 2 6.58 2 10.9c0 2.78 1.86 5.22 4.65 6.6l-.96 3.56c-.08.3.26.54.52.37l4.23-2.82c.51.06 1.03.09 1.56.09 5.52 0 10-3.58 10-7.9S17.52 3 12 3z"/>
+                </svg>
+                카카오톡 상담하기
+              </a>
+            </div>
           )}
         </div>
       </section>

@@ -37,7 +37,6 @@ function Header() {
     { label: '수강 후기', path: '/reviews' },
     { label: '수강 성과', path: '/results' },
     { label: 'FAQ', path: '/faq' },
-    { label: '카카오채널', path: kakaoLink || '#', external: true },
   ]
 
   const isActiveNav = (itemPath: string) => {

@@ -10,12 +10,13 @@ function hideSplash() {
   setTimeout(() => splash.remove(), 400)
 }
 
-// 최소 1초 + DOM 로딩 완료 후 제거
-const minDelay = new Promise((r) => setTimeout(r, 1000))
-const domReady = new Promise<void>((resolve) => {
+// skeleton 완전 제거 후 0.5초 뒤 스플래시 제거
+const dataReady = new Promise<void>((resolve) => {
   const check = () => {
     const main = document.querySelector('main')
-    if (main && main.querySelector('section')) {
+    if (!main) { requestAnimationFrame(check); return }
+    const sections = main.querySelectorAll('section')
+    if (sections.length > 0 && !Array.from(sections).some((s) => s.querySelector('.animate-pulse'))) {
       resolve()
     } else {
       requestAnimationFrame(check)
@@ -24,7 +25,7 @@ const domReady = new Promise<void>((resolve) => {
   check()
 })
 
-Promise.all([minDelay, domReady]).then(hideSplash)
+dataReady.then(() => setTimeout(hideSplash, 350))
 
 createRoot(document.getElementById('root')!).render(
   <App />,
