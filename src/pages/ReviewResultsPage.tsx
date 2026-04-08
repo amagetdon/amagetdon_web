@@ -66,7 +66,7 @@ function ReviewResultsPage() {
   useEffect(() => { fetchAchievements() }, [currentPage, refreshKey])
 
   useEffect(() => {
-    supabase.from('banners').select('*').eq('page_key', 'results_event').eq('is_published', true).order('sort_order')
+    Promise.resolve(supabase.from('banners').select('*').eq('page_key', 'results_event').eq('is_published', true).order('sort_order'))
       .then((eventRes) => {
         setEventBanners((eventRes.data ?? []) as import('../types').Banner[])
       }).catch(() => {

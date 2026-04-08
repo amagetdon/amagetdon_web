@@ -9,7 +9,6 @@ export default function LoadingBar() {
   const isFirst = useRef(true)
 
   useEffect(() => {
-    // 첫 마운트는 무시
     if (isFirst.current) {
       isFirst.current = false
       return
@@ -21,22 +20,43 @@ export default function LoadingBar() {
     timerRef.current = setInterval(() => {
       setProgress((p) => {
         if (p >= 90) return p
-        return p + Math.random() * 10
+        return p + Math.random() * 8
       })
-    }, 200)
+    }, 300)
 
-    const done = setTimeout(() => {
+    // DOM에 콘텐츠가 렌더될 때까지 대기
+    const checkDone = setInterval(() => {
+      const main = document.querySelector('main')
+      if (!main) return
+      const sections = main.querySelectorAll('section')
+      // skeleton(animate-pulse)이 아닌 실제 콘텐츠가 있는지 확인
+      const hasContent = sections.length > 0 && !Array.from(sections).every((s) => s.querySelector('.animate-pulse'))
+      if (hasContent) {
+        clearInterval(checkDone)
+        if (timerRef.current) clearInterval(timerRef.current)
+        setProgress(100)
+        setTimeout(() => {
+          setVisible(false)
+          setProgress(0)
+        }, 300)
+      }
+    }, 100)
+
+    // 최대 5초 후 강제 종료
+    const maxTimeout = setTimeout(() => {
+      clearInterval(checkDone)
       if (timerRef.current) clearInterval(timerRef.current)
       setProgress(100)
       setTimeout(() => {
         setVisible(false)
         setProgress(0)
       }, 300)
-    }, 400)
+    }, 5000)
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
-      clearTimeout(done)
+      clearInterval(checkDone)
+      clearTimeout(maxTimeout)
     }
   }, [location.pathname])
 

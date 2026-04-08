@@ -28,7 +28,7 @@ function ReviewsPage() {
   const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
-    supabase.from('banners').select('*').eq('page_key', 'reviews_event').eq('is_published', true).order('sort_order')
+    Promise.resolve(supabase.from('banners').select('*').eq('page_key', 'reviews_event').eq('is_published', true).order('sort_order'))
       .then((eventRes) => {
         setEventBanners((eventRes.data ?? []) as Banner[])
       }).catch(() => {
