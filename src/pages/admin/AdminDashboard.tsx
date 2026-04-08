@@ -48,6 +48,12 @@ interface DashboardData {
   // 평점
   avgRating: number
   ratingDist: { stars: number; count: number }[]
+  // 회원 통계
+  genderDist: { name: string; value: number }[]
+  ageDist: { name: string; value: number }[]
+  regionDist: { name: string; value: number }[]
+  providerDist: { name: string; value: number }[]
+  signupMonthly: { month: string; count: number }[]
 }
 
 const defaultData: DashboardData = {
@@ -59,6 +65,7 @@ const defaultData: DashboardData = {
   recentMembers: [], recentPurchases: [], recentReviews: [],
   topCourses: [], topEbooks: [],
   avgRating: 0, ratingDist: [],
+  genderDist: [], ageDist: [], regionDist: [], providerDist: [], signupMonthly: [],
 }
 
 export default function AdminDashboard() {
@@ -102,6 +109,7 @@ export default function AdminDashboard() {
         { data: revenueRaw },
         { data: purchaseItems },
         { data: reviewRatings },
+        { data: allProfiles },
       ] = await withTimeout(Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', startOfToday),
@@ -128,6 +136,7 @@ export default function AdminDashboard() {
         supabase.from('purchases').select('purchased_at, price').gte('purchased_at', days30Ago),
         supabase.from('purchases').select('title, course_id, ebook_id'),
         supabase.from('reviews').select('rating'),
+        supabase.from('profiles').select('gender, birth_date, address, provider, created_at'),
       ]), 15000)
 
       const sum = (arr: { price: number }[] | null) => arr?.reduce((s, p) => s + p.price, 0) || 0
@@ -195,6 +204,63 @@ export default function AdminDashboard() {
         count: ratings.filter((r) => r.rating === stars).length,
       }))
 
+      // 회원 통계
+      const profiles = (allProfiles as { gender: string | null; birth_date: string | null; address: string | null; provider: string | null; created_at: string }[] || [])
+
+      // 성별
+      const genderCount = { '남성': 0, '여성': 0, '미입력': 0 }
+      for (const p of profiles) {
+        if (p.gender === 'male') genderCount['남성']++
+        else if (p.gender === 'female') genderCount['여성']++
+        else genderCount['미입력']++
+      }
+      const genderDist = Object.entries(genderCount).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value }))
+
+      // 연령대
+      const ageCount: Record<string, number> = {}
+      const thisYear = new Date().getFullYear()
+      for (const p of profiles) {
+        if (!p.birth_date) { ageCount['미입력'] = (ageCount['미입력'] || 0) + 1; continue }
+        const age = thisYear - new Date(p.birth_date).getFullYear()
+        const group = age < 20 ? '10대' : age < 30 ? '20대' : age < 40 ? '30대' : age < 50 ? '40대' : age < 60 ? '50대' : '60대+'
+        ageCount[group] = (ageCount[group] || 0) + 1
+      }
+      const ageOrder = ['10대', '20대', '30대', '40대', '50대', '60대+', '미입력']
+      const ageDist = ageOrder.filter((k) => ageCount[k]).map((name) => ({ name, value: ageCount[name] }))
+
+      // 지역
+      const regionCount: Record<string, number> = {}
+      for (const p of profiles) {
+        if (!p.address) { regionCount['미입력'] = (regionCount['미입력'] || 0) + 1; continue }
+        const addr = p.address.split('|')[1] || ''
+        const region = addr.split(' ')[0] || '기타'
+        regionCount[region] = (regionCount[region] || 0) + 1
+      }
+      const regionDist = Object.entries(regionCount).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, value]) => ({ name, value }))
+
+      // 가입방법
+      const provCount: Record<string, number> = {}
+      for (const p of profiles) {
+        const prov = p.provider === 'kakao' ? '카카오' : p.provider === 'google' ? '구글' : '이메일'
+        provCount[prov] = (provCount[prov] || 0) + 1
+      }
+      const providerDist = Object.entries(provCount).filter(([, v]) => v > 0).map(([name, value]) => ({ name, value }))
+
+      // 월별 가입자
+      const monthMap = new Map<string, number>()
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(thisYear, new Date().getMonth() - i, 1)
+        monthMap.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, 0)
+      }
+      for (const p of profiles) {
+        const key = p.created_at.slice(0, 7)
+        if (monthMap.has(key)) monthMap.set(key, (monthMap.get(key) || 0) + 1)
+      }
+      const signupMonthly = Array.from(monthMap.entries()).map(([m, count]) => ({
+        month: `${Number(m.split('-')[1])}월`,
+        count,
+      }))
+
       setData({
         totalUsers: totalUsers || 0,
         newUsersToday: newUsersToday || 0,
@@ -219,6 +285,7 @@ export default function AdminDashboard() {
         recentPurchases: (recentPurchases as DashboardData['recentPurchases']) || [],
         recentReviews: (recentReviews as DashboardData['recentReviews']) || [],
         topCourses, topEbooks, avgRating, ratingDist,
+        genderDist, ageDist, regionDist, providerDist, signupMonthly,
       })
     } catch {
       // 타임아웃 또는 에러 시 기본값 유지
@@ -492,6 +559,99 @@ export default function AdminDashboard() {
             <p className="text-sm text-gray-400 text-center py-6">데이터 없음</p>
           )}
         </div>
+      </div>
+
+      {/* ── 회원 분석 ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* 성별 */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">성별</h3>
+          <ResponsiveContainer width="100%" height={160}>
+            <PieChart>
+              <Pie data={data.genderDist} cx="50%" cy="50%" innerRadius={35} outerRadius={60} dataKey="value" paddingAngle={3}>
+                {data.genderDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Pie>
+              <Tooltip formatter={(v: number) => `${v}명`} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex justify-center gap-3 mt-2">
+            {data.genderDist.map((d, i) => (
+              <span key={d.name} className="text-xs text-gray-500 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
+                {d.name} {d.value}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* 연령대 */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">연령대</h3>
+          <ResponsiveContainer width="100%" height={160}>
+            <BarChart data={data.ageDist} barSize={20}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+              <YAxis hide />
+              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Bar dataKey="value" fill="#2ED573" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* 가입방법 */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">가입 방법</h3>
+          <ResponsiveContainer width="100%" height={160}>
+            <PieChart>
+              <Pie data={data.providerDist} cx="50%" cy="50%" innerRadius={35} outerRadius={60} dataKey="value" paddingAngle={3}>
+                {data.providerDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+              </Pie>
+              <Tooltip formatter={(v: number) => `${v}명`} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="flex justify-center gap-3 mt-2">
+            {data.providerDist.map((d, i) => (
+              <span key={d.name} className="text-xs text-gray-500 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
+                {d.name} {d.value}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* 지역 */}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">지역 TOP 8</h3>
+          <div className="space-y-1.5">
+            {data.regionDist.map((d, i) => (
+              <div key={d.name} className="flex items-center gap-2">
+                <span className="text-xs text-gray-400 w-4 text-right">{i + 1}</span>
+                <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+                  <div
+                    className="h-full rounded-full flex items-center px-2"
+                    style={{ width: `${Math.max(20, (d.value / (data.regionDist[0]?.value || 1)) * 100)}%`, background: COLORS[i % COLORS.length] }}
+                  >
+                    <span className="text-[10px] text-white font-bold truncate">{d.name}</span>
+                  </div>
+                </div>
+                <span className="text-xs text-gray-500 w-8 text-right">{d.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 월별 가입자 추이 */}
+      <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
+        <h3 className="text-sm font-bold text-gray-900 mb-3">월별 가입자 추이 (최근 6개월)</h3>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={data.signupMonthly} barSize={32}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+            <YAxis tick={{ fontSize: 11 }} />
+            <Tooltip formatter={(v: number) => `${v}명`} />
+            <Bar dataKey="count" fill="#2ED573" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* ── Umami 트래픽 분석 ── */}
