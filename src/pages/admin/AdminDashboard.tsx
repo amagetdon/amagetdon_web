@@ -567,7 +567,7 @@ export default function AdminDashboard() {
               <Pie data={data.genderDist} cx="50%" cy="50%" innerRadius={35} outerRadius={60} dataKey="value" paddingAngle={3}>
                 {data.genderDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex justify-center gap-3 mt-2">
@@ -587,7 +587,7 @@ export default function AdminDashboard() {
             <BarChart data={data.ageDist} barSize={20}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis hide />
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
               <Bar dataKey="value" fill="#2ED573" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -601,7 +601,7 @@ export default function AdminDashboard() {
               <Pie data={data.providerDist} cx="50%" cy="50%" innerRadius={35} outerRadius={60} dataKey="value" paddingAngle={3}>
                 {data.providerDist.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex justify-center gap-3 mt-2">
@@ -644,7 +644,7 @@ export default function AdminDashboard() {
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="month" tick={{ fontSize: 12 }} />
             <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip formatter={(v: number) => `${v}명`} />
+            <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
             <Bar dataKey="count" fill="#2ED573" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

@@ -400,7 +400,7 @@ export default function AdminAnalytics() {
               <Pie data={genderDist} cx="50%" cy="50%" innerRadius={30} outerRadius={55} dataKey="value" paddingAngle={3}>
                 {genderDist.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
               </Pie>
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex justify-center gap-3 mt-1">
@@ -418,7 +418,7 @@ export default function AdminAnalytics() {
             <BarChart data={ageDist} barSize={18}>
               <XAxis dataKey="name" tick={{ fontSize: 10 }} />
               <YAxis hide />
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
               <Bar dataKey="value" fill="#2ED573" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -431,7 +431,7 @@ export default function AdminAnalytics() {
               <Pie data={providerDist} cx="50%" cy="50%" innerRadius={30} outerRadius={55} dataKey="value" paddingAngle={3}>
                 {providerDist.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
               </Pie>
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
             </PieChart>
           </ResponsiveContainer>
           <div className="flex justify-center gap-3 mt-1">
@@ -449,7 +449,7 @@ export default function AdminAnalytics() {
             <BarChart data={hourDist} barSize={8}>
               <XAxis dataKey="hour" tick={{ fontSize: 8 }} interval={2} />
               <YAxis hide />
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
               <Bar dataKey="count" fill="#6366f1" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -464,7 +464,7 @@ export default function AdminAnalytics() {
             <CartesianGrid strokeDasharray="3 3" horizontal={false} />
             <XAxis type="number" tick={{ fontSize: 11 }} />
             <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} width={80} />
-            <Tooltip formatter={(v: number) => `${v}명`} />
+            <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
             <Bar dataKey="value" fill="#2ED573" radius={[0, 6, 6, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -478,7 +478,7 @@ export default function AdminAnalytics() {
             <BarChart data={activeHourDist} barSize={8}>
               <XAxis dataKey="hour" tick={{ fontSize: 8 }} interval={2} />
               <YAxis hide />
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
               <Bar dataKey="count" fill="#2ED573" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -490,7 +490,7 @@ export default function AdminAnalytics() {
             <BarChart data={activeDayDist} barSize={24}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis hide />
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
               <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -502,7 +502,7 @@ export default function AdminAnalytics() {
             <BarChart data={purchaseHourDist} barSize={8}>
               <XAxis dataKey="hour" tick={{ fontSize: 8 }} interval={2} />
               <YAxis hide />
-              <Tooltip formatter={(v: number) => `${v}건`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}건`} />
               <Bar dataKey="count" fill="#f59e0b" radius={[2, 2, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -514,7 +514,7 @@ export default function AdminAnalytics() {
             <BarChart data={purchaseDayDist} barSize={24}>
               <XAxis dataKey="name" tick={{ fontSize: 11 }} />
               <YAxis hide />
-              <Tooltip formatter={(v: number) => `${v}건`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}건`} />
               <Bar dataKey="value" fill="#ef4444" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -546,7 +546,7 @@ export default function AdminAnalytics() {
             <BarChart data={pointDist} barSize={24}>
               <XAxis dataKey="name" tick={{ fontSize: 10 }} />
               <YAxis hide />
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
               <Bar dataKey="value" fill="#a855f7" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -586,7 +586,7 @@ export default function AdminAnalytics() {
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip formatter={(v: number) => `${v}명`} />
+              <Tooltip formatter={(v: unknown) => `${String(v)}명`} />
               <Bar dataKey="value" fill="#3b82f6" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

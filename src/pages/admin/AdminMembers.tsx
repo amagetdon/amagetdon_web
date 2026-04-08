@@ -307,7 +307,7 @@ export default function AdminMembers() {
   const exportToExcel = (data: MemberWithPurchases[]) => {
     const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', '가입일']
     const rows = data.map((m) => {
-      const provider = (m as Record<string, unknown>).provider as string | undefined || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
+      const provider = (m as unknown as Record<string, unknown>).provider as string | undefined || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
       return [
         m.name || '',
         provider === 'kakao' ? '카카오' : provider === 'google' ? '구글' : '이메일',
@@ -411,7 +411,7 @@ export default function AdminMembers() {
                     <td className="px-4 py-3 text-center font-medium">
                       <span>{m.name || '-'}</span>
                       {(() => {
-                        const p = (m as Record<string, unknown>).provider as string | undefined
+                        const p = (m as unknown as Record<string, unknown>).provider as string | undefined
                         const provider = p || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
                         if (provider === 'kakao') return <span className="ml-1.5 text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">카카오</span>
                         if (provider === 'google') return <span className="ml-1.5 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">구글</span>

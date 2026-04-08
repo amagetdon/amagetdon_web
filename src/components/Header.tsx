@@ -1,9 +1,7 @@
-import { useState, useEffect, memo } from 'react'
+import { useState, memo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
-import { supabase } from '../lib/supabase'
-
 function Header() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -11,14 +9,6 @@ function Header() {
   const currentPath = location.pathname
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
-  const [kakaoLink, setKakaoLink] = useState('')
-
-  useEffect(() => {
-    supabase.from('site_settings').select('value').eq('key', 'kakao_link').maybeSingle()
-      .then(({ data }) => {
-        if (data) setKakaoLink(((data as Record<string, unknown>).value as Record<string, string>)?.url || '')
-      })
-  }, [])
 
 
   const handleLogout = async () => {
