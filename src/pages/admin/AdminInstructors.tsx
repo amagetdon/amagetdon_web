@@ -39,11 +39,12 @@ export default function AdminInstructors() {
     }
     try {
       setSaving(true)
+      const saveData = { ...editing, careers: (editing.careers as string[] || []).filter((c: string) => c.trim()), bio_bullets: (editing.bio_bullets as string[] || []).filter((b: string) => b.trim()) }
       if (editing.id) {
-        await instructorService.update(editing.id, editing)
+        await instructorService.update(editing.id, saveData)
         toast.success('강사 정보가 수정되었습니다.')
       } else {
-        await instructorService.create(editing as Omit<Instructor, 'id' | 'created_at' | 'updated_at'>)
+        await instructorService.create(saveData as Omit<Instructor, 'id' | 'created_at' | 'updated_at'>)
         toast.success('새 강사가 등록되었습니다.')
       }
       setEditing(null)
@@ -198,7 +199,7 @@ export default function AdminInstructors() {
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">경력 (줄바꿈으로 구분)</label>
-              <textarea value={(editing.careers || []).join('\n')} onChange={(e) => setEditing({ ...editing, careers: e.target.value.split('\n').filter(Boolean) })}
+              <textarea value={(editing.careers || []).join('\n')} onChange={(e) => setEditing({ ...editing, careers: e.target.value.split('\n') })}
                 rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#2ED573]" />
             </div>
             <div>

@@ -28,9 +28,9 @@ function SearchPage() {
         const keyword = `%${query}%`
 
         const [coursesRes, instructorsRes, ebooksRes] = await Promise.all([
-          supabase.from('courses').select('*, instructor:instructors(id, name)').ilike('title', keyword),
-          supabase.from('instructors').select('*').or(`name.ilike.${keyword},title.ilike.${keyword}`),
-          supabase.from('ebooks').select('*, instructor:instructors(id, name)').ilike('title', keyword),
+          supabase.from('courses').select('*, instructor:instructors(id, name)').or(`title.ilike.${keyword},description.ilike.${keyword}`),
+          supabase.from('instructors').select('*').or(`name.ilike.${keyword},title.ilike.${keyword},bio.ilike.${keyword}`),
+          supabase.from('ebooks').select('*, instructor:instructors(id, name)').or(`title.ilike.${keyword}`),
         ])
 
         if (cancelled) return
@@ -87,15 +87,37 @@ function SearchPage() {
             {instructors.length > 0 && (
               <div className="mb-12">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">강사</h2>
-                <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-4">
+                <div className="space-y-4">
                   {instructors.map((inst) => (
-                    <Link key={inst.id} to={`/instructors/${inst.id}`} className="no-underline flex items-center gap-4 border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow">
-                      <div className="w-16 h-16 rounded-full bg-gray-200 shrink-0 overflow-hidden">
+                    <Link key={inst.id} to={`/instructors/${inst.id}`} className="no-underline flex items-start gap-10 max-sm:flex-col max-sm:items-center max-sm:gap-4 max-sm:text-center border border-gray-200 rounded-2xl p-6 max-sm:p-5 hover:shadow-md transition-shadow">
+                      <div className="w-52 h-52 max-sm:w-24 max-sm:h-24 rounded-full bg-gray-200 shrink-0 overflow-hidden self-center">
                         {inst.image_url && <img src={inst.image_url} alt={inst.name} className="w-full h-full object-cover" />}
                       </div>
-                      <div>
-                        <p className="font-bold text-gray-900">{inst.name}</p>
-                        <p className="text-xs text-gray-500">{inst.title}</p>
+                      <div className="min-w-0 flex-1 max-sm:w-full">
+                        <div className="flex items-center gap-2 mb-1 max-sm:justify-center">
+                          <p className="text-lg max-sm:text-base font-bold text-gray-900">{inst.name}</p>
+                          <span className="text-sm text-gray-400">{inst.title}</span>
+                        </div>
+                        {inst.headline && <p className="text-sm text-gray-600 mb-2">{inst.headline}</p>}
+                        {inst.bio && <p className="text-sm text-gray-400 line-clamp-6 leading-relaxed mb-2 whitespace-pre-line">{inst.bio}</p>}
+                        {inst.bio_bullets && inst.bio_bullets.length > 0 && (
+                          <ul className="text-sm text-gray-500 space-y-0.5 mb-2 list-none p-0">
+                            {inst.bio_bullets.slice(0, 3).map((b, i) => (
+                              <li key={i} className="flex items-start gap-1.5 max-sm:justify-center">
+                                <span className="text-[#2ED573] shrink-0 mt-0.5">•</span>
+                                <span>{b}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {inst.careers && inst.careers.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 max-sm:justify-center">
+                            {inst.careers.slice(0, 5).map((c, i) => (
+                              <span key={i} className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">{c}</span>
+                            ))}
+                            {inst.careers.length > 5 && <span className="text-xs text-gray-400">+{inst.careers.length - 5}</span>}
+                          </div>
+                        )}
                       </div>
                     </Link>
                   ))}
