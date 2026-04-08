@@ -202,20 +202,24 @@ export default function AdminMembers() {
   )
 
   const exportToExcel = (data: MemberWithPurchases[]) => {
-    const header = ['이름', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', '가입일']
-    const rows = data.map((m) => [
-      m.name || '',
-      m.email || '',
-      m.phone || '',
-      m.gender === 'male' ? '남' : m.gender === 'female' ? '여' : '',
-      m.birth_date || '',
-      (m.address || '').replace(/\|/g, ' '),
-      m.role === 'admin' ? '관리자' : '회원',
-      m.points,
-      m.purchaseCount,
-      m.totalSpent,
-      new Date(m.created_at).toLocaleDateString('ko-KR'),
-    ])
+    const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', '가입일']
+    const rows = data.map((m) => {
+      const provider = (m as Record<string, unknown>).provider as string | undefined || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
+      return [
+        m.name || '',
+        provider === 'kakao' ? '카카오' : provider === 'google' ? '구글' : '이메일',
+        m.email || '',
+        m.phone || '',
+        m.gender === 'male' ? '남' : m.gender === 'female' ? '여' : '',
+        m.birth_date || '',
+        (m.address || '').replace(/\|/g, ' '),
+        m.role === 'admin' ? '관리자' : '회원',
+        m.points,
+        m.purchaseCount,
+        m.totalSpent,
+        new Date(m.created_at).toLocaleDateString('ko-KR'),
+      ]
+    })
 
     const BOM = '\uFEFF'
     const csv = BOM + [header, ...rows].map((row) =>
