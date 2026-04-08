@@ -75,7 +75,9 @@ export const purchaseService = {
     item: { courseId?: number | null; ebookId?: number | null },
     title: string,
     price: number,
-    durationDays?: number | null
+    durationDays?: number | null,
+    couponId?: number | null,
+    originalPrice?: number | null
   ): Promise<void> {
     // 1. 현재 포인트 잔액 확인
     const { data: profile, error: profileError } = await supabase
@@ -117,7 +119,9 @@ export const purchaseService = {
           user_id: userId,
           course_id: item.courseId ?? null,
           ebook_id: item.ebookId ?? null,
+          coupon_id: couponId ?? null,
           title,
+          original_price: originalPrice ?? price,
           price,
           expires_at: expiresAt,
         } as never)

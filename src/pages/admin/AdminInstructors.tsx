@@ -33,8 +33,8 @@ export default function AdminInstructors() {
   useVisibilityRefresh(fetchData)
 
   const handleSave = async () => {
-    if (!editing?.name || !editing?.title) {
-      toast.error('이름과 직함은 필수입니다.')
+    if (!editing?.name) {
+      toast.error('이름은 필수입니다.')
       return
     }
     try {
@@ -123,13 +123,15 @@ export default function AdminInstructors() {
               <tr className="border-b border-gray-100">
                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">강사</th>
                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider max-sm:hidden">직함</th>
+                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider max-sm:hidden">소개</th>
+                <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider max-sm:hidden">순서</th>
                 <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">상태</th>
                 <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider w-[100px]">관리</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={4} className="px-5 py-16 text-center">
+                <tr><td colSpan={6} className="px-5 py-16 text-center">
                   <i className="ti ti-users-minus text-4xl text-gray-200 block mb-2" />
                   <p className="text-sm text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 강사가 없습니다.'}</p>
                 </td></tr>
@@ -140,10 +142,15 @@ export default function AdminInstructors() {
                       <div className="w-10 h-10 rounded-xl bg-gray-100 overflow-hidden shrink-0">
                         {inst.image_url ? <img src={inst.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-400"><i className="ti ti-user" /></div>}
                       </div>
-                      <span className="font-semibold text-gray-900">{inst.name}</span>
+                      <div>
+                        <span className="font-semibold text-gray-900">{inst.name}</span>
+                        {inst.headline && <p className="text-[11px] text-gray-400 truncate max-w-[150px]">{inst.headline}</p>}
+                      </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-gray-500 max-sm:hidden">{inst.title}</td>
+                  <td className="px-5 py-3.5 text-gray-500 max-sm:hidden">{inst.title || '-'}</td>
+                  <td className="px-5 py-3.5 text-gray-400 text-xs max-sm:hidden max-w-[200px] truncate">{inst.bio?.split('\n')[0] || '-'}</td>
+                  <td className="px-5 py-3.5 text-center text-gray-400 text-xs max-sm:hidden">{inst.sort_order}</td>
                   <td className="px-5 py-3.5 text-center">
                     <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${inst.is_published ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${inst.is_published ? 'bg-emerald-500' : 'bg-gray-400'}`} />
@@ -183,7 +190,7 @@ export default function AdminInstructors() {
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">직함 *</label>
+              <label className="text-sm font-bold block mb-1">직함</label>
               <input value={editing.title || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>

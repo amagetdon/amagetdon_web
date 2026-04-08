@@ -38,6 +38,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/admin/faqs', label: 'FAQ', icon: 'ti-help-circle' },
       { path: '/admin/utm', label: 'UTM 링크', icon: 'ti-link' },
+      { path: '/admin/webhook', label: '웹훅 (CRM)', icon: 'ti-webhook' },
       { path: '/admin/site-settings', label: '사이트 설정', icon: 'ti-settings' },
     ],
   },

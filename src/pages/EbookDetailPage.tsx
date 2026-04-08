@@ -6,6 +6,7 @@ import { purchaseService } from '../services/purchaseService'
 import { Dialog, Transition } from '@headlessui/react'
 import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
+import { webhookService } from '../services/webhookService'
 import type { EbookWithInstructor, Coupon } from '../types'
 
 function EbookDetailPage() {
@@ -71,9 +72,13 @@ function EbookDetailPage() {
 
   const isFree = ebook?.is_free === true
   const price = isFree ? 0 : (ebook?.sale_price ?? 0)
-  const couponDiscount = selectedCoupon
+  const couponDiscount = selectedCoupon && price >= (selectedCoupon.min_purchase || 0)
     ? selectedCoupon.discount_type === 'percent'
-      ? Math.floor(price * selectedCoupon.discount_value / 100)
+      ? Math.min(
+          Math.floor(price * selectedCoupon.discount_value / 100),
+          selectedCoupon.max_discount || Infinity,
+          price
+        )
       : Math.min(selectedCoupon.discount_value, price)
     : 0
   const finalPrice = Math.max(0, price - couponDiscount)
@@ -133,9 +138,12 @@ function EbookDetailPage() {
         { ebookId },
         ebook.title,
         finalPrice,
-        ebook.duration_days
+        ebook.duration_days,
+        selectedCoupon?.id,
+        selectedCoupon ? price : undefined
       )
       if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
+      webhookService.firePurchase({ user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: ebook.title, price: finalPrice, type: 'ebook' }).catch(() => {})
       toast.success('전자책을 구매했습니다!')
       setOwned(true)
       setConfirmOpen(false)
@@ -342,6 +350,7 @@ function EbookDetailPage() {
 
                     {selectedCoupon && <p>할인 적용: <span className="font-bold text-[#2ED573]">-{couponDiscount.toLocaleString()}P</span></p>}
                     <p>최종 결제: <span className="font-bold text-gray-900">{finalPrice.toLocaleString()}P</span></p>
+                    <hr className="border-gray-100 my-2" />
                     <p>보유 포인트: <span className="font-bold text-gray-900">{(profile?.points ?? 0).toLocaleString()}P</span></p>
                     <p>결제 후 잔액: <span className="font-bold text-[#2ED573]">{((profile?.points ?? 0) - finalPrice).toLocaleString()}P</span></p>
                   </div>

@@ -257,7 +257,9 @@ export interface Purchase {
   user_id: string
   course_id: number | null
   ebook_id: number | null
+  coupon_id: number | null
   title: string
+  original_price: number | null
   price: number
   purchased_at: string
   expires_at: string | null
@@ -314,6 +316,7 @@ export interface Coupon {
   discount_type: 'fixed' | 'percent'
   discount_value: number
   min_purchase: number
+  max_discount: number | null
   brand_name: string | null
   banner_image_url: string | null
   banner_bg_color: string | null

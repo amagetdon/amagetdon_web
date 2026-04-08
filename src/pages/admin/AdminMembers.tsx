@@ -20,12 +20,22 @@ export default function AdminMembers() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [viewing, setViewing] = useState<MemberWithPurchases | null>(null)
-  const [purchases, setPurchases] = useState<{ id: number; title: string; price: number; purchased_at: string; expires_at: string | null }[]>([])
+  const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null }[]>([])
   const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; newRole: 'user' | 'admin' } | null>(null)
   const [pointLogs, setPointLogs] = useState<PointLog[]>([])
   const [pointForm, setPointForm] = useState({ amount: '', memo: '', type: 'charge' as 'charge' | 'deduct' })
   const [pointSubmitting, setPointSubmitting] = useState(false)
   const [memberCoupons, setMemberCoupons] = useState<{ claim_id: number; coupon: Coupon; used_at: string | null; claimed_at: string }[]>([])
+  const [grantOpen, setGrantOpen] = useState(false)
+  const [grantType, setGrantType] = useState<'course' | 'ebook'>('course')
+  const [grantItemId, setGrantItemId] = useState('')
+  const [grantDays, setGrantDays] = useState('365')
+  const [grantSaving, setGrantSaving] = useState(false)
+  const [allCourses, setAllCourses] = useState<{ id: number; title: string; duration_days: number }[]>([])
+  const [allEbooks, setAllEbooks] = useState<{ id: number; title: string; duration_days: number }[]>([])
+  const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null } | null>(null)
+  const [refundRestoreCoupon, setRefundRestoreCoupon] = useState(true)
+  const [refunding, setRefunding] = useState(false)
 
   const fetchData = async () => {
     try {
@@ -73,7 +83,7 @@ export default function AdminMembers() {
     const [purchaseRes, pointLogRes, couponRes] = await Promise.all([
       supabase
         .from('purchases')
-        .select('id, title, price, purchased_at, expires_at')
+        .select('id, title, original_price, price, purchased_at, expires_at, coupon_id')
         .eq('user_id', member.id)
         .order('purchased_at', { ascending: false }),
       supabase
@@ -100,12 +110,105 @@ export default function AdminMembers() {
     )
   }
 
-  const handleDeletePurchase = async (purchaseId: number) => {
-    if (!viewing) return
+  // 수기 부여 모달 열 때 강의/전자책 목록 로드
+  const openGrantModal = async () => {
+    setGrantOpen(true)
+    setGrantItemId('')
+    setGrantDays('365')
+    if (allCourses.length === 0) {
+      const [c, e] = await Promise.all([
+        supabase.from('courses').select('id, title, duration_days').order('sort_order'),
+        supabase.from('ebooks').select('id, title, duration_days').order('sort_order'),
+      ])
+      setAllCourses((c.data ?? []) as { id: number; title: string; duration_days: number }[])
+      setAllEbooks((e.data ?? []) as { id: number; title: string; duration_days: number }[])
+    }
+  }
+
+  const handleGrant = async () => {
+    if (!viewing || !grantItemId) { toast.error('항목을 선택해주세요.'); return }
+    setGrantSaving(true)
     try {
-      const { error } = await supabase.from('purchases').delete().eq('id', purchaseId)
+      const itemId = Number(grantItemId)
+      const items = grantType === 'course' ? allCourses : allEbooks
+      const item = items.find((i) => i.id === itemId)
+      const days = Number(grantDays) || item?.duration_days || 365
+      const expiresAt = new Date(Date.now() + days * 86400000).toISOString()
+
+      const { error } = await supabase.from('purchases').insert({
+        user_id: viewing.id,
+        course_id: grantType === 'course' ? itemId : null,
+        ebook_id: grantType === 'ebook' ? itemId : null,
+        title: item?.title || '',
+        price: 0,
+        expires_at: expiresAt,
+      } as never)
       if (error) throw error
-      setPurchases((prev) => prev.filter((p) => p.id !== purchaseId))
+
+      toast.success(`${item?.title} 수강권이 부여되었습니다.`)
+      setGrantOpen(false)
+      await handleViewMember(viewing)
+    } catch {
+      toast.error('부여에 실패했습니다.')
+    } finally {
+      setGrantSaving(false)
+    }
+  }
+
+  const handleRefund = async () => {
+    if (!viewing || !refundTarget || !user || refunding) return
+    setRefunding(true)
+    try {
+      // 1. 구매 삭제
+      const { error } = await supabase.from('purchases').delete().eq('id', refundTarget.id)
+      if (error) throw error
+
+      // 2. 포인트 환불 (가격이 0보다 큰 경우)
+      if (refundTarget.price > 0) {
+        await supabase.rpc('add_points', { user_id_input: viewing.id, amount_input: refundTarget.price } as never)
+        await supabase.rpc('insert_point_log', {
+          p_user_id: viewing.id,
+          p_amount: refundTarget.price,
+          p_balance: viewing.points + refundTarget.price,
+          p_type: 'refund',
+          p_memo: `${refundTarget.title} 환불`,
+        } as never)
+      }
+
+      // 3. 쿠폰 복구 (해당 구매에 사용된 쿠폰)
+      if (refundRestoreCoupon && refundTarget.coupon_id) {
+        await supabase
+          .from('coupon_claims')
+          .update({ used_at: null } as never)
+          .eq('user_id', viewing.id)
+          .eq('coupon_id', refundTarget.coupon_id)
+      }
+
+      const msgs = [`${refundTarget.title} 환불 완료`]
+      if (refundTarget.price > 0) msgs.push(`+${refundTarget.price.toLocaleString()}P`)
+      if (refundRestoreCoupon) msgs.push('쿠폰 복구됨')
+      toast.success(msgs.join(' · '))
+
+      setRefundTarget(null)
+      setRefundRestoreCoupon(true)
+      await handleViewMember({ ...viewing, points: viewing.points + refundTarget.price })
+      await fetchData()
+    } catch {
+      toast.error('환불에 실패했습니다.')
+    } finally {
+      setRefunding(false)
+    }
+  }
+
+  const [deleteTargetPurchase, setDeleteTargetPurchase] = useState<number | null>(null)
+
+  const handleDeletePurchase = async () => {
+    if (!viewing || !deleteTargetPurchase) return
+    try {
+      const { error } = await supabase.from('purchases').delete().eq('id', deleteTargetPurchase)
+      if (error) throw error
+      setPurchases((prev) => prev.filter((p) => p.id !== deleteTargetPurchase))
+      setDeleteTargetPurchase(null)
       toast.success('구매 내역이 삭제되었습니다.')
     } catch {
       toast.error('삭제에 실패했습니다.')
@@ -245,14 +348,23 @@ export default function AdminMembers() {
           <h1 className="text-2xl font-bold text-gray-900">회원 관리</h1>
           <p className="text-sm text-gray-500 mt-1">전체 {members.length}명</p>
         </div>
-        <button
-          onClick={() => exportToExcel(filtered)}
-          disabled={filtered.length === 0}
-          className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <i className="ti ti-file-spreadsheet text-sm" />
-          엑셀 내보내기
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { fetchData() ; toast.success('새로고침 완료') }}
+            className="w-9 h-9 flex items-center justify-center bg-white border border-gray-200 text-gray-500 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
+            aria-label="새로고침"
+          >
+            <i className="ti ti-refresh text-sm" />
+          </button>
+          <button
+            onClick={() => exportToExcel(filtered)}
+            disabled={filtered.length === 0}
+            className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <i className="ti ti-file-spreadsheet text-sm" />
+            엑셀 내보내기
+          </button>
+        </div>
       </div>
 
       <div className="mb-4">
@@ -463,18 +575,41 @@ export default function AdminMembers() {
                   )}
                 </div>
 
-                {purchases.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-2">구매 내역 ({purchases.length}건)</h3>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-bold text-gray-900">구매 내역 ({purchases.length}건)</h3>
+                    <button
+                      onClick={openGrantModal}
+                      className="px-3 py-1.5 bg-[#2ED573] text-white text-xs font-bold rounded-lg border-none cursor-pointer hover:bg-[#25B866] transition-colors flex items-center gap-1"
+                    >
+                      <i className="ti ti-plus text-xs" /> 수강권 부여
+                    </button>
+                  </div>
+                  {purchases.length > 0 ? (
                     <div className="space-y-2">
                       {purchases.map((p) => (
                         <div key={p.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
-                          <span className="text-sm text-gray-700 truncate flex-1">{p.title}</span>
-                          <div className="flex items-center gap-2 shrink-0 ml-3">
-                            <span className="text-sm font-semibold text-gray-900">{p.price.toLocaleString()}원</span>
-                            <span className="text-xs text-gray-400">{formatDate(p.purchased_at)}</span>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm text-gray-700 truncate block">{p.title}</span>
+                            <span className="text-[10px] text-gray-400">
+                              {p.original_price && p.original_price !== p.price ? (
+                                <><span className="line-through">{p.original_price.toLocaleString()}P</span> → <span className="text-[#2ED573] font-bold">{p.price > 0 ? `${p.price.toLocaleString()}P` : '무료'}</span> (쿠폰)</>
+                              ) : (
+                                p.price > 0 ? `${p.price.toLocaleString()}P` : '무료'
+                              )}
+                              {' · '}{formatDate(p.purchased_at)}
+                              {p.expires_at && ` · ~${formatDate(p.expires_at)}`}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0 ml-3">
                             <button
-                              onClick={() => handleDeletePurchase(p.id)}
+                              onClick={() => setRefundTarget({ id: p.id, title: p.title, price: p.price, coupon_id: p.coupon_id })}
+                              className="px-2 py-1 text-[10px] font-medium text-yellow-600 bg-yellow-50 rounded border-none cursor-pointer hover:bg-yellow-100 transition-colors whitespace-nowrap"
+                            >
+                              환불
+                            </button>
+                            <button
+                              onClick={() => setDeleteTargetPurchase(p.id)}
                               className="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors"
                               aria-label="삭제"
                             >
@@ -484,8 +619,10 @@ export default function AdminMembers() {
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-xs text-gray-400 text-center py-4">구매 내역이 없습니다.</p>
+                  )}
+                </div>
 
                 {/* 쿠폰 발급 내역 */}
                 {memberCoupons.length > 0 && (
@@ -534,6 +671,131 @@ export default function AdminMembers() {
           </DialogPanel>
         </div>
       </Dialog>
+
+      {/* 수강권 수기 부여 */}
+      <Dialog open={grantOpen} onClose={() => setGrantOpen(false)} className="relative z-[60]">
+        <div className="fixed inset-0 bg-black/30" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <DialogTitle className="text-base font-bold text-gray-900 mb-4">수강권 수기 부여</DialogTitle>
+            <p className="text-xs text-gray-400 mb-4">{viewing?.name || '회원'}에게 강의/전자책 수강권을 부여합니다.</p>
+
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <button type="button" onClick={() => { setGrantType('course'); setGrantItemId('') }}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${grantType === 'course' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                  강의
+                </button>
+                <button type="button" onClick={() => { setGrantType('ebook'); setGrantItemId('') }}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${grantType === 'ebook' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                  전자책
+                </button>
+              </div>
+
+              <select
+                value={grantItemId}
+                onChange={(e) => {
+                  setGrantItemId(e.target.value)
+                  const items = grantType === 'course' ? allCourses : allEbooks
+                  const item = items.find((i) => i.id === Number(e.target.value))
+                  if (item) setGrantDays(String(item.duration_days || 365))
+                }}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] bg-white cursor-pointer"
+              >
+                <option value="">{grantType === 'course' ? '강의를 선택하세요' : '전자책을 선택하세요'}</option>
+                {(grantType === 'course' ? allCourses : allEbooks).map((item) => (
+                  <option key={item.id} value={item.id}>{item.title}</option>
+                ))}
+              </select>
+
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">수강 기간 (일)</label>
+                <input
+                  type="number"
+                  value={grantDays}
+                  onChange={(e) => setGrantDays(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573]"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setGrantOpen(false)}
+                  className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg border-none cursor-pointer hover:bg-gray-200">
+                  취소
+                </button>
+                <button onClick={handleGrant} disabled={grantSaving || !grantItemId}
+                  className="flex-1 py-2.5 text-sm font-medium text-white bg-[#2ED573] rounded-lg border-none cursor-pointer hover:bg-[#25B866] disabled:opacity-50">
+                  {grantSaving ? '처리 중...' : '부여하기'}
+                </button>
+              </div>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* 환불 확인 */}
+      <Dialog open={!!refundTarget} onClose={() => { setRefundTarget(null); setRefundRestoreCoupon(true) }} className="relative z-[60]">
+        <div className="fixed inset-0 bg-black/30" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
+            <div className="w-12 h-12 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-3">
+              <i className="ti ti-receipt-refund text-yellow-500 text-xl" />
+            </div>
+            <p className="text-sm font-bold text-gray-900 text-center mb-1">구매 환불</p>
+            {refundTarget && (
+              <>
+                <p className="text-xs text-gray-400 text-center mb-4">
+                  "{refundTarget.title}" 수강권이 회수되고<br />
+                  {refundTarget.price > 0 ? `${refundTarget.price.toLocaleString()}P가 환불됩니다.` : '무료 항목입니다.'}
+                </p>
+                {refundTarget.coupon_id ? (
+                  <label className="flex items-center gap-2 cursor-pointer bg-gray-50 rounded-lg px-3 py-2.5 mb-4">
+                    <input
+                      type="checkbox"
+                      checked={refundRestoreCoupon}
+                      onChange={(e) => setRefundRestoreCoupon(e.target.checked)}
+                      className="accent-[#2ED573]"
+                    />
+                    <div>
+                      <span className="text-sm text-gray-700">사용한 쿠폰 복구</span>
+                      <p className="text-[10px] text-gray-400">이 구매에 사용된 쿠폰을 미사용 상태로 되돌립니다</p>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="bg-gray-50 rounded-lg px-3 py-2.5 mb-4">
+                    <p className="text-xs text-gray-400">쿠폰 없이 결제된 구매입니다</p>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { setRefundTarget(null); setRefundRestoreCoupon(true) }}
+                    className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg border-none cursor-pointer hover:bg-gray-200 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleRefund}
+                    disabled={refunding}
+                    className="flex-1 py-2.5 text-sm font-medium text-white bg-red-500 rounded-lg border-none cursor-pointer hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {refunding ? '처리 중...' : '환불하기'}
+                  </button>
+                </div>
+              </>
+            )}
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* 구매 삭제 확인 */}
+      <ConfirmDialog
+        isOpen={!!deleteTargetPurchase}
+        onClose={() => setDeleteTargetPurchase(null)}
+        onConfirm={handleDeletePurchase}
+        title="구매 내역 삭제"
+        message="이 구매 내역을 삭제하시겠습니까? 수강권이 회수되며 포인트는 환불되지 않습니다."
+        confirmColor="red"
+      />
 
       {/* 권한 변경 확인 */}
       <ConfirmDialog

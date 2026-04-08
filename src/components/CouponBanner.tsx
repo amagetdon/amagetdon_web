@@ -86,27 +86,27 @@ function CouponBanner() {
 
                 {coupon.brand_name && (
                   <span className="text-[10px] font-bold tracking-widest uppercase opacity-50 mb-2"
-                    style={{ color: coupon.banner_text_color || '#fff' }}>
+                    style={{ color: coupon.banner_text_color || '#171717' }}>
                     {coupon.brand_name}
                   </span>
                 )}
 
                 <div className="flex items-baseline gap-0.5">
                   <span className="text-4xl max-sm:text-3xl font-black tracking-tight"
-                    style={{ color: coupon.banner_text_color || '#fff' }}>
+                    style={{ color: coupon.banner_text_color || '#171717' }}>
                     {coupon.discount_type === 'percent'
                       ? coupon.discount_value
                       : coupon.discount_value.toLocaleString()}
                   </span>
                   <span className="text-lg max-sm:text-base font-bold opacity-70"
-                    style={{ color: coupon.banner_text_color || '#fff' }}>
+                    style={{ color: coupon.banner_text_color || '#171717' }}>
                     {coupon.discount_type === 'percent' ? '%' : '원'}
                   </span>
                 </div>
 
                 {coupon.description && (
                   <p className="text-[11px] opacity-50 mt-1.5 text-center leading-snug"
-                    style={{ color: coupon.banner_text_color || '#fff' }}>
+                    style={{ color: coupon.banner_text_color || '#171717' }}>
                     {coupon.description}
                   </p>
                 )}
@@ -138,7 +138,7 @@ function CouponBanner() {
 
                 {coupon.expires_at && (
                   <p className="text-[10px] opacity-30 mt-2"
-                    style={{ color: coupon.banner_text_color || '#fff' }}>
+                    style={{ color: coupon.banner_text_color || '#171717' }}>
                     ~{new Date(coupon.expires_at).toLocaleDateString('ko-KR')}
                   </p>
                 )}
@@ -148,9 +148,23 @@ function CouponBanner() {
               <div className="flex-1 flex items-center max-sm:flex-col">
                 <div className="flex-1 px-10 py-8 max-sm:px-6 max-sm:py-5 min-w-0">
                   <h3 className="text-2xl max-sm:text-lg font-black leading-snug whitespace-pre-line"
-                    style={{ color: coupon.banner_text_color || '#111827' }}>
+                    style={{ color: coupon.banner_text_color || '#171717' }}>
                     {coupon.title}
                   </h3>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {coupon.min_purchase > 0 && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/40 opacity-60"
+                        style={{ color: coupon.banner_text_color || '#171717' }}>
+                        {coupon.min_purchase.toLocaleString()}P 이상 결제 시
+                      </span>
+                    )}
+                    {coupon.discount_type === 'percent' && coupon.max_discount && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/40 opacity-60"
+                        style={{ color: coupon.banner_text_color || '#171717' }}>
+                        최대 {coupon.max_discount.toLocaleString()}P 할인
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {coupon.banner_image_url && (

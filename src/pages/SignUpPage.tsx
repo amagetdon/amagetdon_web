@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '../services/authService'
+import { webhookService } from '../services/webhookService'
 
 declare global {
   interface Window {
@@ -149,6 +150,16 @@ function SignUpPage() {
         ...utmParams,
       })
       setSuccess(true)
+      // 웹훅 전송 (비동기, 실패해도 무시)
+      webhookService.fireSignup({
+        name: form.name,
+        email: form.email,
+        phone,
+        gender: form.gender || null,
+        address: form.address ? `${form.zonecode}|${form.address}|${form.addressDetail}` : null,
+        birth_date: birthDate || null,
+        ...utmParams,
+      }).catch(() => {})
     } catch (err) {
       if (err instanceof Error) {
         if (err.message.includes('already registered')) {
