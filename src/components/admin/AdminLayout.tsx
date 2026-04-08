@@ -7,6 +7,7 @@ const NAV_GROUPS = [
     label: '메인',
     items: [
       { path: '/admin', label: '대시보드', icon: 'ti-layout-dashboard' },
+      { path: '/admin/analytics', label: '상세 통계', icon: 'ti-chart-bar' },
     ],
   },
   {
@@ -35,7 +36,6 @@ const NAV_GROUPS = [
   {
     label: '설정',
     items: [
-      { path: '/admin/analytics', label: '회원 분석', icon: 'ti-chart-bar' },
       { path: '/admin/faqs', label: 'FAQ', icon: 'ti-help-circle' },
       { path: '/admin/site-settings', label: '사이트 설정', icon: 'ti-settings' },
     ],
