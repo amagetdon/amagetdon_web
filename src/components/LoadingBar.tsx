@@ -29,9 +29,10 @@ export default function LoadingBar() {
       const main = document.querySelector('main')
       if (!main) return
       const sections = main.querySelectorAll('section')
-      // skeleton(animate-pulse)이 아닌 실제 콘텐츠가 있는지 확인
-      const hasContent = sections.length > 0 && !Array.from(sections).every((s) => s.querySelector('.animate-pulse'))
-      if (hasContent) {
+      if (sections.length === 0) return
+      // 모든 section에서 skeleton이 사라졌는지 확인
+      const hasAnyLoading = Array.from(sections).some((s) => s.querySelector('.animate-pulse'))
+      if (!hasAnyLoading) {
         clearInterval(checkDone)
         if (timerRef.current) clearInterval(timerRef.current)
         setProgress(100)
