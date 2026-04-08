@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react'
 import { instructorService } from '../services/instructorService'
 import { useStaleRefreshKey } from './useVisibilityRefresh'
+import { getCached } from '../lib/cache'
 import type { Instructor } from '../types'
 
 export function useInstructors(options?: { featured?: boolean; limit?: number }) {
-  const [instructors, setInstructors] = useState<Instructor[]>([])
-  const [loading, setLoading] = useState(true)
+  const cacheKey = options?.featured ? `instructors:featured:${options?.limit ?? 6}` : 'instructors:all'
+  const cached = getCached<Instructor[]>(cacheKey)
+  const [instructors, setInstructors] = useState<Instructor[]>(cached || [])
+  const [loading, setLoading] = useState(!cached)
   const [error, setError] = useState<string | null>(null)
   const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        setLoading(true)
+        if (!cached) setLoading(true)
         const data = options?.featured
           ? await instructorService.getFeatured(options?.limit)
           : await instructorService.getAll()

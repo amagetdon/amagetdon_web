@@ -1,8 +1,12 @@
 import { supabase } from '../lib/supabase'
+import { getCached, setCache, clearCache } from '../lib/cache'
 import type { CourseWithInstructor, CourseWithCurriculum } from '../types'
 
 export const courseService = {
   async getAll(type?: 'free' | 'premium') {
+    const key = `courses:${type || 'all'}`
+    const cached = getCached<CourseWithInstructor[]>(key)
+    if (cached) return cached
     let query = supabase
       .from('courses')
       .select('*, instructor:instructors(id, name)')
@@ -10,7 +14,7 @@ export const courseService = {
     if (type) query = query.eq('course_type', type)
     const { data, error } = await query
     if (error) throw error
-    return data as CourseWithInstructor[]
+    return setCache(key, data as CourseWithInstructor[])
   },
 
   async getByInstructor(instructorId: number) {
@@ -38,6 +42,8 @@ export const courseService = {
     return data as CourseWithCurriculum
   },
 
+  invalidate() { clearCache('courses') },
+
   async create(course: Omit<CourseWithInstructor, 'id' | 'created_at' | 'updated_at' | 'instructor'>) {
     const { data, error } = await supabase
       .from('courses')
@@ -45,6 +51,7 @@ export const courseService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data
   },
 
@@ -56,6 +63,7 @@ export const courseService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data
   },
 
@@ -65,5 +73,6 @@ export const courseService = {
       .delete()
       .eq('id', id)
     if (error) throw error
+    this.invalidate()
   },
 }

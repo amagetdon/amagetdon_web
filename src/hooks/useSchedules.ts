@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react'
 import { scheduleService } from '../services/scheduleService'
+import { getCached } from '../lib/cache'
 import type { ScheduleWithDetails } from '../types'
 
 export function useSchedules(year: number, month: number) {
-  const [schedules, setSchedules] = useState<ScheduleWithDetails[]>([])
-  const [loading, setLoading] = useState(true)
+  const cacheKey = `schedules:${year}-${month}`
+  const cached = getCached<ScheduleWithDetails[]>(cacheKey)
+  const [schedules, setSchedules] = useState<ScheduleWithDetails[]>(cached || [])
+  const [loading, setLoading] = useState(!cached)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -14,7 +17,7 @@ export function useSchedules(year: number, month: number) {
     }
     const fetch = async () => {
       try {
-        setLoading(true)
+        if (!cached) setLoading(true)
         const data = await scheduleService.getByMonth(year, month)
         setSchedules(data)
       } catch (err) {

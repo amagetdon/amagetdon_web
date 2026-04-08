@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react'
 import { courseService } from '../services/courseService'
 import { useStaleRefreshKey } from './useVisibilityRefresh'
+import { getCached } from '../lib/cache'
 import type { CourseWithInstructor, CourseWithCurriculum } from '../types'
 
 export function useCourses(type?: 'free' | 'premium') {
-  const [courses, setCourses] = useState<CourseWithInstructor[]>([])
-  const [loading, setLoading] = useState(true)
+  const cacheKey = `courses:${type || 'all'}`
+  const cached = getCached<CourseWithInstructor[]>(cacheKey)
+  const [courses, setCourses] = useState<CourseWithInstructor[]>(cached || [])
+  const [loading, setLoading] = useState(!cached)
   const [error, setError] = useState<string | null>(null)
   const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        setLoading(true)
+        if (!cached) setLoading(true)
         const data = await courseService.getAll(type)
         setCourses(data)
       } catch (err) {

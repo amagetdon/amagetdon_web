@@ -1,8 +1,12 @@
 import { supabase } from '../lib/supabase'
+import { getCached, setCache, clearCache } from '../lib/cache'
 import type { Banner } from '../types'
 
 export const bannerService = {
   async getByPage(pageKey: string) {
+    const key = `banners:pub:${pageKey}`
+    const cached = getCached<Banner[]>(key)
+    if (cached) return cached
     const { data, error } = await supabase
       .from('banners')
       .select('*')
@@ -10,7 +14,7 @@ export const bannerService = {
       .eq('is_published', true)
       .order('sort_order', { ascending: true })
     if (error) throw error
-    return data as Banner[]
+    return setCache(key, data as Banner[])
   },
 
   async getAllByPage(pageKey: string) {
@@ -23,6 +27,8 @@ export const bannerService = {
     return data as Banner[]
   },
 
+  invalidate() { clearCache('banners') },
+
   async create(banner: Omit<Banner, 'id' | 'created_at'>) {
     const { data, error } = await supabase
       .from('banners')
@@ -30,6 +36,7 @@ export const bannerService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data as Banner
   },
 
@@ -41,6 +48,7 @@ export const bannerService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data as Banner
   },
 
@@ -50,5 +58,6 @@ export const bannerService = {
       .delete()
       .eq('id', id)
     if (error) throw error
+    this.invalidate()
   },
 }

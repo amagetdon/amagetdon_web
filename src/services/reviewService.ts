@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { getCached, setCache, clearCache } from '../lib/cache'
 import type { Review, ReviewWithCourse } from '../types'
 
 export const reviewService = {
@@ -16,7 +17,6 @@ export const reviewService = {
       .range(from, to)
 
     if (options?.instructorId) {
-      // 강사에 직접 연결된 후기 + 강사의 강의에 달린 후기 모두 가져오기
       const { data: courseData } = await supabase
         .from('courses')
         .select('id')
@@ -35,6 +35,9 @@ export const reviewService = {
   },
 
   async getFeatured(limit = 5) {
+    const key = `reviews:featured:${limit}`
+    const cached = getCached<ReviewWithCourse[]>(key)
+    if (cached) return cached
     const { data, error } = await supabase
       .from('reviews')
       .select('*, course:courses(id, title)')
@@ -42,7 +45,7 @@ export const reviewService = {
       .order('created_at', { ascending: false })
       .limit(limit)
     if (error) throw error
-    return data as ReviewWithCourse[]
+    return setCache(key, data as ReviewWithCourse[])
   },
 
   async getByCourse(courseId: number, page = 1, perPage = 4) {
@@ -86,6 +89,8 @@ export const reviewService = {
     return data.length > 0 ? (data[0] as Review) : null
   },
 
+  invalidate() { clearCache('reviews') },
+
   async create(review: Omit<Review, 'id' | 'created_at' | 'is_published'>) {
     const { data, error } = await supabase
       .from('reviews')
@@ -93,6 +98,7 @@ export const reviewService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data as Review
   },
 
@@ -104,6 +110,7 @@ export const reviewService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data as Review
   },
 
@@ -113,5 +120,6 @@ export const reviewService = {
       .delete()
       .eq('id', id)
     if (error) throw error
+    this.invalidate()
   },
 }

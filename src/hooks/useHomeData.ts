@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { withTimeout } from '../lib/fetchWithTimeout'
 import { useStaleRefreshKey } from './useVisibilityRefresh'
+import { getCached, setCache } from '../lib/cache'
 import type {
   Banner,
   CourseWithInstructor,
@@ -35,8 +36,10 @@ const EMPTY: HomeData = {
 }
 
 export function useHomeData(year: number, month: number) {
-  const [data, setData] = useState<HomeData>(EMPTY)
-  const [loading, setLoading] = useState(true)
+  const cacheKey = `homeData:${year}-${month}`
+  const cached = getCached<HomeData>(cacheKey)
+  const [data, setData] = useState<HomeData>(cached || EMPTY)
+  const [loading, setLoading] = useState(!cached)
   const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
@@ -65,7 +68,6 @@ export function useHomeData(year: number, month: number) {
         const getData = (r: PromiseSettledResult<any>) =>
           r.status === 'fulfilled' ? (r.value.data ?? []) : []
 
-        // 모든 쿼리가 빈 데이터면 세션 문제일 수 있음 → 세션 갱신 후 재시도
         const allEmpty = results.every((r) =>
           r.status !== 'fulfilled' || !r.value.data || r.value.data.length === 0
         )
@@ -80,7 +82,7 @@ export function useHomeData(year: number, month: number) {
         }
 
         const [hero, ebooks, courses, instructors, resultData, reviews, schedules, bottomLinks] = results
-        setData({
+        const newData = {
           heroBanners: getData(hero) as Banner[],
           freeEbooks: getData(ebooks) as EbookWithInstructor[],
           freeCourses: getData(courses) as CourseWithInstructor[],
@@ -89,7 +91,9 @@ export function useHomeData(year: number, month: number) {
           reviews: getData(reviews) as ReviewWithCourse[],
           schedules: getData(schedules) as ScheduleWithDetails[],
           bottomLinks: getData(bottomLinks) as Banner[],
-        })
+        }
+        setCache(cacheKey, newData)
+        setData(newData)
       } catch {
         if (!cancelled && attempt < 3) {
           try { await supabase.auth.refreshSession() } catch { /* */ }
@@ -103,7 +107,7 @@ export function useHomeData(year: number, month: number) {
 
     load()
     return () => { cancelled = true }
-  }, [year, month, refreshKey])
+  }, [year, month, refreshKey, cacheKey])
 
   return { data, loading }
 }

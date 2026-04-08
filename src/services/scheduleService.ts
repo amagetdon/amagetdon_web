@@ -1,8 +1,12 @@
 import { supabase } from '../lib/supabase'
+import { getCached, setCache, clearCache } from '../lib/cache'
 import type { ScheduleWithDetails } from '../types'
 
 export const scheduleService = {
   async getByMonth(year: number, month: number) {
+    const key = `schedules:${year}-${month}`
+    const cached = getCached<ScheduleWithDetails[]>(key)
+    if (cached) return cached
     const startDate = new Date(year, month - 1, 1).toISOString()
     const endDate = new Date(year, month, 0, 23, 59, 59).toISOString()
 
@@ -17,8 +21,10 @@ export const scheduleService = {
       .lte('scheduled_at', endDate)
       .order('scheduled_at')
     if (error) throw error
-    return data as ScheduleWithDetails[]
+    return setCache(key, data as ScheduleWithDetails[])
   },
+
+  invalidate() { clearCache('schedules') },
 
   async create(schedule: { course_id?: number; instructor_id?: number; scheduled_at: string; title: string }) {
     const { data, error } = await supabase
@@ -27,6 +33,7 @@ export const scheduleService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data
   },
 
@@ -38,6 +45,7 @@ export const scheduleService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data
   },
 
@@ -47,5 +55,6 @@ export const scheduleService = {
       .delete()
       .eq('id', id)
     if (error) throw error
+    this.invalidate()
   },
 }

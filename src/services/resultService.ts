@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { getCached, setCache, clearCache } from '../lib/cache'
 import type { Result } from '../types'
 
 export const resultService = {
@@ -18,6 +19,9 @@ export const resultService = {
   },
 
   async getFeatured(limit = 4) {
+    const key = `results:featured:${limit}`
+    const cached = getCached<Result[]>(key)
+    if (cached) return cached
     const { data, error } = await supabase
       .from('results')
       .select('*')
@@ -25,8 +29,10 @@ export const resultService = {
       .order('created_at', { ascending: false })
       .limit(limit)
     if (error) throw error
-    return data as Result[]
+    return setCache(key, data as Result[])
   },
+
+  invalidate() { clearCache('results') },
 
   async create(result: Omit<Result, 'id' | 'created_at' | 'is_published' | 'likes_count'>) {
     const { data, error } = await supabase
@@ -35,6 +41,7 @@ export const resultService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data as Result
   },
 
@@ -64,6 +71,7 @@ export const resultService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data as Result
   },
 
@@ -73,5 +81,6 @@ export const resultService = {
       .delete()
       .eq('id', id)
     if (error) throw error
+    this.invalidate()
   },
 }

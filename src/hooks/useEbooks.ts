@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react'
 import { ebookService } from '../services/ebookService'
 import { useStaleRefreshKey } from './useVisibilityRefresh'
+import { getCached } from '../lib/cache'
 import type { EbookWithInstructor } from '../types'
 
 export function useEbooks(options?: { isFree?: boolean; limit?: number }) {
-  const [ebooks, setEbooks] = useState<EbookWithInstructor[]>([])
-  const [loading, setLoading] = useState(true)
+  const cacheKey = `ebooks:${options?.isFree ?? 'all'}:${options?.limit ?? 'all'}`
+  const cached = getCached<EbookWithInstructor[]>(cacheKey)
+  const [ebooks, setEbooks] = useState<EbookWithInstructor[]>(cached || [])
+  const [loading, setLoading] = useState(!cached)
   const [error, setError] = useState<string | null>(null)
   const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        setLoading(true)
+        if (!cached) setLoading(true)
         const data = await ebookService.getAll(options)
         setEbooks(data)
       } catch (err) {

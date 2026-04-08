@@ -1,17 +1,23 @@
 import { supabase } from '../lib/supabase'
+import { getCached, setCache, clearCache } from '../lib/cache'
 import type { Instructor } from '../types'
 
 export const instructorService = {
   async getAll() {
+    const cached = getCached<Instructor[]>('instructors:all')
+    if (cached) return cached
     const { data, error } = await supabase
       .from('instructors')
       .select('*')
       .order('sort_order')
     if (error) throw error
-    return data as Instructor[]
+    return setCache('instructors:all', data as Instructor[])
   },
 
   async getFeatured(limit = 6) {
+    const key = `instructors:featured:${limit}`
+    const cached = getCached<Instructor[]>(key)
+    if (cached) return cached
     const { data, error } = await supabase
       .from('instructors')
       .select('*')
@@ -19,7 +25,7 @@ export const instructorService = {
       .order('sort_order')
       .limit(limit)
     if (error) throw error
-    return data as Instructor[]
+    return setCache(key, data as Instructor[])
   },
 
   async getById(id: number) {
@@ -32,6 +38,8 @@ export const instructorService = {
     return data as Instructor
   },
 
+  invalidate() { clearCache('instructors') },
+
   async create(instructor: Omit<Instructor, 'id' | 'created_at' | 'updated_at'>) {
     const { data, error } = await supabase
       .from('instructors')
@@ -39,6 +47,7 @@ export const instructorService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data as Instructor
   },
 
@@ -50,6 +59,7 @@ export const instructorService = {
       .select()
       .single()
     if (error) throw error
+    this.invalidate()
     return data as Instructor
   },
 
@@ -59,5 +69,6 @@ export const instructorService = {
       .delete()
       .eq('id', id)
     if (error) throw error
+    this.invalidate()
   },
 }
