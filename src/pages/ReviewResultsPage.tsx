@@ -45,9 +45,7 @@ function ReviewResultsPage() {
   const [submitting, setSubmitting] = useState(false)
   const [myCourses, setMyCourses] = useState<MyPurchasedCourse[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [pageBanners, setPageBanners] = useState<import('../types').Banner[]>([])
   const [eventBanners, setEventBanners] = useState<import('../types').Banner[]>([])
-  const [bannerLoading, setBannerLoading] = useState(true)
 
   const perPage = 4
   const totalPages = Math.ceil(totalCount / perPage)
@@ -68,16 +66,12 @@ function ReviewResultsPage() {
   useEffect(() => { fetchAchievements() }, [currentPage, refreshKey])
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('banners').select('*').eq('page_key', 'results').eq('is_published', true).order('sort_order'),
-      supabase.from('banners').select('*').eq('page_key', 'results_event').eq('is_published', true).order('sort_order'),
-    ]).then(([bannerRes, eventRes]) => {
-      setPageBanners((bannerRes.data ?? []) as import('../types').Banner[])
-      setEventBanners((eventRes.data ?? []) as import('../types').Banner[])
-    }).catch(() => {
-      setPageBanners([])
-      setEventBanners([])
-    }).finally(() => setBannerLoading(false))
+    supabase.from('banners').select('*').eq('page_key', 'results_event').eq('is_published', true).order('sort_order')
+      .then((eventRes) => {
+        setEventBanners((eventRes.data ?? []) as import('../types').Banner[])
+      }).catch(() => {
+        setEventBanners([])
+      })
   }, [refreshKey])
 
   // 작성 모달 열 때 내 강의 로드

@@ -148,7 +148,7 @@ function EbookReaderPage() {
       canvas.style.height = `${viewport.height}px`
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-      await page.render({ canvasContext: ctx, viewport }).promise
+      await page.render({ canvasContext: ctx, viewport, canvas } as never).promise
 
       // 워터마크 그리기
       if (watermarkText) {

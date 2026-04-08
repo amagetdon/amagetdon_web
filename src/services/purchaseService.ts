@@ -130,11 +130,11 @@ export const purchaseService = {
         p_balance: newBalance,
         p_type: 'use',
         p_memo: `${title} 구매`,
-      })
+      } as never)
       if (logError) throw logError
     } catch (err) {
       // 롤백: 차감한 만큼만 복구 (increment)
-      await supabase.rpc('add_points', { user_id_input: userId, amount_input: price })
+      await supabase.rpc('add_points', { user_id_input: userId, amount_input: price } as never)
       throw err
     }
   },

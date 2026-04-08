@@ -24,22 +24,16 @@ function ReviewsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const { reviews, totalCount, loading } = useReviews({ page: currentPage, perPage: 8 })
   const [selectedReview, setSelectedReview] = useState<ReviewWithCourse | null>(null)
-  const [pageBanners, setPageBanners] = useState<Banner[]>([])
   const [eventBanners, setEventBanners] = useState<Banner[]>([])
-  const [bannerLoading, setBannerLoading] = useState(true)
   const refreshKey = useStaleRefreshKey()
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('banners').select('*').eq('page_key', 'reviews').eq('is_published', true).order('sort_order'),
-      supabase.from('banners').select('*').eq('page_key', 'reviews_event').eq('is_published', true).order('sort_order'),
-    ]).then(([bannerRes, eventRes]) => {
-      setPageBanners((bannerRes.data ?? []) as Banner[])
-      setEventBanners((eventRes.data ?? []) as Banner[])
-    }).catch(() => {
-      setPageBanners([])
-      setEventBanners([])
-    }).finally(() => setBannerLoading(false))
+    supabase.from('banners').select('*').eq('page_key', 'reviews_event').eq('is_published', true).order('sort_order')
+      .then((eventRes) => {
+        setEventBanners((eventRes.data ?? []) as Banner[])
+      }).catch(() => {
+        setEventBanners([])
+      })
   }, [refreshKey])
 
   const totalPages = Math.ceil(totalCount / 8)

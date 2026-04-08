@@ -53,9 +53,9 @@ function PageLoader() {
   )
 }
 
-function FadeInProvider({ children }: { children: React.ReactNode }) {
+function FadeInProvider() {
   useGlobalFadeIn()
-  return <>{children}</>
+  return null
 }
 
 function App() {

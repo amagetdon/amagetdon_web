@@ -144,7 +144,7 @@ export default function AdminMembers() {
       const { error: pointError } = await supabase.rpc('add_points', {
         user_id_input: viewing.id,
         amount_input: actualAmount,
-      })
+      } as never)
       if (pointError) throw pointError
 
       // 2. 로그 기록 (SECURITY DEFINER 함수)
@@ -154,12 +154,12 @@ export default function AdminMembers() {
         p_balance: newBalance,
         p_type: pointForm.type,
         p_memo: pointForm.memo || null,
-      })
+      } as never)
 
       toast.success(`${amount.toLocaleString()}P ${pointForm.type === 'charge' ? '충전' : '차감'} 완료`)
       // DB에서 최신 포인트 다시 읽기
       const { data: freshProfile } = await supabase.from('profiles').select('points').eq('id', viewing.id).single()
-      setViewing({ ...viewing, points: freshProfile?.points ?? newBalance })
+      setViewing({ ...viewing, points: (freshProfile as unknown as Record<string, unknown>)?.points as number ?? newBalance })
       setPointForm({ amount: '', memo: '', type: 'charge' })
 
       const { data: newLogs } = await supabase

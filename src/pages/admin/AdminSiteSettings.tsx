@@ -222,6 +222,8 @@ export default function AdminSiteSettings() {
           title: (linkEditing.title as string) || null,
           subtitle: (linkEditing.subtitle as string) || null,
           image_url: (linkEditing.image_url as string) || '',
+          video_url: null,
+          media_type: 'image',
           link_url: (linkEditing.link_url as string) || null,
           overlay_opacity: null,
           sort_order: (linkEditing.sort_order as number) || 0,

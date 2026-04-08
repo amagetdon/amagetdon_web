@@ -64,7 +64,7 @@ export const couponService = {
       .insert({ coupon_id: couponId, user_id: userId } as never)
     if (claimError) throw claimError
 
-    await supabase.rpc('increment_coupon_claims', { coupon_id_input: couponId })
+    await supabase.rpc('increment_coupon_claims', { coupon_id_input: couponId } as never)
   },
 
   async getUserClaims(userId: string) {
