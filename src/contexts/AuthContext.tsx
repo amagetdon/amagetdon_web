@@ -81,6 +81,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (newSession?.user) {
           fetchProfile(newSession.user.id).then((prof) => {
+            // Umami 유저 식별
+            if (prof && typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).umami) {
+              const umami = (window as unknown as Record<string, { identify: (data: Record<string, string>) => void }>).umami
+              umami.identify({
+                userId: newSession.user.id,
+                email: prof.email || '',
+                name: prof.name || '',
+              })
+            }
+
             if (event === 'SIGNED_IN') {
               const flag = sessionStorage.getItem('pendingSignIn')
               if (flag) {
