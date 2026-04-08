@@ -65,6 +65,7 @@ export default function AdminMembers() {
   useEffect(() => { fetchData() }, [])
   useVisibilityRefresh(fetchData)
 
+
   const handleViewMember = async (member: MemberWithPurchases) => {
     setViewing(member)
     setPointForm({ amount: '', memo: '', type: 'charge' })
@@ -276,6 +277,8 @@ export default function AdminMembers() {
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">이메일</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">전화번호</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">성별</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">생년월일</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">주소</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600">권한</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">포인트</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">구매</th>
@@ -286,13 +289,24 @@ export default function AdminMembers() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={10} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}</td></tr>
+                  <tr><td colSpan={12} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}</td></tr>
                 ) : filtered.map((m) => (
                   <tr key={m.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewMember(m)}>
-                    <td className="px-4 py-3 text-center font-medium">{m.name || '-'}</td>
+                    <td className="px-4 py-3 text-center font-medium">
+                      <span>{m.name || '-'}</span>
+                      {(() => {
+                        const p = (m as Record<string, unknown>).provider as string | undefined
+                        const provider = p || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
+                        if (provider === 'kakao') return <span className="ml-1.5 text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">카카오</span>
+                        if (provider === 'google') return <span className="ml-1.5 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">구글</span>
+                        return <span className="ml-1.5 text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">이메일</span>
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs">{m.email || '-'}</td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{m.phone || '-'}</td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{formatGender(m.gender)}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs">{m.birth_date ? formatDate(m.birth_date) : '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs max-w-[150px] truncate">{m.address ? m.address.split('|').slice(1).join(' ') : '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
                         m.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'

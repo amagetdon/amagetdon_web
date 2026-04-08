@@ -91,6 +91,7 @@ export interface Profile {
   address: string | null
   points: number
   role: 'user' | 'admin'
+  provider: string | null
   utm_source: string | null
   utm_medium: string | null
   utm_campaign: string | null
