@@ -57,11 +57,11 @@ function Header() {
   }
 
   return (
-    <header className="w-full bg-white">
+    <header className="w-full bg-white relative">
       {/* Top bar */}
       <div className="max-w-[1200px] mx-auto px-5 py-4 flex items-center gap-6">
         <Link to="/" className="flex items-center gap-1 no-underline">
-          <img src="/logo.webp" alt="아마겟돈 클래스" className="h-12" />
+          <img src="/logo.webp" alt="아마겟돈 클래스" className="h-12 max-md:h-8" />
         </Link>
         <div className="flex-1 max-w-[320px] relative max-md:hidden">
           <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
@@ -76,7 +76,7 @@ function Header() {
         </div>
         <div className="ml-auto flex items-center gap-3">
           <Link to="/academy" className="no-underline">
-            <span className="bg-[#2ED573] text-white text-xs font-bold px-4 py-1.5 rounded-full cursor-pointer">
+            <span className="bg-[#2ED573] text-white text-xs font-bold px-4 py-1.5 max-md:px-2.5 max-md:py-1 max-md:text-[10px] max-md:relative max-md:-top-[2px] rounded-full cursor-pointer whitespace-nowrap">
               혜택 가득!
             </span>
           </Link>
@@ -109,7 +109,7 @@ function Header() {
           )}
           {/* Hamburger button - mobile only */}
           <button
-            className="hidden max-md:block border-none bg-transparent cursor-pointer p-1"
+            className="hidden max-md:block border-none bg-transparent cursor-pointer p-1 relative top-[1px]"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
             aria-label="메뉴 열기"
           >
@@ -158,6 +158,7 @@ function Header() {
                 </Link>
               )
             ))}
+            <hr className="border-gray-100 my-1" />
             {user ? (
               <>
                 {isAdmin && (
@@ -179,8 +180,8 @@ function Header() {
                 </button>
               </>
             ) : (
-              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="text-sm text-gray-900 no-underline py-2">
-                로그인/회원가입
+              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="block text-center text-sm font-bold text-white bg-[#2ED573] no-underline py-2.5 rounded-lg">
+                로그인 / 회원가입
               </Link>
             )}
           </div>

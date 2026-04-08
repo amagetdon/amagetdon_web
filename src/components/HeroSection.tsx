@@ -1,22 +1,58 @@
 import { useState, useEffect, useCallback } from 'react'
 import { bannerService } from '../services/bannerService'
+import { supabase } from '../lib/supabase'
 import type { Banner } from '../types'
 
-function HeroSection({ banners: propBanners, loading: propLoading, height }: { banners?: Banner[]; loading?: boolean; height?: string } = {}) {
+function getEmbedUrl(url: string): { type: 'youtube' | 'raw'; src: string } | null {
+  if (!url) return null
+  // youtu.be/ID or youtube.com/watch?v=ID or youtube.com/embed/ID
+  const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/)
+  if (ytMatch) return { type: 'youtube', src: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&playlist=${ytMatch[1]}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1` }
+  // vimeo.com/ID
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/)
+  if (vimeoMatch) return { type: 'youtube', src: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1&muted=1&loop=1&background=1` }
+  // direct mp4/webm
+  return { type: 'raw', src: url }
+}
+
+interface HeroSectionProps {
+  banners?: Banner[]
+  loading?: boolean
+  height?: string
+  speed?: number
+  pageKey?: string
+}
+
+function HeroSection({ banners: propBanners, loading: propLoading, height: propHeight, speed: propSpeed, pageKey = 'hero' }: HeroSectionProps) {
   const [selfBanners, setSelfBanners] = useState<Banner[]>([])
   const [selfLoading, setSelfLoading] = useState(!propBanners)
   const [current, setCurrent] = useState(0)
+  const [heroHeight, setHeroHeight] = useState<string>(propHeight || 'auto')
+  const [heroSpeed, setHeroSpeed] = useState<number>(propSpeed || 5)
 
   const banners = propBanners ?? selfBanners
   const loading = propLoading ?? selfLoading
 
   useEffect(() => {
     if (propBanners) return
-    bannerService.getByPage('hero')
+    bannerService.getByPage(pageKey)
       .then(setSelfBanners)
       .catch(() => {})
       .finally(() => setSelfLoading(false))
-  }, [propBanners])
+  }, [propBanners, pageKey])
+
+  useEffect(() => {
+    if (propHeight && propSpeed) return
+    supabase.from('site_settings').select('value').eq('key', 'banner_settings').maybeSingle()
+      .then(({ data }) => {
+        if (data) {
+          const settings = (data as Record<string, unknown>).value as Record<string, { height?: string; speed?: string }>
+          const s = settings?.[pageKey]
+          if (!propHeight && s?.height) setHeroHeight(s.height)
+          if (!propSpeed && s?.speed) setHeroSpeed(Number(s.speed) || 5)
+        }
+      })
+  }, [propHeight, propSpeed, pageKey])
 
   const next = useCallback(() => {
     setCurrent((prev) => (prev + 1) % banners.length)
@@ -28,9 +64,11 @@ function HeroSection({ banners: propBanners, loading: propLoading, height }: { b
 
   useEffect(() => {
     if (banners.length <= 1) return
-    const timer = setInterval(next, 5000)
+    const timer = setInterval(next, heroSpeed * 1000)
     return () => clearInterval(timer)
-  }, [banners.length, next])
+  }, [banners.length, next, heroSpeed])
+
+  const hasFixedHeight = heroHeight !== 'auto'
 
   if (loading) {
     return (
@@ -56,6 +94,8 @@ function HeroSection({ banners: propBanners, loading: propLoading, height }: { b
   }
 
   const banner = banners[current]
+  const videoInfo = banner.video_url ? getEmbedUrl(banner.video_url) : null
+  const isVideo = (banner.media_type === 'video' || banner.video_url) && videoInfo
 
   const handleBannerClick = () => {
     if (banner.link_url) {
@@ -75,14 +115,39 @@ function HeroSection({ banners: propBanners, loading: propLoading, height }: { b
 
   return (
     <section
-      className={`relative w-full bg-black overflow-hidden ${banner.link_url ? 'cursor-pointer' : ''} ${height ? 'flex items-center' : 'py-20 max-sm:py-12'}`}
-      style={height ? { height } : undefined}
+      className={`relative w-full bg-black overflow-hidden ${banner.link_url ? 'cursor-pointer' : ''} ${hasFixedHeight ? 'flex items-center justify-start' : 'py-20 max-sm:py-12'}`}
+      style={hasFixedHeight ? { height: heroHeight } : undefined}
       onClick={banner.link_url ? handleBannerClick : undefined}
     >
-      {banner.image_url && (
+      {isVideo && videoInfo ? (
+        videoInfo.type === 'youtube' ? (
+          <div className="absolute inset-0 overflow-hidden" style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }}>
+            <iframe
+              key={videoInfo.src}
+              src={videoInfo.src}
+              className="absolute top-1/2 left-1/2 border-none pointer-events-none"
+              style={{ width: '300%', height: '300%', transform: 'translate(-50%, -50%)' }}
+              allow="autoplay; encrypted-media"
+              tabIndex={-1}
+            />
+          </div>
+        ) : (
+          <video
+            key={videoInfo.src}
+            src={videoInfo.src}
+            poster={banner.image_url || undefined}
+            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+            style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }}
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+        )
+      ) : banner.image_url ? (
         <img src={banner.image_url} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }} />
-      )}
-      <div className="relative max-w-[1200px] mx-auto px-5">
+      ) : null}
+      <div className="relative w-full max-w-[1200px] mx-auto px-5">
         {banner.subtitle && (
           <div className="inline-flex items-center px-5 py-2 border border-gray-500 rounded-full mb-6">
             <span className="text-xs leading-none text-gray-300">{banner.subtitle}</span>
@@ -92,7 +157,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height }: { b
           {banner.title}
         </h1>
         {banners.length > 1 && (
-          <div className="flex items-center gap-3 mt-10">
+          <div className="flex items-center gap-3 mt-10" onClick={(e) => e.stopPropagation()}>
             <button onClick={prev} className="w-8 h-8 rounded-full border border-gray-600 bg-transparent text-gray-400 hover:text-white hover:border-gray-400 flex items-center justify-center cursor-pointer transition-colors" aria-label="이전">
               <i className="ti ti-chevron-left text-sm" />
             </button>

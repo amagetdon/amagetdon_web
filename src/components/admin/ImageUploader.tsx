@@ -8,30 +8,46 @@ interface ImageUploaderProps {
   currentUrl?: string | null
   onUpload: (url: string) => void
   className?: string
+  accept?: 'image' | 'video' | 'both'
 }
 
-export default function ImageUploader({ bucket, path, currentUrl, onUpload, className = '' }: ImageUploaderProps) {
+export default function ImageUploader({ bucket, path, currentUrl, onUpload, className = '', accept = 'image' }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(currentUrl || null)
+  const [isVideo, setIsVideo] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     setPreview(currentUrl || null)
+    if (currentUrl) {
+      const ext = currentUrl.split('?')[0].split('.').pop()?.toLowerCase()
+      setIsVideo(ext === 'mp4' || ext === 'webm')
+    } else {
+      setIsVideo(false)
+    }
   }, [currentUrl])
+
+  const acceptStr = accept === 'video' ? 'video/mp4,video/webm'
+    : accept === 'both' ? 'image/*,video/mp4,video/webm'
+    : 'image/*'
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
+    const fileIsVideo = file.type.startsWith('video/')
+    setIsVideo(fileIsVideo)
     setPreview(URL.createObjectURL(file))
 
     try {
       setUploading(true)
-      const url = await storageService.uploadImage(bucket, path, file)
+      const url = fileIsVideo
+        ? await storageService.uploadVideo(bucket, path, file)
+        : await storageService.uploadImage(bucket, path, file)
       onUpload(url)
     } catch (err) {
       setPreview(currentUrl || null)
-      const message = err instanceof Error ? err.message : '이미지 업로드에 실패했습니다.'
+      const message = err instanceof Error ? err.message : '업로드에 실패했습니다.'
       toast.error(message)
     } finally {
       setUploading(false)
@@ -41,8 +57,17 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
   const handleRemove = (e: React.MouseEvent) => {
     e.stopPropagation()
     setPreview(null)
+    setIsVideo(false)
     onUpload('')
   }
+
+  const label = accept === 'video' ? '동영상 업로드'
+    : accept === 'both' ? '이미지/동영상 업로드'
+    : '이미지 업로드'
+
+  const icon = accept === 'video' ? 'ti-video-plus'
+    : accept === 'both' ? 'ti-cloud-upload'
+    : 'ti-photo-plus'
 
   return (
     <div
@@ -55,28 +80,42 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
       <input
         ref={fileRef}
         type="file"
-        accept="image/*"
+        accept={acceptStr}
         onChange={handleFileChange}
         className="hidden"
       />
       {uploading ? (
-        <div className="w-6 h-6 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
+        <div className="text-center">
+          <div className="w-6 h-6 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs text-gray-400 mt-2">업로드 중...</p>
+        </div>
       ) : preview ? (
         <>
-          <img src={preview} alt="미리보기" className="w-full h-full object-cover" />
+          {isVideo ? (
+            <video src={preview} className="w-full h-full object-cover" muted playsInline />
+          ) : (
+            <img src={preview} alt="미리보기" className="w-full h-full object-cover" />
+          )}
           <button
             type="button"
             onClick={handleRemove}
             className="absolute top-1 right-1 w-6 h-6 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-colors"
-            aria-label="이미지 제거"
+            aria-label="제거"
           >
             <i className="ti ti-x text-sm" />
           </button>
+          {isVideo && (
+            <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-black/60 rounded text-[10px] text-white">
+              <i className="ti ti-video text-xs" /> 동영상
+            </div>
+          )}
         </>
       ) : (
         <div className="text-center p-4">
-          <i className="ti ti-photo-plus text-2xl text-gray-400" />
-          <p className="text-xs text-gray-400 mt-1">이미지 업로드</p>
+          <i className={`ti ${icon} text-2xl text-gray-400`} />
+          <p className="text-xs text-gray-400 mt-1">{label}</p>
+          {accept === 'both' && <p className="text-[10px] text-gray-300 mt-0.5">이미지 5MB / 동영상 50MB</p>}
+          {accept === 'video' && <p className="text-[10px] text-gray-300 mt-0.5">MP4, WebM (최대 50MB)</p>}
         </div>
       )}
     </div>

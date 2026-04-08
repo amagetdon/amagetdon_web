@@ -7,9 +7,9 @@ function SecretBooks() {
   return (
     <section className="w-full bg-black py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-2xl font-bold text-white">시크릿 북</h2>
-          <button className="flex items-center gap-2 px-5 py-2 border border-gray-500 rounded-full text-sm text-gray-300 bg-transparent cursor-pointer">
+        <div className="flex items-center justify-between mb-2 gap-4">
+          <h2 className="text-2xl font-bold text-white min-w-0">시크릿 북</h2>
+          <button className="flex items-center gap-2 px-5 py-2 border border-gray-500 rounded-full text-sm text-gray-300 bg-transparent cursor-pointer whitespace-nowrap">
             전체 보기 <span className="text-lg">→</span>
           </button>
         </div>

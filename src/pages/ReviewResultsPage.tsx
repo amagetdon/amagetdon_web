@@ -197,7 +197,7 @@ function ReviewResultsPage() {
 
   return (
     <section className="w-full bg-white">
-      <HeroSection banners={pageBanners} loading={bannerLoading} />
+      <HeroSection banners={pageBanners} loading={bannerLoading} pageKey="results" />
       {eventBanners.length > 0 && <EventBanner banner={eventBanners[0]} />}
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">

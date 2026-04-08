@@ -44,6 +44,12 @@ export default function AdminSiteSettings() {
   // 일반 설정
   const [promoVideoUrl, setPromoVideoUrl] = useState('')
   const [kakaoLink, setKakaoLink] = useState('')
+  const [bannerSettings, setBannerSettings] = useState<Record<string, { height: string; speed: string }>>({
+    hero: { height: 'auto', speed: '5' },
+    reviews: { height: 'auto', speed: '5' },
+    results: { height: 'auto', speed: '5' },
+  })
+  const [bannerSettingSaving, setBannerSettingSaving] = useState(false)
   const [generalSaving, setGeneralSaving] = useState(false)
 
   const [loading, setLoading] = useState(true)
@@ -69,6 +75,15 @@ export default function AdminSiteSettings() {
         for (const s of settingsData.data as { key: string; value: Record<string, string> }[]) {
           if (s.key === 'promo_video') setPromoVideoUrl(s.value?.url || '')
           if (s.key === 'kakao_link') setKakaoLink(s.value?.url || '')
+          if (s.key === 'banner_settings') {
+            const val = s.value as Record<string, { height?: string; speed?: string }>
+            setBannerSettings((prev) => ({
+              ...prev,
+              hero: { height: val.hero?.height || 'auto', speed: val.hero?.speed || '5' },
+              reviews: { height: val.reviews?.height || 'auto', speed: val.reviews?.speed || '5' },
+              results: { height: val.results?.height || 'auto', speed: val.results?.speed || '5' },
+            }))
+          }
         }
       }
     } catch {
@@ -97,6 +112,15 @@ export default function AdminSiteSettings() {
     }
   }
 
+  // ── 배너 설정 저장 ──
+  const handleBannerSettingSave = async () => {
+    try {
+      setBannerSettingSaving(true)
+      await supabase.from('site_settings').upsert({ key: 'banner_settings', value: bannerSettings } as never, { onConflict: 'key' })
+      toast.success('배너 설정이 저장되었습니다.')
+    } catch { toast.error('저장에 실패했습니다.') } finally { setBannerSettingSaving(false) }
+  }
+
   // ── 배너 CRUD ──
   const handleBannerSave = async () => {
     if (!bannerEditing || !bannerEditing.title) { toast.error('타이틀은 필수입니다.'); return }
@@ -113,6 +137,8 @@ export default function AdminSiteSettings() {
           title: (bannerEditing.title as string) || null,
           subtitle: (bannerEditing.subtitle as string) || null,
           image_url: (bannerEditing.image_url as string) || '',
+          video_url: (bannerEditing.video_url as string) || null,
+          media_type: (bannerEditing.media_type as 'image' | 'video') || 'image',
           link_url: (bannerEditing.link_url as string) || null,
           overlay_opacity: (bannerEditing.overlay_opacity as number) ?? 30,
           sort_order: (bannerEditing.sort_order as number) || 0,
@@ -309,10 +335,68 @@ export default function AdminSiteSettings() {
               </button>
             ))}
           </div>
+          {/* 배너 높이 / 전환속도 설정 */}
+          <div className="bg-white rounded-xl shadow-sm p-4 mb-4 flex items-center gap-6 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-600 whitespace-nowrap">높이</span>
+              <div className="flex gap-1">
+                {[
+                  { value: 'auto', label: '자동' },
+                  { value: '300px', label: '300' },
+                  { value: '400px', label: '400' },
+                  { value: '500px', label: '500' },
+                  { value: '600px', label: '600' },
+                  { value: '100vh', label: '전체' },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setBannerSettings((prev) => ({ ...prev, [bannerSubTab]: { ...prev[bannerSubTab], height: opt.value } }))}
+                    className={`px-2.5 py-1 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
+                      bannerSettings[bannerSubTab]?.height === opt.value ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-600 whitespace-nowrap">전환</span>
+              <div className="flex gap-1">
+                {[
+                  { value: '3', label: '3초' },
+                  { value: '5', label: '5초' },
+                  { value: '7', label: '7초' },
+                  { value: '10', label: '10초' },
+                  { value: '15', label: '15초' },
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setBannerSettings((prev) => ({ ...prev, [bannerSubTab]: { ...prev[bannerSubTab], speed: opt.value } }))}
+                    className={`px-2.5 py-1 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
+                      bannerSettings[bannerSubTab]?.speed === opt.value ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={handleBannerSettingSave}
+              disabled={bannerSettingSaving}
+              className="bg-[#2ED573] text-white px-4 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50 ml-auto"
+            >
+              {bannerSettingSaving ? '저장 중...' : '설정 저장'}
+            </button>
+          </div>
+
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-500">등록된 배너 {banners.length}개</p>
             <button
-              onClick={() => { setEditingPageKey(bannerSubTab); setBannerEditing({ title: '', subtitle: '', image_url: '', link_url: '', overlay_opacity: 30, sort_order: banners.length, is_published: true }) }}
+              onClick={() => { setEditingPageKey(bannerSubTab); setBannerEditing({ title: '', subtitle: '', image_url: '', video_url: '', media_type: 'image', link_url: '', overlay_opacity: 30, sort_order: banners.length, is_published: true }) }}
               className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"
             >
               <i className="ti ti-plus text-sm" /> 배너 추가
@@ -327,12 +411,15 @@ export default function AdminSiteSettings() {
                 <div key={banner.id} className="bg-white rounded-xl shadow-sm overflow-hidden">
                   <div className="flex items-stretch">
                     <div className="relative w-[240px] max-sm:w-[120px] shrink-0 bg-black flex items-center justify-center overflow-hidden">
-                      {banner.image_url ? (
+                      {banner.media_type === 'video' && banner.video_url ? (
+                        <video src={banner.video_url} className="w-full h-full object-cover opacity-60" muted playsInline />
+                      ) : banner.image_url ? (
                         <img src={banner.image_url} alt="" className="w-full h-full object-cover opacity-60" />
                       ) : (
-                        <div className="text-gray-600 text-xs">이미지 없음</div>
+                        <div className="text-gray-600 text-xs">미디어 없음</div>
                       )}
                       <div className="absolute inset-0 flex flex-col justify-center px-3">
+                        {banner.media_type === 'video' && <span className="text-[8px] text-white bg-red-500/80 rounded px-1 py-0.5 self-start mb-1"><i className="ti ti-video text-[8px]" /> 동영상</span>}
                         {banner.subtitle && <span className="text-[8px] text-gray-300 border border-gray-500 rounded-full px-1.5 py-0.5 self-start mb-1">{banner.subtitle}</span>}
                         <p className="text-[10px] text-white font-bold leading-tight line-clamp-2 whitespace-pre-line">{banner.title}</p>
                       </div>
@@ -534,7 +621,7 @@ export default function AdminSiteSettings() {
               <label className="text-sm font-bold block mb-1">검은 오버레이 투명도</label>
               <input type="number" min={0} max={100} value={(linkEditing.subtitle as number) ?? 0} onChange={(e) => setLinkEditing({ ...linkEditing, subtitle: e.target.value })}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-              <p className="text-xs text-gray-400 mt-1">0 = 없음, 50 = 반투명, 100 = 완전 검정</p>
+              <p className="text-xs text-gray-400 mt-1">0 = 검정, 50 = 반투명, 100 = 선명</p>
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">정렬 순서</label>
@@ -569,10 +656,41 @@ export default function AdminSiteSettings() {
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">배경 이미지</label>
-              <ImageUploader bucket="banners" path={`hero/${bannerEditing.id || 'new'}-${Date.now()}`}
-                currentUrl={bannerEditing.image_url as string} onUpload={(url) => setBannerEditing({ ...bannerEditing, image_url: url })} className="h-[160px]" />
+              <label className="text-sm font-bold block mb-1">미디어 타입</label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setBannerEditing({ ...bannerEditing, media_type: 'image' })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${(bannerEditing.media_type || 'image') === 'image' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                  <i className="ti ti-photo" /> 이미지
+                </button>
+                <button type="button" onClick={() => setBannerEditing({ ...bannerEditing, media_type: 'video' })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${bannerEditing.media_type === 'video' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+                  <i className="ti ti-video" /> 동영상
+                </button>
+              </div>
             </div>
+            {bannerEditing.media_type === 'video' ? (
+              <>
+                <div className="col-span-2 max-sm:col-span-1">
+                  <label className="text-sm font-bold block mb-1">동영상 URL</label>
+                  <input value={(bannerEditing.video_url as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, video_url: e.target.value })}
+                    placeholder="https://youtu.be/... 또는 MP4/WebM 직접 링크"
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                  <p className="text-xs text-gray-400 mt-1">유튜브, 비메오, MP4/WebM 링크를 지원합니다. 자동 반복 재생됩니다.</p>
+                </div>
+                <div className="col-span-2 max-sm:col-span-1">
+                  <label className="text-sm font-bold block mb-1">포스터 이미지 (선택)</label>
+                  <ImageUploader bucket="banners" path={`hero/${bannerEditing.id || 'new'}-poster-${Date.now()}`}
+                    currentUrl={bannerEditing.image_url as string} onUpload={(url) => setBannerEditing({ ...bannerEditing, image_url: url })} className="h-[120px]" />
+                  <p className="text-xs text-gray-400 mt-1">동영상 로딩 중 표시될 이미지 (없으면 검정 배경)</p>
+                </div>
+              </>
+            ) : (
+              <div className="col-span-2 max-sm:col-span-1">
+                <label className="text-sm font-bold block mb-1">배경 이미지</label>
+                <ImageUploader bucket="banners" path={`hero/${bannerEditing.id || 'new'}-${Date.now()}`}
+                  currentUrl={bannerEditing.image_url as string} onUpload={(url) => setBannerEditing({ ...bannerEditing, image_url: url })} className="h-[160px]" />
+              </div>
+            )}
             <div>
               <label className="text-sm font-bold block mb-1">링크 URL</label>
               <input value={(bannerEditing.link_url as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, link_url: e.target.value })}
@@ -584,14 +702,14 @@ export default function AdminSiteSettings() {
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">배경 오버레이 투명도 ({(bannerEditing.overlay_opacity as number) ?? 30}%)</label>
+              <label className="text-sm font-bold block mb-1">배경 밝기 ({(bannerEditing.overlay_opacity as number) ?? 30}%)</label>
               <input type="range" min={0} max={100} value={(bannerEditing.overlay_opacity as number) ?? 30}
                 onChange={(e) => setBannerEditing({ ...bannerEditing, overlay_opacity: Number(e.target.value) })}
                 className="w-full accent-[#2ED573]" />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
-                <span>0 = 없음</span>
+                <span>0 = 검정</span>
                 <span>50 = 반투명</span>
-                <span>100 = 검정</span>
+                <span>100 = 선명</span>
               </div>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
@@ -603,7 +721,11 @@ export default function AdminSiteSettings() {
             <div className="col-span-2 max-sm:col-span-1">
               <p className="text-xs text-gray-400 mb-2">미리보기</p>
               <div className="relative rounded-xl overflow-hidden bg-black py-8 px-5">
-                {(bannerEditing.image_url as string) && <img src={bannerEditing.image_url as string} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: ((bannerEditing.overlay_opacity as number) ?? 30) / 100 }} />}
+                {bannerEditing.media_type === 'video' && (bannerEditing.video_url as string) ? (
+                  <video src={bannerEditing.video_url as string} className="absolute inset-0 w-full h-full object-cover" style={{ opacity: ((bannerEditing.overlay_opacity as number) ?? 30) / 100 }} muted autoPlay loop playsInline />
+                ) : (bannerEditing.image_url as string) ? (
+                  <img src={bannerEditing.image_url as string} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: ((bannerEditing.overlay_opacity as number) ?? 30) / 100 }} />
+                ) : null}
                 <div className="relative">
                   {(bannerEditing.subtitle as string) && (
                     <div className="inline-block px-3 py-1 border border-gray-500 rounded-full mb-3">

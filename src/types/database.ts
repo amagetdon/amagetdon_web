@@ -306,6 +306,8 @@ export interface Banner {
   title: string | null
   subtitle: string | null
   image_url: string
+  video_url: string | null
+  media_type: 'image' | 'video'
   link_url: string | null
   overlay_opacity: number | null
   sort_order: number
