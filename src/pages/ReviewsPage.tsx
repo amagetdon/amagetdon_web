@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import HeroSection from '../components/HeroSection'
 import EventBanner from '../components/EventBanner'
 import type { Banner } from '../types'
 import ReviewModal from '../components/ReviewModal'
@@ -47,7 +46,6 @@ function ReviewsPage() {
 
   return (
     <section className="w-full bg-white">
-      <HeroSection banners={pageBanners} loading={bannerLoading} pageKey="reviews" />
       {eventBanners.length > 0 && <EventBanner banner={eventBanners[0]} />}
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">

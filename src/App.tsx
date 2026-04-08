@@ -8,6 +8,7 @@ import Footer from './components/Footer'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import AdminRoute from './components/auth/AdminRoute'
 import HomePage from './pages/HomePage'
+import GlobalHero from './components/GlobalHero'
 import { useGlobalFadeIn } from './hooks/useGlobalFadeIn'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
@@ -65,6 +66,7 @@ function App() {
           <LoadingBar />
           <Header />
           <FadeInProvider />
+          <GlobalHero />
           <main className="flex-1">
             <Suspense fallback={<PageLoader />}>
               <Routes>

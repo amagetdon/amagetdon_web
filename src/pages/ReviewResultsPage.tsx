@@ -5,7 +5,6 @@ import { Dialog } from '@headlessui/react'
 import toast from 'react-hot-toast'
 import Pagination from '../components/Pagination'
 import { supabase } from '../lib/supabase'
-import HeroSection from '../components/HeroSection'
 import EventBanner from '../components/EventBanner'
 import { achievementService } from '../services/achievementService'
 import { purchaseService } from '../services/purchaseService'
@@ -197,7 +196,6 @@ function ReviewResultsPage() {
 
   return (
     <section className="w-full bg-white">
-      <HeroSection banners={pageBanners} loading={bannerLoading} pageKey="results" />
       {eventBanners.length > 0 && <EventBanner banner={eventBanners[0]} />}
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">

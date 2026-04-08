@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useFaqs } from '../hooks/useFaqs'
 import Pagination from '../components/Pagination'
 import VideoEmbed from '../components/VideoEmbed'
-import HeroSection from '../components/HeroSection'
 
 function FAQPage() {
   const [searchQuery, setSearchQuery] = useState('')
@@ -27,8 +26,6 @@ function FAQPage() {
 
   return (
     <>
-      <HeroSection />
-
       <section className="w-full bg-white py-16 max-sm:py-10">
         <div className="max-w-[800px] mx-auto px-5">
           <h2 className="text-2xl font-bold text-center text-gray-900">자주 묻는 질문 Q&A</h2>

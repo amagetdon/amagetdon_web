@@ -18,8 +18,9 @@ export function useGlobalFadeIn() {
     )
 
     const applyObserver = () => {
-      const sections = document.querySelectorAll('main > * > section, main > * > div > section, main section, main > * > div.max-w-\\[1200px\\]')
+      const sections = document.querySelectorAll('main > * > section:not([data-no-fade]), main > * > div > section:not([data-no-fade]), main section:not([data-no-fade]), main > * > div.max-w-\\[1200px\\]')
       sections.forEach((el) => {
+        if (el.closest('[data-no-fade]')) return
         if (!el.classList.contains('fade-in-up') && !el.classList.contains('visible')) {
           el.classList.add('fade-in-up')
           observer.observe(el)

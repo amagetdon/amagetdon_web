@@ -92,7 +92,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
 
   if (loading) {
     return (
-      <section className="w-full bg-black py-20 max-sm:py-12">
+      <section data-no-fade className="w-full bg-black py-20 max-sm:py-12">
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="h-5 w-40 bg-gray-800 rounded-full animate-pulse mb-6" />
           <div className="h-12 w-[420px] max-sm:w-full bg-gray-800 rounded animate-pulse mb-3" />
@@ -112,7 +112,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
 
   if (banners.length === 0) {
     return (
-      <section className="w-full bg-black py-20 max-sm:py-12">
+      <section data-no-fade className="w-full bg-black py-20 max-sm:py-12">
         <div className="max-w-[1200px] mx-auto px-5">
           <h1 className="text-[40px] max-sm:text-2xl text-white font-bold leading-tight">
             아마겟돈 클래스
@@ -144,7 +144,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
 
   return (
     <section
-     
+      data-no-fade
       className={`relative w-full bg-black overflow-hidden ${banner.link_url ? 'cursor-pointer' : ''} ${hasFixedHeight ? 'flex items-center justify-start' : 'py-20 max-sm:py-12'}`}
       style={hasFixedHeight ? { height: heroHeight } : undefined}
       onClick={banner.link_url ? handleBannerClick : undefined}
