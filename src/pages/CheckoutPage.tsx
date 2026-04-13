@@ -12,8 +12,8 @@ import type { Coupon } from '../types'
 declare global {
   interface Window {
     PaymentWidget: (clientKey: string, customerKey: string) => {
-      renderPaymentMethods: (selector: string, amount: number) => { updateAmount: (amount: number, reason?: string) => void }
-      renderAgreement: (selector: string) => void
+      renderPaymentMethods: (selector: string, options: { value: number; currency?: string; country?: string }) => { updateAmount: (amount: number, reason?: string) => void }
+      renderAgreement: (selector: string, options?: { variantKey?: string }) => void
       requestPayment: (params: Record<string, unknown>) => Promise<void>
     }
   }
@@ -105,10 +105,10 @@ export default function CheckoutPage() {
       const widget = window.PaymentWidget(clientKey, user.id)
       widgetRef.current = widget
 
-      const methods = widget.renderPaymentMethods('#payment-method', order.price)
+      const methods = widget.renderPaymentMethods('#payment-method', { value: order.price, currency: 'KRW', country: 'KR' })
       methodsRef.current = methods
 
-      widget.renderAgreement('#agreement')
+      widget.renderAgreement('#agreement', { variantKey: 'AGREEMENT' })
       widgetRendered.current = true
     }
     initWidget()
