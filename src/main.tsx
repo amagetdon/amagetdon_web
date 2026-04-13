@@ -10,7 +10,7 @@ function hideSplash() {
   setTimeout(() => splash.remove(), 400)
 }
 
-// skeleton 완전 제거 후 0.5초 뒤 스플래시 제거
+// skeleton 완전 제거 후 즉시 스플래시 제거 (첫 진입만)
 const dataReady = new Promise<void>((resolve) => {
   const check = () => {
     const main = document.querySelector('main')

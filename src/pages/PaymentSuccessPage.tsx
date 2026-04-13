@@ -29,11 +29,16 @@ export default function PaymentSuccessPage() {
 
   const confirmPayment = async (paymentKey: string, orderId: string, amount: number) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      // 세션 갱신 시도
+      const { data: { session } } = await supabase.auth.refreshSession()
       if (!session) {
-        setStatus('error')
-        setMessage('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
-        return
+        // 갱신 실패 시 기존 세션이라도 확인
+        const { data: { session: existing } } = await supabase.auth.getSession()
+        if (!existing) {
+          setStatus('error')
+          setMessage('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
+          return
+        }
       }
 
       const response = await supabase.functions.invoke('confirm-payment', {
@@ -88,7 +93,7 @@ export default function PaymentSuccessPage() {
                   마이페이지
                 </Link>
               ) : (
-                <Link to="/mypage/classroom" className="px-6 py-2.5 bg-[#2ED573] text-white rounded-lg text-sm font-bold no-underline hover:bg-[#25B866] transition-colors">
+                <Link to="/my-classroom" className="px-6 py-2.5 bg-[#2ED573] text-white rounded-lg text-sm font-bold no-underline hover:bg-[#25B866] transition-colors">
                   내 강의실
                 </Link>
               )}

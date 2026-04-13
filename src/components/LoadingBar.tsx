@@ -14,6 +14,11 @@ export default function LoadingBar() {
       return
     }
 
+    // 결제 관련 페이지에서는 로딩바 표시 안 함
+    if (location.pathname.startsWith('/payment') || location.pathname.startsWith('/checkout')) {
+      return
+    }
+
     setProgress(20)
     setVisible(true)
 
@@ -39,7 +44,7 @@ export default function LoadingBar() {
         setTimeout(() => {
           setVisible(false)
           setProgress(0)
-        }, 300)
+        }, 150)
       }
     }, 100)
 

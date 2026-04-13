@@ -20,7 +20,7 @@ export default function AdminMembers() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [viewing, setViewing] = useState<MemberWithPurchases | null>(null)
-  const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null }[]>([])
+  const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null }[]>([])
   const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; newRole: 'user' | 'admin' } | null>(null)
   const [pointLogs, setPointLogs] = useState<PointLog[]>([])
   const [pointForm, setPointForm] = useState({ amount: '', memo: '', type: 'charge' as 'charge' | 'deduct' })
@@ -33,9 +33,12 @@ export default function AdminMembers() {
   const [grantSaving, setGrantSaving] = useState(false)
   const [allCourses, setAllCourses] = useState<{ id: number; title: string; duration_days: number }[]>([])
   const [allEbooks, setAllEbooks] = useState<{ id: number; title: string; duration_days: number }[]>([])
-  const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null } | null>(null)
+  const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null; payment_method: string | null; payment_key: string | null } | null>(null)
   const [refundRestoreCoupon, setRefundRestoreCoupon] = useState(true)
   const [refunding, setRefunding] = useState(false)
+  const [pointLogPage, setPointLogPage] = useState(0)
+  const [purchasePage, setPurchasePage] = useState(0)
+  const [couponPage, setCouponPage] = useState(0)
 
   const fetchData = async () => {
     try {
@@ -79,11 +82,14 @@ export default function AdminMembers() {
   const handleViewMember = async (member: MemberWithPurchases) => {
     setViewing(member)
     setPointForm({ amount: '', memo: '', type: 'charge' })
+    setPointLogPage(0)
+    setPurchasePage(0)
+    setCouponPage(0)
     setMemberCoupons([])
     const [purchaseRes, pointLogRes, couponRes] = await Promise.all([
       supabase
         .from('purchases')
-        .select('id, title, original_price, price, purchased_at, expires_at, coupon_id')
+        .select('id, title, original_price, price, purchased_at, expires_at, coupon_id, payment_method, payment_key')
         .eq('user_id', member.id)
         .order('purchased_at', { ascending: false }),
       supabase
@@ -159,12 +165,24 @@ export default function AdminMembers() {
     if (!viewing || !refundTarget || !user || refunding) return
     setRefunding(true)
     try {
+      const isToss = refundTarget.payment_method === 'toss' && refundTarget.payment_key
+
+      // 카드 결제인 경우 토스 결제 취소
+      if (isToss) {
+        const { data, error: cancelError } = await supabase.functions.invoke('cancel-payment', {
+          body: { paymentKey: refundTarget.payment_key, cancelReason: `${refundTarget.title} 환불` },
+        })
+        if (cancelError || data?.error) {
+          throw new Error(data?.error || cancelError?.message || '카드 결제 취소에 실패했습니다.')
+        }
+      }
+
       // 1. 구매 삭제
       const { error } = await supabase.from('purchases').delete().eq('id', refundTarget.id)
       if (error) throw error
 
-      // 2. 포인트 환불 (가격이 0보다 큰 경우)
-      if (refundTarget.price > 0) {
+      // 2. 포인트 환불 (포인트 결제인 경우만)
+      if (!isToss && refundTarget.price > 0) {
         await supabase.rpc('add_points', { user_id_input: viewing.id, amount_input: refundTarget.price } as never)
         await supabase.rpc('insert_point_log', {
           p_user_id: viewing.id,
@@ -185,16 +203,21 @@ export default function AdminMembers() {
       }
 
       const msgs = [`${refundTarget.title} 환불 완료`]
-      if (refundTarget.price > 0) msgs.push(`+${refundTarget.price.toLocaleString()}P`)
-      if (refundRestoreCoupon) msgs.push('쿠폰 복구됨')
+      if (isToss) {
+        msgs.push('카드 결제 취소')
+      } else if (refundTarget.price > 0) {
+        msgs.push(`+${refundTarget.price.toLocaleString()}P`)
+      }
+      if (refundRestoreCoupon && refundTarget.coupon_id) msgs.push('쿠폰 복구됨')
       toast.success(msgs.join(' · '))
 
+      const pointsChange = isToss ? 0 : refundTarget.price
       setRefundTarget(null)
       setRefundRestoreCoupon(true)
-      await handleViewMember({ ...viewing, points: viewing.points + refundTarget.price })
+      await handleViewMember({ ...viewing, points: viewing.points + pointsChange })
       await fetchData()
-    } catch {
-      toast.error('환불에 실패했습니다.')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '환불에 실패했습니다.')
     } finally {
       setRefunding(false)
     }
@@ -577,10 +600,35 @@ export default function AdminMembers() {
                     </div>
                   </div>
 
-                  {pointLogs.length > 0 && (
+                  {pointLogs.length > 0 && (() => {
+                    const perPage = 5
+                    const totalPages = Math.ceil(pointLogs.length / perPage)
+                    const paged = pointLogs.slice(pointLogPage * perPage, (pointLogPage + 1) * perPage)
+                    return (
                     <div className="mt-3 space-y-1.5">
-                      <p className="text-xs text-gray-400 font-medium">최근 포인트 내역</p>
-                      {pointLogs.map((log) => (
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-400 font-medium">포인트 내역 ({pointLogs.length}건)</p>
+                        {totalPages > 1 && (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setPointLogPage((p) => Math.max(0, p - 1))}
+                              disabled={pointLogPage === 0}
+                              className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <i className="ti ti-chevron-left text-xs" />
+                            </button>
+                            <span className="text-[10px] text-gray-400">{pointLogPage + 1}/{totalPages}</span>
+                            <button
+                              onClick={() => setPointLogPage((p) => Math.min(totalPages - 1, p + 1))}
+                              disabled={pointLogPage >= totalPages - 1}
+                              className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              <i className="ti ti-chevron-right text-xs" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {paged.map((log) => (
                         <div key={log.id} className="flex items-center justify-between py-1.5 px-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-2 min-w-0">
                             <span className={`text-xs px-1.5 py-0.5 rounded font-medium shrink-0 ${
@@ -602,38 +650,58 @@ export default function AdminMembers() {
                         </div>
                       ))}
                     </div>
-                  )}
+                    )
+                  })()}
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-sm font-bold text-gray-900">구매 내역 ({purchases.length}건)</h3>
-                    <button
-                      onClick={openGrantModal}
-                      className="px-3 py-1.5 bg-[#2ED573] text-white text-xs font-bold rounded-lg border-none cursor-pointer hover:bg-[#25B866] transition-colors flex items-center gap-1"
-                    >
-                      <i className="ti ti-plus text-xs" /> 수강권 부여
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {(() => {
+                        const totalPages = Math.ceil(purchases.length / 5)
+                        return totalPages > 1 ? (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setPurchasePage((p) => Math.max(0, p - 1))} disabled={purchasePage === 0} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"><i className="ti ti-chevron-left text-xs" /></button>
+                            <span className="text-[10px] text-gray-400">{purchasePage + 1}/{totalPages}</span>
+                            <button onClick={() => setPurchasePage((p) => Math.min(totalPages - 1, p + 1))} disabled={purchasePage >= totalPages - 1} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"><i className="ti ti-chevron-right text-xs" /></button>
+                          </div>
+                        ) : null
+                      })()}
+                      <button
+                        onClick={openGrantModal}
+                        className="px-3 py-1.5 bg-[#2ED573] text-white text-xs font-bold rounded-lg border-none cursor-pointer hover:bg-[#25B866] transition-colors flex items-center gap-1"
+                      >
+                        <i className="ti ti-plus text-xs" /> 수강권 부여
+                      </button>
+                    </div>
                   </div>
                   {purchases.length > 0 ? (
                     <div className="space-y-2">
-                      {purchases.map((p) => (
+                      {purchases.slice(purchasePage * 5, (purchasePage + 1) * 5).map((p) => (
                         <div key={p.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
                           <div className="flex-1 min-w-0">
-                            <span className="text-sm text-gray-700 truncate block">{p.title}</span>
-                            <span className="text-[10px] text-gray-400">
-                              {p.original_price && p.original_price !== p.price ? (
-                                <><span className="line-through">{p.original_price.toLocaleString()}P</span> → <span className="text-[#2ED573] font-bold">{p.price > 0 ? `${p.price.toLocaleString()}P` : '무료'}</span> (쿠폰)</>
-                              ) : (
-                                p.price > 0 ? `${p.price.toLocaleString()}P` : '무료'
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-sm text-gray-700 truncate">{p.title}</span>
+                              {p.payment_method === 'toss' && (
+                                <span className="text-[9px] px-1 py-0.5 bg-blue-50 text-blue-600 rounded shrink-0">카드</span>
                               )}
+                            </div>
+                            <span className="text-[10px] text-gray-400">
+                              {(() => {
+                                const unit = p.payment_method === 'toss' ? '원' : 'P'
+                                if (p.original_price && p.original_price !== p.price) {
+                                  return <><span className="line-through">{p.original_price.toLocaleString()}{unit}</span> → <span className="text-[#2ED573] font-bold">{p.price > 0 ? `${p.price.toLocaleString()}${unit}` : '무료'}</span> (쿠폰)</>
+                                }
+                                return p.price > 0 ? `${p.price.toLocaleString()}${unit}` : '무료'
+                              })()}
                               {' · '}{formatDate(p.purchased_at)}
                               {p.expires_at && ` · ~${formatDate(p.expires_at)}`}
                             </span>
                           </div>
                           <div className="flex items-center gap-1 shrink-0 ml-3">
                             <button
-                              onClick={() => setRefundTarget({ id: p.id, title: p.title, price: p.price, coupon_id: p.coupon_id })}
+                              onClick={() => setRefundTarget({ id: p.id, title: p.title, price: p.price, coupon_id: p.coupon_id, payment_method: p.payment_method, payment_key: p.payment_key })}
                               className="px-2 py-1 text-[10px] font-medium text-yellow-600 bg-yellow-50 rounded border-none cursor-pointer hover:bg-yellow-100 transition-colors whitespace-nowrap"
                             >
                               환불
@@ -655,11 +723,24 @@ export default function AdminMembers() {
                 </div>
 
                 {/* 쿠폰 발급 내역 */}
-                {memberCoupons.length > 0 && (
+                {memberCoupons.length > 0 && (() => {
+                  const perPage = 5
+                  const totalPages = Math.ceil(memberCoupons.length / perPage)
+                  const paged = memberCoupons.slice(couponPage * perPage, (couponPage + 1) * perPage)
+                  return (
                   <div className="mt-6">
-                    <h3 className="text-sm font-bold text-gray-900 mb-2">쿠폰 ({memberCoupons.length}건)</h3>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-bold text-gray-900">쿠폰 ({memberCoupons.length}건)</h3>
+                      {totalPages > 1 && (
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => setCouponPage((p) => Math.max(0, p - 1))} disabled={couponPage === 0} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"><i className="ti ti-chevron-left text-xs" /></button>
+                          <span className="text-[10px] text-gray-400">{couponPage + 1}/{totalPages}</span>
+                          <button onClick={() => setCouponPage((p) => Math.min(totalPages - 1, p + 1))} disabled={couponPage >= totalPages - 1} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"><i className="ti ti-chevron-right text-xs" /></button>
+                        </div>
+                      )}
+                    </div>
                     <div className="space-y-2">
-                      {memberCoupons.map((c) => (
+                      {paged.map((c) => (
                         <div key={c.claim_id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${
@@ -688,7 +769,8 @@ export default function AdminMembers() {
                       ))}
                     </div>
                   </div>
-                )}
+                  )
+                })()}
 
                 <button
                   onClick={() => setViewing(null)}
@@ -776,7 +858,9 @@ export default function AdminMembers() {
               <>
                 <p className="text-xs text-gray-400 text-center mb-4">
                   "{refundTarget.title}" 수강권이 회수되고<br />
-                  {refundTarget.price > 0 ? `${refundTarget.price.toLocaleString()}P가 환불됩니다.` : '무료 항목입니다.'}
+                  {refundTarget.payment_method === 'toss'
+                    ? `${refundTarget.price.toLocaleString()}원 카드 결제가 취소됩니다.`
+                    : refundTarget.price > 0 ? `${refundTarget.price.toLocaleString()}P가 환불됩니다.` : '무료 항목입니다.'}
                 </p>
                 {refundTarget.coupon_id ? (
                   <label className="flex items-center gap-2 cursor-pointer bg-gray-50 rounded-lg px-3 py-2.5 mb-4">

@@ -8,6 +8,8 @@ import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
 import CouponSelector from '../components/CouponSelector'
+import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
+import { paymentService } from '../services/paymentService'
 import type { EbookWithInstructor, Coupon } from '../types'
 
 function EbookDetailPage() {
@@ -25,6 +27,7 @@ function EbookDetailPage() {
   const [myCoupons, setMyCoupons] = useState<Coupon[]>([])
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
+  const [tossLoading, setTossLoading] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -159,10 +162,36 @@ function EbookDetailPage() {
     }
   }
 
-  const handleTossPayment = (ebookIdVal: number, _title: string, _amount: number, couponId?: number | null) => {
-    const params = new URLSearchParams({ type: 'ebook', id: String(ebookIdVal) })
-    if (couponId) params.set('couponId', String(couponId))
-    navigate(`/checkout?${params}`)
+  const handleTossPayment = async (ebookIdVal: number, title: string, price: number) => {
+    try {
+      setTossLoading(true)
+      const clientKey = await paymentService.getClientKey()
+      if (!clientKey) {
+        toast.error('결제 설정이 완료되지 않았습니다.')
+        return
+      }
+      const tossPayments = await loadTossPayments(clientKey)
+      const payment = tossPayments.payment({ customerKey: user!.id })
+      const orderId = paymentService.generateOrderId() + `_ebook_${ebookIdVal}`
+
+      setConfirmOpen(false)
+      await payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: price },
+        orderId,
+        orderName: title,
+        successUrl: `${window.location.origin}/payment/success`,
+        failUrl: `${window.location.origin}/payment/fail`,
+        customerEmail: profile?.email || undefined,
+        customerName: profile?.name || undefined,
+        customerMobilePhone: profile?.phone?.replace(/-/g, '') || undefined,
+      })
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('사용자가')) return
+      toast.error('결제 요청에 실패했습니다.')
+    } finally {
+      setTossLoading(false)
+    }
   }
 
   if (loading) {
@@ -300,7 +329,7 @@ function EbookDetailPage() {
 
       {/* 구매 확인 모달 */}
       <Transition appear show={confirmOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => { if (!purchasing) setConfirmOpen(false) }}>
+        <Dialog as="div" className="relative z-50" onClose={() => { if (!purchasing && !tossLoading) setConfirmOpen(false) }}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-200"
@@ -338,7 +367,8 @@ function EbookDetailPage() {
                     <p>최종 결제: <span className="font-bold text-gray-900">{finalPrice.toLocaleString()}원</span></p>
                   </div>
 
-                  {/* 결제 방식 선택 */}
+                  {/* 결제 방식 선택 (0원이면 숨김) */}
+                  {finalPrice > 0 && (
                   <div className="mb-4 mt-4">
                     <p className="text-xs font-bold text-gray-600 mb-2">결제 방식</p>
                     <div className="flex gap-2">
@@ -358,8 +388,9 @@ function EbookDetailPage() {
                       </button>
                     </div>
                   </div>
+                  )}
 
-                  {payMethod === 'points' && (
+                  {finalPrice > 0 && payMethod === 'points' && (
                     <div className="space-y-2 text-sm text-gray-600">
                       <hr className="border-gray-100 my-2" />
                       <p>보유 포인트: <span className="font-bold text-gray-900">{(profile?.points ?? 0).toLocaleString()}P</span></p>
@@ -367,7 +398,7 @@ function EbookDetailPage() {
                     </div>
                   )}
 
-                  {payMethod === 'points' && (profile?.points ?? 0) < finalPrice ? (
+                  {finalPrice > 0 && payMethod === 'points' && (profile?.points ?? 0) < finalPrice ? (
                     <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                       포인트가 부족합니다. 충전 후 다시 시도해 주세요.
                     </div>
@@ -380,12 +411,21 @@ function EbookDetailPage() {
                     >
                       취소
                     </button>
-                    {payMethod === 'toss' ? (
+                    {finalPrice === 0 ? (
                       <button
-                        onClick={() => handleTossPayment(ebook.id, ebook.title, finalPrice, selectedCoupon?.id)}
-                        className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white cursor-pointer border-none"
+                        onClick={handleConfirmPurchase}
+                        disabled={purchasing}
+                        className="flex-1 rounded-xl bg-[#2ED573] py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {`${finalPrice.toLocaleString()}원 카드 결제`}
+                        {purchasing ? '처리 중...' : '무료로 구매하기'}
+                      </button>
+                    ) : payMethod === 'toss' ? (
+                      <button
+                        onClick={() => handleTossPayment(ebook.id, ebook.title, finalPrice)}
+                        disabled={tossLoading}
+                        className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {tossLoading ? '결제 준비 중...' : `${finalPrice.toLocaleString()}원 카드 결제`}
                       </button>
                     ) : (
                       <button

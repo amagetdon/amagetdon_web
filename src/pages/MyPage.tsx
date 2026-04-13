@@ -1,8 +1,11 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+
 import { useAuth } from '../contexts/AuthContext'
 import { profileService } from '../services/profileService'
 import { purchaseService } from '../services/purchaseService'
+import toast from 'react-hot-toast'
+import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
+import { paymentService } from '../services/paymentService'
 import type { Purchase } from '../types'
 
 declare global {
@@ -40,7 +43,6 @@ interface FormErrors {
 
 function MyPage() {
   const { user, profile, refreshProfile } = useAuth()
-  const navigate = useNavigate()
   const [form, setForm] = useState<FormData>({
     name: '',
     gender: '',
@@ -59,6 +61,7 @@ function MyPage() {
   const [errors, setErrors] = useState<FormErrors>({})
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [chargeOpen, setChargeOpen] = useState(false)
+  const [chargeLoading, setChargeLoading] = useState(false)
   const [chargeAmount, setChargeAmount] = useState(10000)
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
@@ -201,10 +204,37 @@ function MyPage() {
     setSaveMessage('')
   }
 
-  const handleChargePoints = () => {
-    if (!chargeAmount || chargeAmount < 1000) return
-    setChargeOpen(false)
-    navigate(`/checkout?type=charge&amount=${chargeAmount}`)
+  const handleChargePoints = async () => {
+    if (!chargeAmount || chargeAmount < 1000 || !user) return
+    try {
+      setChargeLoading(true)
+      const clientKey = await paymentService.getClientKey()
+      if (!clientKey) {
+        toast.error('결제 설정이 완료되지 않았습니다.')
+        return
+      }
+      const tossPayments = await loadTossPayments(clientKey)
+      const payment = tossPayments.payment({ customerKey: user.id })
+      const orderId = paymentService.generateOrderId() + '_charge'
+
+      setChargeOpen(false)
+      await payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: chargeAmount },
+        orderId,
+        orderName: `포인트 ${chargeAmount.toLocaleString()}P 충전`,
+        successUrl: `${window.location.origin}/payment/success`,
+        failUrl: `${window.location.origin}/payment/fail`,
+        customerEmail: profile?.email || undefined,
+        customerName: profile?.name || undefined,
+        customerMobilePhone: profile?.phone?.replace(/-/g, '') || undefined,
+      })
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('사용자가')) return
+      toast.error('결제 요청에 실패했습니다.')
+    } finally {
+      setChargeLoading(false)
+    }
   }
 
   const years = Array.from({ length: 80 }, (_, i) => 2006 - i)
@@ -545,10 +575,10 @@ function MyPage() {
                 <button
                   type="button"
                   onClick={handleChargePoints}
-                  disabled={!chargeAmount || chargeAmount < 1000}
+                  disabled={!chargeAmount || chargeAmount < 1000 || chargeLoading}
                   className="flex-1 py-2.5 rounded-lg text-sm font-bold border-none bg-blue-600 text-white cursor-pointer hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {`${(chargeAmount || 0).toLocaleString()}원 결제`}
+                  {chargeLoading ? '결제 준비 중...' : `${(chargeAmount || 0).toLocaleString()}원 결제`}
                 </button>
               </div>
             </div>

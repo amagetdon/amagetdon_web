@@ -47,7 +47,7 @@ const AdminAchievements = lazy(() => import('./pages/admin/AdminAchievements'))
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'))
 const AdminUtmBuilder = lazy(() => import('./pages/admin/AdminUtmBuilder'))
 const AdminWebhook = lazy(() => import('./pages/admin/AdminWebhook'))
-const CheckoutPage = lazy(() => import('./pages/CheckoutPage'))
+
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
 const PaymentFailPage = lazy(() => import('./pages/PaymentFailPage'))
 
@@ -134,7 +134,7 @@ function App() {
                 <Route path="/course/:id" element={<CourseDetailPage />} />
                 <Route path="/ebook/:id" element={<EbookDetailPage />} />
                 <Route path="/search" element={<SearchPage />} />
-                <Route path="/checkout" element={<ProtectedRoute><CheckoutPage /></ProtectedRoute>} />
+
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
                 <Route path="/payment/fail" element={<PaymentFailPage />} />
                 <Route path="/faq" element={<FAQPage />} />
