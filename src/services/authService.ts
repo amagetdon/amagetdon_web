@@ -13,6 +13,7 @@ export const authService = {
     utm_campaign?: string
     utm_content?: string
     utm_term?: string
+    signup_referrer?: string
   }) {
     const { data, error } = await supabase.auth.signUp({
       email,

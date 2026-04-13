@@ -101,6 +101,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (event === 'SIGNED_IN') {
+              // UTM/가입경로가 프로필에 없으면 sessionStorage에서 채우기
+              if (prof && !prof.utm_source && !prof.signup_referrer) {
+                const utmSource = sessionStorage.getItem('utm_source')
+                const referrer = sessionStorage.getItem('signup_referrer')
+                if (utmSource || referrer) {
+                  const utmUpdate: Record<string, string> = {}
+                  if (utmSource) utmUpdate.utm_source = utmSource
+                  const medium = sessionStorage.getItem('utm_medium')
+                  const campaign = sessionStorage.getItem('utm_campaign')
+                  const content = sessionStorage.getItem('utm_content')
+                  const term = sessionStorage.getItem('utm_term')
+                  if (medium) utmUpdate.utm_medium = medium
+                  if (campaign) utmUpdate.utm_campaign = campaign
+                  if (content) utmUpdate.utm_content = content
+                  if (term) utmUpdate.utm_term = term
+                  if (referrer) utmUpdate.signup_referrer = referrer
+                  supabase.from('profiles').update(utmUpdate as never).eq('id', newSession.user.id).then(() => {
+                    fetchProfile(newSession.user.id)
+                  })
+                }
+              }
+
               const flag = sessionStorage.getItem('pendingSignIn')
               if (flag) {
                 sessionStorage.removeItem('pendingSignIn')

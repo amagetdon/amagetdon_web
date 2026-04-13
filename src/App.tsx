@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useRef } from 'react'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext'
 import Header from './components/Header'
@@ -61,6 +61,35 @@ function FadeInProvider() {
   return null
 }
 
+function UtmCapture() {
+  const location = useLocation()
+  const prevPath = useRef(location.pathname)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const
+    const hasUtm = keys.some((k) => params.get(k))
+    if (hasUtm) {
+      for (const k of keys) {
+        const v = params.get(k)
+        if (v) sessionStorage.setItem(k, v)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const authPages = ['/login', '/signup']
+    const curr = location.pathname
+    const prev = prevPath.current
+    if (authPages.includes(curr) && !authPages.includes(prev)) {
+      sessionStorage.setItem('signup_referrer', prev)
+    }
+    prevPath.current = curr
+  }, [location.pathname])
+
+  return null
+}
+
 function DynamicMeta() {
   const biz = useBusinessInfo()
   useEffect(() => {
@@ -83,6 +112,7 @@ function App() {
       <AuthProvider>
         <div className="w-full font-sans bg-white min-h-screen flex flex-col">
           <LoadingBar />
+          <UtmCapture />
           <DynamicMeta />
           <Header />
           <FadeInProvider />

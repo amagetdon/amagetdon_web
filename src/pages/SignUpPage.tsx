@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { webhookService } from '../services/webhookService'
+import { supabase } from '../lib/supabase'
 
 declare global {
   interface Window {
@@ -45,11 +46,12 @@ function SignUpPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const utmParams = useMemo(() => ({
-    utm_source: searchParams.get('utm_source') || undefined,
-    utm_medium: searchParams.get('utm_medium') || undefined,
-    utm_campaign: searchParams.get('utm_campaign') || undefined,
-    utm_content: searchParams.get('utm_content') || undefined,
-    utm_term: searchParams.get('utm_term') || undefined,
+    utm_source: searchParams.get('utm_source') || sessionStorage.getItem('utm_source') || undefined,
+    utm_medium: searchParams.get('utm_medium') || sessionStorage.getItem('utm_medium') || undefined,
+    utm_campaign: searchParams.get('utm_campaign') || sessionStorage.getItem('utm_campaign') || undefined,
+    utm_content: searchParams.get('utm_content') || sessionStorage.getItem('utm_content') || undefined,
+    utm_term: searchParams.get('utm_term') || sessionStorage.getItem('utm_term') || undefined,
+    signup_referrer: sessionStorage.getItem('signup_referrer') || undefined,
   }), [searchParams])
   const [form, setForm] = useState<SignUpForm>({
     name: '',
@@ -150,6 +152,20 @@ function SignUpPage() {
         ...utmParams,
       })
       setSuccess(true)
+      // 트리거가 UTM을 안 넣으므로 직접 업데이트
+      const { data: { user: newUser } } = await supabase.auth.getUser()
+      if (newUser) {
+        const utmUpdate: Record<string, string> = {}
+        if (utmParams.utm_source) utmUpdate.utm_source = utmParams.utm_source
+        if (utmParams.utm_medium) utmUpdate.utm_medium = utmParams.utm_medium
+        if (utmParams.utm_campaign) utmUpdate.utm_campaign = utmParams.utm_campaign
+        if (utmParams.utm_content) utmUpdate.utm_content = utmParams.utm_content
+        if (utmParams.utm_term) utmUpdate.utm_term = utmParams.utm_term
+        if (utmParams.signup_referrer) utmUpdate.signup_referrer = utmParams.signup_referrer
+        if (Object.keys(utmUpdate).length > 0) {
+          supabase.from('profiles').update(utmUpdate as never).eq('id', newUser.id).then(() => {})
+        }
+      }
       // 웹훅 전송 (비동기, 실패해도 무시)
       webhookService.fireSignup({
         name: form.name,

@@ -98,6 +98,7 @@ export interface Profile {
   utm_campaign: string | null
   utm_content: string | null
   utm_term: string | null
+  signup_referrer: string | null
   created_at: string
   updated_at: string
 }

@@ -305,7 +305,7 @@ export default function AdminMembers() {
   )
 
   const exportToExcel = (data: MemberWithPurchases[]) => {
-    const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', '가입일']
+    const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', 'utm_source', 'utm_medium', 'utm_campaign', '가입일', '마지막 접속']
     const rows = data.map((m) => {
       const provider = (m as unknown as Record<string, unknown>).provider as string | undefined || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
       return [
@@ -320,7 +320,11 @@ export default function AdminMembers() {
         m.points,
         m.purchaseCount,
         m.totalSpent,
+        m.utm_source || '',
+        m.utm_medium || '',
+        m.utm_campaign || '',
         new Date(m.created_at).toLocaleDateString('ko-KR'),
+        m.last_active_at ? new Date(m.last_active_at).toLocaleDateString('ko-KR') : '',
       ]
     })
 
@@ -399,13 +403,15 @@ export default function AdminMembers() {
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">포인트</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">구매</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">총 결제</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">UTM</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">가입일</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">마지막 접속</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
-                  <tr><td colSpan={12} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}</td></tr>
+                  <tr><td colSpan={14} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}</td></tr>
                 ) : filtered.map((m) => (
                   <tr key={m.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewMember(m)}>
                     <td className="px-4 py-3 text-center font-medium">
@@ -437,7 +443,15 @@ export default function AdminMembers() {
                     </td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{m.purchaseCount}</td>
                     <td className="px-4 py-3 text-center text-gray-700 max-sm:hidden">{m.totalSpent > 0 ? `${m.totalSpent.toLocaleString()}원` : '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs">
+                      {m.utm_campaign || m.utm_source ? (
+                        <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded" title={[m.utm_source, m.utm_medium, m.utm_campaign].filter(Boolean).join(' / ')}>
+                          {m.utm_campaign || m.utm_source}
+                        </span>
+                      ) : '-'}
+                    </td>
                     <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{formatDate(m.created_at)}</td>
+                    <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{m.last_active_at ? formatDate(m.last_active_at) : '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={(e) => {
@@ -481,9 +495,25 @@ export default function AdminMembers() {
                   <InfoItem label="포인트" value={`${viewing.points.toLocaleString()}P`} />
                   <InfoItem label="권한" value={viewing.role === 'admin' ? '관리자' : '일반회원'} />
                   <InfoItem label="가입일" value={formatDate(viewing.created_at)} />
+                  <InfoItem label="마지막 접속" value={viewing.last_active_at ? formatDate(viewing.last_active_at) : '-'} />
                   <InfoItem label="총 구매" value={`${viewing.purchaseCount}건`} />
                   <InfoItem label="총 결제" value={`${viewing.totalSpent.toLocaleString()}원`} />
                 </div>
+
+                {/* UTM 유입 정보 & 가입 경로 */}
+                {(viewing.utm_source || viewing.utm_medium || viewing.utm_campaign || viewing.utm_content || viewing.utm_term || viewing.signup_referrer) && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-bold text-gray-900 mb-2">유입 정보</h3>
+                    <div className="bg-gray-50 rounded-xl p-3 grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                      {viewing.signup_referrer && <div><span className="text-gray-400 block">가입 경로</span><span className="text-gray-700 font-medium">{viewing.signup_referrer}</span></div>}
+                      {viewing.utm_source && <div><span className="text-gray-400 block">source</span><span className="text-gray-700 font-medium">{viewing.utm_source}</span></div>}
+                      {viewing.utm_medium && <div><span className="text-gray-400 block">medium</span><span className="text-gray-700 font-medium">{viewing.utm_medium}</span></div>}
+                      {viewing.utm_campaign && <div><span className="text-gray-400 block">campaign</span><span className="text-gray-700 font-medium">{viewing.utm_campaign}</span></div>}
+                      {viewing.utm_content && <div><span className="text-gray-400 block">content</span><span className="text-gray-700 font-medium">{viewing.utm_content}</span></div>}
+                      {viewing.utm_term && <div><span className="text-gray-400 block">term</span><span className="text-gray-700 font-medium">{viewing.utm_term}</span></div>}
+                    </div>
+                  </div>
+                )}
 
                 {/* 포인트 관리 */}
                 <div className="mb-6">
