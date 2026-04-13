@@ -9,6 +9,8 @@ import CourseReviewSection from '../components/CourseReviewSection'
 import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
+import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
+import { paymentService } from '../services/paymentService'
 import CouponSelector from '../components/CouponSelector'
 import type { Coupon } from '../types'
 
@@ -28,6 +30,8 @@ function CourseDetailPage() {
   const [purchasing, setPurchasing] = useState(false)
   const [myCoupons, setMyCoupons] = useState<Coupon[]>([])
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
+  const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
+  const [tossLoading, setTossLoading] = useState(false)
 
   useEffect(() => {
     if (!course?.enrollment_deadline || isClosed) return
@@ -166,6 +170,38 @@ function CourseDetailPage() {
       toast.error(message)
     } finally {
       setPurchasing(false)
+    }
+  }
+
+  const handleTossPayment = async (courseId: number, title: string, amount: number, couponId?: number | null) => {
+    try {
+      setTossLoading(true)
+      const clientKey = await paymentService.getClientKey()
+      if (!clientKey) {
+        toast.error('결제 설정이 완료되지 않았습니다.')
+        return
+      }
+
+      const tossPayments = await loadTossPayments(clientKey)
+      const payment = tossPayments.payment({ customerKey: user!.id })
+      const orderId = paymentService.generateOrderId() + `_course_${courseId}` + (couponId ? `_cpn_${couponId}` : '')
+
+      await payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: amount },
+        orderId,
+        orderName: title,
+        successUrl: `${window.location.origin}/payment/success`,
+        failUrl: `${window.location.origin}/payment/fail`,
+        customerEmail: profile?.email || undefined,
+        customerName: profile?.name || undefined,
+        customerMobilePhone: profile?.phone?.replace(/-/g, '') || undefined,
+      })
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('사용자가')) return
+      toast.error('결제 요청에 실패했습니다.')
+    } finally {
+      setTossLoading(false)
     }
   }
 
@@ -347,19 +383,45 @@ function CourseDetailPage() {
                   </Dialog.Title>
                   <div className="mt-4 space-y-2 text-sm text-gray-600">
                     <p>강의명: <span className="font-medium text-gray-900">{course.title}</span></p>
-                    <p>결제 금액: <span className="font-bold text-gray-900">{price.toLocaleString()}P</span></p>
+                    <p>결제 금액: <span className="font-bold text-gray-900">{price.toLocaleString()}원</span></p>
 
                     {/* 쿠폰 선택 */}
                     <CouponSelector coupons={myCoupons} selected={selectedCoupon} onSelect={setSelectedCoupon} price={price} />
 
-                    {selectedCoupon && <p>할인 적용: <span className="font-bold text-[#2ED573]">-{couponDiscount.toLocaleString()}P</span></p>}
-                    <p>최종 결제: <span className="font-bold text-gray-900">{finalPrice.toLocaleString()}P</span></p>
-                    <hr className="border-gray-100 my-2" />
-                    <p>보유 포인트: <span className="font-bold text-gray-900">{(profile?.points ?? 0).toLocaleString()}P</span></p>
-                    <p>결제 후 잔액: <span className="font-bold text-[#2ED573]">{((profile?.points ?? 0) - finalPrice).toLocaleString()}P</span></p>
+                    {selectedCoupon && <p>할인 적용: <span className="font-bold text-[#2ED573]">-{couponDiscount.toLocaleString()}원</span></p>}
+                    <p>최종 결제: <span className="font-bold text-gray-900">{finalPrice.toLocaleString()}원</span></p>
                   </div>
 
-                  {(profile?.points ?? 0) < finalPrice ? (
+                  {/* 결제 방식 선택 */}
+                  <div className="mb-4 mt-4">
+                    <p className="text-xs font-bold text-gray-600 mb-2">결제 방식</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPayMethod('toss')}
+                        className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${payMethod === 'toss' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`}
+                      >
+                        <i className="ti ti-credit-card mr-1" />카드 결제
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPayMethod('points')}
+                        className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${payMethod === 'points' ? 'bg-[#2ED573] text-white border-[#2ED573]' : 'bg-white text-gray-500 border-gray-200'}`}
+                      >
+                        <i className="ti ti-coin mr-1" />포인트 ({profile?.points?.toLocaleString() || 0}P)
+                      </button>
+                    </div>
+                  </div>
+
+                  {payMethod === 'points' && (
+                    <div className="space-y-2 text-sm text-gray-600">
+                      <hr className="border-gray-100 my-2" />
+                      <p>보유 포인트: <span className="font-bold text-gray-900">{(profile?.points ?? 0).toLocaleString()}P</span></p>
+                      <p>결제 후 잔액: <span className="font-bold text-[#2ED573]">{((profile?.points ?? 0) - finalPrice).toLocaleString()}P</span></p>
+                    </div>
+                  )}
+
+                  {payMethod === 'points' && (profile?.points ?? 0) < finalPrice ? (
                     <div className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
                       포인트가 부족합니다. 충전 후 다시 시도해 주세요.
                     </div>
@@ -372,13 +434,23 @@ function CourseDetailPage() {
                     >
                       취소
                     </button>
-                    <button
-                      onClick={handleConfirmPurchase}
-                      disabled={purchasing || (profile?.points ?? 0) < finalPrice}
-                      className="flex-1 rounded-xl bg-[#2ED573] py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {purchasing ? '처리 중...' : `${finalPrice.toLocaleString()}P 구매하기`}
-                    </button>
+                    {payMethod === 'toss' ? (
+                      <button
+                        onClick={() => handleTossPayment(course.id, course.title, finalPrice, selectedCoupon?.id)}
+                        disabled={tossLoading}
+                        className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {tossLoading ? '결제 준비 중...' : `${finalPrice.toLocaleString()}원 카드 결제`}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleConfirmPurchase}
+                        disabled={purchasing || (profile?.points ?? 0) < finalPrice}
+                        className="flex-1 rounded-xl bg-[#2ED573] py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {purchasing ? '처리 중...' : `${finalPrice.toLocaleString()}P 구매하기`}
+                      </button>
+                    )}
                   </div>
                 </Dialog.Panel>
               </Transition.Child>

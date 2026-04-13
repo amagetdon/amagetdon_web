@@ -1,0 +1,157 @@
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders } from '../_shared/cors.ts'
+
+Deno.serve(async (req: Request) => {
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
+  try {
+    const { paymentKey, orderId, amount } = await req.json()
+
+    if (!paymentKey || !orderId || !amount) {
+      return new Response(
+        JSON.stringify({ error: '필수 파라미터가 누락되었습니다.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Supabase 클라이언트 (service role key로 RLS 우회)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Authorization 헤더에서 사용자 토큰 추출
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: '인증이 필요합니다.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 사용자 확인
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: '유효하지 않은 사용자입니다.' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // site_settings에서 토스 시크릿 키 조회
+    const { data: settingsData } = await supabase
+      .from('site_settings')
+      .select('value')
+      .eq('key', 'toss_payments')
+      .maybeSingle()
+
+    const secretKey = (settingsData?.value as Record<string, string>)?.secretKey
+    if (!secretKey) {
+      return new Response(
+        JSON.stringify({ error: '결제 설정이 완료되지 않았습니다.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 토스 페이먼츠 결제 승인 API 호출
+    const confirmResponse = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(secretKey + ':')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ paymentKey, orderId, amount }),
+    })
+
+    const confirmData = await confirmResponse.json()
+
+    if (!confirmResponse.ok) {
+      return new Response(
+        JSON.stringify({ error: confirmData.message || '결제 승인에 실패했습니다.' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // orderId에서 상품 정보 파싱 (ORDER_날짜_랜덤_course_123 또는 ORDER_날짜_랜덤_ebook_123)
+    const orderParts = orderId.split('_')
+    const itemType = orderParts[3] // 'course' or 'ebook'
+    const itemId = Number(orderParts[4])
+
+    let title = confirmData.orderName || '상품'
+    let courseId: number | null = null
+    let ebookId: number | null = null
+    let expiresAt: string | null = null
+
+    if (itemType === 'course' && itemId) {
+      courseId = itemId
+      const { data: course } = await supabase.from('courses').select('title, duration_days').eq('id', itemId).maybeSingle()
+      if (course) {
+        title = course.title
+        if (course.duration_days) {
+          const expires = new Date()
+          expires.setDate(expires.getDate() + course.duration_days)
+          expiresAt = expires.toISOString()
+        }
+      }
+    } else if (itemType === 'ebook' && itemId) {
+      ebookId = itemId
+      const { data: ebook } = await supabase.from('ebooks').select('title, duration_days').eq('id', itemId).maybeSingle()
+      if (ebook) {
+        title = ebook.title
+        if (ebook.duration_days) {
+          const expires = new Date()
+          expires.setDate(expires.getDate() + ebook.duration_days)
+          expiresAt = expires.toISOString()
+        }
+      }
+    }
+
+    // 중복 구매 체크
+    const duplicateCheck = courseId
+      ? await supabase.from('purchases').select('id').eq('user_id', user.id).eq('course_id', courseId).maybeSingle()
+      : ebookId
+        ? await supabase.from('purchases').select('id').eq('user_id', user.id).eq('ebook_id', ebookId).maybeSingle()
+        : { data: null }
+
+    if (duplicateCheck.data) {
+      return new Response(
+        JSON.stringify({ error: '이미 구매한 상품입니다.', title }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // purchase 레코드 생성
+    const { error: purchaseError } = await supabase.from('purchases').insert({
+      user_id: user.id,
+      course_id: courseId,
+      ebook_id: ebookId,
+      title,
+      original_price: amount,
+      price: amount,
+      payment_key: paymentKey,
+      payment_method: 'toss',
+      expires_at: expiresAt,
+    })
+
+    if (purchaseError) {
+      return new Response(
+        JSON.stringify({ error: '구매 기록 생성에 실패했습니다.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, title }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : '서버 오류가 발생했습니다.' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+})

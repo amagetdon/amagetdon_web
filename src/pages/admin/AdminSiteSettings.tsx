@@ -95,6 +95,12 @@ export default function AdminSiteSettings() {
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo>(defaultBusinessInfo)
   const [bizSaving, setBizSaving] = useState(false)
 
+  // 토스 페이먼츠
+  const [tossClientKey, setTossClientKey] = useState('')
+  const [tossSecretKey, setTossSecretKey] = useState('')
+  const [tossSaving, setTossSaving] = useState(false)
+  const [showSecretKey, setShowSecretKey] = useState(false)
+
   // 약관
   const [termsHtml, setTermsHtml] = useState('')
   const [privacyHtml, setPrivacyHtml] = useState('')
@@ -130,6 +136,10 @@ export default function AdminSiteSettings() {
           if (s.key === 'business_info') setBusinessInfo({ ...defaultBusinessInfo, ...s.value as unknown as BusinessInfo })
           if (s.key === 'terms_html') setTermsHtml((s.value as Record<string, string>)?.html || '')
           if (s.key === 'privacy_html') setPrivacyHtml((s.value as Record<string, string>)?.html || '')
+          if (s.key === 'toss_payments') {
+            setTossClientKey((s.value as unknown as Record<string, string>)?.clientKey || '')
+            setTossSecretKey((s.value as unknown as Record<string, string>)?.secretKey || '')
+          }
           if (s.key === 'banner_settings') {
             const val = s.value as Record<string, { height?: string; speed?: string }>
             setBannerSettings((prev) => ({
@@ -181,6 +191,21 @@ export default function AdminSiteSettings() {
       toast.error('저장에 실패했습니다.')
     } finally {
       setBizSaving(false)
+    }
+  }
+
+  // ── 토스 페이먼츠 저장 ──
+  const handleTossSave = async () => {
+    if (!tossClientKey.trim()) { toast.error('클라이언트 키를 입력해주세요.'); return }
+    if (!tossSecretKey.trim()) { toast.error('시크릿 키를 입력해주세요.'); return }
+    try {
+      setTossSaving(true)
+      await supabase.from('site_settings').upsert({ key: 'toss_payments', value: { clientKey: tossClientKey, secretKey: tossSecretKey } } as never, { onConflict: 'key' })
+      toast.success('토스 페이먼츠 설정이 저장되었습니다.')
+    } catch {
+      toast.error('저장에 실패했습니다.')
+    } finally {
+      setTossSaving(false)
     }
   }
 
@@ -698,6 +723,57 @@ export default function AdminSiteSettings() {
             className="bg-[#2ED573] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50"
           >
             {bizSaving ? '저장 중...' : '사업자 정보 저장'}
+          </button>
+        </div>
+
+        {/* ── 토스 페이먼츠 ── */}
+        <div className="bg-white rounded-xl shadow-sm p-6 space-y-5 mt-5">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">토스 페이먼츠</h2>
+            <p className="text-xs text-gray-400 mt-1">결제 시스템 연동에 필요한 API 키를 설정합니다.</p>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-600 mb-1 block">
+              <span className="text-red-400">*</span> 클라이언트 키
+            </label>
+            <input
+              value={tossClientKey}
+              onChange={(e) => setTossClientKey(e.target.value)}
+              placeholder="test_ck_..."
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-gray-600 mb-1 block">
+              <span className="text-red-400">*</span> 시크릿 키
+            </label>
+            <div className="relative">
+              <input
+                type={showSecretKey ? 'text' : 'password'}
+                value={tossSecretKey}
+                onChange={(e) => setTossSecretKey(e.target.value)}
+                placeholder="test_sk_..."
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 pr-10 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSecretKey((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer"
+              >
+                <i className={`ti ${showSecretKey ? 'ti-eye-off' : 'ti-eye'} text-sm`} />
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-1">시크릿 키는 서버에서만 사용되며 클라이언트에 노출되지 않습니다.</p>
+          </div>
+
+          <button
+            onClick={handleTossSave}
+            disabled={tossSaving}
+            className="bg-[#2ED573] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50"
+          >
+            {tossSaving ? '저장 중...' : '토스 설정 저장'}
           </button>
         </div>
         </>
