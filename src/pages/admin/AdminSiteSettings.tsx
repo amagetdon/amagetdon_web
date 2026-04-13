@@ -12,7 +12,7 @@ import { resultService } from '../../services/resultService'
 import { supabase } from '../../lib/supabase'
 import type { Banner, Result } from '../../types'
 
-type SectionTab = 'banners' | 'results' | 'bottomLinks' | 'general'
+type SectionTab = 'banners' | 'results' | 'bottomLinks' | 'general' | 'legal'
 
 interface BusinessInfo {
   mallName: string
@@ -95,6 +95,13 @@ export default function AdminSiteSettings() {
   const [businessInfo, setBusinessInfo] = useState<BusinessInfo>(defaultBusinessInfo)
   const [bizSaving, setBizSaving] = useState(false)
 
+  // 약관
+  const [termsHtml, setTermsHtml] = useState('')
+  const [privacyHtml, setPrivacyHtml] = useState('')
+  const [legalTab, setLegalTab] = useState<'terms' | 'privacy'>('terms')
+  const [legalSaving, setLegalSaving] = useState(false)
+  const [legalPreview, setLegalPreview] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
 
@@ -121,6 +128,8 @@ export default function AdminSiteSettings() {
           if (s.key === 'company_link') { setCompanyLink(s.value?.url || ''); if (s.value?.target) setCompanyLinkTarget(s.value.target as '_blank' | '_self') }
           if (s.key === 'recruit_link') { setRecruitLink(s.value?.url || ''); if (s.value?.target) setRecruitLinkTarget(s.value.target as '_blank' | '_self') }
           if (s.key === 'business_info') setBusinessInfo({ ...defaultBusinessInfo, ...s.value as BusinessInfo })
+          if (s.key === 'terms_html') setTermsHtml((s.value as Record<string, string>)?.html || '')
+          if (s.key === 'privacy_html') setPrivacyHtml((s.value as Record<string, string>)?.html || '')
           if (s.key === 'banner_settings') {
             const val = s.value as Record<string, { height?: string; speed?: string }>
             setBannerSettings((prev) => ({
@@ -172,6 +181,22 @@ export default function AdminSiteSettings() {
       toast.error('저장에 실패했습니다.')
     } finally {
       setBizSaving(false)
+    }
+  }
+
+  // ── 약관 저장 ──
+  const handleLegalSave = async () => {
+    try {
+      setLegalSaving(true)
+      await Promise.all([
+        supabase.from('site_settings').upsert({ key: 'terms_html', value: { html: termsHtml } } as never, { onConflict: 'key' }),
+        supabase.from('site_settings').upsert({ key: 'privacy_html', value: { html: privacyHtml } } as never, { onConflict: 'key' }),
+      ])
+      toast.success('약관이 저장되었습니다.')
+    } catch {
+      toast.error('저장에 실패했습니다.')
+    } finally {
+      setLegalSaving(false)
     }
   }
 
@@ -345,6 +370,14 @@ export default function AdminSiteSettings() {
           }`}
         >
           하단 링크
+        </button>
+        <button
+          onClick={() => setTab('legal')}
+          className={`px-5 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${
+            tab === 'legal' ? 'bg-[#2ED573] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          약관 관리
         </button>
       </div>
 
@@ -895,7 +928,7 @@ export default function AdminSiteSettings() {
             </table>
           </div>
         </>
-      ) : (
+      ) : tab === 'bottomLinks' ? (
         /* ── 하단 링크 ── */
         <>
           <div className="flex items-center justify-between mb-4">
@@ -943,7 +976,70 @@ export default function AdminSiteSettings() {
             </div>
           )}
         </>
-      )}
+      ) : tab === 'legal' ? (
+        /* ── 약관 관리 ── */
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setLegalTab('terms'); setLegalPreview(false) }}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${legalTab === 'terms' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}
+              >
+                이용약관
+              </button>
+              <button
+                onClick={() => { setLegalTab('privacy'); setLegalPreview(false) }}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${legalTab === 'privacy' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}
+              >
+                개인정보처리방침
+              </button>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLegalPreview((v) => !v)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${legalPreview ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`}
+            >
+              <i className={`ti ${legalPreview ? 'ti-code' : 'ti-eye'} mr-1`} />
+              {legalPreview ? '편집' : '미리보기'}
+            </button>
+          </div>
+
+          {legalPreview ? (
+            <div className="border border-gray-200 rounded-lg p-6 min-h-[400px] max-h-[600px] overflow-y-auto">
+              <div
+                className="legal-content"
+                dangerouslySetInnerHTML={{ __html: legalTab === 'terms' ? termsHtml : privacyHtml }}
+              />
+              {!(legalTab === 'terms' ? termsHtml : privacyHtml) && (
+                <p className="text-sm text-gray-400 text-center py-20">내용이 없습니다. 편집 모드에서 HTML을 입력해주세요.</p>
+              )}
+            </div>
+          ) : (
+            <>
+              <p className="text-xs text-gray-400 mb-2">
+                HTML 형식으로 작성합니다. {legalTab === 'terms' ? '이용약관' : '개인정보처리방침'} 내용을 입력하세요.
+              </p>
+              <textarea
+                value={legalTab === 'terms' ? termsHtml : privacyHtml}
+                onChange={(e) => legalTab === 'terms' ? setTermsHtml(e.target.value) : setPrivacyHtml(e.target.value)}
+                rows={20}
+                placeholder={`<h3>제1조 (목적)</h3>\n<p>이 약관은...</p>`}
+                className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] font-mono resize-y min-h-[400px]"
+              />
+            </>
+          )}
+
+          <div className="flex gap-3 mt-4">
+            <button
+              onClick={handleLegalSave}
+              disabled={legalSaving}
+              className="bg-[#2ED573] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50"
+            >
+              {legalSaving ? '저장 중...' : '약관 저장'}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {/* 하단 링크 모달 */}
       <AdminFormModal isOpen={!!linkEditing} onClose={() => setLinkEditing(null)} title={linkEditing?.id ? '링크 수정' : '새 링크 등록'} onSubmit={handleLinkSave} loading={linkSaving}>
