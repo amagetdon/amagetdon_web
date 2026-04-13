@@ -5,13 +5,15 @@ import { useAuth } from '../contexts/AuthContext'
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams()
-  const { refreshProfile } = useAuth()
+  const { loading: authLoading, refreshProfile } = useAuth()
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
   const [orderTitle, setOrderTitle] = useState('')
   const [isCharge, setIsCharge] = useState(false)
 
   useEffect(() => {
+    if (authLoading) return
+
     const paymentKey = searchParams.get('paymentKey')
     const orderId = searchParams.get('orderId')
     const amount = searchParams.get('amount')
@@ -23,15 +25,28 @@ export default function PaymentSuccessPage() {
     }
 
     confirmPayment(paymentKey, orderId, Number(amount))
-  }, [searchParams])
+  }, [searchParams, authLoading])
 
   const confirmPayment = async (paymentKey: string, orderId: string, amount: number) => {
     try {
-      const { data, error } = await supabase.functions.invoke('confirm-payment', {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setStatus('error')
+        setMessage('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
+        return
+      }
+
+      const response = await supabase.functions.invoke('confirm-payment', {
         body: { paymentKey, orderId, amount },
       })
 
-      if (error) throw new Error(error.message)
+      const data = response.data
+      const error = response.error
+
+      if (error) {
+        const errBody = typeof data === 'object' && data?.error ? data.error : error.message
+        throw new Error(errBody || '결제 승인 요청에 실패했습니다.')
+      }
       if (data?.error) throw new Error(data.error)
 
       setOrderTitle(data?.title || '상품')
@@ -50,7 +65,8 @@ export default function PaymentSuccessPage() {
       <div className="max-w-md mx-auto px-5 text-center">
         {status === 'loading' && (
           <>
-            <div className="w-16 h-16 border-4 border-gray-200 rounded-full mx-auto mb-6 relative">
+            <div className="relative w-16 h-16 mx-auto mb-6">
+              <div className="w-16 h-16 border-4 border-gray-200 rounded-full" />
               <div className="absolute inset-0 w-16 h-16 border-4 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
             </div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">결제 승인 중...</h2>

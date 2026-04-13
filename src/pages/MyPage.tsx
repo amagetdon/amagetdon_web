@@ -516,8 +516,8 @@ function MyPage() {
 
         {/* 포인트 충전 모달 */}
         {chargeOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setChargeOpen(false)}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onMouseDown={(e) => { if (e.target === e.currentTarget) setChargeOpen(false) }}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6">
               <h3 className="text-lg font-bold text-gray-900 mb-4">포인트 충전</h3>
               <div className="grid grid-cols-3 gap-2 mb-4">
                 {[5000, 10000, 30000, 50000, 100000, 200000].map((v) => (
@@ -538,10 +538,19 @@ function MyPage() {
                   min={1000}
                   step={1000}
                   value={chargeAmount || ''}
-                  onChange={(e) => setChargeAmount(Number(e.target.value))}
-                  placeholder="충전할 금액을 입력하세요"
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    setChargeAmount(v > 0 ? v : 0)
+                  }}
+                  onBlur={() => {
+                    if (chargeAmount > 0 && chargeAmount < 1000) setChargeAmount(1000)
+                  }}
+                  placeholder="최소 1,000원 이상"
                   className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573]"
                 />
+                {chargeAmount > 0 && chargeAmount < 1000 && (
+                  <p className="text-xs text-red-500 mt-1">최소 1,000원 이상 충전 가능합니다.</p>
+                )}
               </div>
               <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
                 <div className="flex justify-between">

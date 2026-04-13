@@ -329,7 +329,7 @@ function EbookDetailPage() {
 
       {/* 구매 확인 모달 */}
       <Transition appear show={confirmOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setConfirmOpen(false)}>
+        <Dialog as="div" className="relative z-50" onClose={() => { if (!purchasing && !tossLoading) setConfirmOpen(false) }}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-200"
