@@ -25,17 +25,18 @@ let fetching: Promise<BusinessInfo> | null = null
 function fetchBusinessInfo(): Promise<BusinessInfo> {
   if (cached) return Promise.resolve(cached)
   if (fetching) return fetching
-  fetching = supabase
+  const p = supabase
     .from('site_settings')
     .select('value')
     .eq('key', 'business_info')
     .maybeSingle()
     .then(({ data }) => {
-      cached = (data as Record<string, unknown>)?.value as BusinessInfo || {}
+      cached = (data as unknown as Record<string, unknown> | null)?.value as BusinessInfo || {}
       fetching = null
       return cached
     })
-  return fetching
+  fetching = p
+  return p
 }
 
 export function useBusinessInfo() {
