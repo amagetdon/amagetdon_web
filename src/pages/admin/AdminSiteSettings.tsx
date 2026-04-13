@@ -14,6 +14,42 @@ import type { Banner, Result } from '../../types'
 
 type SectionTab = 'banners' | 'results' | 'bottomLinks' | 'general'
 
+interface BusinessInfo {
+  mallName: string
+  mallNameEn: string
+  siteTitle: string
+  logoUrl: string
+  faviconUrl: string
+  companyName: string
+  bizNumber: string
+  ceoName: string
+  bizType: string
+  bizCategory: string
+  email: string
+  address: string
+  phone: string
+  ecommerceNumber: string
+  remoteAcademyNumber: string
+}
+
+const defaultBusinessInfo: BusinessInfo = {
+  mallName: '',
+  mallNameEn: '',
+  siteTitle: '',
+  logoUrl: '',
+  faviconUrl: '',
+  companyName: '',
+  bizNumber: '',
+  ceoName: '',
+  bizType: '',
+  bizCategory: '',
+  email: '',
+  address: '',
+  phone: '',
+  ecommerceNumber: '',
+  remoteAcademyNumber: '',
+}
+
 export default function AdminSiteSettings() {
   const [tab, setTab] = useState<SectionTab>('general')
 
@@ -44,8 +80,11 @@ export default function AdminSiteSettings() {
   // 일반 설정
   const [promoVideoUrl, setPromoVideoUrl] = useState('')
   const [kakaoLink, setKakaoLink] = useState('')
+  const [kakaoLinkTarget, setKakaoLinkTarget] = useState<'_blank' | '_self'>('_blank')
   const [companyLink, setCompanyLink] = useState('')
+  const [companyLinkTarget, setCompanyLinkTarget] = useState<'_blank' | '_self'>('_blank')
   const [recruitLink, setRecruitLink] = useState('')
+  const [recruitLinkTarget, setRecruitLinkTarget] = useState<'_blank' | '_self'>('_blank')
   const [bannerSettings, setBannerSettings] = useState<Record<string, { height: string; speed: string }>>({
     hero: { height: 'auto', speed: '5' },
     reviews: { height: 'auto', speed: '5' },
@@ -53,6 +92,8 @@ export default function AdminSiteSettings() {
   })
   const [bannerSettingSaving, setBannerSettingSaving] = useState(false)
   const [generalSaving, setGeneralSaving] = useState(false)
+  const [businessInfo, setBusinessInfo] = useState<BusinessInfo>(defaultBusinessInfo)
+  const [bizSaving, setBizSaving] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -76,9 +117,10 @@ export default function AdminSiteSettings() {
       if (settingsData.data) {
         for (const s of settingsData.data as { key: string; value: Record<string, string> }[]) {
           if (s.key === 'promo_video') setPromoVideoUrl(s.value?.url || '')
-          if (s.key === 'kakao_link') setKakaoLink(s.value?.url || '')
-          if (s.key === 'company_link') setCompanyLink(s.value?.url || '')
-          if (s.key === 'recruit_link') setRecruitLink(s.value?.url || '')
+          if (s.key === 'kakao_link') { setKakaoLink(s.value?.url || ''); if (s.value?.target) setKakaoLinkTarget(s.value.target as '_blank' | '_self') }
+          if (s.key === 'company_link') { setCompanyLink(s.value?.url || ''); if (s.value?.target) setCompanyLinkTarget(s.value.target as '_blank' | '_self') }
+          if (s.key === 'recruit_link') { setRecruitLink(s.value?.url || ''); if (s.value?.target) setRecruitLinkTarget(s.value.target as '_blank' | '_self') }
+          if (s.key === 'business_info') setBusinessInfo({ ...defaultBusinessInfo, ...s.value as BusinessInfo })
           if (s.key === 'banner_settings') {
             const val = s.value as Record<string, { height?: string; speed?: string }>
             setBannerSettings((prev) => ({
@@ -104,17 +146,32 @@ export default function AdminSiteSettings() {
   const handleGeneralSave = async () => {
     try {
       setGeneralSaving(true)
-      await Promise.all([
-        supabase.from('site_settings').upsert({ key: 'promo_video', value: { url: promoVideoUrl } } as never, { onConflict: 'key' }),
-        supabase.from('site_settings').upsert({ key: 'kakao_link', value: { url: kakaoLink } } as never, { onConflict: 'key' }),
-        supabase.from('site_settings').upsert({ key: 'company_link', value: { url: companyLink } } as never, { onConflict: 'key' }),
-        supabase.from('site_settings').upsert({ key: 'recruit_link', value: { url: recruitLink } } as never, { onConflict: 'key' }),
-      ])
+      await supabase.from('site_settings').upsert({ key: 'promo_video', value: { url: promoVideoUrl } } as never, { onConflict: 'key' })
       toast.success('설정이 저장되었습니다.')
     } catch {
       toast.error('저장에 실패했습니다.')
     } finally {
       setGeneralSaving(false)
+    }
+  }
+
+  // ── 사업자 정보 저장 ──
+  const handleBizSave = async () => {
+    if (!businessInfo.mallName.trim()) { toast.error('몰 이름을 입력해주세요.'); return }
+    if (!businessInfo.companyName.trim()) { toast.error('상호명을 입력해주세요.'); return }
+    try {
+      setBizSaving(true)
+      await Promise.all([
+        supabase.from('site_settings').upsert({ key: 'business_info', value: businessInfo } as never, { onConflict: 'key' }),
+        supabase.from('site_settings').upsert({ key: 'kakao_link', value: { url: kakaoLink, target: kakaoLinkTarget } } as never, { onConflict: 'key' }),
+        supabase.from('site_settings').upsert({ key: 'company_link', value: { url: companyLink, target: companyLinkTarget } } as never, { onConflict: 'key' }),
+        supabase.from('site_settings').upsert({ key: 'recruit_link', value: { url: recruitLink, target: recruitLinkTarget } } as never, { onConflict: 'key' }),
+      ])
+      toast.success('사업자 정보가 저장되었습니다.')
+    } catch {
+      toast.error('저장에 실패했습니다.')
+    } finally {
+      setBizSaving(false)
     }
   }
 
@@ -297,6 +354,7 @@ export default function AdminSiteSettings() {
         </div>
       ) : tab === 'general' ? (
         /* ── 일반 설정 ── */
+        <>
         <div className="bg-white rounded-xl shadow-sm p-6 space-y-8">
           <div>
             <h3 className="text-sm font-bold text-gray-900 mb-1">아카데미 프로모 영상</h3>
@@ -308,39 +366,6 @@ export default function AdminSiteSettings() {
             />
           </div>
 
-          <div className="border-t border-gray-100 pt-6">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">카카오채널 링크</h3>
-            <p className="text-xs text-gray-400 mb-3">헤더 네비게이션에 카카오채널 링크로 표시됩니다</p>
-            <input
-              value={kakaoLink}
-              onChange={(e) => setKakaoLink(e.target.value)}
-              placeholder="https://pf.kakao.com/..."
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
-            />
-          </div>
-
-          <div className="border-t border-gray-100 pt-6">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">회사소개 링크</h3>
-            <p className="text-xs text-gray-400 mb-3">푸터 "회사소개" 클릭 시 이동할 URL. 외부 링크는 새 창, 내부 경로(/notice 등)는 같은 창에서 이동합니다. 비워두면 공지사항 페이지로 이동합니다.</p>
-            <input
-              value={companyLink}
-              onChange={(e) => setCompanyLink(e.target.value)}
-              placeholder="https://아마겟돈브랜드페이지..."
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
-            />
-          </div>
-
-          <div className="border-t border-gray-100 pt-6">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">인재채용 링크</h3>
-            <p className="text-xs text-gray-400 mb-3">푸터 "인재채용" 클릭 시 이동할 URL. 외부 링크는 새 창, 내부 경로는 같은 창에서 이동합니다. 비워두면 비활성 상태입니다.</p>
-            <input
-              value={recruitLink}
-              onChange={(e) => setRecruitLink(e.target.value)}
-              placeholder="https://..."
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
-            />
-          </div>
-
           <button
             onClick={handleGeneralSave}
             disabled={generalSaving}
@@ -348,7 +373,301 @@ export default function AdminSiteSettings() {
           >
             {generalSaving ? '저장 중...' : '전체 저장'}
           </button>
+
         </div>
+
+        {/* ── 사업자 정보 ── */}
+        <div className="bg-white rounded-xl shadow-sm p-6 space-y-6 mt-5">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">사업자 정보</h2>
+            <p className="text-xs text-gray-400 mt-1">푸터에 표시되는 사업자 정보를 관리합니다.</p>
+          </div>
+
+          {/* 기본 정보 */}
+          <div>
+            <h3 className="text-sm font-bold text-gray-700 mb-3">기본 정보</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 몰 이름
+                </label>
+                <input
+                  value={businessInfo.mallName}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, mallName: e.target.value }))}
+                  placeholder="몰 이름을 입력해 주세요"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  영문 몰 이름 <span className="text-gray-400">(선택)</span>
+                </label>
+                <input
+                  value={businessInfo.mallNameEn}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, mallNameEn: e.target.value }))}
+                  placeholder="영문 몰 이름을 입력해 주세요"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 몰 상단 타이틀 명
+                </label>
+                <input
+                  value={businessInfo.siteTitle}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, siteTitle: e.target.value }))}
+                  placeholder="브라우저 탭에 표시되는 타이틀"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 링크 설정 */}
+          <div className="border-t border-gray-100 pt-5">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">링크 설정</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 회사소개 링크
+                </label>
+                <p className="text-xs text-gray-400 mb-1.5">푸터 "회사소개" 클릭 시 이동할 URL. 비워두면 공지사항 페이지로 이동합니다.</p>
+                <div className="flex gap-2">
+                  <input
+                    value={companyLink}
+                    onChange={(e) => setCompanyLink(e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1 border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                  />
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => setCompanyLinkTarget('_blank')}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors whitespace-nowrap ${companyLinkTarget === '_blank' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      새 탭
+                    </button>
+                    <button type="button" onClick={() => setCompanyLinkTarget('_self')}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors whitespace-nowrap ${companyLinkTarget === '_self' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      현재 탭
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  인재채용 링크 <span className="text-gray-400">(선택)</span>
+                </label>
+                <p className="text-xs text-gray-400 mb-1.5">푸터 "인재채용" 클릭 시 이동할 URL. 비워두면 비활성 상태입니다.</p>
+                <div className="flex gap-2">
+                  <input
+                    value={recruitLink}
+                    onChange={(e) => setRecruitLink(e.target.value)}
+                    placeholder="https://..."
+                    className="flex-1 border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                  />
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => setRecruitLinkTarget('_blank')}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors whitespace-nowrap ${recruitLinkTarget === '_blank' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      새 탭
+                    </button>
+                    <button type="button" onClick={() => setRecruitLinkTarget('_self')}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors whitespace-nowrap ${recruitLinkTarget === '_self' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      현재 탭
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  카카오채널 링크 <span className="text-gray-400">(선택)</span>
+                </label>
+                <p className="text-xs text-gray-400 mb-1.5">헤더 네비게이션에 카카오채널 링크로 표시됩니다.</p>
+                <div className="flex gap-2">
+                  <input
+                    value={kakaoLink}
+                    onChange={(e) => setKakaoLink(e.target.value)}
+                    placeholder="https://pf.kakao.com/..."
+                    className="flex-1 border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                  />
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => setKakaoLinkTarget('_blank')}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors whitespace-nowrap ${kakaoLinkTarget === '_blank' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      새 탭
+                    </button>
+                    <button type="button" onClick={() => setKakaoLinkTarget('_self')}
+                      className={`px-3 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors whitespace-nowrap ${kakaoLinkTarget === '_self' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      현재 탭
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 로고 & 파비콘 */}
+          <div className="border-t border-gray-100 pt-5">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">로고 / 파비콘</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-2 block">
+                  <span className="text-red-400">*</span> 로고 설정
+                </label>
+                <ImageUploader
+                  bucket="banners"
+                  path={`site/logo-${Date.now()}`}
+                  currentUrl={businessInfo.logoUrl || null}
+                  onUpload={(url) => setBusinessInfo((v) => ({ ...v, logoUrl: url }))}
+                  className="h-24"
+                  objectFit="contain"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-2 block">
+                  <span className="text-red-400">*</span> 파비콘 설정
+                </label>
+                <ImageUploader
+                  bucket="banners"
+                  path={`site/favicon-${Date.now()}`}
+                  currentUrl={businessInfo.faviconUrl || null}
+                  onUpload={(url) => setBusinessInfo((v) => ({ ...v, faviconUrl: url }))}
+                  className="w-20 h-20"
+                  objectFit="contain"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 상세 사업자 정보 */}
+          <div className="border-t border-gray-100 pt-5">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">상세 사업자 정보</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 상호명
+                </label>
+                <input
+                  value={businessInfo.companyName}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, companyName: e.target.value }))}
+                  placeholder="상호명을 입력해 주세요"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 사업자등록번호
+                </label>
+                <input
+                  value={businessInfo.bizNumber}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, bizNumber: e.target.value }))}
+                  placeholder="000-00-00000"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 대표자 명
+                </label>
+                <input
+                  value={businessInfo.ceoName}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, ceoName: e.target.value }))}
+                  placeholder="대표자 명을 입력해 주세요"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 업태
+                </label>
+                <input
+                  value={businessInfo.bizType}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, bizType: e.target.value }))}
+                  placeholder="업태를 입력해 주세요"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 업종
+                </label>
+                <input
+                  value={businessInfo.bizCategory}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, bizCategory: e.target.value }))}
+                  placeholder="업종을 입력해 주세요"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 대표 이메일
+                </label>
+                <input
+                  value={businessInfo.email}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, email: e.target.value }))}
+                  placeholder="info@example.com"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 사업장 주소
+                </label>
+                <input
+                  value={businessInfo.address}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, address: e.target.value }))}
+                  placeholder="사업장 주소를 입력해 주세요"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  <span className="text-red-400">*</span> 대표 전화번호
+                </label>
+                <input
+                  value={businessInfo.phone}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, phone: e.target.value }))}
+                  placeholder="02-0000-0000"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 신고번호 */}
+          <div className="border-t border-gray-100 pt-5">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">신고번호</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  통신판매신고번호 <span className="text-gray-400">(선택)</span>
+                </label>
+                <input
+                  value={businessInfo.ecommerceNumber}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, ecommerceNumber: e.target.value }))}
+                  placeholder="통신판매신고번호를 입력해 주세요"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 mb-1 block">
+                  원격학원신고번호 <span className="text-gray-400">(선택)</span>
+                </label>
+                <input
+                  value={businessInfo.remoteAcademyNumber}
+                  onChange={(e) => setBusinessInfo((v) => ({ ...v, remoteAcademyNumber: e.target.value }))}
+                  placeholder="원격학원신고번호를 입력해 주세요"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={handleBizSave}
+            disabled={bizSaving}
+            className="bg-[#2ED573] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50"
+          >
+            {bizSaving ? '저장 중...' : '사업자 정보 저장'}
+          </button>
+        </div>
+        </>
       ) : tab === 'banners' ? (
         /* ── 배너 관리 ── */
         <>

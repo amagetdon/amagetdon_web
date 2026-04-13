@@ -36,6 +36,21 @@ const PURCHASE_VARS = [
   { name: '타임스탬프', var: '{#timestamp#}', desc: 'ISO 8601 형식' },
 ]
 
+const DBCART_PRESETS = {
+  campaignTrigger: {
+    label: '캠페인 트리거 발송',
+    url: 'https://shoong-api.coredev.co.kr/campaigns/trigger',
+    signupTemplate: 'campaignId=CAMPAIGN_ID&phone={#phone#}&즉시발송::고객명={#name#}&즉시발송::이메일={#email#}&D-Day::고객명={#name#}',
+    purchaseTemplate: 'campaignId=CAMPAIGN_ID&phone={#user_phone#}&즉시발송::고객명={#user_name#}&즉시발송::상품명={#title#}&즉시발송::결제금액={#price#}',
+  },
+  send: {
+    label: '단건 즉시 발송',
+    url: 'https://shoong-api.coredev.co.kr/send',
+    signupTemplate: 'sendType=at&phone={#phone#}&variables.name={#name#}&variables.email={#email#}&variables.phone={#phone#}',
+    purchaseTemplate: 'sendType=at&phone={#user_phone#}&variables.name={#user_name#}&variables.title={#title#}&variables.price={#price#}&variables.type={#type#}',
+  },
+} as const
+
 export default function AdminWebhook() {
   const [config, setConfig] = useState<WebhookConfig>({
     enabled: false,
@@ -53,6 +68,9 @@ export default function AdminWebhook() {
   const [headerKey, setHeaderKey] = useState('')
   const [headerValue, setHeaderValue] = useState('')
   const [templateTab, setTemplateTab] = useState<'signup' | 'purchase'>('signup')
+  const [showDbcartSetup, setShowDbcartSetup] = useState(false)
+  const [dbcartApiKey, setDbcartApiKey] = useState('')
+  const [dbcartEndpoint, setDbcartEndpoint] = useState<'campaignTrigger' | 'send'>('campaignTrigger')
   const signupRef = useRef<HTMLTextAreaElement>(null)
   const purchaseRef = useRef<HTMLTextAreaElement>(null)
 
@@ -135,6 +153,27 @@ export default function AdminWebhook() {
     setHeaderValue('')
   }
 
+  const applyDbcartPreset = () => {
+    const preset = DBCART_PRESETS[dbcartEndpoint]
+    const headers: Record<string, string> = { ...config.headers }
+    if (dbcartApiKey.trim()) {
+      headers['Authorization'] = `Bearer ${dbcartApiKey.trim()}`
+    }
+    setConfig((c) => ({
+      ...c,
+      enabled: true,
+      url: preset.url,
+      method: 'POST',
+      useTemplate: true,
+      signupTemplate: preset.signupTemplate,
+      purchaseTemplate: preset.purchaseTemplate,
+      headers,
+    }))
+    setShowDbcartSetup(false)
+    setDbcartApiKey('')
+    toast.success('디비카트 설정이 적용되었습니다. "설정 저장"을 눌러 저장해주세요.')
+  }
+
   const removeHeader = (key: string) => {
     setConfig((c) => {
       const h = { ...c.headers }
@@ -161,10 +200,109 @@ export default function AdminWebhook() {
 
   return (
     <AdminLayout>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">웹훅 (CRM 연동)</h1>
-        <p className="text-sm text-gray-500 mt-1">회원가입, 구매 시 외부 CRM으로 데이터를 자동 전송합니다.</p>
+      <div className="mb-6 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">웹훅 (CRM 연동)</h1>
+          <p className="text-sm text-gray-500 mt-1">회원가입, 구매 시 외부 CRM으로 데이터를 자동 전송합니다.</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowDbcartSetup(true)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-bold rounded-lg border-none cursor-pointer hover:bg-blue-700 transition-colors whitespace-nowrap"
+        >
+          <i className="ti ti-plug" />
+          디비카트 자동 설정
+        </button>
       </div>
+
+      {/* 디비카트 자동 설정 모달 */}
+      {showDbcartSetup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowDbcartSetup(false)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                <i className="ti ti-plug text-blue-600 text-xl" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">디비카트 자동 설정</h2>
+                <p className="text-xs text-gray-400">Shoong API 연동에 필요한 설정을 자동으로 채웁니다.</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* 엔드포인트 선택 */}
+              <div>
+                <label className="text-sm font-bold text-gray-700 block mb-2">발송 방식</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setDbcartEndpoint('campaignTrigger')}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${dbcartEndpoint === 'campaignTrigger' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`}
+                  >
+                    캠페인 트리거
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDbcartEndpoint('send')}
+                    className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${dbcartEndpoint === 'send' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-200'}`}
+                  >
+                    단건 즉시 발송
+                  </button>
+                </div>
+              </div>
+
+              {/* 수신 URL 미리보기 */}
+              <div>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">수신 URL</label>
+                <div className="bg-gray-50 rounded-lg px-3 py-2.5">
+                  <code className="text-xs text-blue-600 break-all">{DBCART_PRESETS[dbcartEndpoint].url}</code>
+                </div>
+              </div>
+
+              {/* API Key 입력 */}
+              <div>
+                <label className="text-sm font-bold text-gray-700 block mb-1.5">API Key (선택)</label>
+                <input
+                  value={dbcartApiKey}
+                  onChange={(e) => setDbcartApiKey(e.target.value)}
+                  placeholder="ak_xxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-blue-500 font-mono"
+                />
+                <p className="text-xs text-gray-400 mt-1">나중에 커스텀 헤더에서 수정할 수 있습니다.</p>
+              </div>
+
+              {/* 자동 설정 항목 안내 */}
+              <div className="bg-gray-50 rounded-lg px-4 py-3">
+                <p className="text-xs font-bold text-gray-600 mb-2">자동으로 설정되는 항목</p>
+                <ul className="text-xs text-gray-500 space-y-1">
+                  <li className="flex items-center gap-1.5"><i className="ti ti-check text-green-500 text-sm" /> 웹훅 활성화</li>
+                  <li className="flex items-center gap-1.5"><i className="ti ti-check text-green-500 text-sm" /> 전송 방식: POST</li>
+                  <li className="flex items-center gap-1.5"><i className="ti ti-check text-green-500 text-sm" /> 데이터 형식: 커스텀 템플릿 (쿼리스트링)</li>
+                  <li className="flex items-center gap-1.5"><i className="ti ti-check text-green-500 text-sm" /> Authorization 헤더 (API Key 입력 시)</li>
+                  <li className="flex items-center gap-1.5"><i className="ti ti-check text-green-500 text-sm" /> 회원가입/구매 템플릿 프리셋</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowDbcartSetup(false)}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={applyDbcartPreset}
+                className="flex-1 py-2.5 rounded-lg text-sm font-bold border-none bg-blue-600 text-white cursor-pointer hover:bg-blue-700 transition-colors"
+              >
+                적용하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-5">
         {/* 기본 설정 */}
@@ -344,6 +482,7 @@ export default function AdminWebhook() {
             {testing ? '전송 중...' : '테스트 전송'}
           </button>
         </div>
+
       </div>
     </AdminLayout>
   )

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext'
@@ -10,6 +10,7 @@ import AdminRoute from './components/auth/AdminRoute'
 import HomePage from './pages/HomePage'
 import GlobalHero from './components/GlobalHero'
 import { useGlobalFadeIn } from './hooks/useGlobalFadeIn'
+import { useBusinessInfo } from './hooks/useBusinessInfo'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
 const InstructorListPage = lazy(() => import('./pages/InstructorListPage'))
@@ -60,12 +61,29 @@ function FadeInProvider() {
   return null
 }
 
+function DynamicMeta() {
+  const biz = useBusinessInfo()
+  useEffect(() => {
+    if (biz.siteTitle) {
+      document.title = biz.siteTitle
+    }
+    if (biz.faviconUrl) {
+      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+      if (link) {
+        link.href = biz.faviconUrl
+      }
+    }
+  }, [biz.siteTitle, biz.faviconUrl])
+  return null
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <div className="w-full font-sans bg-white min-h-screen flex flex-col">
           <LoadingBar />
+          <DynamicMeta />
           <Header />
           <FadeInProvider />
           <main className="flex-1">

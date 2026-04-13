@@ -9,9 +9,10 @@ interface ImageUploaderProps {
   onUpload: (url: string) => void
   className?: string
   accept?: 'image' | 'video' | 'both'
+  objectFit?: 'cover' | 'contain'
 }
 
-export default function ImageUploader({ bucket, path, currentUrl, onUpload, className = '', accept = 'image' }: ImageUploaderProps) {
+export default function ImageUploader({ bucket, path, currentUrl, onUpload, className = '', accept = 'image', objectFit = 'cover' }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(currentUrl || null)
   const [isVideo, setIsVideo] = useState(false)
@@ -94,7 +95,7 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
           {isVideo ? (
             <video src={preview} className="w-full h-full object-cover" muted playsInline />
           ) : (
-            <img src={preview} alt="미리보기" className="w-full h-full object-cover" />
+            <img src={preview} alt="미리보기" className={`w-full h-full ${objectFit === 'contain' ? 'object-contain' : 'object-cover'}`} />
           )}
           <button
             type="button"

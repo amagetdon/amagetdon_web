@@ -2,7 +2,9 @@ import { useState, memo } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
+import { useBusinessInfo } from '../hooks/useBusinessInfo'
 function Header() {
+  const biz = useBusinessInfo()
   const location = useLocation()
   const navigate = useNavigate()
   const { user, profile, isAdmin } = useAuth()
@@ -50,7 +52,7 @@ function Header() {
       {/* Top bar */}
       <div className="max-w-[1200px] mx-auto px-5 py-4 flex items-center gap-6">
         <Link to="/" className="flex items-center gap-1 no-underline">
-          <img src="/logo.webp" alt="아마겟돈 클래스" className="h-12 max-md:h-8" />
+          <img src={biz.logoUrl || '/logo.webp'} alt={biz.mallName || '아마겟돈 클래스'} className="h-12 max-md:h-8" />
         </Link>
         <div className="flex-1 max-w-[320px] relative max-md:hidden">
           <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />

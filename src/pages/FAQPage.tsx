@@ -9,11 +9,16 @@ function FAQPage() {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [kakaoLink, setKakaoLink] = useState('')
+  const [kakaoLinkTarget, setKakaoLinkTarget] = useState<'_blank' | '_self'>('_blank')
 
   useEffect(() => {
     supabase.from('site_settings').select('value').eq('key', 'kakao_link').maybeSingle()
       .then(({ data }) => {
-        if (data) setKakaoLink(((data as Record<string, unknown>).value as Record<string, string>)?.url || '')
+        if (data) {
+          const val = (data as Record<string, unknown>).value as Record<string, string>
+          setKakaoLink(val?.url || '')
+          if (val?.target) setKakaoLinkTarget(val.target as '_blank' | '_self')
+        }
       })
   }, [])
 
@@ -119,8 +124,7 @@ function FAQPage() {
               <p className="text-sm text-gray-500 mb-5">카카오톡 채널로 1:1 상담을 받아보세요.</p>
               <a
                 href={kakaoLink}
-                target="_blank"
-                rel="noopener noreferrer"
+                {...(kakaoLinkTarget === '_blank' ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 className="inline-flex items-center gap-2 bg-[#FEE500] text-[#3C1E1E] font-bold px-6 py-3 rounded-full text-sm no-underline hover:brightness-95 transition"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="#3C1E1E">
