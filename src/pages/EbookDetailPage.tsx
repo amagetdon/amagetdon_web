@@ -7,8 +7,6 @@ import { Dialog, Transition } from '@headlessui/react'
 import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
-import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
-import { paymentService } from '../services/paymentService'
 import CouponSelector from '../components/CouponSelector'
 import type { EbookWithInstructor, Coupon } from '../types'
 
@@ -27,7 +25,6 @@ function EbookDetailPage() {
   const [myCoupons, setMyCoupons] = useState<Coupon[]>([])
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
-  const [tossLoading, setTossLoading] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -162,36 +159,10 @@ function EbookDetailPage() {
     }
   }
 
-  const handleTossPayment = async (ebookIdVal: number, title: string, amount: number, couponId?: number | null) => {
-    try {
-      setTossLoading(true)
-      const clientKey = await paymentService.getClientKey()
-      if (!clientKey) {
-        toast.error('결제 설정이 완료되지 않았습니다.')
-        return
-      }
-
-      const tossPayments = await loadTossPayments(clientKey)
-      const payment = tossPayments.payment({ customerKey: user!.id })
-      const orderId = paymentService.generateOrderId() + `_ebook_${ebookIdVal}` + (couponId ? `_cpn_${couponId}` : '')
-
-      await payment.requestPayment({
-        method: 'CARD',
-        amount: { currency: 'KRW', value: amount },
-        orderId,
-        orderName: title,
-        successUrl: `${window.location.origin}/payment/success`,
-        failUrl: `${window.location.origin}/payment/fail`,
-        customerEmail: profile?.email || undefined,
-        customerName: profile?.name || undefined,
-        customerMobilePhone: profile?.phone?.replace(/-/g, '') || undefined,
-      })
-    } catch (err) {
-      if (err instanceof Error && err.message.includes('사용자가')) return
-      toast.error('결제 요청에 실패했습니다.')
-    } finally {
-      setTossLoading(false)
-    }
+  const handleTossPayment = (ebookIdVal: number, _title: string, _amount: number, couponId?: number | null) => {
+    const params = new URLSearchParams({ type: 'ebook', id: String(ebookIdVal) })
+    if (couponId) params.set('couponId', String(couponId))
+    navigate(`/checkout?${params}`)
   }
 
   if (loading) {
@@ -329,7 +300,7 @@ function EbookDetailPage() {
 
       {/* 구매 확인 모달 */}
       <Transition appear show={confirmOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => { if (!purchasing && !tossLoading) setConfirmOpen(false) }}>
+        <Dialog as="div" className="relative z-50" onClose={() => { if (!purchasing) setConfirmOpen(false) }}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-200"
@@ -412,10 +383,9 @@ function EbookDetailPage() {
                     {payMethod === 'toss' ? (
                       <button
                         onClick={() => handleTossPayment(ebook.id, ebook.title, finalPrice, selectedCoupon?.id)}
-                        disabled={tossLoading}
-                        className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white cursor-pointer border-none"
                       >
-                        {tossLoading ? '결제 준비 중...' : `${finalPrice.toLocaleString()}원 카드 결제`}
+                        {`${finalPrice.toLocaleString()}원 카드 결제`}
                       </button>
                     ) : (
                       <button
