@@ -127,7 +127,7 @@ export default function AdminSiteSettings() {
           if (s.key === 'kakao_link') { setKakaoLink(s.value?.url || ''); if (s.value?.target) setKakaoLinkTarget(s.value.target as '_blank' | '_self') }
           if (s.key === 'company_link') { setCompanyLink(s.value?.url || ''); if (s.value?.target) setCompanyLinkTarget(s.value.target as '_blank' | '_self') }
           if (s.key === 'recruit_link') { setRecruitLink(s.value?.url || ''); if (s.value?.target) setRecruitLinkTarget(s.value.target as '_blank' | '_self') }
-          if (s.key === 'business_info') setBusinessInfo({ ...defaultBusinessInfo, ...s.value as BusinessInfo })
+          if (s.key === 'business_info') setBusinessInfo({ ...defaultBusinessInfo, ...s.value as unknown as BusinessInfo })
           if (s.key === 'terms_html') setTermsHtml((s.value as Record<string, string>)?.html || '')
           if (s.key === 'privacy_html') setPrivacyHtml((s.value as Record<string, string>)?.html || '')
           if (s.key === 'banner_settings') {

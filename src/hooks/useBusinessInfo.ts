@@ -22,21 +22,20 @@ export interface BusinessInfo {
 let cached: BusinessInfo | null = null
 let fetching: Promise<BusinessInfo> | null = null
 
-function fetchBusinessInfo(): Promise<BusinessInfo> {
-  if (cached) return Promise.resolve(cached)
+async function fetchBusinessInfo(): Promise<BusinessInfo> {
+  if (cached) return cached
   if (fetching) return fetching
-  const p = supabase
-    .from('site_settings')
-    .select('value')
-    .eq('key', 'business_info')
-    .maybeSingle()
-    .then(({ data }) => {
-      cached = (data as unknown as Record<string, unknown> | null)?.value as BusinessInfo || {}
-      fetching = null
-      return cached
-    })
-  fetching = p
-  return p
+  fetching = (async () => {
+    const { data } = await supabase
+      .from('site_settings')
+      .select('value')
+      .eq('key', 'business_info')
+      .maybeSingle()
+    cached = ((data as unknown as Record<string, unknown> | null)?.value as BusinessInfo) || {}
+    fetching = null
+    return cached
+  })()
+  return fetching
 }
 
 export function useBusinessInfo() {

@@ -9,7 +9,7 @@ function TermsOfServicePage() {
   useEffect(() => {
     supabase.from('site_settings').select('value').eq('key', 'terms_html').maybeSingle()
       .then(({ data }) => {
-        const val = (data as Record<string, unknown>)?.value as Record<string, string> | undefined
+        const val = (data as unknown as Record<string, unknown>)?.value as Record<string, string> | undefined
         setHtml(val?.html || '')
       })
   }, [])
