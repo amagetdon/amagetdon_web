@@ -9,6 +9,7 @@ export default function PaymentSuccessPage() {
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
   const [orderTitle, setOrderTitle] = useState('')
+  const [isCharge, setIsCharge] = useState(false)
 
   useEffect(() => {
     const paymentKey = searchParams.get('paymentKey')
@@ -34,8 +35,9 @@ export default function PaymentSuccessPage() {
       if (data?.error) throw new Error(data.error)
 
       setOrderTitle(data?.title || '상품')
+      setIsCharge(data?.type === 'charge')
       setStatus('success')
-      setMessage('결제가 완료되었습니다.')
+      setMessage(data?.type === 'charge' ? '포인트가 충전되었습니다.' : '결제가 완료되었습니다.')
       refreshProfile()
     } catch (err) {
       setStatus('error')
@@ -65,9 +67,15 @@ export default function PaymentSuccessPage() {
             <p className="text-sm text-gray-500 mb-2">{orderTitle}</p>
             <p className="text-sm text-gray-500 mb-8">{message}</p>
             <div className="flex gap-3 justify-center">
-              <Link to="/mypage/classroom" className="px-6 py-2.5 bg-[#2ED573] text-white rounded-lg text-sm font-bold no-underline hover:bg-[#25B866] transition-colors">
-                내 강의실
-              </Link>
+              {isCharge ? (
+                <Link to="/mypage" className="px-6 py-2.5 bg-[#2ED573] text-white rounded-lg text-sm font-bold no-underline hover:bg-[#25B866] transition-colors">
+                  마이페이지
+                </Link>
+              ) : (
+                <Link to="/mypage/classroom" className="px-6 py-2.5 bg-[#2ED573] text-white rounded-lg text-sm font-bold no-underline hover:bg-[#25B866] transition-colors">
+                  내 강의실
+                </Link>
+              )}
               <Link to="/" className="px-6 py-2.5 bg-gray-100 text-gray-600 rounded-lg text-sm font-bold no-underline hover:bg-gray-200 transition-colors">
                 홈으로
               </Link>

@@ -75,9 +75,38 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    // orderId에서 상품 정보 파싱 (ORDER_날짜_랜덤_course_123 또는 ORDER_날짜_랜덤_ebook_123)
+    // orderId에서 상품 정보 파싱
     const orderParts = orderId.split('_')
-    const itemType = orderParts[3] // 'course' or 'ebook'
+    const itemType = orderParts[3] // 'course', 'ebook', or 'charge'
+
+    // 포인트 충전인 경우
+    if (itemType === 'charge') {
+      const { error: rpcError } = await supabase.rpc('add_points', {
+        user_id_input: user.id,
+        amount_input: amount,
+      })
+      if (rpcError) {
+        return new Response(
+          JSON.stringify({ error: '포인트 충전에 실패했습니다.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      // 포인트 로그 기록
+      const { data: profileData } = await supabase.from('profiles').select('points').eq('id', user.id).single()
+      await supabase.rpc('insert_point_log', {
+        p_user_id: user.id,
+        p_amount: amount,
+        p_balance: profileData?.points ?? amount,
+        p_type: 'charge',
+        p_memo: `토스 결제 충전 (${paymentKey})`,
+      })
+
+      return new Response(
+        JSON.stringify({ success: true, title: `포인트 ${amount.toLocaleString()}P 충전`, type: 'charge' }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     const itemId = Number(orderParts[4])
 
     let title = confirmData.orderName || '상품'

@@ -1,7 +1,10 @@
 import { useState, useCallback, useEffect } from 'react'
+import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import { profileService } from '../services/profileService'
 import { purchaseService } from '../services/purchaseService'
+import { paymentService } from '../services/paymentService'
+import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import type { Purchase } from '../types'
 
 declare global {
@@ -56,6 +59,9 @@ function MyPage() {
   })
   const [errors, setErrors] = useState<FormErrors>({})
   const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [chargeOpen, setChargeOpen] = useState(false)
+  const [chargeAmount, setChargeAmount] = useState(10000)
+  const [chargeLoading, setChargeLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState('')
 
@@ -195,6 +201,38 @@ function MyPage() {
     }
     setErrors({})
     setSaveMessage('')
+  }
+
+  const handleChargePoints = async () => {
+    if (!chargeAmount || chargeAmount < 1000 || !user) return
+    try {
+      setChargeLoading(true)
+      const clientKey = await paymentService.getClientKey()
+      if (!clientKey) {
+        toast.error('결제 설정이 완료되지 않았습니다.')
+        return
+      }
+      const tossPayments = await loadTossPayments(clientKey)
+      const payment = tossPayments.payment({ customerKey: user.id })
+      const orderId = paymentService.generateOrderId() + '_charge'
+
+      await payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: chargeAmount },
+        orderId,
+        orderName: `포인트 ${chargeAmount.toLocaleString()}P 충전`,
+        successUrl: `${window.location.origin}/payment/success`,
+        failUrl: `${window.location.origin}/payment/fail`,
+        customerEmail: profile?.email || undefined,
+        customerName: profile?.name || undefined,
+        customerMobilePhone: profile?.phone?.replace(/-/g, '') || undefined,
+      })
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('사용자가')) return
+      toast.error('결제 요청에 실패했습니다.')
+    } finally {
+      setChargeLoading(false)
+    }
   }
 
   const years = Array.from({ length: 80 }, (_, i) => 2006 - i)
@@ -459,13 +497,82 @@ function MyPage() {
         {/* 내 포인트 섹션 */}
         <div className="mt-12">
           <h2 className="font-bold border-b-2 border-[#2ED573] pb-2">내 포인트</h2>
-          <div className="flex items-center gap-4 py-4">
-            <span className="font-bold text-sm">포인트</span>
-            <span className="text-[#2ED573] font-bold">
-              {(profile?.points ?? 0).toLocaleString()}포인트
-            </span>
+          <div className="flex items-center justify-between py-4">
+            <div className="flex items-center gap-4">
+              <span className="font-bold text-sm">포인트</span>
+              <span className="text-[#2ED573] font-bold">
+                {(profile?.points ?? 0).toLocaleString()}포인트
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setChargeOpen(true)}
+              className="px-4 py-2 bg-[#2ED573] text-white text-sm font-bold rounded-lg border-none cursor-pointer hover:bg-[#25B866] transition-colors"
+            >
+              포인트 충전
+            </button>
           </div>
         </div>
+
+        {/* 포인트 충전 모달 */}
+        {chargeOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setChargeOpen(false)}>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-bold text-gray-900 mb-4">포인트 충전</h3>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {[5000, 10000, 30000, 50000, 100000, 200000].map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setChargeAmount(v)}
+                    className={`py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${chargeAmount === v ? 'bg-[#2ED573] text-white border-[#2ED573]' : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'}`}
+                  >
+                    {v.toLocaleString()}P
+                  </button>
+                ))}
+              </div>
+              <div className="mb-4">
+                <label className="text-xs text-gray-500 mb-1 block">직접 입력</label>
+                <input
+                  type="number"
+                  min={1000}
+                  step={1000}
+                  value={chargeAmount || ''}
+                  onChange={(e) => setChargeAmount(Number(e.target.value))}
+                  placeholder="충전할 금액을 입력하세요"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573]"
+                />
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 mb-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">충전 금액</span>
+                  <span className="font-bold text-gray-900">{(chargeAmount || 0).toLocaleString()}원</span>
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className="text-gray-500">충전 후 잔액</span>
+                  <span className="font-bold text-[#2ED573]">{((profile?.points ?? 0) + (chargeAmount || 0)).toLocaleString()}P</span>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setChargeOpen(false)}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-500 cursor-pointer hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleChargePoints}
+                  disabled={!chargeAmount || chargeAmount < 1000 || chargeLoading}
+                  className="flex-1 py-2.5 rounded-lg text-sm font-bold border-none bg-blue-600 text-white cursor-pointer hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {chargeLoading ? '결제 준비 중...' : `${(chargeAmount || 0).toLocaleString()}원 결제`}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 내 구매내역 섹션 */}
         <div className="mt-12 mb-16">
