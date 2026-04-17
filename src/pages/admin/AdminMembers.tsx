@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
@@ -16,11 +17,12 @@ interface MemberWithPurchases extends Profile {
 
 export default function AdminMembers() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [members, setMembers] = useState<MemberWithPurchases[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [viewing, setViewing] = useState<MemberWithPurchases | null>(null)
-  const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null }[]>([])
+  const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null }[]>([])
   const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; newRole: 'user' | 'admin' } | null>(null)
   const [pointLogs, setPointLogs] = useState<PointLog[]>([])
   const [pointForm, setPointForm] = useState({ amount: '', memo: '', type: 'charge' as 'charge' | 'deduct' })
@@ -33,7 +35,7 @@ export default function AdminMembers() {
   const [grantSaving, setGrantSaving] = useState(false)
   const [allCourses, setAllCourses] = useState<{ id: number; title: string; duration_days: number }[]>([])
   const [allEbooks, setAllEbooks] = useState<{ id: number; title: string; duration_days: number }[]>([])
-  const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null; payment_method: string | null; payment_key: string | null } | null>(null)
+  const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null } | null>(null)
   const [refundRestoreCoupon, setRefundRestoreCoupon] = useState(true)
   const [refunding, setRefunding] = useState(false)
   const [pointLogPage, setPointLogPage] = useState(0)
@@ -82,6 +84,15 @@ export default function AdminMembers() {
   useEffect(() => { fetchData() }, [])
   useVisibilityRefresh(fetchData)
 
+  // URL 쿼리에 user=:id 있으면 해당 회원 모달 자동 오픈
+  useEffect(() => {
+    const userId = searchParams.get('user')
+    if (!userId || members.length === 0 || viewing?.id === userId) return
+    const target = members.find((m) => m.id === userId)
+    if (target) handleViewMember(target)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, members])
+
 
   const handleViewMember = async (member: MemberWithPurchases) => {
     setViewing(member)
@@ -97,7 +108,7 @@ export default function AdminMembers() {
     const [purchaseRes, pointLogRes, couponRes, progressRes, reviewRes] = await Promise.all([
       supabase
         .from('purchases')
-        .select('id, title, original_price, price, purchased_at, expires_at, coupon_id, payment_method, payment_key')
+        .select('id, title, original_price, price, purchased_at, expires_at, coupon_id, payment_method, payment_key, course_id')
         .eq('user_id', member.id)
         .order('purchased_at', { ascending: false }),
       supabase
@@ -228,16 +239,36 @@ export default function AdminMembers() {
           .eq('coupon_id', refundTarget.coupon_id)
       }
 
+      // 4. 수강 적립 포인트 회수 (강의 구매인 경우)
+      let rewardDeducted = 0
+      if (refundTarget.course_id) {
+        const { data: courseRow } = await supabase
+          .from('courses').select('reward_points').eq('id', refundTarget.course_id).maybeSingle()
+        const reward = (courseRow as { reward_points?: number } | null)?.reward_points ?? 0
+        if (reward > 0) {
+          await supabase.rpc('add_points', { user_id_input: viewing.id, amount_input: -reward } as never)
+          await supabase.rpc('insert_point_log', {
+            p_user_id: viewing.id,
+            p_amount: -reward,
+            p_balance: viewing.points + (isToss ? 0 : refundTarget.price) - reward,
+            p_type: 'deduct',
+            p_memo: `${refundTarget.title} 수강 적립 회수`,
+          } as never)
+          rewardDeducted = reward
+        }
+      }
+
       const msgs = [`${refundTarget.title} 환불 완료`]
       if (isToss) {
         msgs.push('카드 결제 취소')
       } else if (refundTarget.price > 0) {
         msgs.push(`+${refundTarget.price.toLocaleString()}P`)
       }
+      if (rewardDeducted > 0) msgs.push(`적립 회수 -${rewardDeducted.toLocaleString()}P`)
       if (refundRestoreCoupon && refundTarget.coupon_id) msgs.push('쿠폰 복구됨')
       toast.success(msgs.join(' · '))
 
-      const pointsChange = isToss ? 0 : refundTarget.price
+      const pointsChange = (isToss ? 0 : refundTarget.price) - rewardDeducted
       setRefundTarget(null)
       setRefundRestoreCoupon(true)
       await handleViewMember({ ...viewing, points: viewing.points + pointsChange })
@@ -526,7 +557,7 @@ export default function AdminMembers() {
       )}
 
       {/* 회원 상세 모달 */}
-      <Dialog open={!!viewing} onClose={() => setViewing(null)} className="relative z-50">
+      <Dialog open={!!viewing} onClose={() => { setViewing(null); if (searchParams.get('user')) setSearchParams({}, { replace: true }) }} className="relative z-50">
         <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <DialogPanel className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-xl max-h-[80vh] overflow-y-auto">
@@ -727,7 +758,7 @@ export default function AdminMembers() {
                           </div>
                           <div className="flex items-center gap-1 shrink-0 ml-3">
                             <button
-                              onClick={() => setRefundTarget({ id: p.id, title: p.title, price: p.price, coupon_id: p.coupon_id, payment_method: p.payment_method, payment_key: p.payment_key })}
+                              onClick={() => setRefundTarget({ id: p.id, title: p.title, price: p.price, coupon_id: p.coupon_id, payment_method: p.payment_method, payment_key: p.payment_key, course_id: p.course_id })}
                               className="px-2 py-1 text-[10px] font-medium text-yellow-600 bg-yellow-50 rounded border-none cursor-pointer hover:bg-yellow-100 transition-colors whitespace-nowrap"
                             >
                               환불
@@ -882,7 +913,7 @@ export default function AdminMembers() {
                 })()}
 
                 <button
-                  onClick={() => setViewing(null)}
+                  onClick={() => { setViewing(null); if (searchParams.get('user')) setSearchParams({}, { replace: true }) }}
                   className="mt-6 w-full py-2 bg-gray-100 text-gray-600 rounded-lg cursor-pointer border-none text-sm hover:bg-gray-200"
                 >
                   닫기

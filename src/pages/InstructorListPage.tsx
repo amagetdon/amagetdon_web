@@ -15,8 +15,9 @@ function InstructorListPage() {
     Promise.resolve(
       supabase
         .from('courses')
-        .select('instructor_id, enrollment_deadline')
+        .select('instructor_id, enrollment_start, enrollment_deadline')
         .eq('is_published', true)
+        .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
         .or(`enrollment_deadline.is.null,enrollment_deadline.gt.${nowIso}`)
     ).then(({ data }) => {
       const ids = new Set<number>()

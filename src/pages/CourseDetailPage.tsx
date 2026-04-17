@@ -1,17 +1,19 @@
 import { useState, useEffect, Fragment } from 'react'
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
+import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useCourse } from '../hooks/useCourses'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
 import { Dialog, Transition } from '@headlessui/react'
 import VideoEmbed from '../components/VideoEmbed'
 import CourseReviewSection from '../components/CourseReviewSection'
+import SeoHead from '../components/SeoHead'
 import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
 import CouponSelector from '../components/CouponSelector'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
+import { supabase } from '../lib/supabase'
 import type { Coupon } from '../types'
 
 function CourseDetailPage() {
@@ -21,13 +23,15 @@ function CourseDetailPage() {
   const [searchParams] = useSearchParams()
   const isClosed = searchParams.get('closed') === 'true'
   const navigate = useNavigate()
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile, isAdmin } = useAuth()
 
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
   const [owned, setOwned] = useState(false)
   const [ownershipLoading, setOwnershipLoading] = useState(true)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [purchasing, setPurchasing] = useState(false)
+  const [enrollmentCount, setEnrollmentCount] = useState(0)
+  const [relatedCourses, setRelatedCourses] = useState<Array<{ id: number; title: string; thumbnail_url: string | null; sale_price: number | null; course_type: string }>>([])
   const [myCoupons, setMyCoupons] = useState<Coupon[]>([])
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
@@ -81,13 +85,53 @@ function CourseDetailPage() {
     couponService.getUsableCoupons(user.id).then(setMyCoupons).catch(() => {})
   }, [user])
 
+  // 정원 확인 (현재 구매자 수)
+  useEffect(() => {
+    if (!courseId) return
+    let cancelled = false
+    Promise.resolve(supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('course_id', courseId))
+      .then(({ count }) => { if (!cancelled) setEnrollmentCount(count ?? 0) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [courseId])
+
+  // 관련 강의 로드
+  useEffect(() => {
+    if (!course?.related_course_ids || course.related_course_ids.length === 0) {
+      setRelatedCourses([])
+      return
+    }
+    let cancelled = false
+    const nowIso = new Date().toISOString()
+    Promise.resolve(
+      supabase
+        .from('courses')
+        .select('id, title, thumbnail_url, sale_price, course_type')
+        .in('id', course.related_course_ids)
+        .eq('is_published', true)
+        .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
+    ).then(({ data }) => {
+      if (!cancelled) setRelatedCourses((data ?? []) as typeof relatedCourses)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [course?.related_course_ids])
+
   const pad = (n: number) => String(n).padStart(2, '0')
   const hasDeadline = !!course?.enrollment_deadline
   const isExpired = isClosed || (hasDeadline && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0)
   const countdownText = isExpired ? '00:00:00' : `${pad(timeLeft.hours)}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
 
   const isFree = course?.course_type === 'free'
-  const price = isFree ? 0 : (course?.sale_price ?? 0)
+  const now = Date.now()
+  const discountActive = !!course && !isFree && (
+    !course.discount_start && !course.discount_end ? true :
+    (!course.discount_start || new Date(course.discount_start).getTime() <= now) &&
+    (!course.discount_end || new Date(course.discount_end).getTime() > now)
+  )
+  const displayedPrice = isFree ? 0
+    : discountActive && course?.sale_price != null ? course.sale_price
+    : course?.original_price ?? course?.sale_price ?? 0
+  const price = displayedPrice
   const couponDiscount = selectedCoupon && price >= (selectedCoupon.min_purchase || 0)
     ? selectedCoupon.discount_type === 'percent'
       ? Math.min(
@@ -235,7 +279,37 @@ function CourseDetailPage() {
     )
   }
 
+  const notYetOpen = course.enrollment_start ? new Date(course.enrollment_start).getTime() > Date.now() : false
+  if (notYetOpen && !isAdmin) {
+    return (
+      <section className="w-full bg-white py-10">
+        <div className="max-w-[1200px] mx-auto px-5 text-center py-20">
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">아직 오픈되지 않은 강의입니다</h1>
+          <p className="text-sm text-gray-500">
+            오픈일시: {new Date(course.enrollment_start as string).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}
+          </p>
+        </div>
+      </section>
+    )
+  }
+
   const renderActionButton = () => {
+    if (course && course.is_on_sale === false && !owned) {
+      return (
+        <button disabled className="w-full py-4 bg-gray-300 text-white font-bold text-center rounded-xl mt-4 cursor-not-allowed">
+          판매 준비 중
+        </button>
+      )
+    }
+
+    if (course && course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments && !owned) {
+      return (
+        <button disabled className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-4 cursor-not-allowed">
+          정원 마감 ({enrollmentCount}/{course.max_enrollments}명)
+        </button>
+      )
+    }
+
     if (isExpired && !owned) {
       return (
         <button className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-4 cursor-pointer">
@@ -276,6 +350,18 @@ function CourseDetailPage() {
 
   return (
     <>
+      <SeoHead override={{
+        title: course.seo?.title || course.title,
+        description: course.seo?.description || undefined,
+        keywords: course.seo?.keywords || undefined,
+        author: course.seo?.author || undefined,
+        ogTitle: course.seo?.ogTitle,
+        ogDescription: course.seo?.ogDescription,
+        ogImage: course.seo?.ogImage || course.thumbnail_url || undefined,
+        twitterTitle: course.seo?.twitterTitle,
+        twitterDescription: course.seo?.twitterDescription,
+        twitterImage: course.seo?.twitterImage || course.thumbnail_url || undefined,
+      }} />
       <section className="w-full bg-white py-10">
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="flex gap-8 max-md:flex-col">
@@ -294,6 +380,41 @@ function CourseDetailPage() {
                   <span className="text-sm text-gray-400">숏랜딩 및 상세페이지 jpg 가로 800px</span>
                 )}
               </div>
+
+              {(course.strengths && course.strengths.length > 0) || (course.features && course.features.length > 0) ? (
+                <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-6 mt-6">
+                  {course.strengths && course.strengths.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6">
+                      <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <i className="ti ti-bolt text-[#2ED573]" /> 강의 강점
+                      </h3>
+                      <ul className="space-y-2">
+                        {course.strengths.map((s, idx) => (
+                          <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                            <i className="ti ti-check text-[#2ED573] mt-0.5 shrink-0" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {course.features && course.features.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6">
+                      <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <i className="ti ti-star text-[#2ED573]" /> 강의 특징
+                      </h3>
+                      <ul className="space-y-2">
+                        {course.features.map((s, idx) => (
+                          <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                            <i className="ti ti-check text-[#2ED573] mt-0.5 shrink-0" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             <div className="w-[340px] max-md:w-full shrink-0">
@@ -315,17 +436,37 @@ function CourseDetailPage() {
                 <div className="border-t border-gray-200 my-6" />
 
                 <p className="font-bold text-gray-900">결제 예상 금액</p>
-                {course.original_price != null && course.original_price > 0 && (
+                {discountActive && course.original_price != null && course.original_price > 0 && course.sale_price != null && course.sale_price < course.original_price && (
                   <p className="text-sm text-gray-400 line-through mt-2">정가 {course.original_price.toLocaleString()}원</p>
                 )}
                 <p className="text-4xl font-extrabold text-gray-900 mt-1">
-                  {course.course_type === 'free' || (!course.sale_price && !course.original_price) ? '무료' : course.sale_price ? `${course.sale_price.toLocaleString()}원` : '가격 미정'}
+                  {isFree || displayedPrice === 0 ? '무료' : `${displayedPrice.toLocaleString()}원`}
                 </p>
+                {discountActive && course.discount_end && (
+                  <p className="text-xs text-[#2ED573] font-medium mt-1">
+                    할인 종료: {new Date(course.discount_end).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}
+                  </p>
+                )}
 
                 {user && profile && !isFree && (
                   <p className="text-sm text-gray-500 mt-2">
                     보유 포인트: <span className="font-bold text-gray-900">{profile.points.toLocaleString()}P</span>
                   </p>
+                )}
+
+                {course.max_enrollments != null && course.max_enrollments > 0 && (
+                  <div className="mt-4 bg-gray-50 rounded-xl p-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-gray-500">모집 현황</span>
+                      <span className="font-bold text-gray-900">{enrollmentCount} / {course.max_enrollments}명</span>
+                    </div>
+                    <div className="mt-2 w-full bg-gray-200 rounded-full overflow-hidden h-1.5">
+                      <div className="h-full rounded-full transition-all" style={{
+                        width: `${Math.min(100, (enrollmentCount / course.max_enrollments) * 100)}%`,
+                        backgroundColor: enrollmentCount >= course.max_enrollments ? '#9ca3af' : '#2ED573',
+                      }} />
+                    </div>
+                  </div>
                 )}
 
                 {course.enrollment_deadline && (
@@ -344,12 +485,40 @@ function CourseDetailPage() {
         </div>
       </section>
 
+      {/* 관련 강의 */}
+      {relatedCourses.length > 0 && (
+        <section className="w-full bg-white py-12 border-t border-gray-100">
+          <div className="max-w-[1200px] mx-auto px-5">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">관련 강의</h2>
+            <div className="grid grid-cols-4 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
+              {relatedCourses.map((rc) => (
+                <Link key={rc.id} to={`/course/${rc.id}`} className="no-underline group">
+                  <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
+                    {rc.thumbnail_url ? (
+                      <img src={rc.thumbnail_url} alt={rc.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <span className="text-xs text-gray-400">썸네일</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1 line-clamp-2">{rc.title}</p>
+                  <p className="text-xs text-gray-500">
+                    {rc.course_type === 'free' ? '무료' : rc.sale_price ? `${rc.sale_price.toLocaleString()}원` : '-'}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* 리뷰 섹션 */}
-      <section className="w-full bg-gray-50 py-10">
-        <div className="max-w-[1200px] mx-auto px-5">
-          <CourseReviewSection courseId={course.id} courseName={course.title} />
-        </div>
-      </section>
+      {course.reviews_enabled !== false && (
+        <section className="w-full bg-gray-50 py-10">
+          <div className="max-w-[1200px] mx-auto px-5">
+            <CourseReviewSection courseId={course.id} courseName={course.title} />
+          </div>
+        </section>
+      )}
 
       {/* 구매 확인 모달 */}
       <Transition appear show={confirmOpen} as={Fragment}>

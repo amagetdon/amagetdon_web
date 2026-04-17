@@ -141,6 +141,9 @@ export const purchaseService = {
       await supabase.rpc('add_points', { user_id_input: userId, amount_input: price } as never)
       throw err
     }
+
+    // 6. 강의 수강 포인트 지급
+    await grantCourseRewardPoints(userId, item.courseId, title)
   },
 
   async enrollFree(
@@ -169,5 +172,28 @@ export const purchaseService = {
         expires_at: expiresAt,
       } as never)
     if (error) throw error
+
+    await grantCourseRewardPoints(userId, item.courseId, title)
   },
+}
+
+async function grantCourseRewardPoints(userId: string, courseId: number | null | undefined, title: string) {
+  if (!courseId) return
+  try {
+    const { data } = await supabase.from('courses').select('reward_points').eq('id', courseId).maybeSingle()
+    const reward = (data as { reward_points?: number } | null)?.reward_points ?? 0
+    if (reward > 0) {
+      await supabase.rpc('add_points', { user_id_input: userId, amount_input: reward } as never)
+      const { data: profile } = await supabase.from('profiles').select('points').eq('id', userId).single<{ points: number }>()
+      await supabase.rpc('insert_point_log', {
+        p_user_id: userId,
+        p_amount: reward,
+        p_balance: profile?.points ?? reward,
+        p_type: 'charge',
+        p_memo: `${title} 수강 적립`,
+      } as never)
+    }
+  } catch {
+    // 포인트 지급 실패는 구매 자체를 롤백하지 않음 (로그만 실패해도 구매는 유효)
+  }
 }

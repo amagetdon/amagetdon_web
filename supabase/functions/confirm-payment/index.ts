@@ -114,11 +114,13 @@ Deno.serve(async (req: Request) => {
     let ebookId: number | null = null
     let expiresAt: string | null = null
 
+    let courseRewardPoints = 0
     if (itemType === 'course' && itemId) {
       courseId = itemId
-      const { data: course } = await supabase.from('courses').select('title').eq('id', itemId).maybeSingle()
+      const { data: course } = await supabase.from('courses').select('title, reward_points').eq('id', itemId).maybeSingle()
       if (course) {
         title = course.title
+        courseRewardPoints = course.reward_points ?? 0
       }
     } else if (itemType === 'ebook' && itemId) {
       ebookId = itemId
@@ -165,6 +167,23 @@ Deno.serve(async (req: Request) => {
         JSON.stringify({ error: '구매 기록 생성에 실패했습니다.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    }
+
+    // 강의 수강 포인트 지급 (실패해도 구매는 유효)
+    if (courseRewardPoints > 0) {
+      try {
+        await supabase.rpc('add_points', { user_id_input: user.id, amount_input: courseRewardPoints })
+        const { data: freshProfile } = await supabase.from('profiles').select('points').eq('id', user.id).single()
+        await supabase.rpc('insert_point_log', {
+          p_user_id: user.id,
+          p_amount: courseRewardPoints,
+          p_balance: freshProfile?.points ?? courseRewardPoints,
+          p_type: 'charge',
+          p_memo: `${title} 수강 적립`,
+        })
+      } catch {
+        // 포인트 지급 실패 무시
+      }
     }
 
     return new Response(

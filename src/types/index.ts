@@ -27,4 +27,5 @@ export type {
   HeroContent,
   LandingCategory,
   LandingCategorySeo,
+  CourseSeo,
 } from './database'

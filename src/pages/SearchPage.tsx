@@ -27,8 +27,14 @@ function SearchPage() {
         setLoading(true)
         const keyword = `%${query}%`
 
+        const nowIso = new Date().toISOString()
         const [coursesRes, instructorsRes, ebooksRes] = await Promise.all([
-          supabase.from('courses').select('*, instructor:instructors(id, name)').or(`title.ilike.${keyword},description.ilike.${keyword}`),
+          supabase
+            .from('courses')
+            .select('*, instructor:instructors(id, name)')
+            .eq('is_published', true)
+            .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
+            .or(`title.ilike.${keyword},description.ilike.${keyword},search_keywords.ilike.${keyword}`),
           supabase.from('instructors').select('*').or(`name.ilike.${keyword},title.ilike.${keyword},bio.ilike.${keyword}`),
           supabase.from('ebooks').select('*, instructor:instructors(id, name)').or(`title.ilike.${keyword}`),
         ])

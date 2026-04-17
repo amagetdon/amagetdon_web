@@ -29,8 +29,9 @@ function LandingPage() {
         const { data } = await supabase
           .from('courses')
           .select('*, instructor:instructors(id, name)')
-          .eq('landing_category_id', cat.id)
+          .contains('landing_category_ids', [cat.id])
           .eq('is_published', true)
+          .or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`)
           .order('sort_order')
         if (!cancelled) setCourses((data as CourseWithInstructor[]) ?? [])
       })

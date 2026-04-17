@@ -125,6 +125,19 @@ export interface Instructor {
   updated_at: string
 }
 
+export interface CourseSeo {
+  title?: string
+  author?: string
+  description?: string
+  keywords?: string
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: string
+  twitterTitle?: string
+  twitterDescription?: string
+  twitterImage?: string
+}
+
 export interface Course {
   id: number
   instructor_id: number | null
@@ -136,9 +149,22 @@ export interface Course {
   original_price: number | null
   sale_price: number | null
   course_type: 'free' | 'premium'
+  enrollment_start: string | null
   enrollment_deadline: string | null
   duration_days: number
   is_published: boolean
+  is_on_sale: boolean
+  reviews_enabled: boolean
+  search_keywords: string | null
+  strengths: string[] | null
+  features: string[] | null
+  seo: CourseSeo | null
+  reward_points: number
+  max_enrollments: number | null
+  discount_start: string | null
+  discount_end: string | null
+  landing_category_ids: number[] | null
+  related_course_ids: number[] | null
   sort_order: number
   landing_category_id: number | null
   created_at: string

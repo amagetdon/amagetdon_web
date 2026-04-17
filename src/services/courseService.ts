@@ -17,11 +17,31 @@ export const courseService = {
     return setCache(key, data as CourseWithInstructor[])
   },
 
+  async getAllPublic(type?: 'free' | 'premium') {
+    const key = `courses:public:${type || 'all'}`
+    const cached = getCached<CourseWithInstructor[]>(key)
+    if (cached) return cached
+    const nowIso = new Date().toISOString()
+    let query = supabase
+      .from('courses')
+      .select('*, instructor:instructors(id, name)')
+      .eq('is_published', true)
+      .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
+      .order('sort_order')
+    if (type) query = query.eq('course_type', type)
+    const { data, error } = await query
+    if (error) throw error
+    return setCache(key, data as CourseWithInstructor[])
+  },
+
   async getByInstructor(instructorId: number) {
+    const nowIso = new Date().toISOString()
     const { data, error } = await supabase
       .from('courses')
       .select('*, instructor:instructors(id, name)')
       .eq('instructor_id', instructorId)
+      .eq('is_published', true)
+      .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
       .order('sort_order')
     if (error) throw error
     return data as CourseWithInstructor[]

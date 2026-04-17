@@ -11,7 +11,7 @@ function FreeCourses({ courses: propCourses, loading: propLoading }: { courses?:
 
   useEffect(() => {
     if (propCourses) return
-    courseService.getAll('free').then(setSelfCourses).catch(() => {}).finally(() => setSelfLoading(false))
+    courseService.getAllPublic('free').then(setSelfCourses).catch(() => {}).finally(() => setSelfLoading(false))
   }, [propCourses])
   return (
     <section className="w-full bg-white py-14 max-sm:py-10">
