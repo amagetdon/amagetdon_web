@@ -11,6 +11,7 @@ import HomePage from './pages/HomePage'
 import GlobalHero from './components/GlobalHero'
 import { useGlobalFadeIn } from './hooks/useGlobalFadeIn'
 import { useBusinessInfo } from './hooks/useBusinessInfo'
+import SeoHead from './components/SeoHead'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
 const InstructorListPage = lazy(() => import('./pages/InstructorListPage'))
@@ -47,6 +48,8 @@ const AdminAchievements = lazy(() => import('./pages/admin/AdminAchievements'))
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'))
 const AdminUtmBuilder = lazy(() => import('./pages/admin/AdminUtmBuilder'))
 const AdminWebhook = lazy(() => import('./pages/admin/AdminWebhook'))
+const AdminPages = lazy(() => import('./pages/admin/AdminPages'))
+const LandingPage = lazy(() => import('./pages/LandingPage'))
 
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
 const PaymentFailPage = lazy(() => import('./pages/PaymentFailPage'))
@@ -96,16 +99,13 @@ function UtmCapture() {
 function DynamicMeta() {
   const biz = useBusinessInfo()
   useEffect(() => {
-    if (biz.siteTitle) {
-      document.title = biz.siteTitle
-    }
     if (biz.faviconUrl) {
       const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
       if (link) {
         link.href = biz.faviconUrl
       }
     }
-  }, [biz.siteTitle, biz.faviconUrl])
+  }, [biz.faviconUrl])
   return null
 }
 
@@ -117,6 +117,7 @@ function App() {
           <LoadingBar />
           <UtmCapture />
           <DynamicMeta />
+          <SeoHead />
           <Header />
           <FadeInProvider />
           <main className="flex-1">
@@ -134,6 +135,7 @@ function App() {
                 <Route path="/course/:id" element={<CourseDetailPage />} />
                 <Route path="/ebook/:id" element={<EbookDetailPage />} />
                 <Route path="/search" element={<SearchPage />} />
+                <Route path="/landing/:slug" element={<LandingPage />} />
 
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
                 <Route path="/payment/fail" element={<PaymentFailPage />} />
@@ -162,6 +164,7 @@ function App() {
                 <Route path="/admin/utm" element={<AdminRoute><AdminUtmBuilder /></AdminRoute>} />
                 <Route path="/admin/webhook" element={<AdminRoute><AdminWebhook /></AdminRoute>} />
                 <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
+                <Route path="/admin/pages" element={<AdminRoute><AdminPages /></AdminRoute>} />
               </Routes>
             </Suspense>
           </main>

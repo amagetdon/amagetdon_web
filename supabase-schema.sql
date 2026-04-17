@@ -52,6 +52,7 @@ CREATE TABLE courses (
   duration_days INTEGER DEFAULT 30,
   is_published BOOLEAN DEFAULT true,
   sort_order INTEGER DEFAULT 0,
+  landing_category_id INTEGER,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -422,11 +423,43 @@ CREATE POLICY "Admin manage point logs" ON point_logs
 
 CREATE INDEX idx_point_logs_user ON point_logs(user_id);
 
+-- 14. landing_categories (랜딩 페이지 카테고리)
+CREATE TABLE landing_categories (
+  id SERIAL PRIMARY KEY,
+  slug TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  is_published BOOLEAN DEFAULT true,
+  sort_order INTEGER DEFAULT 0,
+  seo JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE landing_categories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read published landing categories" ON landing_categories
+  FOR SELECT USING (is_published = true);
+CREATE POLICY "Admin read all landing categories" ON landing_categories
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+CREATE POLICY "Admin manage landing categories" ON landing_categories
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+CREATE INDEX idx_landing_categories_slug ON landing_categories(slug);
+CREATE INDEX idx_landing_categories_published ON landing_categories(is_published, sort_order);
+
+ALTER TABLE courses
+  ADD CONSTRAINT courses_landing_category_fk
+  FOREIGN KEY (landing_category_id) REFERENCES landing_categories(id) ON DELETE SET NULL;
+
 -- ============================================
 -- 인덱스
 -- ============================================
 CREATE INDEX idx_courses_type ON courses(course_type);
 CREATE INDEX idx_courses_instructor ON courses(instructor_id);
+CREATE INDEX idx_courses_landing_category ON courses(landing_category_id);
 CREATE INDEX idx_ebooks_instructor ON ebooks(instructor_id);
 CREATE INDEX idx_reviews_course ON reviews(course_id);
 CREATE INDEX idx_reviews_instructor ON reviews(instructor_id);

@@ -9,8 +9,9 @@ import ImageUploader from '../../components/admin/ImageUploader'
 import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import { courseService } from '../../services/courseService'
 import { instructorService } from '../../services/instructorService'
+import { landingCategoryService } from '../../services/landingCategoryService'
 import { supabase } from '../../lib/supabase'
-import type { CourseWithInstructor, Instructor } from '../../types'
+import type { CourseWithInstructor, Instructor, LandingCategory } from '../../types'
 
 interface CurriculumItem {
   id?: number
@@ -33,6 +34,7 @@ const toKstDatetimeLocal = (iso: string | null | undefined) => {
 export default function AdminCourses() {
   const [courses, setCourses] = useState<CourseWithInstructor[]>([])
   const [instructors, setInstructors] = useState<Instructor[]>([])
+  const [landingCategories, setLandingCategories] = useState<LandingCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
   const [saving, setSaving] = useState(false)
@@ -43,8 +45,12 @@ export default function AdminCourses() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [c, i] = await withTimeout(Promise.all([courseService.getAll(), instructorService.getAll()]))
-      setCourses(c); setInstructors(i)
+      const [c, i, lc] = await withTimeout(Promise.all([
+        courseService.getAll(),
+        instructorService.getAll(),
+        landingCategoryService.getAll(),
+      ]))
+      setCourses(c); setInstructors(i); setLandingCategories(lc)
     } catch { toast.error('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
   }
 
@@ -115,6 +121,7 @@ export default function AdminCourses() {
         is_published: editing.is_published !== false,
         sort_order: editing.sort_order ?? 0,
         description: editing.description ?? null,
+        landing_category_id: editing.landing_category_id ?? null,
       }
       if (editing.id) {
         await courseService.update(editing.id as number, courseData)
@@ -297,6 +304,17 @@ export default function AdminCourses() {
       <AdminFormModal isOpen={!!editing} onClose={() => setEditing(null)} title={editing?.id ? '강의 수정' : '새 강의 등록'} onSubmit={handleSave} loading={saving}>
         {editing && (
           <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">랜딩 카테고리</label>
+              <select value={(editing.landing_category_id as number) ?? ''} onChange={(e) => setEditing({ ...editing, landing_category_id: e.target.value ? Number(e.target.value) : null })}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all">
+                <option value="">기본 (일반 강의)</option>
+                {landingCategories.map((lc) => (
+                  <option key={lc.id} value={lc.id}>{lc.name} {lc.is_published ? '' : '(비공개)'}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">선택 시 해당 랜딩 페이지에 추가로 노출됩니다. 기본 강의 목록에도 동일하게 표시됩니다.</p>
+            </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">강의명 *</label>
               <input value={(editing.title as string) || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })}

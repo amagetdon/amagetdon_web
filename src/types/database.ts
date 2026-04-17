@@ -71,6 +71,11 @@ export interface Database {
         Insert: Omit<Achievement, 'id' | 'created_at'>
         Update: Partial<Omit<Achievement, 'id' | 'created_at'>>
       }
+      landing_categories: {
+        Row: LandingCategory
+        Insert: Omit<LandingCategory, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<LandingCategory, 'id' | 'created_at'>>
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -135,6 +140,31 @@ export interface Course {
   duration_days: number
   is_published: boolean
   sort_order: number
+  landing_category_id: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface LandingCategorySeo {
+  title?: string
+  author?: string
+  description?: string
+  keywords?: string
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: string
+  twitterTitle?: string
+  twitterDescription?: string
+  twitterImage?: string
+}
+
+export interface LandingCategory {
+  id: number
+  slug: string
+  name: string
+  is_published: boolean
+  sort_order: number
+  seo: LandingCategorySeo | null
   created_at: string
   updated_at: string
 }

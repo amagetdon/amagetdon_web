@@ -3,11 +3,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
 import { useBusinessInfo } from '../hooks/useBusinessInfo'
+import { usePublishedLandingCategories } from '../hooks/useLandingCategories'
 function Header() {
   const biz = useBusinessInfo()
   const location = useLocation()
   const navigate = useNavigate()
   const { user, profile, isAdmin } = useAuth()
+  const { categories: landingCategories } = usePublishedLandingCategories()
   const currentPath = location.pathname
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -22,13 +24,18 @@ function Header() {
     }
   }
 
-  const navItems = [
+  const baseNavItems = [
     { label: '아마겟돈', path: '/' },
     { label: '아카데미', path: '/academy' },
     { label: '강사소개', path: '/instructors' },
     { label: '수강 후기', path: '/reviews' },
     { label: '수강 성과', path: '/results' },
     { label: 'FAQ', path: '/faq' },
+  ]
+
+  const navItems = [
+    ...baseNavItems,
+    ...landingCategories.map((c) => ({ label: c.name, path: `/landing/${c.slug}` })),
   ]
 
   const isActiveNav = (itemPath: string) => {
@@ -38,6 +45,7 @@ function Header() {
     if (itemPath === '/results') return currentPath === '/results'
     if (itemPath === '/reviews') return currentPath === '/reviews'
     if (itemPath === '/faq') return currentPath === '/faq'
+    if (itemPath.startsWith('/landing/')) return currentPath === itemPath
     return currentPath === itemPath
   }
 

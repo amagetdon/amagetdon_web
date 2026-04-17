@@ -25,4 +25,6 @@ export type {
   PointLog,
   SiteSetting,
   HeroContent,
+  LandingCategory,
+  LandingCategorySeo,
 } from './database'
