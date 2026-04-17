@@ -312,7 +312,7 @@ function EbookDetailPage() {
                 <div className="text-sm text-gray-500 space-y-2">
                   <div className="flex items-center gap-2">
                     <i className="ti ti-clock text-[#2ED573]" />
-                    <span>열람 기간: {ebook.duration_days}일</span>
+                    <span>열람 기간: {ebook.duration_days && ebook.duration_days > 0 ? `${ebook.duration_days}일` : '무제한'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <i className="ti ti-device-mobile text-[#2ED573]" />

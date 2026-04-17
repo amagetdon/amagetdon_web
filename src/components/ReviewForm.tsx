@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import {
   Dialog,
   DialogPanel,
@@ -31,6 +31,34 @@ export default function ReviewForm({
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!isOpen || !user) return
+    let cancelled = false
+    setLoading(true)
+    setEditingId(null)
+    setRating(5)
+    setTitle('')
+    setContent('')
+    reviewService
+      .getByUser(user.id, courseId)
+      .then((existing) => {
+        if (cancelled || !existing) return
+        setEditingId(existing.id)
+        setRating(existing.rating)
+        setTitle(existing.title)
+        setContent(existing.content)
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, user, courseId])
 
   const handleSubmit = async () => {
     if (!user || !profile) return
@@ -46,23 +74,33 @@ export default function ReviewForm({
 
     setSubmitting(true)
     try {
-      await reviewService.create({
-        user_id: user.id,
-        course_id: courseId,
-        instructor_id: null,
-        author_name: profile.name ?? '익명',
-        title: title.trim(),
-        content: content.trim(),
-        rating,
-      })
-      toast.success('후기가 등록되었습니다.')
+      if (editingId != null) {
+        await reviewService.update(editingId, {
+          title: title.trim(),
+          content: content.trim(),
+          rating,
+        })
+        toast.success('후기가 수정되었습니다.')
+      } else {
+        await reviewService.create({
+          user_id: user.id,
+          course_id: courseId,
+          instructor_id: null,
+          author_name: profile.name ?? '익명',
+          title: title.trim(),
+          content: content.trim(),
+          rating,
+        })
+        toast.success('후기가 등록되었습니다.')
+      }
       setRating(5)
       setTitle('')
       setContent('')
+      setEditingId(null)
       onSuccess()
       onClose()
     } catch {
-      toast.error('후기 등록에 실패했습니다.')
+      toast.error(editingId != null ? '후기 수정에 실패했습니다.' : '후기 등록에 실패했습니다.')
     } finally {
       setSubmitting(false)
     }
@@ -95,7 +133,7 @@ export default function ReviewForm({
           >
             <DialogPanel className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
               <DialogTitle className="text-lg font-bold text-gray-900 mb-1">
-                후기 작성
+                {editingId != null ? '후기 수정' : '후기 작성'}
               </DialogTitle>
               <p className="text-sm text-gray-500 mb-5">{courseName}</p>
 
@@ -147,10 +185,12 @@ export default function ReviewForm({
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={submitting}
+                  disabled={submitting || loading}
                   className="flex-1 rounded-lg bg-[#2ED573] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#25B866] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  {submitting ? '등록 중...' : '후기 등록'}
+                  {submitting
+                    ? editingId != null ? '수정 중...' : '등록 중...'
+                    : editingId != null ? '후기 수정' : '후기 등록'}
                 </button>
               </div>
             </DialogPanel>

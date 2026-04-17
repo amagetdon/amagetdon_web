@@ -132,7 +132,7 @@ function CourseDetailPage() {
         user.id,
         { courseId },
         course.title,
-        course.duration_days
+        null
       )
       toast.success('강의가 등록되었습니다!')
       setOwned(true)
@@ -154,7 +154,7 @@ function CourseDetailPage() {
         { courseId },
         course.title,
         finalPrice,
-        course.duration_days,
+        null,
         selectedCoupon?.id,
         selectedCoupon ? price : undefined
       )

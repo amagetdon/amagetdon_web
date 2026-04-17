@@ -19,11 +19,13 @@ interface CurriculumItem {
 
 interface CoursePurchase {
   id: number
+  purchased_at: string | null
   expires_at: string | null
   course: {
     id: number
     title: string
     thumbnail_url: string | null
+    enrollment_deadline: string | null
     instructor: { id: number; name: string } | null
     curriculum_items: CurriculumItem[]
   } | null
@@ -31,6 +33,7 @@ interface CoursePurchase {
 
 interface EbookPurchase {
   id: number
+  purchased_at: string | null
   expires_at: string | null
   ebook: {
     id: number
@@ -39,6 +42,21 @@ interface EbookPurchase {
     file_url: string | null
     instructor: { id: number; name: string } | null
   } | null
+}
+
+const formatKoDateTime = (iso: string | null | undefined) => {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '-'
+  return d.toLocaleString('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
 }
 
 type TabType = 'all' | 'courses' | 'ebooks'
@@ -164,14 +182,15 @@ function MyClassroomPage() {
       await progressService.toggleCompleted(user.id, courseId, itemId, newIsCompleted)
       const completion = await progressService.getCourseCompletion(user.id, courseId)
       setCompletionRates((prev) => ({ ...prev, [courseId]: completion }))
-    } catch {
+    } catch (err) {
       setCompletedItems((prev) => {
         const rollback = new Set(prev[courseId] ?? new Set<number>())
         if (newIsCompleted) rollback.delete(itemId)
         else rollback.add(itemId)
         return { ...prev, [courseId]: rollback }
       })
-      toast.error('진도 업데이트에 실패했습니다.')
+      const message = err instanceof Error ? err.message : '진도 업데이트에 실패했습니다.'
+      toast.error(message)
     } finally {
       setTogglingItems((prev) => {
         const next = new Set(prev)
@@ -194,8 +213,8 @@ function MyClassroomPage() {
   const renderCourse = (purchase: CoursePurchase) => {
     const course = purchase.course
     if (!course) return null
-    const dDay = getDDay(purchase.expires_at)
-    const expired = isExpired(purchase.expires_at)
+    const dDay = getDDay(course.enrollment_deadline)
+    const expired = isExpired(course.enrollment_deadline)
     const courseCompleted = completedItems[course.id] ?? new Set<number>()
     const completionRate = completionRates[course.id] ?? 0
 
@@ -220,6 +239,10 @@ function MyClassroomPage() {
             </div>
             <h2 className="text-xl font-bold whitespace-pre-line">{course.title}</h2>
             <p className="text-sm text-gray-400 mt-1">{course.instructor?.name} 강사</p>
+            <div className="flex flex-col gap-0.5 text-xs text-gray-400 mt-2">
+              <span>최초 수강일: {formatKoDateTime(purchase.purchased_at)}</span>
+              <span>수강 만료일: {course.enrollment_deadline ? formatKoDateTime(course.enrollment_deadline) : '무제한'}</span>
+            </div>
             {course.curriculum_items.length > 0 && (
               <div className="mt-3">
                 <ProgressBar value={completionRate} size="sm" />
@@ -232,16 +255,12 @@ function MyClassroomPage() {
               >
                 강의 상세보기
               </button>
-              {reviewedCourses.has(course.id) ? (
-                <span className="text-xs text-gray-400 bg-gray-100 px-4 py-2 rounded-lg">후기 작성완료</span>
-              ) : (
-                <button
-                  onClick={() => setReviewTarget({ courseId: course.id, courseName: course.title })}
-                  className="bg-white border border-gray-300 text-gray-700 font-medium px-4 py-2 rounded-lg hover:border-[#2ED573] hover:text-[#2ED573] transition cursor-pointer text-sm"
-                >
-                  후기 작성
-                </button>
-              )}
+              <button
+                onClick={() => setReviewTarget({ courseId: course.id, courseName: course.title })}
+                className="bg-white border border-gray-300 text-gray-700 font-medium px-4 py-2 rounded-lg hover:border-[#2ED573] hover:text-[#2ED573] transition cursor-pointer text-sm"
+              >
+                {reviewedCourses.has(course.id) ? '후기 수정하기' : '후기 작성'}
+              </button>
             </div>
           </div>
         </div>
@@ -278,7 +297,11 @@ function MyClassroomPage() {
                   <button
                     onClick={() => {
                       if (expired) { toast.error('수강 기간이 만료되었습니다.'); return }
-                      if (item.video_url) setPlayingVideo({ url: item.video_url, title: item.label })
+                      if (!item.video_url) return
+                      setPlayingVideo({ url: item.video_url, title: item.label })
+                      if (user) {
+                        progressService.markWatched(user.id, course.id, item.id).catch(() => {})
+                      }
                     }}
                     disabled={!item.video_url}
                     className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
@@ -326,6 +349,10 @@ function MyClassroomPage() {
           </div>
           <h2 className="text-xl font-bold whitespace-pre-line">{ebook.title}</h2>
           <p className="text-sm text-gray-400 mt-1">{ebook.instructor?.name} 강사</p>
+          <div className="flex flex-col gap-0.5 text-xs text-gray-400 mt-2">
+            <span>최초 수강일: {formatKoDateTime(purchase.purchased_at)}</span>
+            <span>수강 만료일: {purchase.expires_at ? formatKoDateTime(purchase.expires_at) : '무제한'}</span>
+          </div>
           <div className="flex gap-2 mt-4 flex-wrap">
             <button
               onClick={() => navigate(`/ebook/${ebook.id}`)}

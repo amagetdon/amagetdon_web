@@ -61,6 +61,31 @@ export const progressService = {
     if (error) throw error
   },
 
+  async markWatched(userId: string, courseId: number, curriculumItemId: number): Promise<void> {
+    const { data: existing } = await supabase
+      .from('course_progress')
+      .select('is_completed, completed_at')
+      .eq('user_id', userId)
+      .eq('curriculum_item_id', curriculumItemId)
+      .maybeSingle()
+
+    const row = existing as { is_completed: boolean; completed_at: string | null } | null
+    const { error } = await supabase
+      .from('course_progress')
+      .upsert(
+        {
+          user_id: userId,
+          course_id: courseId,
+          curriculum_item_id: curriculumItemId,
+          is_completed: row?.is_completed ?? false,
+          completed_at: row?.completed_at ?? null,
+          last_watched_at: new Date().toISOString(),
+        } as never,
+        { onConflict: 'user_id,curriculum_item_id' }
+      )
+    if (error) throw error
+  },
+
   async getCourseCompletion(userId: string, courseId: number): Promise<number> {
     const { data: items, error: itemsError } = await supabase
       .from('curriculum_items')

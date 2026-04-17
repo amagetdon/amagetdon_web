@@ -39,6 +39,10 @@ export default function AdminMembers() {
   const [pointLogPage, setPointLogPage] = useState(0)
   const [purchasePage, setPurchasePage] = useState(0)
   const [couponPage, setCouponPage] = useState(0)
+  const [progressRecords, setProgressRecords] = useState<{ id: number; is_completed: boolean; completed_at: string | null; last_watched_at: string; course: { id: number; title: string } | null; curriculum_item: { id: number; label: string; week: number | null } | null }[]>([])
+  const [memberReviews, setMemberReviews] = useState<{ id: number; title: string; content: string; rating: number; created_at: string; course: { id: number; title: string } | null }[]>([])
+  const [progressPage, setProgressPage] = useState(0)
+  const [reviewsPage, setReviewsPage] = useState(0)
 
   const fetchData = async () => {
     try {
@@ -85,8 +89,12 @@ export default function AdminMembers() {
     setPointLogPage(0)
     setPurchasePage(0)
     setCouponPage(0)
+    setProgressPage(0)
+    setReviewsPage(0)
     setMemberCoupons([])
-    const [purchaseRes, pointLogRes, couponRes] = await Promise.all([
+    setProgressRecords([])
+    setMemberReviews([])
+    const [purchaseRes, pointLogRes, couponRes, progressRes, reviewRes] = await Promise.all([
       supabase
         .from('purchases')
         .select('id, title, original_price, price, purchased_at, expires_at, coupon_id, payment_method, payment_key')
@@ -103,6 +111,17 @@ export default function AdminMembers() {
         .select('id, coupon_id, used_at, claimed_at, coupons(*)')
         .eq('user_id', member.id)
         .order('claimed_at', { ascending: false }),
+      supabase
+        .from('course_progress')
+        .select('id, is_completed, completed_at, last_watched_at, course:courses(id, title), curriculum_item:curriculum_items(id, label, week)')
+        .eq('user_id', member.id)
+        .order('last_watched_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('reviews')
+        .select('id, title, content, rating, created_at, course:courses(id, title)')
+        .eq('user_id', member.id)
+        .order('created_at', { ascending: false }),
     ])
     setPurchases((purchaseRes.data as typeof purchases) || [])
     setPointLogs((pointLogRes.data as PointLog[]) || [])
@@ -114,6 +133,8 @@ export default function AdminMembers() {
         claimed_at: d.claimed_at,
       }))
     )
+    setProgressRecords((progressRes.data as typeof progressRecords) || [])
+    setMemberReviews((reviewRes.data as typeof memberReviews) || [])
   }
 
   // 수기 부여 모달 열 때 강의/전자책 목록 로드
@@ -138,8 +159,13 @@ export default function AdminMembers() {
       const itemId = Number(grantItemId)
       const items = grantType === 'course' ? allCourses : allEbooks
       const item = items.find((i) => i.id === itemId)
-      const days = Number(grantDays) || item?.duration_days || 365
-      const expiresAt = new Date(Date.now() + days * 86400000).toISOString()
+      let expiresAt: string | null = null
+      if (grantType === 'ebook') {
+        const days = Number(grantDays)
+        expiresAt = days > 0
+          ? new Date(Date.now() + days * 86400000).toISOString()
+          : null
+      }
 
       const { error } = await supabase.from('purchases').insert({
         user_id: viewing.id,
@@ -772,6 +798,89 @@ export default function AdminMembers() {
                   )
                 })()}
 
+                {/* 최근 수강 내역 */}
+                {(() => {
+                  const perPage = 5
+                  const totalPages = Math.max(1, Math.ceil(progressRecords.length / perPage))
+                  const paged = progressRecords.slice(progressPage * perPage, (progressPage + 1) * perPage)
+                  return (
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-bold text-gray-900">최근 수강 내역 ({progressRecords.length}건)</h3>
+                        {totalPages > 1 && (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setProgressPage((p) => Math.max(0, p - 1))} disabled={progressPage === 0} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"><i className="ti ti-chevron-left text-xs" /></button>
+                            <span className="text-[10px] text-gray-400">{progressPage + 1}/{totalPages}</span>
+                            <button onClick={() => setProgressPage((p) => Math.min(totalPages - 1, p + 1))} disabled={progressPage >= totalPages - 1} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"><i className="ti ti-chevron-right text-xs" /></button>
+                          </div>
+                        )}
+                      </div>
+                      {progressRecords.length > 0 ? (
+                        <div className="space-y-2">
+                          {paged.map((r) => (
+                            <div key={r.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${r.is_completed ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-500'}`}>
+                                  {r.is_completed ? '완료' : '진행중'}
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-gray-700 truncate">{r.course?.title || '-'}</p>
+                                  <p className="text-[10px] text-gray-400 truncate">
+                                    {r.curriculum_item?.week ? `[${r.curriculum_item.week}주차] ` : ''}{r.curriculum_item?.label || '-'}
+                                  </p>
+                                </div>
+                              </div>
+                              <span className="text-xs text-gray-400 shrink-0 ml-3">{formatDate(r.last_watched_at)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 text-center py-4">수강 내역이 없습니다.</p>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* 작성한 후기 내역 */}
+                {(() => {
+                  const perPage = 3
+                  const totalPages = Math.max(1, Math.ceil(memberReviews.length / perPage))
+                  const paged = memberReviews.slice(reviewsPage * perPage, (reviewsPage + 1) * perPage)
+                  return (
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-bold text-gray-900">작성한 후기 ({memberReviews.length}건)</h3>
+                        {totalPages > 1 && (
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setReviewsPage((p) => Math.max(0, p - 1))} disabled={reviewsPage === 0} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"><i className="ti ti-chevron-left text-xs" /></button>
+                            <span className="text-[10px] text-gray-400">{reviewsPage + 1}/{totalPages}</span>
+                            <button onClick={() => setReviewsPage((p) => Math.min(totalPages - 1, p + 1))} disabled={reviewsPage >= totalPages - 1} className="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:text-gray-700 bg-transparent border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"><i className="ti ti-chevron-right text-xs" /></button>
+                          </div>
+                        )}
+                      </div>
+                      {memberReviews.length > 0 ? (
+                        <div className="space-y-2">
+                          {paged.map((rv) => (
+                            <div key={rv.id} className="py-2 px-3 bg-gray-50 rounded-lg">
+                              <div className="flex items-center justify-between gap-2 mb-1">
+                                <div className="flex items-center gap-2 min-w-0 flex-1">
+                                  <span className="text-yellow-400 text-xs shrink-0">{'★'.repeat(rv.rating)}{'☆'.repeat(5 - rv.rating)}</span>
+                                  <span className="text-xs text-gray-500 truncate">{rv.course?.title || '-'}</span>
+                                </div>
+                                <span className="text-[10px] text-gray-400 shrink-0">{formatDate(rv.created_at)}</span>
+                              </div>
+                              <p className="text-sm font-medium text-gray-800 truncate">{rv.title}</p>
+                              <p className="text-xs text-gray-500 line-clamp-2 mt-0.5">{rv.content}</p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 text-center py-4">작성한 후기가 없습니다.</p>
+                      )}
+                    </div>
+                  )
+                })()}
+
                 <button
                   onClick={() => setViewing(null)}
                   className="mt-6 w-full py-2 bg-gray-100 text-gray-600 rounded-lg cursor-pointer border-none text-sm hover:bg-gray-200"
@@ -810,7 +919,7 @@ export default function AdminMembers() {
                   setGrantItemId(e.target.value)
                   const items = grantType === 'course' ? allCourses : allEbooks
                   const item = items.find((i) => i.id === Number(e.target.value))
-                  if (item) setGrantDays(String(item.duration_days || 365))
+                  if (item) setGrantDays(String(item.duration_days ?? 0))
                 }}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] bg-white cursor-pointer"
               >
@@ -821,12 +930,17 @@ export default function AdminMembers() {
               </select>
 
               <div>
-                <label className="text-xs font-bold text-gray-600 block mb-1">수강 기간 (일)</label>
+                <label className="text-xs font-bold text-gray-600 block mb-1">
+                  {grantType === 'course' ? '수강 기간 (강의 마감일까지)' : '열람 기간 (일)'}
+                </label>
                 <input
                   type="number"
-                  value={grantDays}
+                  min={0}
+                  value={grantType === 'course' ? '' : grantDays}
                   onChange={(e) => setGrantDays(e.target.value)}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573]"
+                  disabled={grantType === 'course'}
+                  placeholder={grantType === 'course' ? '강의 마감일 기준' : '0 = 무제한'}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] disabled:bg-gray-100 disabled:text-gray-400"
                 />
               </div>
 

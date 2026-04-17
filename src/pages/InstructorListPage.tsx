@@ -1,16 +1,35 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useInstructors } from '../hooks/useInstructors'
+import { supabase } from '../lib/supabase'
 
 type FilterTab = 'all' | 'active'
 
 function InstructorListPage() {
   const { instructors, loading } = useInstructors()
   const [activeTab, setActiveTab] = useState<FilterTab>('all')
+  const [activeInstructorIds, setActiveInstructorIds] = useState<Set<number>>(new Set())
+
+  useEffect(() => {
+    const nowIso = new Date().toISOString()
+    Promise.resolve(
+      supabase
+        .from('courses')
+        .select('instructor_id, enrollment_deadline')
+        .eq('is_published', true)
+        .or(`enrollment_deadline.is.null,enrollment_deadline.gt.${nowIso}`)
+    ).then(({ data }) => {
+      const ids = new Set<number>()
+      for (const row of (data ?? []) as { instructor_id: number | null }[]) {
+        if (row.instructor_id != null) ids.add(row.instructor_id)
+      }
+      setActiveInstructorIds(ids)
+    }).catch(() => setActiveInstructorIds(new Set()))
+  }, [])
 
   const filteredInstructors = useMemo(() =>
-    activeTab === 'all' ? instructors : instructors.filter((i) => i.has_active_course),
-    [activeTab, instructors]
+    activeTab === 'all' ? instructors : instructors.filter((i) => activeInstructorIds.has(i.id)),
+    [activeTab, instructors, activeInstructorIds]
   )
 
   return (

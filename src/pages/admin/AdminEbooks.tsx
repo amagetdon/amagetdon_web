@@ -11,6 +11,14 @@ import { instructorService } from '../../services/instructorService'
 import { storageService } from '../../services/storageService'
 import type { EbookWithInstructor, Instructor } from '../../types'
 
+const toKstDatetimeLocal = (iso: string | null | undefined) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000)
+  return kst.toISOString().slice(0, 16)
+}
+
 export default function AdminEbooks() {
   const [ebooks, setEbooks] = useState<EbookWithInstructor[]>([])
   const [instructors, setInstructors] = useState<Instructor[]>([])
@@ -86,7 +94,7 @@ export default function AdminEbooks() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">전자책 관리</h1>
-        <button onClick={() => setEditing({ title: '', instructor_id: null, is_free: false, is_hot: false, original_price: null, sale_price: null, is_published: true, duration_days: 30 })}
+        <button onClick={() => setEditing({ title: '', instructor_id: null, is_free: false, is_hot: false, original_price: null, sale_price: null, is_published: true, duration_days: 0 })}
           className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 전자책 추가</button>
       </div>
 
@@ -167,16 +175,18 @@ export default function AdminEbooks() {
                 className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">오픈일</label>
-              <input type="date" value={(editing.open_date as string)?.slice(0, 10) || ''}
-                onChange={(e) => setEditing({ ...editing, open_date: e.target.value ? e.target.value + 'T00:00:00+09:00' : null })}
+              <label className="text-sm font-bold block mb-1">오픈일시</label>
+              <input type="datetime-local" value={toKstDatetimeLocal(editing.open_date as string)}
+                onChange={(e) => setEditing({ ...editing, open_date: e.target.value ? e.target.value + ':00+09:00' : null })}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+              <p className="text-xs text-gray-400 mt-1">미 표기시 바로 오픈됩니다.</p>
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">마감일</label>
-              <input type="date" value={(editing.close_date as string)?.slice(0, 10) || ''}
-                onChange={(e) => setEditing({ ...editing, close_date: e.target.value ? e.target.value + 'T23:59:59+09:00' : null })}
+              <label className="text-sm font-bold block mb-1">마감일시</label>
+              <input type="datetime-local" value={toKstDatetimeLocal(editing.close_date as string)}
+                onChange={(e) => setEditing({ ...editing, close_date: e.target.value ? e.target.value + ':00+09:00' : null })}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+              <p className="text-xs text-gray-400 mt-1">미 표기시 계속 노출됩니다.</p>
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">표지 이미지</label>
@@ -190,10 +200,11 @@ export default function AdminEbooks() {
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">열람 기간 (일)</label>
-              <input type="number" value={(editing.duration_days as number) ?? ''}
-                onChange={(e) => setEditing({ ...editing, duration_days: e.target.value ? Number(e.target.value) : null })}
-                placeholder="예: 30"
+              <input type="number" min={0} value={(editing.duration_days as number) ?? 0}
+                onChange={(e) => setEditing({ ...editing, duration_days: e.target.value === '' ? 0 : Number(e.target.value) })}
+                placeholder="0"
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+              <p className="text-xs text-gray-400 mt-1">0일로 설정 시 무제한</p>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">PDF 파일</label>

@@ -116,21 +116,16 @@ Deno.serve(async (req: Request) => {
 
     if (itemType === 'course' && itemId) {
       courseId = itemId
-      const { data: course } = await supabase.from('courses').select('title, duration_days').eq('id', itemId).maybeSingle()
+      const { data: course } = await supabase.from('courses').select('title').eq('id', itemId).maybeSingle()
       if (course) {
         title = course.title
-        if (course.duration_days) {
-          const expires = new Date()
-          expires.setDate(expires.getDate() + course.duration_days)
-          expiresAt = expires.toISOString()
-        }
       }
     } else if (itemType === 'ebook' && itemId) {
       ebookId = itemId
       const { data: ebook } = await supabase.from('ebooks').select('title, duration_days').eq('id', itemId).maybeSingle()
       if (ebook) {
         title = ebook.title
-        if (ebook.duration_days) {
+        if (ebook.duration_days && ebook.duration_days > 0) {
           const expires = new Date()
           expires.setDate(expires.getDate() + ebook.duration_days)
           expiresAt = expires.toISOString()

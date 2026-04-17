@@ -22,6 +22,14 @@ interface CurriculumItem {
   sort_order: number
 }
 
+const toKstDatetimeLocal = (iso: string | null | undefined) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000)
+  return kst.toISOString().slice(0, 16)
+}
+
 export default function AdminCourses() {
   const [courses, setCourses] = useState<CourseWithInstructor[]>([])
   const [instructors, setInstructors] = useState<Instructor[]>([])
@@ -104,7 +112,6 @@ export default function AdminCourses() {
         landing_image_url: editing.landing_image_url ?? null,
         video_url: editing.video_url ?? null,
         enrollment_deadline: editing.enrollment_deadline ?? null,
-        duration_days: editing.duration_days ?? 30,
         is_published: editing.is_published !== false,
         sort_order: editing.sort_order ?? 0,
         description: editing.description ?? null,
@@ -324,16 +331,18 @@ export default function AdminCourses() {
                 className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">오픈일</label>
-              <input type="date" value={(editing.enrollment_start as string)?.slice(0, 10) || ''}
-                onChange={(e) => setEditing({ ...editing, enrollment_start: e.target.value ? e.target.value + 'T00:00:00+09:00' : null })}
+              <label className="text-sm font-bold block mb-1">오픈일시</label>
+              <input type="datetime-local" value={toKstDatetimeLocal(editing.enrollment_start as string)}
+                onChange={(e) => setEditing({ ...editing, enrollment_start: e.target.value ? e.target.value + ':00+09:00' : null })}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+              <p className="text-xs text-gray-400 mt-1">미 표기시 바로 오픈됩니다.</p>
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">마감일</label>
-              <input type="date" value={(editing.enrollment_deadline as string)?.slice(0, 10) || ''}
-                onChange={(e) => setEditing({ ...editing, enrollment_deadline: e.target.value ? e.target.value + 'T23:59:59+09:00' : null })}
+              <label className="text-sm font-bold block mb-1">마감일시</label>
+              <input type="datetime-local" value={toKstDatetimeLocal(editing.enrollment_deadline as string)}
+                onChange={(e) => setEditing({ ...editing, enrollment_deadline: e.target.value ? e.target.value + ':00+09:00' : null })}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+              <p className="text-xs text-gray-400 mt-1">미 표기시 계속 노출됩니다. 마감일시 이후에는 구매한 회원도 강의를 시청할 수 없습니다.</p>
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">썸네일 이미지</label>
