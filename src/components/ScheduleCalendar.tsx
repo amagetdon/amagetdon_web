@@ -53,6 +53,8 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
     else setCurrentMonth(currentMonth + 1)
   }
 
+  const isPastSchedule = (dateStr: string) => new Date(dateStr).getTime() < today.getTime()
+
   const formatScheduleDate = (dateStr: string) => {
     const d = new Date(dateStr)
     const weekdays = ['일', '월', '화', '수', '목', '금', '토']
@@ -128,26 +130,43 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
                 이번 달 예정된 강의가 없습니다.
               </div>
             ) : (
-              schedules.map((item) => (
-                <div key={item.id} className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gray-200 rounded-full shrink-0 overflow-hidden" />
-                  <div className="flex-1">
-                    <p className="text-xs text-[#2ED573] font-bold mb-1">{formatScheduleDate(item.scheduled_at)}</p>
-                    <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-gray-400">{item.instructor?.name ? `${item.instructor.name} 강사` : ''}</p>
+              schedules.map((item) => {
+                const ended = isPastSchedule(item.scheduled_at)
+                return (
+                  <div key={item.id} className={`flex items-start gap-4 ${ended ? 'opacity-60' : ''}`}>
+                    <div className="w-12 h-12 bg-gray-200 rounded-full shrink-0 overflow-hidden">
+                      {item.instructor?.image_url || item.instructor?.thumbnail_url ? (
+                        <img
+                          src={item.instructor.image_url || item.instructor.thumbnail_url || ''}
+                          alt={item.instructor.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`text-xs font-bold mb-1 ${ended ? 'text-gray-400 line-through' : 'text-[#2ED573]'}`}>
+                        {formatScheduleDate(item.scheduled_at)}
+                      </p>
+                      <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 ${ended ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                        {item.title}
+                      </p>
+                      <p className={`text-xs ${ended ? 'text-gray-300 line-through' : 'text-gray-400'}`}>
+                        {item.instructor?.name ? `${item.instructor.name} 강사` : ''}
+                      </p>
+                    </div>
+                    {item.course_id && (
+                      <button
+                        onClick={() => navigate(`/course/${item.course_id}`)}
+                        className={`shrink-0 px-4 py-2 text-xs rounded-md cursor-pointer border-none ${
+                          ended ? 'bg-gray-400 text-white' : 'bg-gray-900 text-white'
+                        }`}
+                      >
+                        {ended ? '종료됨' : '강의 안내 >'}
+                      </button>
+                    )}
                   </div>
-                  {item.course_id && (
-                    <button
-                      onClick={() => navigate(`/course/${item.course_id}`)}
-                      className="shrink-0 px-4 py-2 bg-gray-900 text-white text-xs rounded-md cursor-pointer border-none"
-                    >
-                      강의 안내 &gt;
-                    </button>
-                  )}
-                </div>
-              ))
+                )
+              })
             )}
           </div>
         </div>

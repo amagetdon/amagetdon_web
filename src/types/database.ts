@@ -318,7 +318,7 @@ export interface Schedule {
 
 export interface ScheduleWithDetails extends Schedule {
   course: Pick<Course, 'id' | 'title'> | null
-  instructor: Pick<Instructor, 'id' | 'name'> | null
+  instructor: Pick<Instructor, 'id' | 'name' | 'image_url' | 'thumbnail_url'> | null
 }
 
 export interface Faq {

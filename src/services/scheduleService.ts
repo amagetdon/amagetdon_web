@@ -15,7 +15,7 @@ export const scheduleService = {
       .select(`
         *,
         course:courses(id, title),
-        instructor:instructors(id, name)
+        instructor:instructors(id, name, image_url, thumbnail_url)
       `)
       .gte('scheduled_at', startDate)
       .lte('scheduled_at', endDate)
