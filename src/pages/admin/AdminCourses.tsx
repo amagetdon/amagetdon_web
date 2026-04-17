@@ -150,7 +150,7 @@ export default function AdminCourses() {
                     <SortHeader label="강사" k="instructor" className="text-left max-sm:hidden" />
                     <SortHeader label="유형" k="type" className="text-center" />
                     <SortHeader label="가격" k="price" className="text-center max-md:hidden" />
-                    <SortHeader label="수강생" k="enrollments" className="text-center max-md:hidden" />
+                    <SortHeader label="수강생 / 정원" k="enrollments" className="text-center max-md:hidden" />
                     <SortHeader label="후기" k="reviews" className="text-center max-md:hidden" />
                     <SortHeader label="평점" k="rating" className="text-center max-md:hidden" />
                     <SortHeader label="등록일" k="created" className="text-center max-lg:hidden" />
@@ -184,7 +184,7 @@ export default function AdminCourses() {
                         {course.course_type === 'free' ? '무료' : course.sale_price ? `${course.sale_price.toLocaleString()}원` : '-'}
                       </td>
                       <td className="px-4 py-3 text-center text-gray-700 text-xs max-md:hidden">
-                        {s.enrollmentCount.toLocaleString()}명
+                        {s.enrollmentCount.toLocaleString()} / {course.max_enrollments != null && course.max_enrollments > 0 ? `${course.max_enrollments.toLocaleString()}명` : '무제한'}
                       </td>
                       <td className="px-4 py-3 text-center text-gray-700 text-xs max-md:hidden">
                         {s.reviewCount.toLocaleString()}개
