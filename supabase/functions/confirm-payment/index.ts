@@ -114,19 +114,20 @@ Deno.serve(async (req: Request) => {
     let ebookId: number | null = null
     let expiresAt: string | null = null
 
-    let courseRewardPoints = 0
+    let rewardPoints = 0
     if (itemType === 'course' && itemId) {
       courseId = itemId
       const { data: course } = await supabase.from('courses').select('title, reward_points').eq('id', itemId).maybeSingle()
       if (course) {
         title = course.title
-        courseRewardPoints = course.reward_points ?? 0
+        rewardPoints = course.reward_points ?? 0
       }
     } else if (itemType === 'ebook' && itemId) {
       ebookId = itemId
-      const { data: ebook } = await supabase.from('ebooks').select('title, duration_days').eq('id', itemId).maybeSingle()
+      const { data: ebook } = await supabase.from('ebooks').select('title, duration_days, reward_points').eq('id', itemId).maybeSingle()
       if (ebook) {
         title = ebook.title
+        rewardPoints = ebook.reward_points ?? 0
         if (ebook.duration_days && ebook.duration_days > 0) {
           const expires = new Date()
           expires.setDate(expires.getDate() + ebook.duration_days)
@@ -169,15 +170,15 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    // 강의 수강 포인트 지급 (실패해도 구매는 유효)
-    if (courseRewardPoints > 0) {
+    // 수강/구매 적립 포인트 지급 (실패해도 구매는 유효)
+    if (rewardPoints > 0) {
       try {
-        await supabase.rpc('add_points', { user_id_input: user.id, amount_input: courseRewardPoints })
+        await supabase.rpc('add_points', { user_id_input: user.id, amount_input: rewardPoints })
         const { data: freshProfile } = await supabase.from('profiles').select('points').eq('id', user.id).single()
         await supabase.rpc('insert_point_log', {
           p_user_id: user.id,
-          p_amount: courseRewardPoints,
-          p_balance: freshProfile?.points ?? courseRewardPoints,
+          p_amount: rewardPoints,
+          p_balance: freshProfile?.points ?? rewardPoints,
           p_type: 'charge',
           p_memo: `${title} 수강 적립`,
         })

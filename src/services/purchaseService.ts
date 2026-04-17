@@ -143,7 +143,7 @@ export const purchaseService = {
     }
 
     // 6. 강의 수강 포인트 지급
-    await grantCourseRewardPoints(userId, item.courseId, title)
+    await grantPurchaseRewardPoints(userId, item.courseId, item.ebookId, title)
   },
 
   async enrollFree(
@@ -173,14 +173,16 @@ export const purchaseService = {
       } as never)
     if (error) throw error
 
-    await grantCourseRewardPoints(userId, item.courseId, title)
+    await grantPurchaseRewardPoints(userId, item.courseId, item.ebookId, title)
   },
 }
 
-async function grantCourseRewardPoints(userId: string, courseId: number | null | undefined, title: string) {
-  if (!courseId) return
+async function grantPurchaseRewardPoints(userId: string, courseId: number | null | undefined, ebookId: number | null | undefined, title: string) {
+  if (!courseId && !ebookId) return
   try {
-    const { data } = await supabase.from('courses').select('reward_points').eq('id', courseId).maybeSingle()
+    const table = courseId ? 'courses' : 'ebooks'
+    const targetId = courseId ?? ebookId!
+    const { data } = await supabase.from(table).select('reward_points').eq('id', targetId).maybeSingle()
     const reward = (data as { reward_points?: number } | null)?.reward_points ?? 0
     if (reward > 0) {
       await supabase.rpc('add_points', { user_id_input: userId, amount_input: reward } as never)

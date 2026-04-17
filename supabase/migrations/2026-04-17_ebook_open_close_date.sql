@@ -1,0 +1,4 @@
+-- 전자책 오픈/마감일 컬럼 추가
+ALTER TABLE ebooks
+  ADD COLUMN IF NOT EXISTS open_date TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS close_date TIMESTAMPTZ;

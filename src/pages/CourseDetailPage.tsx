@@ -513,7 +513,7 @@ function CourseDetailPage() {
 
       {/* 리뷰 섹션 */}
       {course.reviews_enabled !== false && (
-        <section className="w-full bg-gray-50 py-10">
+        <section className="w-full bg-gray-50 py-16">
           <div className="max-w-[1200px] mx-auto px-5">
             <CourseReviewSection courseId={course.id} courseName={course.title} />
           </div>

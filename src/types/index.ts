@@ -28,4 +28,5 @@ export type {
   LandingCategory,
   LandingCategorySeo,
   CourseSeo,
+  EbookSeo,
 } from './database'

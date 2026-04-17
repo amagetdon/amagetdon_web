@@ -8,6 +8,7 @@ import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
 import CouponSelector from '../components/CouponSelector'
+import SeoHead from '../components/SeoHead'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
 import type { EbookWithInstructor, Coupon } from '../types'
@@ -28,6 +29,24 @@ function EbookDetailPage() {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
   const [tossLoading, setTossLoading] = useState(false)
+  const [relatedEbooks, setRelatedEbooks] = useState<Array<{ id: number; title: string; thumbnail_url: string | null; sale_price: number | null; is_free: boolean }>>([])
+
+  useEffect(() => {
+    if (!ebook?.related_ebook_ids || ebook.related_ebook_ids.length === 0) {
+      setRelatedEbooks([])
+      return
+    }
+    let cancelled = false
+    supabase
+      .from('ebooks')
+      .select('id, title, thumbnail_url, sale_price, is_free')
+      .in('id', ebook.related_ebook_ids)
+      .eq('is_published', true)
+      .then(({ data }) => {
+        if (!cancelled) setRelatedEbooks((data ?? []) as typeof relatedEbooks)
+      })
+    return () => { cancelled = true }
+  }, [ebook?.related_ebook_ids])
 
   useEffect(() => {
     if (!id) return
@@ -76,7 +95,16 @@ function EbookDetailPage() {
   }, [user])
 
   const isFree = ebook?.is_free === true
-  const price = isFree ? 0 : (ebook?.sale_price ?? 0)
+  const now = Date.now()
+  const discountActive = !!ebook && !isFree && (
+    !ebook.discount_start && !ebook.discount_end ? true :
+    (!ebook.discount_start || new Date(ebook.discount_start).getTime() <= now) &&
+    (!ebook.discount_end || new Date(ebook.discount_end).getTime() > now)
+  )
+  const displayedPrice = isFree ? 0
+    : discountActive && ebook?.sale_price != null ? ebook.sale_price
+    : ebook?.original_price ?? ebook?.sale_price ?? 0
+  const price = displayedPrice
   const couponDiscount = selectedCoupon && price >= (selectedCoupon.min_purchase || 0)
     ? selectedCoupon.discount_type === 'percent'
       ? Math.min(
@@ -222,6 +250,13 @@ function EbookDetailPage() {
   }
 
   const renderActionButton = () => {
+    if (ebook && ebook.is_on_sale === false && !owned) {
+      return (
+        <button disabled className="w-full py-4 bg-gray-300 text-white font-bold text-center rounded-xl mt-6 cursor-not-allowed border-none">
+          판매 준비 중
+        </button>
+      )
+    }
     if (ownershipLoading) {
       return (
         <button disabled className="w-full py-4 bg-gray-300 text-white font-bold text-center rounded-xl mt-6 cursor-not-allowed border-none">
@@ -254,6 +289,18 @@ function EbookDetailPage() {
 
   return (
     <>
+      <SeoHead override={{
+        title: ebook.seo?.title || ebook.title,
+        description: ebook.seo?.description || undefined,
+        keywords: ebook.seo?.keywords || undefined,
+        author: ebook.seo?.author || undefined,
+        ogTitle: ebook.seo?.ogTitle,
+        ogDescription: ebook.seo?.ogDescription,
+        ogImage: ebook.seo?.ogImage || ebook.thumbnail_url || undefined,
+        twitterTitle: ebook.seo?.twitterTitle,
+        twitterDescription: ebook.seo?.twitterDescription,
+        twitterImage: ebook.seo?.twitterImage || ebook.thumbnail_url || undefined,
+      }} />
       <section className="w-full bg-white py-10">
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="flex gap-8 max-md:flex-col">
@@ -271,6 +318,41 @@ function EbookDetailPage() {
                   <img src={ebook.landing_image_url} alt={ebook.title} className="w-full" />
                 </div>
               )}
+
+              {(ebook.strengths && ebook.strengths.length > 0) || (ebook.features && ebook.features.length > 0) ? (
+                <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-6 mt-6">
+                  {ebook.strengths && ebook.strengths.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6">
+                      <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <i className="ti ti-bolt text-[#2ED573]" /> 강점
+                      </h3>
+                      <ul className="space-y-2">
+                        {ebook.strengths.map((s, idx) => (
+                          <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                            <i className="ti ti-check text-[#2ED573] mt-0.5 shrink-0" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {ebook.features && ebook.features.length > 0 && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-6">
+                      <h3 className="text-base font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <i className="ti ti-star text-[#2ED573]" /> 특징
+                      </h3>
+                      <ul className="space-y-2">
+                        {ebook.features.map((s, idx) => (
+                          <li key={idx} className="text-sm text-gray-700 flex items-start gap-2">
+                            <i className="ti ti-check text-[#2ED573] mt-0.5 shrink-0" />
+                            <span>{s}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
 
             {/* 오른쪽: 정보 */}
@@ -292,13 +374,13 @@ function EbookDetailPage() {
                 <div className="border-t border-gray-200 my-6" />
 
                 <p className="font-bold text-gray-900">가격</p>
-                {ebook.original_price && (
+                {discountActive && ebook.original_price != null && ebook.original_price > 0 && ebook.sale_price != null && ebook.sale_price < ebook.original_price && (
                   <p className="text-sm text-gray-400 line-through mt-2">
                     정가 {ebook.original_price.toLocaleString()}원
                   </p>
                 )}
                 <p className="text-4xl font-extrabold text-gray-900 mt-1">
-                  {ebook.is_free ? '무료' : ebook.sale_price ? `${ebook.sale_price.toLocaleString()}원` : '가격 미정'}
+                  {isFree || displayedPrice === 0 ? '무료' : `${displayedPrice.toLocaleString()}원`}
                 </p>
 
                 {user && profile && !isFree && (
@@ -326,6 +408,32 @@ function EbookDetailPage() {
           </div>
         </div>
       </section>
+
+      {/* 관련 전자책 */}
+      {relatedEbooks.length > 0 && (
+        <section className="w-full bg-white py-12 border-t border-gray-100">
+          <div className="max-w-[1200px] mx-auto px-5">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">관련 전자책</h2>
+            <div className="grid grid-cols-4 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
+              {relatedEbooks.map((re) => (
+                <Link key={re.id} to={`/ebook/${re.id}`} className="no-underline group">
+                  <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
+                    {re.thumbnail_url ? (
+                      <img src={re.thumbnail_url} alt={re.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <span className="text-xs text-gray-400">표지</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1 line-clamp-2">{re.title}</p>
+                  <p className="text-xs text-gray-500">
+                    {re.is_free ? '무료' : re.sale_price ? `${re.sale_price.toLocaleString()}원` : '-'}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* 구매 확인 모달 */}
       <Transition appear show={confirmOpen} as={Fragment}>

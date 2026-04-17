@@ -101,8 +101,8 @@ export default function CourseReviewSection({
   }
 
   return (
-    <section className="mt-16">
-      <div className="flex items-center justify-between mb-6">
+    <section>
+      <div className="flex items-start justify-between mb-6">
         <div>
           <h2 className="text-xl font-bold text-gray-900">수강 후기</h2>
           {totalCount > 0 && (

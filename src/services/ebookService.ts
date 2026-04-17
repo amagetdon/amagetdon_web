@@ -18,6 +18,16 @@ export const ebookService = {
     return setCache(key, data as EbookWithInstructor[])
   },
 
+  async getById(id: number) {
+    const { data, error } = await supabase
+      .from('ebooks')
+      .select('*, instructor:instructors(id, name)')
+      .eq('id', id)
+      .single()
+    if (error) throw error
+    return data as EbookWithInstructor
+  },
+
   async getByInstructor(instructorId: number) {
     const { data, error } = await supabase
       .from('ebooks')

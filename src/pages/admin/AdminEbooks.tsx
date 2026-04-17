@@ -1,86 +1,45 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
 import AdminLayout from '../../components/admin/AdminLayout'
-import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
-import ImageUploader from '../../components/admin/ImageUploader'
 import { ebookService } from '../../services/ebookService'
-import { instructorService } from '../../services/instructorService'
-import { storageService } from '../../services/storageService'
-import type { EbookWithInstructor, Instructor } from '../../types'
+import { supabase } from '../../lib/supabase'
+import type { EbookWithInstructor } from '../../types'
 
-const toKstDatetimeLocal = (iso: string | null | undefined) => {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (isNaN(d.getTime())) return ''
-  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000)
-  return kst.toISOString().slice(0, 16)
+interface EbookStats {
+  buyerCount: number
 }
 
 export default function AdminEbooks() {
+  const navigate = useNavigate()
   const [ebooks, setEbooks] = useState<EbookWithInstructor[]>([])
-  const [instructors, setInstructors] = useState<Instructor[]>([])
+  const [stats, setStats] = useState<Record<number, EbookStats>>({})
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
-  const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [search, setSearch] = useState('')
-  const [pdfUploading, setPdfUploading] = useState(false)
-  const pdfInputRef = useRef<HTMLInputElement>(null)
-
-  const handlePdfUpload = async (file: File) => {
-    if (!editing) return
-    if (file.type !== 'application/pdf') {
-      toast.error('PDF 파일만 업로드할 수 있습니다.')
-      return
-    }
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error('파일 크기는 50MB 이하만 업로드할 수 있습니다.')
-      return
-    }
-    try {
-      setPdfUploading(true)
-      const ebookId = editing.id || `new-${Date.now()}`
-      const ext = file.name.split('.').pop() || 'pdf'
-      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
-      const uploadPath = `${ebookId}/${fileName}`
-      const resultPath = await storageService.uploadFile('ebooks', uploadPath, file)
-      const publicUrl = storageService.getPublicUrl('ebooks', resultPath)
-      setEditing({ ...editing, file_url: publicUrl })
-      toast.success('PDF 파일이 업로드되었습니다.')
-    } catch {
-      toast.error('PDF 업로드에 실패했습니다.')
-    } finally {
-      setPdfUploading(false)
-    }
-  }
 
   const fetchData = async () => {
-    try { setLoading(true); const [e, i] = await withTimeout(Promise.all([ebookService.getAll(), instructorService.getAll()])); setEbooks(e); setInstructors(i) }
-    catch { toast.error('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
+    try {
+      setLoading(true)
+      const [e, purchaseRes] = await withTimeout(Promise.all([
+        ebookService.getAll(),
+        supabase.from('purchases').select('ebook_id').not('ebook_id', 'is', null),
+      ]))
+      setEbooks(e)
+
+      const map: Record<number, EbookStats> = {}
+      for (const row of (purchaseRes.data ?? []) as { ebook_id: number }[]) {
+        map[row.ebook_id] = map[row.ebook_id] ?? { buyerCount: 0 }
+        map[row.ebook_id].buyerCount += 1
+      }
+      setStats(map)
+    } catch { toast.error('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
   }
   useEffect(() => { fetchData() }, [])
   useVisibilityRefresh(fetchData)
-
-  const handleSave = async () => {
-    if (!editing || !editing.title) { toast.error('제목은 필수입니다.'); return }
-    try {
-      setSaving(true)
-      if (editing.id) {
-        const { id, instructor, created_at, updated_at, open_date, close_date, is_new, ...updates } = editing
-        void instructor; void created_at; void updated_at; void open_date; void close_date; void is_new
-        await ebookService.update(id as number, updates); toast.success('전자책이 수정되었습니다.')
-      } else {
-        const { instructor, open_date, close_date, is_new, ...createData } = editing
-        void instructor; void open_date; void close_date; void is_new
-        await ebookService.create(createData)
-        toast.success('새 전자책이 등록되었습니다.')
-      }
-      setEditing(null); await fetchData()
-    } catch { toast.error('저장에 실패했습니다.') } finally { setSaving(false) }
-  }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
@@ -93,8 +52,11 @@ export default function AdminEbooks() {
   return (
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">전자책 관리</h1>
-        <button onClick={() => setEditing({ title: '', instructor_id: null, is_free: false, is_hot: false, original_price: null, sale_price: null, is_published: true, duration_days: 0 })}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">전자책 관리</h1>
+          <p className="text-sm text-gray-500 mt-1">전체 {ebooks.length}개</p>
+        </div>
+        <button onClick={() => navigate('/admin/ebooks/new')}
           className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"><i className="ti ti-plus text-sm" /> 전자책 추가</button>
       </div>
 
@@ -108,159 +70,51 @@ export default function AdminEbooks() {
         <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">{[1, 2, 3].map((i) => <div key={i} className="animate-pulse h-12 bg-gray-100 rounded" />)}</div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50"><tr>
-              <th className="px-4 py-3 text-left font-bold text-gray-600">제목</th>
-              <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">강사</th>
-              <th className="px-4 py-3 text-center font-bold text-gray-600">가격</th>
-              <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
-            </tr></thead>
-            <tbody className="divide-y divide-gray-100">
-              {filtered.length === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 전자책이 없습니다.'}</td></tr>
-              ) : filtered.map((eb) => (
-                <tr key={eb.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{eb.title}{eb.is_hot && <span className="ml-2 text-xs bg-[#2ED573] text-white px-1.5 py-0.5 rounded">HOT</span>}</td>
-                  <td className="px-4 py-3 text-gray-500 max-sm:hidden">{eb.instructor?.name || '-'}</td>
-                  <td className="px-4 py-3 text-center text-gray-500">{eb.is_free ? '무료' : eb.sale_price ? `${eb.sale_price.toLocaleString()}원` : '-'}</td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button onClick={() => setEditing(eb as unknown as Record<string, unknown>)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
-                      <button onClick={() => setDeleteTarget(eb.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50"><tr>
+                <th className="px-4 py-3 text-left font-bold text-gray-600 w-[100px]">표지</th>
+                <th className="px-4 py-3 text-left font-bold text-gray-600">제목</th>
+                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">강사</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">가격</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600 max-md:hidden">구매자 / 정원</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-100">
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 전자책이 없습니다.'}</td></tr>
+                ) : filtered.map((eb) => {
+                  const s = stats[eb.id] ?? { buyerCount: 0 }
+                  return (
+                  <tr key={eb.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/admin/ebooks/${eb.id}`)}>
+                    <td className="px-4 py-2">
+                      <div className="w-[72px] h-[96px] bg-gray-100 rounded-lg overflow-hidden">
+                        {eb.thumbnail_url ? (
+                          <img src={eb.thumbnail_url} alt={eb.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">표지 없음</div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 font-medium">{eb.title}{eb.is_hot && <span className="ml-2 text-xs bg-[#2ED573] text-white px-1.5 py-0.5 rounded">HOT</span>}</td>
+                    <td className="px-4 py-3 text-gray-500 max-sm:hidden">{eb.instructor?.name || '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500">{eb.is_free ? '무료' : eb.sale_price ? `${eb.sale_price.toLocaleString()}원` : '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-700 text-xs max-md:hidden">
+                      {s.buyerCount.toLocaleString()} / {eb.max_purchases != null && eb.max_purchases > 0 ? `${eb.max_purchases.toLocaleString()}명` : '무제한'}
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button onClick={() => navigate(`/admin/ebooks/${eb.id}`)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
+                        <button onClick={() => setDeleteTarget(eb.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                )})}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
-
-      <AdminFormModal isOpen={!!editing} onClose={() => setEditing(null)} title={editing?.id ? '전자책 수정' : '새 전자책 등록'} onSubmit={handleSave} loading={saving}>
-        {editing && (
-          <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
-            <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">제목 *</label>
-              <input value={(editing.title as string) || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">강사</label>
-              <select value={(editing.instructor_id as number) || ''} onChange={(e) => setEditing({ ...editing, instructor_id: e.target.value ? Number(e.target.value) : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all">
-                <option value="">선택</option>
-                {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">유형</label>
-              <select value={editing.is_free ? 'free' : 'paid'} onChange={(e) => {
-                const isFree = e.target.value === 'free'
-                setEditing({ ...editing, is_free: isFree, ...(isFree ? { original_price: 0, sale_price: 0 } : {}) })
-              }} className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all">
-                <option value="free">무료</option>
-                <option value="paid">유료</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">정가 (원)</label>
-              <input type="number" value={editing.is_free ? 0 : (editing.original_price as number) || ''} disabled={!!editing.is_free}
-                onChange={(e) => setEditing({ ...editing, original_price: e.target.value ? Number(e.target.value) : null })}
-                className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">할인가 (원)</label>
-              <input type="number" value={editing.is_free ? 0 : (editing.sale_price as number) || ''} disabled={!!editing.is_free}
-                onChange={(e) => setEditing({ ...editing, sale_price: e.target.value ? Number(e.target.value) : null })}
-                className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${editing.is_free ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">오픈일시</label>
-              <input type="datetime-local" value={toKstDatetimeLocal(editing.open_date as string)}
-                onChange={(e) => setEditing({ ...editing, open_date: e.target.value ? e.target.value + ':00+09:00' : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-              <p className="text-xs text-gray-400 mt-1">미 표기시 바로 오픈됩니다.</p>
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">마감일시</label>
-              <input type="datetime-local" value={toKstDatetimeLocal(editing.close_date as string)}
-                onChange={(e) => setEditing({ ...editing, close_date: e.target.value ? e.target.value + ':00+09:00' : null })}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-              <p className="text-xs text-gray-400 mt-1">미 표기시 계속 노출됩니다.</p>
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">표지 이미지</label>
-              <ImageUploader bucket="ebooks" path={`${editing.id || 'new'}/thumb-${Date.now()}`}
-                currentUrl={editing.thumbnail_url as string} onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })} className="h-[140px]" />
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">랜딩 이미지</label>
-              <ImageUploader bucket="ebooks" path={`${editing.id || 'new'}/landing-${Date.now()}`}
-                currentUrl={editing.landing_image_url as string} onUpload={(url) => setEditing({ ...editing, landing_image_url: url })} className="h-[140px]" />
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">열람 기간 (일)</label>
-              <input type="number" min={0} value={(editing.duration_days as number) ?? 0}
-                onChange={(e) => setEditing({ ...editing, duration_days: e.target.value === '' ? 0 : Number(e.target.value) })}
-                placeholder="0"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-              <p className="text-xs text-gray-400 mt-1">0일로 설정 시 무제한</p>
-            </div>
-            <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">PDF 파일</label>
-              <input
-                ref={pdfInputRef}
-                type="file"
-                accept=".pdf"
-                onChange={(e) => {
-                  const file = e.target.files?.[0]
-                  if (file) handlePdfUpload(file)
-                  e.target.value = ''
-                }}
-                className="hidden"
-              />
-              {(editing.file_url as string) ? (
-                <div className="flex items-center gap-2 p-3 bg-gray-50 rounded-xl border border-gray-200">
-                  <i className="ti ti-file-type-pdf text-red-500 text-xl" />
-                  <a href={editing.file_url as string} target="_blank" rel="noopener noreferrer"
-                    className="text-sm text-blue-500 hover:underline truncate flex-1">
-                    {(editing.file_url as string).split('/').pop()}
-                  </a>
-                  <button type="button" onClick={() => pdfInputRef.current?.click()} disabled={pdfUploading}
-                    className="text-xs bg-white border border-gray-300 rounded-lg px-3 py-1.5 hover:border-[#2ED573] cursor-pointer transition-colors">
-                    {pdfUploading ? '업로드 중...' : '재업로드'}
-                  </button>
-                </div>
-              ) : (
-                <div
-                  onClick={() => !pdfUploading && pdfInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-[#2ED573] transition-colors"
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => { if (e.key === 'Enter') pdfInputRef.current?.click() }}
-                >
-                  {pdfUploading ? (
-                    <div className="w-6 h-6 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>
-                      <i className="ti ti-file-upload text-2xl text-gray-400" />
-                      <p className="text-xs text-gray-400 mt-1">PDF 파일 업로드</p>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-2">뱃지 / 옵션</label>
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#2ED573]" /> HOT</label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#2ED573]" /> NEW</label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" /> 공개</label>
-              </div>
-            </div>
-          </div>
-        )}
-      </AdminFormModal>
 
       <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} title="전자책 삭제" message="이 전자책을 삭제하시겠습니까?" />
     </AdminLayout>

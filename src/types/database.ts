@@ -215,6 +215,19 @@ export interface CurriculumItem {
   created_at: string
 }
 
+export interface EbookSeo {
+  title?: string
+  author?: string
+  description?: string
+  keywords?: string
+  ogTitle?: string
+  ogDescription?: string
+  ogImage?: string
+  twitterTitle?: string
+  twitterDescription?: string
+  twitterImage?: string
+}
+
 export interface Ebook {
   id: number
   instructor_id: number | null
@@ -227,7 +240,19 @@ export interface Ebook {
   is_free: boolean
   is_hot: boolean
   is_published: boolean
+  is_on_sale: boolean
+  open_date: string | null
+  close_date: string | null
   duration_days: number
+  search_keywords: string | null
+  strengths: string[] | null
+  features: string[] | null
+  seo: EbookSeo | null
+  reward_points: number
+  max_purchases: number | null
+  discount_start: string | null
+  discount_end: string | null
+  related_ebook_ids: number[] | null
   sort_order: number
   created_at: string
   updated_at: string

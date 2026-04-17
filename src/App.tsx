@@ -50,6 +50,7 @@ const AdminUtmBuilder = lazy(() => import('./pages/admin/AdminUtmBuilder'))
 const AdminWebhook = lazy(() => import('./pages/admin/AdminWebhook'))
 const AdminPages = lazy(() => import('./pages/admin/AdminPages'))
 const AdminCourseDetail = lazy(() => import('./pages/admin/AdminCourseDetail'))
+const AdminEbookDetail = lazy(() => import('./pages/admin/AdminEbookDetail'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
@@ -155,6 +156,7 @@ function App() {
                 <Route path="/admin/courses" element={<AdminRoute><AdminCourses /></AdminRoute>} />
                 <Route path="/admin/courses/:id" element={<AdminRoute><AdminCourseDetail /></AdminRoute>} />
                 <Route path="/admin/ebooks" element={<AdminRoute><AdminEbooks /></AdminRoute>} />
+                <Route path="/admin/ebooks/:id" element={<AdminRoute><AdminEbookDetail /></AdminRoute>} />
                 <Route path="/admin/reviews" element={<AdminRoute><AdminReviews /></AdminRoute>} />
                 <Route path="/admin/results" element={<AdminRoute><AdminResults /></AdminRoute>} />
                 <Route path="/admin/schedules" element={<AdminRoute><AdminSchedules /></AdminRoute>} />

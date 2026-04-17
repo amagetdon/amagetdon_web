@@ -36,7 +36,7 @@ function SearchPage() {
             .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
             .or(`title.ilike.${keyword},description.ilike.${keyword},search_keywords.ilike.${keyword}`),
           supabase.from('instructors').select('*').or(`name.ilike.${keyword},title.ilike.${keyword},bio.ilike.${keyword}`),
-          supabase.from('ebooks').select('*, instructor:instructors(id, name)').or(`title.ilike.${keyword}`),
+          supabase.from('ebooks').select('*, instructor:instructors(id, name)').or(`title.ilike.${keyword},search_keywords.ilike.${keyword}`),
         ])
 
         if (cancelled) return

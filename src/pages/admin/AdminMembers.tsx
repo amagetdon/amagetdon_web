@@ -22,7 +22,7 @@ export default function AdminMembers() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [viewing, setViewing] = useState<MemberWithPurchases | null>(null)
-  const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null }[]>([])
+  const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null }[]>([])
   const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; newRole: 'user' | 'admin' } | null>(null)
   const [pointLogs, setPointLogs] = useState<PointLog[]>([])
   const [pointForm, setPointForm] = useState({ amount: '', memo: '', type: 'charge' as 'charge' | 'deduct' })
@@ -35,7 +35,7 @@ export default function AdminMembers() {
   const [grantSaving, setGrantSaving] = useState(false)
   const [allCourses, setAllCourses] = useState<{ id: number; title: string; duration_days: number }[]>([])
   const [allEbooks, setAllEbooks] = useState<{ id: number; title: string; duration_days: number }[]>([])
-  const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null } | null>(null)
+  const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null } | null>(null)
   const [refundRestoreCoupon, setRefundRestoreCoupon] = useState(true)
   const [refunding, setRefunding] = useState(false)
   const [pointLogPage, setPointLogPage] = useState(0)
@@ -108,7 +108,7 @@ export default function AdminMembers() {
     const [purchaseRes, pointLogRes, couponRes, progressRes, reviewRes] = await Promise.all([
       supabase
         .from('purchases')
-        .select('id, title, original_price, price, purchased_at, expires_at, coupon_id, payment_method, payment_key, course_id')
+        .select('id, title, original_price, price, purchased_at, expires_at, coupon_id, payment_method, payment_key, course_id, ebook_id')
         .eq('user_id', member.id)
         .order('purchased_at', { ascending: false }),
       supabase
@@ -239,12 +239,14 @@ export default function AdminMembers() {
           .eq('coupon_id', refundTarget.coupon_id)
       }
 
-      // 4. 수강 적립 포인트 회수 (강의 구매인 경우)
+      // 4. 수강/구매 적립 포인트 회수 (강의·전자책 공통)
       let rewardDeducted = 0
-      if (refundTarget.course_id) {
-        const { data: courseRow } = await supabase
-          .from('courses').select('reward_points').eq('id', refundTarget.course_id).maybeSingle()
-        const reward = (courseRow as { reward_points?: number } | null)?.reward_points ?? 0
+      if (refundTarget.course_id || refundTarget.ebook_id) {
+        const table = refundTarget.course_id ? 'courses' : 'ebooks'
+        const targetId = refundTarget.course_id ?? refundTarget.ebook_id!
+        const { data: row } = await supabase
+          .from(table).select('reward_points').eq('id', targetId).maybeSingle()
+        const reward = (row as { reward_points?: number } | null)?.reward_points ?? 0
         if (reward > 0) {
           await supabase.rpc('add_points', { user_id_input: viewing.id, amount_input: -reward } as never)
           await supabase.rpc('insert_point_log', {
@@ -758,7 +760,7 @@ export default function AdminMembers() {
                           </div>
                           <div className="flex items-center gap-1 shrink-0 ml-3">
                             <button
-                              onClick={() => setRefundTarget({ id: p.id, title: p.title, price: p.price, coupon_id: p.coupon_id, payment_method: p.payment_method, payment_key: p.payment_key, course_id: p.course_id })}
+                              onClick={() => setRefundTarget({ id: p.id, title: p.title, price: p.price, coupon_id: p.coupon_id, payment_method: p.payment_method, payment_key: p.payment_key, course_id: p.course_id, ebook_id: p.ebook_id })}
                               className="px-2 py-1 text-[10px] font-medium text-yellow-600 bg-yellow-50 rounded border-none cursor-pointer hover:bg-yellow-100 transition-colors whitespace-nowrap"
                             >
                               환불
