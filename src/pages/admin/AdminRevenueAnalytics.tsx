@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  ComposedChart, Line,
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { withTimeout } from '../../lib/fetchWithTimeout'
+import { toLocalDateStr, toLocalMonthStr } from '../../lib/dateUtils'
 import AdminLayout from '../../components/admin/AdminLayout'
 
 const COLORS = ['#2ED573', '#6366f1', '#f59e0b', '#ef4444', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6']
@@ -25,6 +27,16 @@ interface CourseRow {
   id: number
   title: string
   instructor_id: number | null
+  course_type: 'free' | 'premium'
+}
+
+interface ProfileRow {
+  id: string
+  name: string | null
+  email: string | null
+  utm_source: string | null
+  utm_medium: string | null
+  utm_campaign: string | null
 }
 
 interface EbookRow {
@@ -50,29 +62,33 @@ export default function AdminRevenueAnalytics() {
   const [period, setPeriod] = useState<Period>('30d')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [showCumulative, setShowCumulative] = useState(true)
   const [loading, setLoading] = useState(true)
   const [purchases, setPurchases] = useState<PurchaseRow[]>([])
   const [courses, setCourses] = useState<CourseRow[]>([])
   const [ebooks, setEbooks] = useState<EbookRow[]>([])
   const [instructors, setInstructors] = useState<InstructorRow[]>([])
   const [pointLogs, setPointLogs] = useState<PointLogRow[]>([])
+  const [profiles, setProfiles] = useState<ProfileRow[]>([])
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true)
-        const [purchaseRes, courseRes, ebookRes, instructorRes, pointRes] = await withTimeout(Promise.all([
+        const [purchaseRes, courseRes, ebookRes, instructorRes, pointRes, profileRes] = await withTimeout(Promise.all([
           supabase.from('purchases').select('id, user_id, course_id, ebook_id, title, price, purchased_at'),
-          supabase.from('courses').select('id, title, instructor_id'),
+          supabase.from('courses').select('id, title, instructor_id, course_type'),
           supabase.from('ebooks').select('id, title, instructor_id'),
           supabase.from('instructors').select('id, name'),
           supabase.from('point_logs').select('amount, type, created_at'),
+          supabase.from('profiles').select('id, name, email, utm_source, utm_medium, utm_campaign'),
         ]), 15000)
         setPurchases((purchaseRes.data ?? []) as PurchaseRow[])
         setCourses((courseRes.data ?? []) as CourseRow[])
         setEbooks((ebookRes.data ?? []) as EbookRow[])
         setInstructors((instructorRes.data ?? []) as InstructorRow[])
         setPointLogs((pointRes.data ?? []) as PointLogRow[])
+        setProfiles((profileRes.data ?? []) as ProfileRow[])
       } catch { /* ignore */ } finally {
         setLoading(false)
       }
@@ -147,14 +163,23 @@ export default function AdminRevenueAnalytics() {
   }, [period, customFrom, periodStart, periodEnd])
 
   const revenueByDay = useMemo(() => {
-    const result: { date: string; revenue: number; count: number }[] = []
+    const result: { date: string; revenue: number; count: number; cumulative: number }[] = []
+    const bucketMap = new Map<string, { revenue: number; count: number }>()
+    for (const p of purchases) {
+      const key = toLocalDateStr(new Date(p.purchased_at))
+      const entry = bucketMap.get(key) ?? { revenue: 0, count: 0 }
+      entry.revenue += p.price
+      entry.count += 1
+      bucketMap.set(key, entry)
+    }
+    let cumulative = 0
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
-      const dateStr = d.toISOString().slice(0, 10)
+      const dateStr = toLocalDateStr(d)
       const label = `${d.getMonth() + 1}/${d.getDate()}`
-      const dayPurchases = purchases.filter((p) => p.purchased_at.slice(0, 10) === dateStr)
-      const revenue = dayPurchases.reduce((s, p) => s + p.price, 0)
-      result.push({ date: label, revenue, count: dayPurchases.length })
+      const entry = bucketMap.get(dateStr) ?? { revenue: 0, count: 0 }
+      cumulative += entry.revenue
+      result.push({ date: label, revenue: entry.revenue, count: entry.count, cumulative })
     }
     return result
   }, [days, purchases, now])
@@ -164,11 +189,10 @@ export default function AdminRevenueAnalytics() {
     const map = new Map<string, { revenue: number; count: number }>()
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      map.set(key, { revenue: 0, count: 0 })
+      map.set(toLocalMonthStr(d), { revenue: 0, count: 0 })
     }
     for (const p of purchases) {
-      const key = p.purchased_at.slice(0, 7)
+      const key = toLocalMonthStr(new Date(p.purchased_at))
       const existing = map.get(key)
       if (existing) {
         existing.revenue += p.price
@@ -283,6 +307,88 @@ export default function AdminRevenueAnalytics() {
     }))
     .filter((d) => d.value > 0)
 
+  // 신규 vs 재구매 매출 비중 (유저별 결제 순서 판별)
+  const { newVsRepeat, newBuyers, repeatBuyersInPeriod } = useMemo(() => {
+    const firstPurchaseByUser = new Map<string, string>()
+    for (const p of purchases) {
+      if (!p.user_id) continue
+      const prev = firstPurchaseByUser.get(p.user_id)
+      if (!prev || p.purchased_at < prev) firstPurchaseByUser.set(p.user_id, p.purchased_at)
+    }
+    let newRev = 0
+    let repeatRev = 0
+    const newUsers = new Set<string>()
+    const repeatUsers = new Set<string>()
+    for (const p of filteredPurchases) {
+      if (!p.user_id) continue
+      const first = firstPurchaseByUser.get(p.user_id)
+      if (first && first === p.purchased_at) {
+        newRev += p.price
+        newUsers.add(p.user_id)
+      } else {
+        repeatRev += p.price
+        repeatUsers.add(p.user_id)
+      }
+    }
+    return {
+      newVsRepeat: [
+        { name: '신규 구매', value: newRev },
+        { name: '재구매', value: repeatRev },
+      ].filter((d) => d.value > 0),
+      newBuyers: newUsers.size,
+      repeatBuyersInPeriod: repeatUsers.size,
+    }
+  }, [purchases, filteredPurchases])
+
+  // VIP 고객 TOP 10 (기간 내 누적 결제액)
+  const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles])
+  const vipTop = useMemo(() => {
+    const map = new Map<string, { name: string; email: string; revenue: number; count: number }>()
+    for (const p of filteredPurchases) {
+      if (!p.user_id) continue
+      const profile = profileMap.get(p.user_id)
+      const name = profile?.name ?? '이름 없음'
+      const email = profile?.email ?? ''
+      const existing = map.get(p.user_id) ?? { name, email, revenue: 0, count: 0 }
+      existing.revenue += p.price
+      existing.count += 1
+      map.set(p.user_id, existing)
+    }
+    return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 10)
+  }, [filteredPurchases, profileMap])
+
+  // UTM 소스/캠페인별 매출
+  const { utmSourceRev, utmCampaignRev } = useMemo(() => {
+    const sourceMap = new Map<string, { revenue: number; count: number }>()
+    const campaignMap = new Map<string, { revenue: number; count: number }>()
+    for (const p of filteredPurchases) {
+      if (!p.user_id) continue
+      const profile = profileMap.get(p.user_id)
+      if (!profile) continue
+      const source = profile.utm_source?.trim() || '직접 유입'
+      const srcEntry = sourceMap.get(source) ?? { revenue: 0, count: 0 }
+      srcEntry.revenue += p.price
+      srcEntry.count += 1
+      sourceMap.set(source, srcEntry)
+      if (profile.utm_campaign) {
+        const campEntry = campaignMap.get(profile.utm_campaign) ?? { revenue: 0, count: 0 }
+        campEntry.revenue += p.price
+        campEntry.count += 1
+        campaignMap.set(profile.utm_campaign, campEntry)
+      }
+    }
+    return {
+      utmSourceRev: Array.from(sourceMap.entries())
+        .map(([name, val]) => ({ name, revenue: val.revenue, count: val.count }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 8),
+      utmCampaignRev: Array.from(campaignMap.entries())
+        .map(([name, val]) => ({ name, revenue: val.revenue, count: val.count }))
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 8),
+    }
+  }, [filteredPurchases, profileMap])
+
   if (loading) {
     return (
       <AdminLayout>
@@ -366,40 +472,93 @@ export default function AdminRevenueAnalytics() {
         />
       </div>
 
-      {/* 일별 매출 추이 */}
-      <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-gray-900">일별 매출 추이</h3>
-          <span className="text-[11px] text-gray-400">최근 {days}일</span>
+      {/* 일별 + 월별 매출 */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+            <h3 className="text-sm font-bold text-gray-900">일별 매출 추이</h3>
+            <div className="flex items-center gap-2">
+              <label className="inline-flex items-center gap-1.5 text-[11px] text-gray-500 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showCumulative}
+                  onChange={(e) => setShowCumulative(e.target.checked)}
+                  className="accent-[#ef4444] cursor-pointer"
+                />
+                누적 매출 표시
+              </label>
+              <span className="text-[11px] text-gray-400">최근 {days}일</span>
+            </div>
+          </div>
+          <ResponsiveContainer width="100%" height={240}>
+            {showCumulative ? (
+              <ComposedChart data={revenueByDay}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={period === '90d' ? 6 : period === '7d' ? 0 : 2} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round((v as number) / 10000)}만`} />
+                <Tooltip formatter={(v: unknown) => formatKRW(Number(v))} />
+                <Legend />
+                <Area type="monotone" dataKey="revenue" name="일 매출" stroke="#2ED573" fill="#2ED573" fillOpacity={0.18} strokeWidth={2} />
+                <Line type="monotone" dataKey="cumulative" name="누적 매출" stroke="#ef4444" strokeWidth={2} dot={false} />
+              </ComposedChart>
+            ) : (
+              <AreaChart data={revenueByDay}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={period === '90d' ? 6 : period === '7d' ? 0 : 2} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round((v as number) / 10000)}만`} />
+                <Tooltip formatter={(v: unknown) => formatKRW(Number(v))} />
+                <Legend />
+                <Area type="monotone" dataKey="revenue" name="일 매출" stroke="#2ED573" fill="#2ED573" fillOpacity={0.18} strokeWidth={2} />
+              </AreaChart>
+            )}
+          </ResponsiveContainer>
         </div>
-        <ResponsiveContainer width="100%" height={260}>
-          <AreaChart data={revenueByDay}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={period === '90d' ? 6 : period === '7d' ? 0 : 2} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round((v as number) / 10000)}만`} />
-            <Tooltip formatter={(v: unknown) => formatKRW(Number(v))} />
-            <Legend />
-            <Area type="monotone" dataKey="revenue" name="매출" stroke="#2ED573" fill="#2ED573" fillOpacity={0.15} strokeWidth={2} />
-          </AreaChart>
-        </ResponsiveContainer>
+
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">월별 매출 (최근 12개월)</h3>
+          <ResponsiveContainer width="100%" height={240}>
+            <BarChart data={revenueByMonth} barSize={20}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round((v as number) / 10000)}만`} />
+              <Tooltip formatter={(v: unknown) => formatKRW(Number(v))} />
+              <Bar dataKey="revenue" name="매출" fill="#6366f1" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
-      {/* 월별 매출 */}
-      <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
-        <h3 className="text-sm font-bold text-gray-900 mb-3">월별 매출 (최근 12개월)</h3>
-        <ResponsiveContainer width="100%" height={240}>
-          <BarChart data={revenueByMonth} barSize={28}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round((v as number) / 10000)}만`} />
-            <Tooltip formatter={(v: unknown) => formatKRW(Number(v))} />
-            <Bar dataKey="revenue" name="매출" fill="#6366f1" radius={[6, 6, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      {/* 신규vs재구매 + 상품 유형 + 가격대 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-900">신규 vs 재구매 매출</h3>
+            <span className="text-[11px] text-gray-400">신규 {newBuyers} · 재구매 {repeatBuyersInPeriod}</span>
+          </div>
+          {newVsRepeat.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={newVsRepeat} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={3}>
+                    {newVsRepeat.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+                  </Pie>
+                  <Tooltip formatter={(v: unknown) => formatKRW(Number(v))} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-center gap-3 mt-1 flex-wrap">
+                {newVsRepeat.map((d, i) => (
+                  <span key={d.name} className="text-[11px] text-gray-500 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full" style={{ background: COLORS[i] }} />
+                    {d.name} {formatKRW(d.value)}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-12">데이터 없음</p>
+          )}
+        </div>
 
-      {/* 상품 유형 + 가격대 */}
-      <div className="grid grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow-sm p-5">
           <h3 className="text-sm font-bold text-gray-900 mb-3">상품 유형별 매출 비중</h3>
           {typeDist.length > 0 ? (
@@ -407,15 +566,15 @@ export default function AdminRevenueAnalytics() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={typeDist} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="value" paddingAngle={3}>
-                    {typeDist.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
+                    {typeDist.map((_, i) => <Cell key={i} fill={COLORS[(i + 2) % COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: unknown) => formatKRW(Number(v))} />
                 </PieChart>
               </ResponsiveContainer>
-              <div className="flex justify-center gap-4 mt-1 flex-wrap">
+              <div className="flex justify-center gap-3 mt-1 flex-wrap">
                 {typeDist.map((d, i) => (
                   <span key={d.name} className="text-[11px] text-gray-500 flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full" style={{ background: COLORS[i] }} />
+                    <span className="w-2 h-2 rounded-full" style={{ background: COLORS[(i + 2) % COLORS.length] }} />
                     {d.name} {formatKRW(d.value)}
                   </span>
                 ))}
@@ -430,7 +589,7 @@ export default function AdminRevenueAnalytics() {
           <h3 className="text-sm font-bold text-gray-900 mb-3">가격대별 결제 건수</h3>
           {priceDist.length > 0 ? (
             <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={priceDist} barSize={24}>
+              <BarChart data={priceDist} barSize={20}>
                 <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(v: unknown) => `${String(v)}건`} />
@@ -443,34 +602,72 @@ export default function AdminRevenueAnalytics() {
         </div>
       </div>
 
-      {/* 강의 매출 TOP 10 */}
-      <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
-        <h3 className="text-sm font-bold text-gray-900 mb-3">강의 매출 TOP 10</h3>
-        {courseRevenueTop.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-12">해당 기간 강의 매출 없음</p>
-        ) : (
-          <RankList items={courseRevenueTop.map((c) => ({ label: c.title, value: c.revenue, sub: `${c.count}건` }))} />
-        )}
+      {/* VIP 고객 + UTM 소스/캠페인별 매출 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">VIP 고객 TOP 10</h3>
+          {vipTop.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-12">해당 기간 결제자 없음</p>
+          ) : (
+            <RankList
+              items={vipTop.map((v) => ({
+                label: v.name + (v.email ? ` · ${v.email}` : ''),
+                value: v.revenue,
+                sub: `${v.count}건`,
+              }))}
+            />
+          )}
+        </div>
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">UTM 소스별 매출 TOP 8</h3>
+          {utmSourceRev.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-12">UTM 데이터 없음</p>
+          ) : (
+            <RankList
+              items={utmSourceRev.map((u) => ({ label: u.name, value: u.revenue, sub: `${u.count}건` }))}
+            />
+          )}
+        </div>
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">UTM 캠페인별 매출 TOP 8</h3>
+          {utmCampaignRev.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-12">UTM 캠페인 데이터 없음</p>
+          ) : (
+            <RankList
+              items={utmCampaignRev.map((u) => ({ label: u.name, value: u.revenue, sub: `${u.count}건` }))}
+            />
+          )}
+        </div>
       </div>
 
-      {/* 전자책 매출 TOP 10 */}
-      <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
-        <h3 className="text-sm font-bold text-gray-900 mb-3">전자책 매출 TOP 10</h3>
-        {ebookRevenueTop.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-12">해당 기간 전자책 매출 없음</p>
-        ) : (
-          <RankList items={ebookRevenueTop.map((e) => ({ label: e.title, value: e.revenue, sub: `${e.count}건` }))} />
-        )}
-      </div>
+      {/* 강의 / 전자책 / 강사 매출 TOP 10 */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">강의 매출 TOP 10</h3>
+          {courseRevenueTop.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-12">해당 기간 강의 매출 없음</p>
+          ) : (
+            <RankList items={courseRevenueTop.map((c) => ({ label: c.title, value: c.revenue, sub: `${c.count}건` }))} />
+          )}
+        </div>
 
-      {/* 강사 매출 TOP 10 */}
-      <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
-        <h3 className="text-sm font-bold text-gray-900 mb-3">강사 매출 TOP 10</h3>
-        {instructorRevenueTop.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-12">해당 기간 강사 매출 없음</p>
-        ) : (
-          <RankList items={instructorRevenueTop.map((i) => ({ label: i.name, value: i.revenue, sub: `${i.count}건` }))} />
-        )}
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">전자책 매출 TOP 10</h3>
+          {ebookRevenueTop.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-12">해당 기간 전자책 매출 없음</p>
+          ) : (
+            <RankList items={ebookRevenueTop.map((e) => ({ label: e.title, value: e.revenue, sub: `${e.count}건` }))} />
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">강사 매출 TOP 10</h3>
+          {instructorRevenueTop.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-12">해당 기간 강사 매출 없음</p>
+          ) : (
+            <RankList items={instructorRevenueTop.map((i) => ({ label: i.name, value: i.revenue, sub: `${i.count}건` }))} />
+          )}
+        </div>
       </div>
 
       {/* 시간대 + 요일 */}

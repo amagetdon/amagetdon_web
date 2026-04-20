@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
+import { toLocalDateStr } from '../../lib/dateUtils'
 import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import AdminLayout from '../../components/admin/AdminLayout'
@@ -419,7 +420,7 @@ export default function AdminMembers() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `회원목록_${new Date().toISOString().slice(0, 10)}.csv`
+    a.download = `회원목록_${toLocalDateStr(new Date())}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }

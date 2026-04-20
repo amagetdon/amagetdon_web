@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { withTimeout } from '../../lib/fetchWithTimeout'
+import { toLocalDateStr, toLocalMonthStr } from '../../lib/dateUtils'
 import AdminLayout from '../../components/admin/AdminLayout'
 
 const UMAMI_SHARE_URL = 'https://umami-ama.vercel.app/share/LuxmmqXDx2i6kFBo'
@@ -143,33 +144,39 @@ export default function AdminDashboard() {
 
       // 가입 트렌드 (30일)
       const signupMap = new Map<string, number>()
+      const signupDateOrder: string[] = []
       for (let i = 29; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
-        signupMap.set(d.toISOString().slice(0, 10), 0)
+        const key = toLocalDateStr(d)
+        signupMap.set(key, 0)
+        signupDateOrder.push(key)
       }
       for (const r of (signupRaw as { created_at: string }[] || [])) {
-        const key = r.created_at.slice(0, 10)
-        signupMap.set(key, (signupMap.get(key) || 0) + 1)
+        const key = toLocalDateStr(new Date(r.created_at))
+        if (signupMap.has(key)) signupMap.set(key, (signupMap.get(key) || 0) + 1)
       }
-      const signupTrend = Array.from(signupMap.entries()).map(([date, count]) => ({
-        date: `${new Date(date).getMonth() + 1}/${new Date(date).getDate()}`,
-        count,
-      }))
+      const signupTrend = signupDateOrder.map((date) => {
+        const d = new Date(date)
+        return { date: `${d.getMonth() + 1}/${d.getDate()}`, count: signupMap.get(date) ?? 0 }
+      })
 
       // 매출 트렌드 (30일)
       const revenueMap = new Map<string, number>()
+      const revenueDateOrder: string[] = []
       for (let i = 29; i >= 0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
-        revenueMap.set(d.toISOString().slice(0, 10), 0)
+        const key = toLocalDateStr(d)
+        revenueMap.set(key, 0)
+        revenueDateOrder.push(key)
       }
       for (const r of (revenueRaw as { purchased_at: string; price: number }[] || [])) {
-        const key = r.purchased_at.slice(0, 10)
-        revenueMap.set(key, (revenueMap.get(key) || 0) + r.price)
+        const key = toLocalDateStr(new Date(r.purchased_at))
+        if (revenueMap.has(key)) revenueMap.set(key, (revenueMap.get(key) || 0) + r.price)
       }
-      const revenueTrend = Array.from(revenueMap.entries()).map(([date, revenue]) => ({
-        date: `${new Date(date).getMonth() + 1}/${new Date(date).getDate()}`,
-        revenue,
-      }))
+      const revenueTrend = revenueDateOrder.map((date) => {
+        const d = new Date(date)
+        return { date: `${d.getMonth() + 1}/${d.getDate()}`, revenue: revenueMap.get(date) ?? 0 }
+      })
 
       // 구매 유형 비율
       const items = (purchaseItems as { title: string; course_id: number | null; ebook_id: number | null }[] || [])
@@ -250,10 +257,10 @@ export default function AdminDashboard() {
       const monthMap = new Map<string, number>()
       for (let i = 5; i >= 0; i--) {
         const d = new Date(thisYear, new Date().getMonth() - i, 1)
-        monthMap.set(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, 0)
+        monthMap.set(toLocalMonthStr(d), 0)
       }
       for (const p of profiles) {
-        const key = p.created_at.slice(0, 7)
+        const key = toLocalMonthStr(new Date(p.created_at))
         if (monthMap.has(key)) monthMap.set(key, (monthMap.get(key) || 0) + 1)
       }
       const signupMonthly = Array.from(monthMap.entries()).map(([m, count]) => ({

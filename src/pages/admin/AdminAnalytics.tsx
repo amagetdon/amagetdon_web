@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { withTimeout } from '../../lib/fetchWithTimeout'
+import { toLocalDateStr } from '../../lib/dateUtils'
 import AdminLayout from '../../components/admin/AdminLayout'
 
 const COLORS = ['#2ED573', '#6366f1', '#f59e0b', '#ef4444', '#3b82f6', '#a855f7', '#ec4899', '#14b8a6']
@@ -109,13 +110,25 @@ export default function AdminAnalytics() {
     ? Math.min(180, Math.max(1, Math.ceil((periodEnd.getTime() - periodStart.getTime()) / 86400000)))
     : period === '7d' ? 7 : period === '90d' ? 90 : period === 'all' ? 30 : 30
   const activeByDay: { date: string; active: number; signup: number }[] = []
+  const activeByDayMap = new Map<string, number>()
+  const signupByDayMap = new Map<string, number>()
+  for (const p of profiles) {
+    if (p.last_active_at) {
+      const k = toLocalDateStr(new Date(p.last_active_at))
+      activeByDayMap.set(k, (activeByDayMap.get(k) ?? 0) + 1)
+    }
+    const sk = toLocalDateStr(new Date(p.created_at))
+    signupByDayMap.set(sk, (signupByDayMap.get(sk) ?? 0) + 1)
+  }
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i)
-    const dateStr = d.toISOString().slice(0, 10)
+    const dateStr = toLocalDateStr(d)
     const label = `${d.getMonth() + 1}/${d.getDate()}`
-    const active = profiles.filter((p) => p.last_active_at && p.last_active_at.slice(0, 10) === dateStr).length
-    const signup = profiles.filter((p) => p.created_at.slice(0, 10) === dateStr).length
-    activeByDay.push({ date: label, active, signup })
+    activeByDay.push({
+      date: label,
+      active: activeByDayMap.get(dateStr) ?? 0,
+      signup: signupByDayMap.get(dateStr) ?? 0,
+    })
   }
 
   // ── 성별 ──
