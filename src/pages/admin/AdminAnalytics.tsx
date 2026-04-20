@@ -211,13 +211,25 @@ export default function AdminAnalytics() {
   }
   const purchaseDayDist = dayNames.map((name, i) => ({ name, value: purchaseDayCount[i] }))
 
-  // ── 재구매율 ──
+  // ── 활성 유저 필터 (유령회원 제외: 30일 이내 접속) ──
+  const ACTIVE_WINDOW_MS = 30 * 86400000
+  const activeCutoff = now.getTime() - ACTIVE_WINDOW_MS
+  const activeUserIds = new Set(
+    profiles
+      .filter((p) => p.last_active_at && new Date(p.last_active_at).getTime() >= activeCutoff)
+      .map((p) => p.id)
+      .filter((id): id is string => !!id),
+  )
+
+  // ── 재구매율 (활성 유저 기준) ──
+  const activePurchases = purchases.filter((p) => activeUserIds.has(p.user_id))
   const userPurchaseCount = new Map<string, number>()
-  for (const p of purchases) {
+  for (const p of activePurchases) {
     userPurchaseCount.set(p.user_id, (userPurchaseCount.get(p.user_id) || 0) + 1)
   }
+  const activePurchasedUsers = userPurchaseCount.size
   const repeatBuyers = Array.from(userPurchaseCount.values()).filter((c) => c >= 2).length
-  const repeatRate = purchasedUsers > 0 ? Math.round((repeatBuyers / purchasedUsers) * 100) : 0
+  const repeatRate = activePurchasedUsers > 0 ? Math.round((repeatBuyers / activePurchasedUsers) * 100) : 0
 
   // ── 포인트 보유 분포 ──
   const pointRanges = [
@@ -233,15 +245,16 @@ export default function AdminAnalytics() {
     value: profiles.filter((p) => p.points >= r.min && p.points <= r.max).length,
   })).filter((d) => d.value > 0)
 
-  // ── 가입 후 첫 구매까지 평균 기간 ──
+  // ── 가입 후 첫 구매까지 평균 기간 (활성 유저 기준) ──
   const firstPurchaseByUser = new Map<string, string>()
-  for (const p of purchases) {
+  for (const p of activePurchases) {
     const prev = firstPurchaseByUser.get(p.user_id)
     if (!prev || p.purchased_at < prev) firstPurchaseByUser.set(p.user_id, p.purchased_at)
   }
   const daysToFirstPurchase: number[] = []
   for (const p of profiles) {
-    const fp = firstPurchaseByUser.get(p.id || '')
+    if (!p.id || !activeUserIds.has(p.id)) continue
+    const fp = firstPurchaseByUser.get(p.id)
     if (fp) {
       const diff = (new Date(fp).getTime() - new Date(p.created_at).getTime()) / 86400000
       if (diff >= 0) daysToFirstPurchase.push(diff)
@@ -537,13 +550,16 @@ export default function AdminAnalytics() {
       {/* ── 구매 심화 + 포인트 ── */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow-sm p-5">
-          <h3 className="text-sm font-bold text-gray-900 mb-4">재구매율</h3>
+          <div className="flex items-start justify-between mb-4 gap-2">
+            <h3 className="text-sm font-bold text-gray-900">재구매율</h3>
+            <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded">30일 내 접속 회원만</span>
+          </div>
           <div className="space-y-4">
             <div>
               <p className="text-xs text-gray-400">재구매율 (2회+)</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-2xl font-bold text-[#2ED573]">{repeatRate}%</p>
-                <p className="text-xs text-gray-400">{repeatBuyers}명 / {purchasedUsers}명</p>
+                <p className="text-xs text-gray-400">{repeatBuyers}명 / {activePurchasedUsers}명</p>
               </div>
             </div>
             <div>

@@ -109,12 +109,15 @@ export default function AdminRevenueAnalytics() {
     [period, customTo, now],
   )
 
+  // 무료(price=0) 제외: 매출·결제자·건수 지표가 희석되지 않도록 유료 결제만 집계
+  const paidPurchases = useMemo(() => purchases.filter((p) => p.price > 0), [purchases])
+
   const filteredPurchases = useMemo(
-    () => purchases.filter((p) => {
+    () => paidPurchases.filter((p) => {
       const d = new Date(p.purchased_at)
       return d >= periodStart && d <= periodEnd
     }),
-    [purchases, periodStart, periodEnd],
+    [paidPurchases, periodStart, periodEnd],
   )
 
   // 직전 동일 기간 (전기 대비)
@@ -123,11 +126,11 @@ export default function AdminRevenueAnalytics() {
     return new Date(periodStart.getTime() - diff)
   }, [periodEnd, periodStart])
   const prevPurchases = useMemo(
-    () => purchases.filter((p) => {
+    () => paidPurchases.filter((p) => {
       const d = new Date(p.purchased_at)
       return d >= prevStart && d < periodStart
     }),
-    [purchases, prevStart, periodStart],
+    [paidPurchases, prevStart, periodStart],
   )
 
   // 핵심 지표
@@ -165,7 +168,7 @@ export default function AdminRevenueAnalytics() {
   const revenueByDay = useMemo(() => {
     const result: { date: string; revenue: number; count: number; cumulative: number }[] = []
     const bucketMap = new Map<string, { revenue: number; count: number }>()
-    for (const p of purchases) {
+    for (const p of paidPurchases) {
       const key = toLocalDateStr(new Date(p.purchased_at))
       const entry = bucketMap.get(key) ?? { revenue: 0, count: 0 }
       entry.revenue += p.price
@@ -182,7 +185,7 @@ export default function AdminRevenueAnalytics() {
       result.push({ date: label, revenue: entry.revenue, count: entry.count, cumulative })
     }
     return result
-  }, [days, purchases, now])
+  }, [days, paidPurchases, now])
 
   // 월별 매출 추이 (최근 12개월)
   const revenueByMonth = useMemo(() => {
@@ -191,7 +194,7 @@ export default function AdminRevenueAnalytics() {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
       map.set(toLocalMonthStr(d), { revenue: 0, count: 0 })
     }
-    for (const p of purchases) {
+    for (const p of paidPurchases) {
       const key = toLocalMonthStr(new Date(p.purchased_at))
       const existing = map.get(key)
       if (existing) {
@@ -307,10 +310,10 @@ export default function AdminRevenueAnalytics() {
     }))
     .filter((d) => d.value > 0)
 
-  // 신규 vs 재구매 매출 비중 (유저별 결제 순서 판별)
+  // 신규 vs 재구매 매출 비중 (유저별 유료 결제 순서 판별)
   const { newVsRepeat, newBuyers, repeatBuyersInPeriod } = useMemo(() => {
     const firstPurchaseByUser = new Map<string, string>()
-    for (const p of purchases) {
+    for (const p of paidPurchases) {
       if (!p.user_id) continue
       const prev = firstPurchaseByUser.get(p.user_id)
       if (!prev || p.purchased_at < prev) firstPurchaseByUser.set(p.user_id, p.purchased_at)
@@ -338,7 +341,7 @@ export default function AdminRevenueAnalytics() {
       newBuyers: newUsers.size,
       repeatBuyersInPeriod: repeatUsers.size,
     }
-  }, [purchases, filteredPurchases])
+  }, [paidPurchases, filteredPurchases])
 
   // VIP 고객 TOP 10 (기간 내 누적 결제액)
   const profileMap = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles])
@@ -453,9 +456,9 @@ export default function AdminRevenueAnalytics() {
           color="#2ED573"
         />
         <RevenueStatCard
-          label="결제 건수"
+          label="결제 건수 (유료)"
           value={`${transactionCount.toLocaleString()}건`}
-          sub={`결제자 ${payingUsers.toLocaleString()}명`}
+          sub={`결제자 ${payingUsers.toLocaleString()}명 · 무료 수강 제외`}
           color="#6366f1"
         />
         <RevenueStatCard
