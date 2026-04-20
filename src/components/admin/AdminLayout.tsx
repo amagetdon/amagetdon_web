@@ -41,6 +41,8 @@ const NAV_GROUPS = [
       { path: '/admin/webhook', label: '웹훅 (CRM)', icon: 'ti-webhook' },
       { path: '/admin/pages', label: '페이지 관리', icon: 'ti-layout-navbar' },
       { path: '/admin/site-settings', label: '사이트 설정', icon: 'ti-settings' },
+      { path: '/admin/external-services', label: '외부 서비스 설정', icon: 'ti-plug-connected' },
+      { path: '/admin/code-settings', label: '외부 코드 설정', icon: 'ti-code' },
     ],
   },
 ]

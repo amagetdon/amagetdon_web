@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { webhookService } from '../services/webhookService'
 import { supabase } from '../lib/supabase'
+import { useExternalServices } from '../hooks/useExternalServices'
 
 declare global {
   interface Window {
@@ -44,6 +45,8 @@ interface FormErrors {
 
 function SignUpPage() {
   const navigate = useNavigate()
+  const externalServices = useExternalServices()
+  const kakaoLoginEnabled = !!externalServices.KAKAO_LOGIN?.enabled
   const [searchParams] = useSearchParams()
   const utmParams = useMemo(() => ({
     utm_source: searchParams.get('utm_source') || sessionStorage.getItem('utm_source') || undefined,
@@ -453,15 +456,17 @@ function SignUpPage() {
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
-          <button
-            onClick={() => handleOAuth('kakao')}
-            className="w-full bg-[#FEE500] text-[#391B1B] font-bold py-3 rounded-lg cursor-pointer flex items-center justify-center gap-2"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-              <path d="M9 1C4.58 1 1 3.79 1 7.21c0 2.17 1.45 4.08 3.64 5.18l-.93 3.44c-.08.3.26.54.52.37l4.11-2.72c.22.01.44.03.66.03 4.42 0 8-2.79 8-6.21S13.42 1 9 1z" fill="#391B1B"/>
-            </svg>
-            카카오로 가입
-          </button>
+          {kakaoLoginEnabled && (
+            <button
+              onClick={() => handleOAuth('kakao')}
+              className="w-full bg-[#FEE500] text-[#391B1B] font-bold py-3 rounded-lg cursor-pointer flex items-center justify-center gap-2"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <path d="M9 1C4.58 1 1 3.79 1 7.21c0 2.17 1.45 4.08 3.64 5.18l-.93 3.44c-.08.3.26.54.52.37l4.11-2.72c.22.01.44.03.66.03 4.42 0 8-2.79 8-6.21S13.42 1 9 1z" fill="#391B1B"/>
+              </svg>
+              카카오로 가입
+            </button>
+          )}
 
           <button
             onClick={() => handleOAuth('google')}

@@ -1,22 +1,40 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useFaqs } from '../hooks/useFaqs'
 import { supabase } from '../lib/supabase'
 import Pagination from '../components/Pagination'
 import VideoEmbed from '../components/VideoEmbed'
+import { useExternalServices } from '../hooks/useExternalServices'
+
+function resolveKakaoPlusFriendUrl(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  if (/^https?:\/\//i.test(trimmed)) return trimmed
+  const id = trimmed.startsWith('_') ? trimmed : `_${trimmed}`
+  return `https://pf.kakao.com/${id}`
+}
 
 function FAQPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
-  const [kakaoLink, setKakaoLink] = useState('')
+  const [siteKakaoLink, setSiteKakaoLink] = useState('')
   const [kakaoLinkTarget, setKakaoLinkTarget] = useState<'_blank' | '_self'>('_blank')
+  const externalServices = useExternalServices()
+
+  const kakaoLink = useMemo(() => {
+    const plusFriend = externalServices.KAKAO_PLUS_FRIEND
+    if (plusFriend?.enabled && plusFriend.code) {
+      return resolveKakaoPlusFriendUrl(plusFriend.code)
+    }
+    return siteKakaoLink
+  }, [externalServices.KAKAO_PLUS_FRIEND, siteKakaoLink])
 
   useEffect(() => {
     supabase.from('site_settings').select('value').eq('key', 'kakao_link').maybeSingle()
       .then(({ data }) => {
         if (data) {
           const val = (data as Record<string, unknown>).value as Record<string, string>
-          setKakaoLink(val?.url || '')
+          setSiteKakaoLink(val?.url || '')
           if (val?.target) setKakaoLinkTarget(val.target as '_blank' | '_self')
         }
       })

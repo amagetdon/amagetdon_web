@@ -12,6 +12,8 @@ import GlobalHero from './components/GlobalHero'
 import { useGlobalFadeIn } from './hooks/useGlobalFadeIn'
 import { useBusinessInfo } from './hooks/useBusinessInfo'
 import SeoHead from './components/SeoHead'
+import ExternalServicesInjector from './components/ExternalServicesInjector'
+import ExternalCodesInjector from './components/ExternalCodesInjector'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
 const InstructorListPage = lazy(() => import('./pages/InstructorListPage'))
@@ -42,6 +44,10 @@ const AdminResults = lazy(() => import('./pages/admin/AdminResults'))
 const AdminSchedules = lazy(() => import('./pages/admin/AdminSchedules'))
 const AdminFaqs = lazy(() => import('./pages/admin/AdminFaqs'))
 const AdminSiteSettings = lazy(() => import('./pages/admin/AdminSiteSettings'))
+const AdminExternalServices = lazy(() => import('./pages/admin/AdminExternalServices'))
+const AdminExternalServiceDetail = lazy(() => import('./pages/admin/AdminExternalServiceDetail'))
+const AdminCodeSettings = lazy(() => import('./pages/admin/AdminCodeSettings'))
+const AdminCodeSettingsDetail = lazy(() => import('./pages/admin/AdminCodeSettingsDetail'))
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
 const AdminMembers = lazy(() => import('./pages/admin/AdminMembers'))
 const AdminAchievements = lazy(() => import('./pages/admin/AdminAchievements'))
@@ -120,6 +126,8 @@ function App() {
           <UtmCapture />
           <DynamicMeta />
           <SeoHead />
+          <ExternalServicesInjector />
+          <ExternalCodesInjector />
           <Header />
           <FadeInProvider />
           <main className="flex-1">
@@ -164,6 +172,10 @@ function App() {
                 <Route path="/admin/members" element={<AdminRoute><AdminMembers /></AdminRoute>} />
                 <Route path="/admin/achievements" element={<AdminRoute><AdminAchievements /></AdminRoute>} />
                 <Route path="/admin/site-settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
+                <Route path="/admin/external-services" element={<AdminRoute><AdminExternalServices /></AdminRoute>} />
+                <Route path="/admin/external-services/:id" element={<AdminRoute><AdminExternalServiceDetail /></AdminRoute>} />
+                <Route path="/admin/code-settings" element={<AdminRoute><AdminCodeSettings /></AdminRoute>} />
+                <Route path="/admin/code-settings/registration" element={<AdminRoute><AdminCodeSettingsDetail /></AdminRoute>} />
                 <Route path="/admin/coupons" element={<AdminRoute><AdminCoupons /></AdminRoute>} />
                 <Route path="/admin/utm" element={<AdminRoute><AdminUtmBuilder /></AdminRoute>} />
                 <Route path="/admin/webhook" element={<AdminRoute><AdminWebhook /></AdminRoute>} />
