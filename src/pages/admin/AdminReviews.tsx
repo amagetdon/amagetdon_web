@@ -44,6 +44,10 @@ export default function AdminReviews() {
       toast.error('작성자명, 제목, 내용은 필수입니다.')
       return
     }
+    if (!editing.course_id) {
+      toast.error('강의를 선택해 주세요.')
+      return
+    }
     try {
       setSaving(true)
       if (editing.id) {

@@ -42,6 +42,7 @@ export const reviewService = {
       .from('reviews')
       .select('*, course:courses(id, title)')
       .eq('is_published', true)
+      .gte('rating', 4)
       .order('created_at', { ascending: false })
       .limit(limit)
     if (error) throw error

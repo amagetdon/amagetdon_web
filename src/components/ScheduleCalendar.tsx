@@ -19,9 +19,10 @@ function ScheduleCalendar({ title = '다가올 강의 한눈에 보기', linkTo 
   const [currentMonth, setCurrentMonth] = useState(today.getMonth() + 1)
 
   const isInitialMonth = currentYear === today.getFullYear() && currentMonth === today.getMonth() + 1
+  const skipFetch = isInitialMonth && initialSchedules !== undefined
   const { schedules: fetchedSchedules } = useSchedules(
-    isInitialMonth ? 0 : currentYear,
-    isInitialMonth ? 0 : currentMonth
+    skipFetch ? 0 : currentYear,
+    skipFetch ? 0 : currentMonth
   )
   const schedules = isInitialMonth && initialSchedules ? initialSchedules : fetchedSchedules
 
