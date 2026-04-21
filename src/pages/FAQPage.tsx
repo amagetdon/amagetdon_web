@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import Pagination from '../components/Pagination'
 import VideoEmbed from '../components/VideoEmbed'
 import { useExternalServices } from '../hooks/useExternalServices'
+import { textToHtml } from '../utils/richText'
 
 function resolveKakaoPlusFriendUrl(raw: string): string {
   const trimmed = raw.trim()
@@ -90,9 +91,10 @@ function FAQPage() {
                   <p className="text-lg font-bold text-gray-900">
                     <span className="text-xl font-extrabold">Q.</span> {item.question}
                   </p>
-                  <p className="text-sm text-gray-600 mt-3 whitespace-pre-line leading-relaxed">
-                    {item.answer}
-                  </p>
+                  <div
+                    className="rich-text-content text-sm text-gray-600 mt-3 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: textToHtml(item.answer) }}
+                  />
 
                   {item.video_url && (
                     <div className="mt-4 w-[300px]">

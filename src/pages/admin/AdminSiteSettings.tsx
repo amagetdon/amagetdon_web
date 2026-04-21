@@ -6,6 +6,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
+import RichTextEditor from '../../components/admin/RichTextEditor'
 import { bannerService } from '../../services/bannerService'
 import { supabase } from '../../lib/supabase'
 import { invalidateSeoSettings } from '../../hooks/useSeoSettings'
@@ -735,14 +736,14 @@ export default function AdminSiteSettings() {
           ) : (
             <>
               <p className="text-xs text-gray-400 mb-2">
-                HTML 형식으로 작성합니다. {legalTab === 'terms' ? '이용약관' : '개인정보처리방침'} 내용을 입력하세요.
+                {legalTab === 'terms' ? '이용약관' : '개인정보처리방침'} 내용을 작성하세요. 툴바의 HTML 버튼으로 원본 HTML을 직접 편집할 수도 있습니다.
               </p>
-              <textarea
+              <RichTextEditor
+                key={legalTab}
                 value={legalTab === 'terms' ? termsHtml : privacyHtml}
-                onChange={(e) => legalTab === 'terms' ? setTermsHtml(e.target.value) : setPrivacyHtml(e.target.value)}
-                rows={20}
-                placeholder={`<h3>제1조 (목적)</h3>\n<p>이 약관은...</p>`}
-                className="w-full border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] font-mono resize-y min-h-[400px]"
+                onChange={(html) => legalTab === 'terms' ? setTermsHtml(html) : setPrivacyHtml(html)}
+                placeholder={'예)\n제1조 (목적)\n이 약관은...'}
+                minHeight={400}
               />
             </>
           )}

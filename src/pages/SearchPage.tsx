@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { CourseWithInstructor, Instructor, EbookWithInstructor } from '../types'
+import { htmlToPlainText } from '../utils/richText'
+import { isCourseClosed, isEbookClosed } from '../utils/courseStatus'
+import { useAcademySettings } from '../hooks/useAcademySettings'
 
 function SearchPage() {
   const [searchParams] = useSearchParams()
@@ -11,6 +14,7 @@ function SearchPage() {
   const [instructors, setInstructors] = useState<Instructor[]>([])
   const [ebooks, setEbooks] = useState<EbookWithInstructor[]>([])
   const [loading, setLoading] = useState(true)
+  const { closedVisualEffect } = useAcademySettings()
 
   useEffect(() => {
     if (!query.trim()) {
@@ -105,7 +109,7 @@ function SearchPage() {
                           <span className="text-sm text-gray-400">{inst.title}</span>
                         </div>
                         {inst.headline && <p className="text-sm text-gray-600 mb-2">{inst.headline}</p>}
-                        {inst.bio && <p className="text-sm text-gray-400 line-clamp-6 leading-relaxed mb-2 whitespace-pre-line">{inst.bio}</p>}
+                        {inst.bio && <p className="text-sm text-gray-400 line-clamp-6 leading-relaxed mb-2 whitespace-pre-line">{htmlToPlainText(inst.bio)}</p>}
                         {inst.bio_bullets && inst.bio_bullets.length > 0 && (
                           <ul className="text-sm text-gray-500 space-y-0.5 mb-2 list-none p-0">
                             {inst.bio_bullets.slice(0, 3).map((b, i) => (
@@ -135,19 +139,25 @@ function SearchPage() {
               <div className="mb-12">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">강의</h2>
                 <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
-                  {courses.map((course) => (
-                    <Link key={course.id} to={`/course/${course.id}`} className="no-underline">
-                      <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
-                        {course.thumbnail_url ? (
-                          <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-sm text-gray-400">썸네일</span>
-                        )}
-                      </div>
-                      <p className="text-sm font-bold text-gray-900 mb-1">{course.title}</p>
-                      <p className="text-xs text-gray-400">{course.instructor?.name}</p>
-                    </Link>
-                  ))}
+                  {courses.map((course) => {
+                    const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
+                    return (
+                      <Link key={course.id} to={`/course/${course.id}`} className="no-underline">
+                        <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+                          {course.thumbnail_url ? (
+                            <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm text-gray-400">썸네일</span>
+                          )}
+                        </div>
+                        <p className={`text-sm font-bold mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
+                          <span className={closed ? 'line-through' : ''}>{course.title}</span>
+                          {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                        </p>
+                        <p className="text-xs text-gray-400">{course.instructor?.name}</p>
+                      </Link>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -156,19 +166,25 @@ function SearchPage() {
               <div className="mb-12">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">전자책</h2>
                 <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
-                  {ebooks.map((ebook) => (
-                    <Link key={ebook.id} to={`/ebook/${ebook.id}`} className="no-underline">
-                      <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
-                        {ebook.thumbnail_url ? (
-                          <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-sm text-gray-400">썸네일</span>
-                        )}
-                      </div>
-                      <p className="text-sm font-bold text-gray-900 mb-1">{ebook.title}</p>
-                      <p className="text-xs text-gray-400">{ebook.instructor?.name}</p>
-                    </Link>
-                  ))}
+                  {ebooks.map((ebook) => {
+                    const closed = closedVisualEffect !== false && isEbookClosed(ebook.close_date)
+                    return (
+                      <Link key={ebook.id} to={`/ebook/${ebook.id}`} className="no-underline">
+                        <div className={`bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+                          {ebook.thumbnail_url ? (
+                            <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm text-gray-400">썸네일</span>
+                          )}
+                        </div>
+                        <p className={`text-sm font-bold mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
+                          <span className={closed ? 'line-through' : ''}>{ebook.title}</span>
+                          {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                        </p>
+                        <p className="text-xs text-gray-400">{ebook.instructor?.name}</p>
+                      </Link>
+                    )
+                  })}
                 </div>
               </div>
             )}

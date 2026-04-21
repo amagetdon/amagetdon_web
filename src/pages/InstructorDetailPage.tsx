@@ -5,6 +5,9 @@ import { useCoursesByInstructor } from '../hooks/useCourses'
 import { useEbooksByInstructor } from '../hooks/useEbooks'
 import { useReviews } from '../hooks/useReviews'
 import Pagination from '../components/Pagination'
+import { textToHtml } from '../utils/richText'
+import { isCourseClosed, isEbookClosed } from '../utils/courseStatus'
+import { useAcademySettings } from '../hooks/useAcademySettings'
 
 function StarRating({ rating }: { rating: number }) {
   return (
@@ -25,6 +28,7 @@ function InstructorDetailPage() {
   const { ebooks } = useEbooksByInstructor(instructorId)
   const [currentPage, setCurrentPage] = useState(1)
   const { reviews, totalCount } = useReviews({ page: currentPage, perPage: 4, instructorId: instructorId ?? undefined })
+  const { closedVisualEffect } = useAcademySettings()
 
   useEffect(() => {
     setCurrentPage(1)
@@ -84,7 +88,10 @@ function InstructorDetailPage() {
               </ul>
             )}
             {instructor.bio && (
-              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-line">{instructor.bio}</p>
+              <div
+                className="rich-text-content text-sm text-gray-600 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: textToHtml(instructor.bio) }}
+              />
             )}
           </div>
         </div>
@@ -93,19 +100,25 @@ function InstructorDetailPage() {
           <div className="mb-16">
             <h2 className="text-xl font-bold text-gray-900 mb-6">관련 강의 신청하기</h2>
             <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
-              {courses.map((course) => (
-                <Link key={course.id} to={`/course/${course.id}`} className="no-underline cursor-pointer group">
-                  <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
-                    {course.thumbnail_url ? (
-                      <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-sm text-gray-400">썸네일</span>
-                    )}
-                  </div>
-                  <h3 className="text-base font-bold text-gray-900 mb-1">{course.title}</h3>
-                  <p className="text-sm text-gray-500">{course.instructor?.name}</p>
-                </Link>
-              ))}
+              {courses.map((course) => {
+                const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
+                return (
+                  <Link key={course.id} to={`/course/${course.id}`} className="no-underline cursor-pointer group">
+                    <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+                      {course.thumbnail_url ? (
+                        <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-sm text-gray-400">썸네일</span>
+                      )}
+                    </div>
+                    <h3 className={`text-base font-bold mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
+                      <span className={closed ? 'line-through' : ''}>{course.title}</span>
+                      {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                    </h3>
+                    <p className="text-sm text-gray-500">{course.instructor?.name}</p>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         )}
@@ -114,30 +127,36 @@ function InstructorDetailPage() {
           <div className="mb-16">
             <h2 className="text-xl font-bold text-gray-900 mb-6">관련 전자책 받기</h2>
             <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
-              {ebooks.map((ebook) => (
-                <Link key={ebook.id} to={`/ebook/${ebook.id}`} className="no-underline cursor-pointer group">
-                  <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
-                    {ebook.thumbnail_url ? (
-                      <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-sm text-gray-400">썸네일</span>
-                    )}
-                  </div>
-                  <h3 className="text-base font-bold text-gray-900 mb-1">{ebook.title}</h3>
-                  <p className="text-sm text-gray-500 mb-1">{ebook.instructor?.name}</p>
-                  <div className="flex items-center gap-2">
-                    {ebook.original_price && (
-                      <span className="text-sm text-gray-400 line-through">{ebook.original_price.toLocaleString()}원</span>
-                    )}
-                    <span className="text-sm font-bold text-gray-900">
-                      {ebook.is_free ? '무료' : ebook.sale_price ? `${ebook.sale_price.toLocaleString()}원` : ''}
-                    </span>
-                    {ebook.is_hot && (
-                      <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">HOT</span>
-                    )}
-                  </div>
-                </Link>
-              ))}
+              {ebooks.map((ebook) => {
+                const closed = closedVisualEffect !== false && isEbookClosed(ebook.close_date)
+                return (
+                  <Link key={ebook.id} to={`/ebook/${ebook.id}`} className="no-underline cursor-pointer group">
+                    <div className={`bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+                      {ebook.thumbnail_url ? (
+                        <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-sm text-gray-400">썸네일</span>
+                      )}
+                    </div>
+                    <h3 className={`text-base font-bold mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
+                      <span className={closed ? 'line-through' : ''}>{ebook.title}</span>
+                      {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-1">{ebook.instructor?.name}</p>
+                    <div className="flex items-center gap-2">
+                      {ebook.original_price && (
+                        <span className="text-sm text-gray-400 line-through">{ebook.original_price.toLocaleString()}원</span>
+                      )}
+                      <span className={`text-sm font-bold ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
+                        {ebook.is_free ? '무료' : ebook.sale_price ? `${ebook.sale_price.toLocaleString()}원` : ''}
+                      </span>
+                      {ebook.is_hot && (
+                        <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">HOT</span>
+                      )}
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         )}

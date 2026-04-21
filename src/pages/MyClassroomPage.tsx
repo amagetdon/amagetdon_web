@@ -26,6 +26,7 @@ interface CoursePurchase {
     title: string
     thumbnail_url: string | null
     enrollment_deadline: string | null
+    duration_days: number | null
     instructor: { id: number; name: string } | null
     curriculum_items: CurriculumItem[]
   } | null
@@ -213,8 +214,11 @@ function MyClassroomPage() {
   const renderCourse = (purchase: CoursePurchase) => {
     const course = purchase.course
     if (!course) return null
-    const dDay = getDDay(course.enrollment_deadline)
-    const expired = isExpired(course.enrollment_deadline)
+    const effectiveExpiry = purchase.expires_at ?? course.enrollment_deadline
+    const expired = isExpired(effectiveExpiry)
+    const deadlinePassed = isExpired(course.enrollment_deadline)
+    const deadlineDDay = getDDay(course.enrollment_deadline)
+    const reviewDDay = purchase.expires_at ? getDDay(purchase.expires_at) : null
     const courseCompleted = completedItems[course.id] ?? new Set<number>()
     const completionRate = completionRates[course.id] ?? 0
 
@@ -233,15 +237,25 @@ function MyClassroomPage() {
               <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">강의</span>
               {expired ? (
                 <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full">수강 기간 만료</span>
-              ) : dDay !== null ? (
-                <span className="bg-[#2ED573] text-white text-xs font-bold px-3 py-1 rounded-full">D-{dDay}</span>
+              ) : deadlinePassed && reviewDDay !== null ? (
+                <>
+                  <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full">수강 기간 만료</span>
+                  <span className="bg-[#2ED573] text-white text-xs font-bold px-3 py-1 rounded-full">다시보기 D-{reviewDDay}</span>
+                </>
+              ) : deadlineDDay !== null ? (
+                <span className="bg-[#2ED573] text-white text-xs font-bold px-3 py-1 rounded-full">마감 D-{deadlineDDay}</span>
               ) : null}
             </div>
             <h2 className="text-xl font-bold whitespace-pre-line">{course.title}</h2>
             <p className="text-sm text-gray-400 mt-1">{course.instructor?.name} 강사</p>
             <div className="flex flex-col gap-0.5 text-xs text-gray-400 mt-2">
               <span>최초 수강일: {formatKoDateTime(purchase.purchased_at)}</span>
-              <span>수강 만료일: {course.enrollment_deadline ? formatKoDateTime(course.enrollment_deadline) : '무제한'}</span>
+              <span>
+                수강 만료일: {course.enrollment_deadline ? formatKoDateTime(course.enrollment_deadline) : '무제한'}
+                {course.enrollment_deadline && course.duration_days && course.duration_days > 0 && (
+                  <> (다시보기 {course.duration_days}일)</>
+                )}
+              </span>
             </div>
             {course.curriculum_items.length > 0 && (
               <div className="mt-3">

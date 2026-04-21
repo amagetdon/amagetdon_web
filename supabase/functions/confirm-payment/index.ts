@@ -117,10 +117,15 @@ Deno.serve(async (req: Request) => {
     let rewardPoints = 0
     if (itemType === 'course' && itemId) {
       courseId = itemId
-      const { data: course } = await supabase.from('courses').select('title, reward_points').eq('id', itemId).maybeSingle()
+      const { data: course } = await supabase.from('courses').select('title, reward_points, duration_days, enrollment_deadline').eq('id', itemId).maybeSingle()
       if (course) {
         title = course.title
         rewardPoints = course.reward_points ?? 0
+        if (course.enrollment_deadline && course.duration_days && course.duration_days > 0) {
+          const base = new Date(course.enrollment_deadline)
+          base.setDate(base.getDate() + course.duration_days)
+          expiresAt = base.toISOString()
+        }
       }
     } else if (itemType === 'ebook' && itemId) {
       ebookId = itemId

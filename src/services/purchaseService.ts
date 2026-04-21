@@ -77,7 +77,8 @@ export const purchaseService = {
     price: number,
     durationDays?: number | null,
     couponId?: number | null,
-    originalPrice?: number | null
+    originalPrice?: number | null,
+    startFrom?: string | null,
   ): Promise<void> {
     // 1. 현재 포인트 잔액 확인
     const { data: profile, error: profileError } = await supabase
@@ -98,7 +99,7 @@ export const purchaseService = {
 
     const newBalance = profile.points - price
     const expiresAt = durationDays
-      ? new Date(Date.now() + durationDays * 86400000).toISOString()
+      ? new Date((startFrom ? new Date(startFrom).getTime() : Date.now()) + durationDays * 86400000).toISOString()
       : null
 
     // 3. 포인트 차감 (optimistic locking: points 값이 예상과 다르면 실패)
@@ -150,7 +151,8 @@ export const purchaseService = {
     userId: string,
     item: { courseId?: number | null; ebookId?: number | null },
     title: string,
-    durationDays?: number | null
+    durationDays?: number | null,
+    startFrom?: string | null,
   ): Promise<void> {
     const owned = await this.checkOwnership(userId, item.courseId, item.ebookId)
     if (owned) {
@@ -158,7 +160,7 @@ export const purchaseService = {
     }
 
     const expiresAt = durationDays
-      ? new Date(Date.now() + durationDays * 86400000).toISOString()
+      ? new Date((startFrom ? new Date(startFrom).getTime() : Date.now()) + durationDays * 86400000).toISOString()
       : null
 
     const { error } = await supabase

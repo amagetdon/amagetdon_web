@@ -32,6 +32,8 @@ const MyPage = lazy(() => import('./pages/MyPage'))
 const MyClassroomPage = lazy(() => import('./pages/MyClassroomPage'))
 const EbookDetailPage = lazy(() => import('./pages/EbookDetailPage'))
 const EbookReaderPage = lazy(() => import('./pages/EbookReaderPage'))
+const EbooksFreePage = lazy(() => import('./pages/EbooksFreePage'))
+const EbooksSecretPage = lazy(() => import('./pages/EbooksSecretPage'))
 const SearchPage = lazy(() => import('./pages/SearchPage'))
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'))
 const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'))
@@ -145,6 +147,8 @@ function App() {
                 <Route path="/academy/premium" element={<AcademyPremiumPage />} />
                 <Route path="/course/:id" element={<CourseDetailPage />} />
                 <Route path="/ebook/:id" element={<EbookDetailPage />} />
+                <Route path="/ebooks/free" element={<EbooksFreePage />} />
+                <Route path="/ebooks/secret" element={<EbooksSecretPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/landing/:slug" element={<LandingPage />} />
 

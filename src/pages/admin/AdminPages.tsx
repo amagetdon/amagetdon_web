@@ -9,6 +9,7 @@ import { landingCategoryService } from '../../services/landingCategoryService'
 import { bannerService } from '../../services/bannerService'
 import { resultService } from '../../services/resultService'
 import { supabase } from '../../lib/supabase'
+import { invalidateAcademySettings } from '../../hooks/useAcademySettings'
 import type { LandingCategory, LandingCategorySeo, Banner, Result } from '../../types'
 
 interface EditingForm {
@@ -48,8 +49,9 @@ export default function AdminPages() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
 
-  // 아카데미 프로모 영상
+  // 아카데미 프로모 영상 + 설정
   const [promoVideoUrl, setPromoVideoUrl] = useState('')
+  const [closedVisualEffect, setClosedVisualEffect] = useState(true)
   const [academySaving, setAcademySaving] = useState(false)
 
   // 배너
@@ -83,7 +85,7 @@ export default function AdminPages() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [data, promoRes, heroBanners, reviewsBanners, resultsBanners, reviewsEvent, resultsEvent, resultData, settingsData] = await Promise.all([
+      const [data, promoRes, heroBanners, reviewsBanners, resultsBanners, reviewsEvent, resultsEvent, resultData, settingsData, academyRes] = await Promise.all([
         landingCategoryService.getAll(),
         supabase.from('site_settings').select('value').eq('key', 'promo_video').maybeSingle(),
         bannerService.getAllByPage('hero'),
@@ -93,10 +95,13 @@ export default function AdminPages() {
         bannerService.getAllByPage('results_event'),
         resultService.getAll({ perPage: 50 }),
         supabase.from('site_settings').select('*').eq('key', 'banner_settings').maybeSingle(),
+        supabase.from('site_settings').select('value').eq('key', 'academy_settings').maybeSingle(),
       ])
       setCategories(data)
       const promoValue = (promoRes.data as { value?: { url?: string } } | null)?.value
       setPromoVideoUrl(promoValue?.url || '')
+      const academyValue = (academyRes.data as { value?: { closedVisualEffect?: boolean } } | null)?.value
+      setClosedVisualEffect(academyValue?.closedVisualEffect !== false)
       setAllBanners({ hero: heroBanners, reviews: reviewsBanners, results: resultsBanners, reviews_event: reviewsEvent, results_event: resultsEvent })
       setResults(resultData.data)
       const settingsValue = (settingsData.data as { value?: Record<string, { height?: string; speed?: string }> } | null)?.value
@@ -120,7 +125,11 @@ export default function AdminPages() {
   const handleAcademySave = async () => {
     try {
       setAcademySaving(true)
-      await supabase.from('site_settings').upsert({ key: 'promo_video', value: { url: promoVideoUrl } } as never, { onConflict: 'key' })
+      await Promise.all([
+        supabase.from('site_settings').upsert({ key: 'promo_video', value: { url: promoVideoUrl } } as never, { onConflict: 'key' }),
+        supabase.from('site_settings').upsert({ key: 'academy_settings', value: { closedVisualEffect } } as never, { onConflict: 'key' }),
+      ])
+      invalidateAcademySettings()
       toast.success('아카데미 설정이 저장되었습니다.')
     } catch {
       toast.error('저장에 실패했습니다.')
@@ -369,6 +378,23 @@ export default function AdminPages() {
               onChange={(url) => setPromoVideoUrl(url || '')}
               label="프로모 영상 URL"
             />
+          </div>
+          <div className="pt-6 border-t border-gray-100">
+            <h3 className="text-sm font-bold text-gray-900 mb-1">마감 시 시각적 효과</h3>
+            <p className="text-xs text-gray-400 mb-3">목록에서 마감된 강의·전자책의 제목에 취소선과 "(마감)" 라벨을 표시합니다.</p>
+            <label className="inline-flex items-center gap-3 cursor-pointer select-none">
+              <span className="relative">
+                <input
+                  type="checkbox"
+                  checked={closedVisualEffect}
+                  onChange={(e) => setClosedVisualEffect(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <span className="block w-10 h-6 bg-gray-200 rounded-full peer-checked:bg-[#2ED573] transition-colors" />
+                <span className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4" />
+              </span>
+              <span className="text-sm text-gray-700">{closedVisualEffect ? '사용' : '미사용'}</span>
+            </label>
           </div>
           <button
             onClick={handleAcademySave}

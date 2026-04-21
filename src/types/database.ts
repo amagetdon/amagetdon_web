@@ -76,6 +76,11 @@ export interface Database {
         Insert: Omit<LandingCategory, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Omit<LandingCategory, 'id' | 'created_at'>>
       }
+      refund_policy_templates: {
+        Row: RefundPolicyTemplate
+        Insert: Omit<RefundPolicyTemplate, 'id' | 'created_at' | 'updated_at'>
+        Update: Partial<Omit<RefundPolicyTemplate, 'id' | 'created_at'>>
+      }
     }
     Views: Record<string, never>
     Functions: Record<string, never>
@@ -167,6 +172,7 @@ export interface Course {
   related_course_ids: number[] | null
   sort_order: number
   landing_category_id: number | null
+  refund_policy: string | null
   created_at: string
   updated_at: string
 }
@@ -254,6 +260,7 @@ export interface Ebook {
   discount_end: string | null
   related_ebook_ids: number[] | null
   sort_order: number
+  refund_policy: string | null
   created_at: string
   updated_at: string
 }
@@ -418,6 +425,16 @@ export interface CouponClaim {
   user_id: string
   used_at: string | null
   claimed_at: string
+}
+
+export interface RefundPolicyTemplate {
+  id: number
+  name: string
+  content: string
+  sort_order: number
+  is_default: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface Banner {

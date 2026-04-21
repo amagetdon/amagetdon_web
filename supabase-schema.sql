@@ -66,6 +66,7 @@ CREATE TABLE courses (
   related_course_ids INTEGER[] DEFAULT '{}',
   sort_order INTEGER DEFAULT 0,
   landing_category_id INTEGER,
+  refund_policy TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -109,9 +110,35 @@ CREATE TABLE ebooks (
   discount_end TIMESTAMPTZ,
   related_ebook_ids INTEGER[] DEFAULT '{}',
   sort_order INTEGER DEFAULT 0,
+  refund_policy TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- 15. refund_policy_templates (환불규정 템플릿)
+CREATE TABLE refund_policy_templates (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  content TEXT NOT NULL,
+  sort_order INTEGER DEFAULT 0,
+  is_default BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE UNIQUE INDEX idx_refund_policy_templates_single_default
+  ON refund_policy_templates (is_default)
+  WHERE is_default = true;
+
+ALTER TABLE refund_policy_templates ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Public read refund policy templates" ON refund_policy_templates
+  FOR SELECT USING (true);
+CREATE POLICY "Admin manage refund policy templates" ON refund_policy_templates
+  FOR ALL USING (
+    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+CREATE TRIGGER set_updated_at BEFORE UPDATE ON refund_policy_templates
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
 
 -- 6. reviews (수강 후기)
 CREATE TABLE reviews (

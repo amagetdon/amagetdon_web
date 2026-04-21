@@ -5,10 +5,13 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
 import VideoUrlInput from '../../components/admin/VideoUrlInput'
+import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
+import RichTextEditor from '../../components/admin/RichTextEditor'
 import { courseService } from '../../services/courseService'
 import { reviewService } from '../../services/reviewService'
 import { instructorService } from '../../services/instructorService'
 import { landingCategoryService } from '../../services/landingCategoryService'
+import { refundPolicyTemplateService } from '../../services/refundPolicyTemplateService'
 import { supabase } from '../../lib/supabase'
 import type { CourseWithCurriculum, Review, Instructor, LandingCategory } from '../../types'
 
@@ -280,7 +283,14 @@ export default function AdminCourseDetail() {
         features: [],
         seo: {},
         reward_points: 0,
+        refund_policy: '',
+        duration_days: 40,
       })
+      refundPolicyTemplateService.getDefault()
+        .then((tpl) => {
+          if (tpl) setEditing((prev) => (prev ? { ...prev, refund_policy: tpl.content } : prev))
+        })
+        .catch(() => {})
       return
     }
     loadCourse()
@@ -361,6 +371,8 @@ export default function AdminCourseDetail() {
         sort_order: editing.sort_order ?? 0,
         description: editing.description ?? null,
         landing_category_id: ((editing.landing_category_ids as number[]) ?? [])[0] ?? null,
+        refund_policy: ((editing.refund_policy as string) || '').trim() || null,
+        duration_days: editing.duration_days ?? 40,
       }
       if (isNew) {
         const created = await courseService.create(courseData as never) as { id: number }
@@ -592,6 +604,14 @@ export default function AdminCourseDetail() {
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                 <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">0 = 미지급</p>
               </div>
+              <div className="w-[140px] max-sm:w-full">
+                <label className="text-sm font-bold block mb-1">다시보기 (일)</label>
+                <input type="number" min={0} value={(editing.duration_days as number) ?? 0}
+                  onChange={(e) => setEditing({ ...editing, duration_days: e.target.value === '' ? 0 : Number(e.target.value) })}
+                  placeholder="40"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">마감일시 이후 N일간 다시보기 가능</p>
+              </div>
               <div className="flex gap-3 max-sm:w-full max-sm:flex-col">
                 <div className="w-[220px] max-sm:w-full">
                   <label className="text-sm font-bold block mb-1">할인 시작일시</label>
@@ -645,6 +665,16 @@ export default function AdminCourseDetail() {
                   onChange={(url) => setEditing({ ...editing, video_url: url })}
                   label="홍보 영상"
                 />
+              </div>
+              <div className="w-full">
+                <label className="text-sm font-bold block mb-1">강의 소개</label>
+                <RichTextEditor
+                  value={(editing.description as string) || ''}
+                  onChange={(html) => setEditing({ ...editing, description: html })}
+                  placeholder="강의 소개글을 작성해 주세요"
+                  minHeight={220}
+                />
+                <p className="text-xs text-gray-400 mt-1">강의 상세 페이지 상단(강의 강점/특징 위)에 표시됩니다.</p>
               </div>
               <div className="w-full">
                 <label className="text-sm font-bold block mb-2">뱃지 / 옵션</label>
@@ -745,6 +775,12 @@ export default function AdminCourseDetail() {
                 </div>
               )}
             </div>
+
+            {/* 환불규정 */}
+            <RefundPolicyEditor
+              value={(editing.refund_policy as string) || ''}
+              onChange={(v) => setEditing({ ...editing, refund_policy: v })}
+            />
 
             {/* 강의별 SEO */}
             <div className="mt-6 pt-5 border-t border-gray-100">

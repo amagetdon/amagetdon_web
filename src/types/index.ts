@@ -29,4 +29,5 @@ export type {
   LandingCategorySeo,
   CourseSeo,
   EbookSeo,
+  RefundPolicyTemplate,
 } from './database'

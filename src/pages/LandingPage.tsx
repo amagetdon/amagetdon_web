@@ -3,6 +3,8 @@ import { useParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { landingCategoryService } from '../services/landingCategoryService'
 import SeoHead from '../components/SeoHead'
+import { isCourseClosed } from '../utils/courseStatus'
+import { useAcademySettings } from '../hooks/useAcademySettings'
 import type { LandingCategory, CourseWithInstructor } from '../types'
 
 function LandingPage() {
@@ -10,6 +12,7 @@ function LandingPage() {
   const [category, setCategory] = useState<LandingCategory | null>(null)
   const [courses, setCourses] = useState<CourseWithInstructor[]>([])
   const [loading, setLoading] = useState(true)
+  const { closedVisualEffect } = useAcademySettings()
   const [notFound, setNotFound] = useState(false)
 
   useEffect(() => {
@@ -74,19 +77,25 @@ function LandingPage() {
           <div className="text-center py-20 text-gray-400 text-sm">등록된 강의가 없습니다.</div>
         ) : (
           <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">
-            {courses.map((course) => (
-              <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">
-                <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
-                  {course.thumbnail_url ? (
-                    <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                  ) : (
-                    <span className="text-sm text-gray-400">썸네일<br />16:9</span>
-                  )}
-                </div>
-                <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1">{course.title}</p>
-                <p className="text-xs text-gray-400">{course.instructor?.name ? `강사 ${course.instructor.name}` : ''}</p>
-              </Link>
-            ))}
+            {courses.map((course) => {
+              const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
+              return (
+                <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">
+                  <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+                    {course.thumbnail_url ? (
+                      <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <span className="text-sm text-gray-400">썸네일<br />16:9</span>
+                    )}
+                  </div>
+                  <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
+                    <span className={closed ? 'line-through' : ''}>{course.title}</span>
+                    {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                  </p>
+                  <p className="text-xs text-gray-400">{course.instructor?.name ? `강사 ${course.instructor.name}` : ''}</p>
+                </Link>
+              )
+            })}
           </div>
         )}
       </div>

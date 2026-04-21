@@ -6,6 +6,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import VideoUrlInput from '../../components/admin/VideoUrlInput'
+import RichTextEditor from '../../components/admin/RichTextEditor'
 import { faqService } from '../../services/faqService'
 import type { Faq } from '../../types'
 
@@ -100,8 +101,12 @@ export default function AdminFaqs() {
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">답변 *</label>
-              <textarea value={editing.answer || ''} onChange={(e) => setEditing({ ...editing, answer: e.target.value })}
-                rows={5} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#2ED573]" />
+              <RichTextEditor
+                value={editing.answer || ''}
+                onChange={(html) => setEditing({ ...editing, answer: html })}
+                placeholder="답변을 입력해 주세요"
+                minHeight={200}
+              />
             </div>
             <div>
               <VideoUrlInput

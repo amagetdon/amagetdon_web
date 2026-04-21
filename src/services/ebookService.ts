@@ -11,6 +11,7 @@ export const ebookService = {
       .from('ebooks')
       .select('*, instructor:instructors(id, name)')
       .order('sort_order')
+      .order('created_at', { ascending: false })
     if (options?.isFree !== undefined) query = query.eq('is_free', options.isFree)
     if (options?.limit) query = query.limit(options.limit)
     const { data, error } = await query
@@ -34,6 +35,7 @@ export const ebookService = {
       .select('*, instructor:instructors(id, name)')
       .eq('instructor_id', instructorId)
       .order('sort_order')
+      .order('created_at', { ascending: false })
     if (error) throw error
     return data as EbookWithInstructor[]
   },

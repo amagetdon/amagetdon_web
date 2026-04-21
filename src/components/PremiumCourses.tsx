@@ -5,7 +5,7 @@ import { isCourseClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
 import type { CourseWithInstructor } from '../types'
 
-function FreeCourses({ courses: propCourses, loading: propLoading }: { courses?: CourseWithInstructor[]; loading?: boolean } = {}) {
+function PremiumCourses({ courses: propCourses, loading: propLoading }: { courses?: CourseWithInstructor[]; loading?: boolean } = {}) {
   const [selfCourses, setSelfCourses] = useState<CourseWithInstructor[]>([])
   const [selfLoading, setSelfLoading] = useState(!propCourses)
   const courses = propCourses ?? selfCourses
@@ -14,15 +14,18 @@ function FreeCourses({ courses: propCourses, loading: propLoading }: { courses?:
 
   useEffect(() => {
     if (propCourses) return
-    courseService.getAllPublic('free').then(setSelfCourses).catch(() => {}).finally(() => setSelfLoading(false))
+    courseService.getAllPublic('premium').then(setSelfCourses).catch(() => {}).finally(() => setSelfLoading(false))
   }, [propCourses])
+
+  if (!loading && courses.length === 0) return null
+
   return (
     <section className="w-full bg-white py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="flex items-center justify-between mb-6 gap-4">
-          <h2 className="text-2xl font-bold text-gray-900 min-w-0">무료 강의</h2>
+          <h2 className="text-2xl font-bold text-gray-900 min-w-0">유료 강의</h2>
           <Link
-            to="/academy/free"
+            to="/academy/premium"
             className="flex items-center gap-2 px-5 py-2 border border-gray-300 rounded-full text-sm text-gray-600 bg-white cursor-pointer no-underline hover:bg-gray-50 whitespace-nowrap"
           >
             전체 보기 <span className="text-lg">→</span>
@@ -66,4 +69,4 @@ function FreeCourses({ courses: propCourses, loading: propLoading }: { courses?:
   )
 }
 
-export default FreeCourses
+export default PremiumCourses

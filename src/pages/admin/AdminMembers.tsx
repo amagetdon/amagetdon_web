@@ -34,7 +34,7 @@ export default function AdminMembers() {
   const [grantItemId, setGrantItemId] = useState('')
   const [grantDays, setGrantDays] = useState('365')
   const [grantSaving, setGrantSaving] = useState(false)
-  const [allCourses, setAllCourses] = useState<{ id: number; title: string; duration_days: number }[]>([])
+  const [allCourses, setAllCourses] = useState<{ id: number; title: string; duration_days: number; enrollment_deadline: string | null }[]>([])
   const [allEbooks, setAllEbooks] = useState<{ id: number; title: string; duration_days: number }[]>([])
   const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null } | null>(null)
   const [refundRestoreCoupon, setRefundRestoreCoupon] = useState(true)
@@ -156,10 +156,10 @@ export default function AdminMembers() {
     setGrantDays('365')
     if (allCourses.length === 0) {
       const [c, e] = await Promise.all([
-        supabase.from('courses').select('id, title, duration_days').order('sort_order'),
+        supabase.from('courses').select('id, title, duration_days, enrollment_deadline').order('sort_order'),
         supabase.from('ebooks').select('id, title, duration_days').order('sort_order'),
       ])
-      setAllCourses((c.data ?? []) as { id: number; title: string; duration_days: number }[])
+      setAllCourses((c.data ?? []) as { id: number; title: string; duration_days: number; enrollment_deadline: string | null }[])
       setAllEbooks((e.data ?? []) as { id: number; title: string; duration_days: number }[])
     }
   }
@@ -177,6 +177,11 @@ export default function AdminMembers() {
         expiresAt = days > 0
           ? new Date(Date.now() + days * 86400000).toISOString()
           : null
+      } else if (grantType === 'course') {
+        const courseItem = item as { duration_days?: number; enrollment_deadline?: string | null } | undefined
+        if (courseItem?.enrollment_deadline && courseItem?.duration_days && courseItem.duration_days > 0) {
+          expiresAt = new Date(new Date(courseItem.enrollment_deadline).getTime() + courseItem.duration_days * 86400000).toISOString()
+        }
       }
 
       const { error } = await supabase.from('purchases').insert({

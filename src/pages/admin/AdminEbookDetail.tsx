@@ -4,8 +4,10 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
+import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
 import { ebookService } from '../../services/ebookService'
 import { instructorService } from '../../services/instructorService'
+import { refundPolicyTemplateService } from '../../services/refundPolicyTemplateService'
 import { storageService } from '../../services/storageService'
 import { supabase } from '../../lib/supabase'
 import type { EbookWithInstructor, Instructor } from '../../types'
@@ -109,7 +111,13 @@ export default function AdminEbookDetail() {
         seo: {},
         reward_points: 0,
         related_ebook_ids: [],
+        refund_policy: '',
       })
+      refundPolicyTemplateService.getDefault()
+        .then((tpl) => {
+          if (tpl) setEditing((prev) => (prev ? { ...prev, refund_policy: tpl.content } : prev))
+        })
+        .catch(() => {})
       return
     }
     loadEbook()
@@ -257,6 +265,7 @@ export default function AdminEbookDetail() {
         discount_end: editing.discount_end ?? null,
         related_ebook_ids: (editing.related_ebook_ids as number[]) ?? [],
         sort_order: editing.sort_order ?? 0,
+        refund_policy: ((editing.refund_policy as string) || '').trim() || null,
       }
       if (isNew) {
         const created = await ebookService.create(payload) as { id: number }
@@ -607,6 +616,12 @@ export default function AdminEbookDetail() {
                 </div>
               )}
             </div>
+
+            {/* 환불규정 */}
+            <RefundPolicyEditor
+              value={(editing.refund_policy as string) || ''}
+              onChange={(v) => setEditing({ ...editing, refund_policy: v })}
+            />
 
             {/* SEO */}
             <div className="mt-6 pt-5 border-t border-gray-100">

@@ -12,12 +12,15 @@ import SeoHead from '../components/SeoHead'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
 import type { EbookWithInstructor, Coupon } from '../types'
+import { isEbookClosed } from '../utils/courseStatus'
+import { useAcademySettings } from '../hooks/useAcademySettings'
 
 function EbookDetailPage() {
   const { id } = useParams()
   const ebookId = id ? Number(id) : null
   const navigate = useNavigate()
   const { user, profile, refreshProfile } = useAuth()
+  const { closedVisualEffect } = useAcademySettings()
 
   const [ebook, setEbook] = useState<EbookWithInstructor | null>(null)
   const [loading, setLoading] = useState(true)
@@ -29,7 +32,7 @@ function EbookDetailPage() {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
   const [tossLoading, setTossLoading] = useState(false)
-  const [relatedEbooks, setRelatedEbooks] = useState<Array<{ id: number; title: string; thumbnail_url: string | null; sale_price: number | null; is_free: boolean }>>([])
+  const [relatedEbooks, setRelatedEbooks] = useState<Array<{ id: number; title: string; thumbnail_url: string | null; sale_price: number | null; is_free: boolean; close_date: string | null }>>([])
 
   useEffect(() => {
     if (!ebook?.related_ebook_ids || ebook.related_ebook_ids.length === 0) {
@@ -39,7 +42,7 @@ function EbookDetailPage() {
     let cancelled = false
     supabase
       .from('ebooks')
-      .select('id, title, thumbnail_url, sale_price, is_free')
+      .select('id, title, thumbnail_url, sale_price, is_free, close_date')
       .in('id', ebook.related_ebook_ids)
       .eq('is_published', true)
       .then(({ data }) => {
@@ -130,6 +133,11 @@ function EbookDetailPage() {
 
     if (owned) {
       navigate('/my-classroom')
+      return
+    }
+
+    if (ebook?.close_date && new Date(ebook.close_date).getTime() <= Date.now()) {
+      toast.error('판매가 마감된 전자책입니다.')
       return
     }
 
@@ -261,6 +269,14 @@ function EbookDetailPage() {
       return (
         <button disabled className="w-full py-4 bg-gray-300 text-white font-bold text-center rounded-xl mt-6 cursor-not-allowed border-none">
           확인 중...
+        </button>
+      )
+    }
+
+    if (ebook && ebook.close_date && new Date(ebook.close_date).getTime() <= Date.now() && !owned) {
+      return (
+        <button disabled className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-6 cursor-not-allowed border-none">
+          판매 마감
         </button>
       )
     }
@@ -415,22 +431,47 @@ function EbookDetailPage() {
           <div className="max-w-[1200px] mx-auto px-5">
             <h2 className="text-xl font-bold text-gray-900 mb-6">관련 전자책</h2>
             <div className="grid grid-cols-4 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
-              {relatedEbooks.map((re) => (
-                <Link key={re.id} to={`/ebook/${re.id}`} className="no-underline group">
-                  <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
-                    {re.thumbnail_url ? (
-                      <img src={re.thumbnail_url} alt={re.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <span className="text-xs text-gray-400">표지</span>
-                    )}
-                  </div>
-                  <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1 line-clamp-2">{re.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {re.is_free ? '무료' : re.sale_price ? `${re.sale_price.toLocaleString()}원` : '-'}
-                  </p>
-                </Link>
-              ))}
+              {relatedEbooks.map((re) => {
+                const closed = closedVisualEffect !== false && isEbookClosed(re.close_date)
+                return (
+                  <Link key={re.id} to={`/ebook/${re.id}`} className="no-underline group">
+                    <div className={`bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+                      {re.thumbnail_url ? (
+                        <img src={re.thumbnail_url} alt={re.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <span className="text-xs text-gray-400">표지</span>
+                      )}
+                    </div>
+                    <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 line-clamp-2 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
+                      <span className={closed ? 'line-through' : ''}>{re.title}</span>
+                      {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {re.is_free ? '무료' : re.sale_price ? `${re.sale_price.toLocaleString()}원` : '-'}
+                    </p>
+                  </Link>
+                )
+              })}
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* 환불규정 */}
+      {ebook.refund_policy && ebook.refund_policy.trim() && (
+        <section className="w-full bg-white py-12 border-t border-gray-100">
+          <div className="max-w-[900px] mx-auto px-5">
+            <details className="group" open>
+              <summary className="list-none cursor-pointer flex items-center justify-between gap-3 py-2">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <i className="ti ti-receipt-refund text-[#2ED573]" /> 환불규정
+                </h2>
+                <i className="ti ti-chevron-down text-gray-400 text-lg transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-4 p-5 bg-gray-50 border border-gray-100 rounded-xl">
+                <div className="refund-policy-content" dangerouslySetInnerHTML={{ __html: ebook.refund_policy }} />
+              </div>
+            </details>
           </div>
         </section>
       )}

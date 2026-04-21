@@ -15,6 +15,9 @@ import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
 import { supabase } from '../lib/supabase'
 import type { Coupon } from '../types'
+import { textToHtml } from '../utils/richText'
+import { isCourseClosed } from '../utils/courseStatus'
+import { useAcademySettings } from '../hooks/useAcademySettings'
 
 function CourseDetailPage() {
   const { id } = useParams()
@@ -24,6 +27,7 @@ function CourseDetailPage() {
   const isClosed = searchParams.get('closed') === 'true'
   const navigate = useNavigate()
   const { user, profile, refreshProfile, isAdmin } = useAuth()
+  const { closedVisualEffect } = useAcademySettings()
 
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
   const [owned, setOwned] = useState(false)
@@ -31,7 +35,7 @@ function CourseDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [purchasing, setPurchasing] = useState(false)
   const [enrollmentCount, setEnrollmentCount] = useState(0)
-  const [relatedCourses, setRelatedCourses] = useState<Array<{ id: number; title: string; thumbnail_url: string | null; sale_price: number | null; course_type: string }>>([])
+  const [relatedCourses, setRelatedCourses] = useState<Array<{ id: number; title: string; thumbnail_url: string | null; sale_price: number | null; course_type: string; enrollment_deadline: string | null }>>([])
   const [myCoupons, setMyCoupons] = useState<Coupon[]>([])
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
@@ -106,7 +110,7 @@ function CourseDetailPage() {
     Promise.resolve(
       supabase
         .from('courses')
-        .select('id, title, thumbnail_url, sale_price, course_type')
+        .select('id, title, thumbnail_url, sale_price, course_type, enrollment_deadline')
         .in('id', course.related_course_ids)
         .eq('is_published', true)
         .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
@@ -176,7 +180,8 @@ function CourseDetailPage() {
         user.id,
         { courseId },
         course.title,
-        null
+        course.enrollment_deadline ? (course.duration_days || null) : null,
+        course.enrollment_deadline || null,
       )
       toast.success('강의가 등록되었습니다!')
       setOwned(true)
@@ -198,9 +203,10 @@ function CourseDetailPage() {
         { courseId },
         course.title,
         finalPrice,
-        null,
+        course.enrollment_deadline ? (course.duration_days || null) : null,
         selectedCoupon?.id,
-        selectedCoupon ? price : undefined
+        selectedCoupon ? price : undefined,
+        course.enrollment_deadline || null,
       )
       if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
       webhookService.firePurchase({ user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: course.title, price: finalPrice, type: 'course' }).catch(() => {})
@@ -381,6 +387,15 @@ function CourseDetailPage() {
                 )}
               </div>
 
+              {course.description && course.description.trim() && (
+                <div className="mt-6 bg-white border border-gray-200 rounded-xl p-6">
+                  <div
+                    className="rich-text-content text-sm text-gray-700"
+                    dangerouslySetInnerHTML={{ __html: textToHtml(course.description) }}
+                  />
+                </div>
+              )}
+
               {(course.strengths && course.strengths.length > 0) || (course.features && course.features.length > 0) ? (
                 <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-6 mt-6">
                   {course.strengths && course.strengths.length > 0 && (
@@ -491,21 +506,27 @@ function CourseDetailPage() {
           <div className="max-w-[1200px] mx-auto px-5">
             <h2 className="text-xl font-bold text-gray-900 mb-6">관련 강의</h2>
             <div className="grid grid-cols-4 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
-              {relatedCourses.map((rc) => (
-                <Link key={rc.id} to={`/course/${rc.id}`} className="no-underline group">
-                  <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
-                    {rc.thumbnail_url ? (
-                      <img src={rc.thumbnail_url} alt={rc.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                    ) : (
-                      <span className="text-xs text-gray-400">썸네일</span>
-                    )}
-                  </div>
-                  <p className="text-sm font-bold text-gray-900 whitespace-pre-line leading-snug mb-1 line-clamp-2">{rc.title}</p>
-                  <p className="text-xs text-gray-500">
-                    {rc.course_type === 'free' ? '무료' : rc.sale_price ? `${rc.sale_price.toLocaleString()}원` : '-'}
-                  </p>
-                </Link>
-              ))}
+              {relatedCourses.map((rc) => {
+                const closed = closedVisualEffect !== false && isCourseClosed(rc.enrollment_deadline)
+                return (
+                  <Link key={rc.id} to={`/course/${rc.id}`} className="no-underline group">
+                    <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+                      {rc.thumbnail_url ? (
+                        <img src={rc.thumbnail_url} alt={rc.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      ) : (
+                        <span className="text-xs text-gray-400">썸네일</span>
+                      )}
+                    </div>
+                    <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 line-clamp-2 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
+                      <span className={closed ? 'line-through' : ''}>{rc.title}</span>
+                      {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {rc.course_type === 'free' ? '무료' : rc.sale_price ? `${rc.sale_price.toLocaleString()}원` : '-'}
+                    </p>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         </section>
@@ -516,6 +537,25 @@ function CourseDetailPage() {
         <section className="w-full bg-gray-50 py-16">
           <div className="max-w-[1200px] mx-auto px-5">
             <CourseReviewSection courseId={course.id} courseName={course.title} />
+          </div>
+        </section>
+      )}
+
+      {/* 환불규정 */}
+      {course.refund_policy && course.refund_policy.trim() && (
+        <section className="w-full bg-white py-12 border-t border-gray-100">
+          <div className="max-w-[900px] mx-auto px-5">
+            <details className="group">
+              <summary className="list-none cursor-pointer flex items-center justify-between gap-3 py-2">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <i className="ti ti-receipt-refund text-[#2ED573]" /> 환불규정
+                </h2>
+                <i className="ti ti-chevron-down text-gray-400 text-lg transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="mt-4 p-5 bg-gray-50 border border-gray-100 rounded-xl">
+                <div className="refund-policy-content" dangerouslySetInnerHTML={{ __html: course.refund_policy }} />
+              </div>
+            </details>
           </div>
         </section>
       )}

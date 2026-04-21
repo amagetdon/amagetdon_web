@@ -6,7 +6,9 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
+import RichTextEditor from '../../components/admin/RichTextEditor'
 import { instructorService } from '../../services/instructorService'
+import { htmlToPlainText } from '../../utils/richText'
 import type { Instructor } from '../../types'
 
 export default function AdminInstructors() {
@@ -149,7 +151,7 @@ export default function AdminInstructors() {
                     </div>
                   </td>
                   <td className="px-5 py-3.5 text-gray-500 max-sm:hidden">{inst.title || '-'}</td>
-                  <td className="px-5 py-3.5 text-gray-400 text-xs max-sm:hidden max-w-[200px] truncate">{inst.bio?.split('\n')[0] || '-'}</td>
+                  <td className="px-5 py-3.5 text-gray-400 text-xs max-sm:hidden max-w-[200px] truncate">{htmlToPlainText(inst.bio).split('\n')[0] || '-'}</td>
                   <td className="px-5 py-3.5 text-center text-gray-400 text-xs max-sm:hidden">{inst.sort_order}</td>
                   <td className="px-5 py-3.5 text-center">
                     <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${inst.is_published ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
@@ -201,8 +203,12 @@ export default function AdminInstructors() {
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">소개글</label>
-              <textarea value={editing.bio || ''} onChange={(e) => setEditing({ ...editing, bio: e.target.value })}
-                rows={4} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#2ED573]" />
+              <RichTextEditor
+                value={editing.bio || ''}
+                onChange={(html) => setEditing({ ...editing, bio: html })}
+                placeholder="강사 소개 문단을 작성해 주세요"
+                minHeight={180}
+              />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">경력 (줄바꿈으로 구분)</label>

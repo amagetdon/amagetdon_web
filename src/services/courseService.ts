@@ -11,6 +11,7 @@ export const courseService = {
       .from('courses')
       .select('*, instructor:instructors(id, name)')
       .order('sort_order')
+      .order('created_at', { ascending: false })
     if (type) query = query.eq('course_type', type)
     const { data, error } = await query
     if (error) throw error
@@ -28,6 +29,7 @@ export const courseService = {
       .eq('is_published', true)
       .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
       .order('sort_order')
+      .order('created_at', { ascending: false })
     if (type) query = query.eq('course_type', type)
     const { data, error } = await query
     if (error) throw error
@@ -43,6 +45,7 @@ export const courseService = {
       .eq('is_published', true)
       .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
       .order('sort_order')
+      .order('created_at', { ascending: false })
     if (error) throw error
     return data as CourseWithInstructor[]
   },
