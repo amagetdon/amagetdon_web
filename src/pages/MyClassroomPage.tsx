@@ -252,7 +252,7 @@ function MyClassroomPage() {
               <span>최초 수강일: {formatKoDateTime(purchase.purchased_at)}</span>
               <span>
                 수강 만료일: {course.enrollment_deadline ? formatKoDateTime(course.enrollment_deadline) : '무제한'}
-                {course.enrollment_deadline && course.duration_days && course.duration_days > 0 && (
+                {course.enrollment_deadline && (course.duration_days ?? 0) > 0 && (
                   <> (다시보기 {course.duration_days}일)</>
                 )}
               </span>
@@ -279,7 +279,20 @@ function MyClassroomPage() {
           </div>
         </div>
 
-        {course.curriculum_items.length > 0 && (
+        {course.curriculum_items.length === 0 ? (
+          <div className="border border-gray-200 rounded-xl mt-4">
+            <div className="flex items-center gap-3 px-6 py-4 opacity-60">
+              <div className="w-5 h-5 rounded border-2 border-gray-300 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-400">강의를 준비 중입니다.</p>
+                <p className="text-xs text-gray-400 mt-0.5">커리큘럼이 업로드되면 여기에 표시됩니다.</p>
+              </div>
+              <div className="border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 bg-white opacity-50">
+                <i className="ti ti-clock text-gray-400" />
+              </div>
+            </div>
+          </div>
+        ) : (
           <div className={`border border-gray-200 rounded-xl mt-4 divide-y divide-gray-200 ${expired ? 'opacity-60' : ''}`}>
             {course.curriculum_items.map((item) => {
               const itemCompleted = courseCompleted.has(item.id)
