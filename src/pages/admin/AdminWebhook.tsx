@@ -327,6 +327,9 @@ export default function AdminWebhook() {
       ITEM1: '테스트유저', ITEM2: usePhoneFmt, ITEM2_NOH: usePhone,
       DATE: dateStr, TIME: timeStr, TIMES: timesStr,
       MOBILE: 'W', REFERER: '(test)',
+      AGENT: typeof navigator !== 'undefined' ? navigator.userAgent : '(test)',
+      IP: '127.0.0.1', DBNO: 999999, GROUP: '', NICK: '',
+      SCHEDULED_AT: '2026-12-31T19:30:00+09:00',
       U_SO: 'test', U_ME: 'test', U_CA: 'test', U_CO: 'test', U_TE: 'test',
       // 소문자 alias (date, time 등)
       date: dateStr, time: timeStr, times: timesStr,
