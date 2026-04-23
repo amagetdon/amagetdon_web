@@ -132,6 +132,7 @@ export default function AdminWebhook() {
   ]
   const [templateTab, setTemplateTab] = useState<TabId>('signup')
   const [testPhone, setTestPhone] = useState<string>(() => (typeof window !== 'undefined' ? window.localStorage.getItem('webhook_test_phone') || '' : ''))
+  const [testResult, setTestResult] = useState<{ status?: string; response_status?: number; response_body?: string; request_url?: string; request_body?: string; error_message?: string } | null>(null)
   const signupRef = useRef<HTMLTextAreaElement>(null)
   const purchaseRef = useRef<HTMLTextAreaElement>(null)
   const headerRef = useRef<HTMLTextAreaElement>(null)
@@ -350,16 +351,19 @@ export default function AdminWebhook() {
       })
       if (error) {
         toast.error(`테스트 실패: ${error.message}`)
+        setTestResult({ error_message: error.message })
         return
       }
-      const result = data as { status?: string; response_status?: number; response_body?: string; error_message?: string }
+      const result = data as { status?: string; response_status?: number; response_body?: string; request_url?: string; request_body?: string; error_message?: string }
+      setTestResult(result)
       if (result.status === 'success') {
-        toast.success(`전송 성공 (HTTP ${result.response_status ?? '?'})`)
+        toast.success(`전송 성공 (HTTP ${result.response_status ?? '?'}). 아래에서 응답 본문 확인.`)
       } else {
         toast.error(`전송 실패 (HTTP ${result.response_status ?? '?'}): ${(result.response_body || result.error_message || '').slice(0, 120)}`, { duration: 6000 })
       }
     } catch (err) {
       toast.error(`Edge Function 호출 실패: ${err instanceof Error ? err.message : ''}`)
+      setTestResult({ error_message: err instanceof Error ? err.message : String(err) })
     }
   }
 
@@ -684,6 +688,50 @@ export default function AdminWebhook() {
             <i className="ti ti-send mr-1.5" />테스트 전송 ({templateTab === 'signup' ? '회원가입' : templateTab === 'purchase' ? '구매' : templateTab === 'purchase_free' ? '무료구매' : '유료구매'})
           </button>
         </div>
+
+        {testResult && (
+          <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-bold text-gray-900">최근 테스트 결과</h3>
+              <button onClick={() => setTestResult(null)} className="text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer text-xs">
+                <i className="ti ti-x" /> 닫기
+              </button>
+            </div>
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-gray-600 w-20">상태</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${testResult.status === 'success' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                  {testResult.status ?? 'error'} {testResult.response_status ? `(HTTP ${testResult.response_status})` : ''}
+                </span>
+              </div>
+              {testResult.request_url && (
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-gray-600 w-20 shrink-0">요청 URL</span>
+                  <code className="text-[11px] text-gray-700 break-all">{testResult.request_url}</code>
+                </div>
+              )}
+              {testResult.request_body && (
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-gray-600 w-20 shrink-0">요청 본문</span>
+                  <pre className="flex-1 text-[11px] font-mono text-gray-700 bg-gray-50 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all max-h-40 overflow-y-auto">{testResult.request_body}</pre>
+                </div>
+              )}
+              {testResult.response_body && (
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-gray-600 w-20 shrink-0">응답 본문</span>
+                  <pre className="flex-1 text-[11px] font-mono text-gray-700 bg-gray-50 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all max-h-40 overflow-y-auto">{testResult.response_body}</pre>
+                </div>
+              )}
+              {testResult.error_message && (
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-gray-600 w-20 shrink-0">에러</span>
+                  <code className="text-[11px] text-red-600">{testResult.error_message}</code>
+                </div>
+              )}
+              <p className="text-[10px] text-gray-400 mt-2">※ HTTP 200/201 응답이라도 실제 카톡 발송 여부는 shoong dashboard에서 확인. shoong API는 트리거를 받으면 일단 성공으로 응답하고 발송은 비동기로 처리합니다.</p>
+            </div>
+          </div>
+        )}
 
         {/* 스케줄 발송 시간 (cron) */}
         <div className="bg-white rounded-xl shadow-sm p-6">
