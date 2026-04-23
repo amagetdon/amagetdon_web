@@ -42,12 +42,12 @@ function resolveTemplate(template: string, data: Record<string, unknown>): strin
   return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => String(data[k] ?? ''))
 }
 
-// shoong 표준 API 키는 `variables.<변수명>` 평문. cURL 생성기가 닫는 `}` 를 빠뜨리거나
-// 이전 normalize 에서 `#{{...}}` 로 과도 변환된 경우를 `variables.{변수명}` 으로 복원.
+// shoong 버튼 링크 변수는 변수명 자체가 `{링크명5` (닫는 `}` 없음) 형태. 원본 cURL 이 정답.
+// 과거 과도 변환 결과(`{X}` 또는 `#{{X}}`) 를 원본으로 원복한다.
 function normalizeAlimtalkKeys(body: string): string {
   return body
-    .replace(/"variables\.#\{\{([^"{}]+)\}\}":/g, '"variables.{$1}":')
-    .replace(/"variables\.\{([^"{}]+)\}?":/g, '"variables.{$1}":')
+    .replace(/"variables\.#\{\{([^"{}]+)\}\}":/g, '"variables.{$1":')
+    .replace(/"variables\.(\{[^"{}]+)\}":/g, '"variables.$1":')
 }
 
 function parseHeaderData(h: string): Record<string, string> {
