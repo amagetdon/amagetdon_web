@@ -597,23 +597,6 @@ export default function AdminWebhook() {
                 </div>
               </>
             )}
-            <div>
-              <label className="text-sm font-bold text-gray-700 block mb-1.5">이벤트 트리거</label>
-              <div className="flex gap-4 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={config.events.signup}
-                    onChange={(e) => setConfig((c) => ({ ...c, events: { ...c.events, signup: e.target.checked } }))}
-                    className="accent-[#2ED573]" />
-                  <span className="text-sm text-gray-700">회원가입</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={config.events.purchase}
-                    onChange={(e) => setConfig((c) => ({ ...c, events: { ...c.events, purchase: e.target.checked } }))}
-                    className="accent-[#2ED573]" />
-                  <span className="text-sm text-gray-700">구매</span>
-                </label>
-              </div>
-            </div>
           </div>
           <div className="mt-4 pt-3 border-t border-gray-100">
             <button type="button" onClick={() => setShowAdvanced((v) => !v)}

@@ -170,10 +170,13 @@ Deno.serve(async (req: Request) => {
       payload,
     }
 
-    // config 비활성/누락 시 skipped 로그만 남김
-    const eventEnabled = (event === 'signup' || event === 'purchase') ? !!config?.events?.[event] : true
-    if (!config || !config.enabled || !config.url || !eventEnabled) {
-      const reason = !config ? 'no config' : !config.enabled ? 'disabled' : !config.url ? 'no url' : 'event disabled'
+    // 템플릿 유무로 자동 판단 — signup/purchase 템플릿이 비어있으면 발사 안 함
+    const templateForCheck = event === 'signup' ? config?.signup_template : event === 'purchase' ? config?.purchase_template : null
+    const templateEmpty = (event === 'signup' || event === 'purchase') && !templateForCheck?.trim()
+    // (커스텀 이벤트는 아래에서 webhook_custom_events 조회 + enabled 체크로 별도 처리)
+
+    if (!config || !config.enabled || !config.url || templateEmpty) {
+      const reason = !config ? 'no config' : !config.enabled ? 'disabled' : !config.url ? 'no url' : 'template empty'
       logRow.send_status = 'skipped'
       logRow.error_message = reason
       const { data: skipped } = test_mode
@@ -209,15 +212,18 @@ Deno.serve(async (req: Request) => {
           .eq('code', custom_event_code)
           .maybeSingle()
         const ceRow = ce as { template?: string; enabled?: boolean } | null
-        if (!ceRow || !ceRow.enabled) {
-          // 정의 없거나 비활성 → 스킵 로그
+        if (!ceRow || !ceRow.enabled || !ceRow.template?.trim()) {
+          // 정의 없거나 비활성이거나 템플릿 비어있음 → 스킵 로그
+          const reason = !ceRow ? `custom event "${custom_event_code}" not defined`
+            : !ceRow.enabled ? `custom event "${custom_event_code}" disabled`
+            : `custom event "${custom_event_code}" template empty`
           if (!test_mode && logId) {
             await supabase.from('webhook_logs').update({
               send_status: 'skipped',
-              error_message: !ceRow ? `custom event "${custom_event_code}" not defined` : `custom event "${custom_event_code}" disabled`,
+              error_message: reason,
             } as never).eq('id', logId)
           }
-          return new Response(JSON.stringify({ status: 'skipped', reason: 'custom event missing or disabled' }), {
+          return new Response(JSON.stringify({ status: 'skipped', reason }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           })
         }
