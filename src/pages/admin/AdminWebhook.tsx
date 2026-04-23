@@ -118,7 +118,8 @@ export default function AdminWebhook() {
   const [loading, setLoading] = useState(true)
   const [headerKey, setHeaderKey] = useState('')
   const [headerValue, setHeaderValue] = useState('')
-  const [templateTab, setTemplateTab] = useState<'signup' | 'purchase'>('signup')
+  const [templateTab, setTemplateTab] = useState<'signup' | 'purchase' | 'purchase_free' | 'purchase_premium'>('signup')
+  const [testPhone, setTestPhone] = useState<string>(() => (typeof window !== 'undefined' ? window.localStorage.getItem('webhook_test_phone') || '' : ''))
   const signupRef = useRef<HTMLTextAreaElement>(null)
   const purchaseRef = useRef<HTMLTextAreaElement>(null)
   const headerRef = useRef<HTMLTextAreaElement>(null)
@@ -281,46 +282,57 @@ export default function AdminWebhook() {
     }
   }
 
-  const handleTest = async (eventType: 'signup' | 'purchase') => {
+  const handleTest = async (tab: 'signup' | 'purchase' | 'purchase_free' | 'purchase_premium') => {
     if (!config.url) { toast.error('수신 URL을 입력해주세요.'); return }
-    if (!confirm(`"${eventType === 'signup' ? '회원가입' : '구매'}" 테스트 데이터를 현재 URL로 전송합니다. 진행할까요?`)) return
+    const phone = (testPhone || '').replace(/[^\d]/g, '')
+    if (phone && (phone.length < 10 || phone.length > 11)) {
+      toast.error('올바른 전화번호를 입력해주세요. (예: 01012345678)')
+      return
+    }
+    const usePhone = phone || '01012345678'
+    const usePhoneFmt = usePhone.length === 11 ? `${usePhone.slice(0, 3)}-${usePhone.slice(3, 7)}-${usePhone.slice(7)}` : `${usePhone.slice(0, 3)}-${usePhone.slice(3, 6)}-${usePhone.slice(6)}`
+    if (!confirm(`테스트 데이터를 ${usePhoneFmt}로 발송합니다.\n(shoong이 실제 알림톡을 보낼 수 있는 번호여야 합니다)\n진행할까요?`)) return
+
+    if (typeof window !== 'undefined') window.localStorage.setItem('webhook_test_phone', testPhone)
+
     const now = new Date()
+    const labelByTab = tab === 'signup' ? '회원가입' : tab === 'purchase' ? '구매' : tab === 'purchase_free' ? '무료 구매' : '유료 구매'
     const fakePayload = {
-      TITLE: config.label || '[테스트] 상품 또는 랜딩명',
-      ITEM1: '테스트유저',
-      ITEM2: '010-1234-5678',
-      ITEM2_NOH: '01012345678',
+      TITLE: config.label || `[테스트] ${labelByTab}`,
+      ITEM1: '테스트유저', ITEM2: usePhoneFmt, ITEM2_NOH: usePhone,
       DATE: now.toLocaleDateString('ko-KR'),
       TIME: now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
       TIMES: now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
-      MOBILE: 'W',
-      REFERER: '(test)',
+      MOBILE: 'W', REFERER: '(test)',
       U_SO: 'test', U_ME: 'test', U_CA: 'test', U_CO: 'test', U_TE: 'test',
-      name: '테스트유저', email: 'test@example.com', phone: '010-1234-5678',
+      name: '테스트유저', email: 'test@example.com', phone: usePhoneFmt,
       gender: 'male', address: '12345|서울|테스트동', birth_date: '1990-01-01', provider: 'email',
-      user_name: '테스트유저', user_email: 'test@example.com', user_phone: '010-1234-5678',
-      title: config.label || '[테스트] 상품명', price: 10000, type: 'course',
+      user_name: '테스트유저', user_email: 'test@example.com', user_phone: usePhoneFmt,
+      title: config.label || `[테스트] ${labelByTab}`, price: tab === 'purchase_free' ? 0 : 10000, type: 'course',
+      coupon_name: '[테스트] 쿠폰', coupon_value: '10,000원', expires_at: '2026-12-31',
     }
 
     try {
+      const isCustom = tab === 'purchase_free' || tab === 'purchase_premium'
+      const customTpl = customEvents.find((c) => c.code === tab)?.template ?? ''
       const { data, error } = await supabase.functions.invoke('webhook-send', {
-        body: {
-          event: eventType,
+        body: isCustom ? {
+          event: 'custom',
+          custom_event_code: tab,
+          custom_template_override: customTpl,
+          payload: fakePayload,
+          test_mode: true,
+          config_override: { id: 0, scope: 'global', scope_id: null, enabled: true, url: config.url, method: config.method, use_json_header: config.use_json_header, header_data: config.header_data, headers: config.headers, events: config.events, signup_template: '', purchase_template: '' },
+        } : {
+          event: tab,
           payload: fakePayload,
           test_mode: true,
           config_override: {
-            id: 0,
-            scope: 'global',
-            scope_id: null,
-            enabled: true,
-            url: config.url,
-            method: config.method,
-            use_json_header: config.use_json_header,
-            header_data: config.header_data,
-            headers: config.headers,
+            id: 0, scope: 'global', scope_id: null, enabled: true,
+            url: config.url, method: config.method,
+            use_json_header: config.use_json_header, header_data: config.header_data, headers: config.headers,
             events: config.events,
-            signup_template: config.signup_template,
-            purchase_template: config.purchase_template,
+            signup_template: config.signup_template, purchase_template: config.purchase_template,
           },
         },
       })
@@ -382,6 +394,44 @@ export default function AdminWebhook() {
     if (templateTab === 'signup') return [...EXTRA_COMMON_VARS, ...SIGNUP_EXTRA_VARS]
     return [...EXTRA_COMMON_VARS, ...PURCHASE_EXTRA_VARS]
   }, [templateTab])
+
+  // 무료/유료 구매 탭일 때는 webhook_custom_events 사용
+  const isCustomTab = templateTab === 'purchase_free' || templateTab === 'purchase_premium'
+  const customEventForTab = customEvents.find((ce) => ce.code === templateTab)
+  const currentTemplate = isCustomTab
+    ? (customEventForTab?.template ?? '')
+    : (templateTab === 'signup' ? config.signup_template : config.purchase_template)
+  const setCurrentTemplate = (val: string) => {
+    if (isCustomTab) {
+      setCustomEvents((list) => list.map((e) => e.code === templateTab ? { ...e, template: val } : e))
+    } else if (templateTab === 'signup') {
+      setConfig((c) => ({ ...c, signup_template: val }))
+    } else {
+      setConfig((c) => ({ ...c, purchase_template: val }))
+    }
+  }
+  const handleSaveCurrentTemplate = async () => {
+    if (isCustomTab && customEventForTab) {
+      try {
+        await webhookService.upsertCustomEvent({
+          id: customEventForTab.id,
+          code: customEventForTab.code,
+          label: customEventForTab.label,
+          description: customEventForTab.description ?? '',
+          trigger_hint: customEventForTab.trigger_hint ?? '',
+          template: customEventForTab.template,
+          enabled: customEventForTab.enabled,
+          sort_order: customEventForTab.sort_order,
+        })
+        toast.success('저장되었습니다.')
+        fetchCustomEvents()
+      } catch {
+        toast.error('저장 실패')
+      }
+    } else {
+      await handleSave()
+    }
+  }
 
   if (loading) {
     return (
@@ -530,45 +580,70 @@ export default function AdminWebhook() {
           <h2 className="text-sm font-bold text-gray-900 mb-1">전달 파라미터</h2>
           <p className="text-xs text-gray-400 mb-4">외부 주소로 전달할 정보를 설정합니다. 예약어를 활용해 발송 내용을 만드세요. JSON 또는 <code>key=value&amp;key=value</code> 형식 지원.</p>
 
-          <div className="flex gap-2 mb-3">
-            <button onClick={() => setTemplateTab('signup')}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${templateTab === 'signup' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
-              회원가입
-            </button>
-            <button onClick={() => setTemplateTab('purchase')}
-              className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${templateTab === 'purchase' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
-              구매
-            </button>
+          <div className="flex gap-2 mb-3 flex-wrap">
+            {([
+              { v: 'signup', label: '회원가입' },
+              { v: 'purchase', label: '구매 (공통)' },
+              { v: 'purchase_free', label: '무료 구매' },
+              { v: 'purchase_premium', label: '유료 구매' },
+            ] as const).map((t) => (
+              <button key={t.v} onClick={() => setTemplateTab(t.v)}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${templateTab === t.v ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                {t.label}
+              </button>
+            ))}
           </div>
 
-          {/* 템플릿 에디터 (위) */}
+          {isCustomTab && customEventForTab && (
+            <div className="mb-3 bg-blue-50 border border-blue-100 rounded p-2 text-[11px] text-blue-900">
+              <i className="ti ti-info-circle mr-1" />
+              이 탭은 커스텀 이벤트 <code className="bg-white/60 px-1 rounded">{customEventForTab.code}</code>의 템플릿을 편집합니다. 활성/비활성은 하단 "커스텀 이벤트" 섹션에서 관리.
+              {!customEventForTab.enabled && <span className="ml-2 text-amber-700">⚠ 현재 비활성 상태</span>}
+            </div>
+          )}
+          {isCustomTab && !customEventForTab && (
+            <div className="mb-3 bg-amber-50 border border-amber-100 rounded p-2 text-[11px] text-amber-800">
+              <i className="ti ti-alert-triangle mr-1" />
+              {templateTab} 빌트인 이벤트가 마이그레이션되지 않았습니다. <code>2026-04-23_webhook_custom_events.sql</code> 실행 필요.
+            </div>
+          )}
+
+          {/* 템플릿 에디터 */}
           <textarea
-            ref={templateTab === 'signup' ? signupRef : purchaseRef}
-            value={templateTab === 'signup' ? config.signup_template : config.purchase_template}
-            onChange={(e) => setConfig((c) => ({ ...c, [templateTab === 'signup' ? 'signup_template' : 'purchase_template']: e.target.value }))}
-            placeholder={templateTab === 'signup'
-              ? '예:\ncampaignId=CAMPAIGN_ID&phone={#ITEM2_NOH#}&고객명={#ITEM1#}&이메일={#email#}'
-              : '예:\ncampaignId=CAMPAIGN_ID&phone={#ITEM2_NOH#}&고객명={#ITEM1#}&상품={#TITLE#}'}
+            ref={templateTab === 'signup' ? signupRef : templateTab === 'purchase' ? purchaseRef : null}
+            value={currentTemplate}
+            onChange={(e) => setCurrentTemplate(e.target.value)}
+            placeholder={'예:\nsendType=at&phone={#ITEM2_NOH#}&channelConfig.senderkey=YOUR_KEY&channelConfig.templatecode=...&variables.이름={#ITEM1#}'}
             rows={10}
             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] font-mono resize-none"
           />
           <p className="text-[11px] text-gray-500 mt-2">* 전달 파라미터 항목은 <code>&amp;</code>(앤퍼센드)로 구분합니다. 예약어는 아래 테이블에서 추가하세요.</p>
 
-          {/* 예약어 테이블 (아래, 좌우 2섹션) */}
+          {/* 예약어 테이블 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
             <ReservedWordTable title="기본정보 예약어" rows={BASIC_VARS} onInsert={insertVar} onInsertHeader={insertHeaderVar} />
-            <ReservedWordTable title={`추가정보 예약어 (${templateTab === 'signup' ? '회원가입' : '구매'})`} rows={extraVars} onInsert={insertVar} onInsertHeader={insertHeaderVar} />
+            <ReservedWordTable
+              title={`추가정보 예약어 (${templateTab === 'signup' ? '회원가입' : '구매'})`}
+              rows={extraVars} onInsert={insertVar} onInsertHeader={insertHeaderVar} />
           </div>
         </div>
 
-        <div className="flex gap-3">
-          <button onClick={handleSave} disabled={saving}
+        <div className="bg-white rounded-xl shadow-sm p-4 flex items-center gap-3 flex-wrap">
+          <span className="text-xs font-bold text-gray-700">테스트 수신 전화번호</span>
+          <input value={testPhone} onChange={(e) => setTestPhone(e.target.value)}
+            placeholder="01012345678 (실제 받을 번호)"
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#2ED573] font-mono w-48" />
+          <span className="text-[11px] text-gray-400">미입력 시 가짜 번호 010-1234-5678로 전송 (실제 발송 안 됨)</span>
+        </div>
+
+        <div className="flex gap-3 flex-wrap">
+          <button onClick={handleSaveCurrentTemplate} disabled={saving}
             className="bg-[#2ED573] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] disabled:opacity-50">
-            {saving ? '저장 중...' : '설정 저장'}
+            {saving ? '저장 중...' : isCustomTab ? '템플릿 저장' : '설정 저장'}
           </button>
           <button onClick={() => handleTest(templateTab)} disabled={!config.url}
             className="bg-gray-900 text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-gray-800 disabled:opacity-50">
-            <i className="ti ti-send mr-1.5" />테스트 전송 ({templateTab === 'signup' ? '회원가입' : '구매'})
+            <i className="ti ti-send mr-1.5" />테스트 전송 ({templateTab === 'signup' ? '회원가입' : templateTab === 'purchase' ? '구매' : templateTab === 'purchase_free' ? '무료구매' : '유료구매'})
           </button>
         </div>
 
