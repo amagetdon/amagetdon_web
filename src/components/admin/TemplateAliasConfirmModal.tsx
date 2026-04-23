@@ -81,22 +81,18 @@ export default function TemplateAliasConfirmModal({ isOpen, unknownVars, suggest
                 const suggestion = suggestedAliases[v]
                 return (
                   <div key={v} className="border border-gray-200 rounded-xl p-3 bg-gray-50">
-                    <div className="flex items-start gap-3 flex-wrap">
-                      <div className="flex-1 min-w-[120px]">
-                        <code className="text-sm font-mono text-[#2ED573] bg-white px-2 py-1 rounded border border-gray-200">{`{#${v}#}`}</code>
-                        {suggestion && (
-                          <p className="text-[10px] text-gray-500 mt-1">💡 {suggestion.reason}</p>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-[220px]">
-                        <CanonicalKeyPicker
-                          value={mappings[v] ?? ''}
-                          onChange={(val) => setMappings({ ...mappings, [v]: val })}
-                          placeholder="canonical 키 선택"
-                          customOptions={customOptions}
-                        />
-                      </div>
+                    <div className="mb-2">
+                      <code className="text-sm font-mono text-[#2ED573] bg-white px-2 py-1 rounded border border-gray-200">{`{#${v}#}`}</code>
+                      {suggestion && (
+                        <p className="text-[10px] text-gray-500 mt-1">💡 {suggestion.reason}</p>
+                      )}
                     </div>
+                    <CanonicalKeyPicker
+                      value={mappings[v] ?? ''}
+                      onChange={(val) => setMappings({ ...mappings, [v]: val })}
+                      placeholder="canonical 키 선택"
+                      customOptions={customOptions}
+                    />
                   </div>
                 )
               })}
@@ -113,24 +109,20 @@ export default function TemplateAliasConfirmModal({ isOpen, unknownVars, suggest
                 const suggestion = suggestedSlotFills[s]
                 return (
                   <div key={s} className="border border-blue-200 rounded-xl p-3 bg-blue-50">
-                    <div className="flex items-start gap-3 flex-wrap">
-                      <div className="flex-1 min-w-[160px]">
-                        <code className="text-xs font-mono text-blue-700 bg-white px-2 py-1 rounded border border-blue-200">variables.{s}: ""</code>
-                        {suggestion && (
-                          <p className="text-[10px] text-blue-600 mt-1">💡 {suggestion.reason}</p>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-[220px]">
-                        <CanonicalKeyPicker
-                          value={slotFills[s] ?? ''}
-                          onChange={(val) => setSlotFills({ ...slotFills, [s]: val })}
-                          placeholder="canonical 키 또는 고정값 입력"
-                          customOptions={customOptions}
-                          accentColor="blue"
-                          allowFreeInput
-                        />
-                      </div>
+                    <div className="mb-2">
+                      <code className="text-xs font-mono text-blue-700 bg-white px-2 py-1 rounded border border-blue-200">variables.{s}: ""</code>
+                      {suggestion && (
+                        <p className="text-[10px] text-blue-600 mt-1">💡 {suggestion.reason}</p>
+                      )}
                     </div>
+                    <CanonicalKeyPicker
+                      value={slotFills[s] ?? ''}
+                      onChange={(val) => setSlotFills({ ...slotFills, [s]: val })}
+                      placeholder="canonical 키 또는 고정값 입력"
+                      customOptions={customOptions}
+                      accentColor="blue"
+                      allowFreeInput
+                    />
                   </div>
                 )
               })}

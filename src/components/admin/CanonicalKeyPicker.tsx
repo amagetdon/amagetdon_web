@@ -110,7 +110,7 @@ export default function CanonicalKeyPicker({ value, onChange, placeholder, custo
       )}
 
       {open && (
-        <div className="absolute z-[70] mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-lg max-h-[400px] overflow-hidden flex flex-col w-[360px] sm:w-[480px] md:w-[560px]">
+        <div className="absolute z-[70] mt-1 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg max-h-[400px] overflow-hidden flex flex-col">
           <div className="p-2 border-b border-gray-100 flex items-center gap-2">
             <i className="ti ti-search text-gray-400 text-xs" />
             <input
