@@ -433,6 +433,34 @@ export default function AdminWebhook() {
     ? (customEventForTab?.template ?? '')
     : (templateTab === 'signup' ? config.signup_template : config.purchase_template)
   const setCurrentTemplate = (val: string) => {
+    // cURL 명령어 자동 감지 → JSON 본문만 추출
+    const trimmed = val.trim()
+    if (trimmed.startsWith('curl ') || trimmed.startsWith('curl\n') || /\s-d\s+['"]/.test(trimmed)) {
+      const dIdxSingle = trimmed.lastIndexOf("-d '")
+      const dIdxDouble = trimmed.lastIndexOf('-d "')
+      const isSingle = dIdxSingle > dIdxDouble
+      const dIdx = isSingle ? dIdxSingle : dIdxDouble
+      const quote = isSingle ? "'" : '"'
+      if (dIdx !== -1) {
+        const start = dIdx + 4
+        const end = trimmed.lastIndexOf(quote)
+        if (end > start) {
+          const body = trimmed.slice(start, end).trim()
+          if (body.startsWith('{') || body.startsWith('[')) {
+            // 추출된 JSON으로 대체
+            if (isCustomTab) {
+              setCustomEvents((list) => list.map((e) => e.code === templateTab ? { ...e, template: body } : e))
+            } else if (templateTab === 'signup') {
+              setConfig((c) => ({ ...c, signup_template: body }))
+            } else {
+              setConfig((c) => ({ ...c, purchase_template: body }))
+            }
+            toast.success('cURL에서 JSON 본문을 자동 추출했습니다.')
+            return
+          }
+        }
+      }
+    }
     if (isCustomTab) {
       setCustomEvents((list) => list.map((e) => e.code === templateTab ? { ...e, template: val } : e))
     } else if (templateTab === 'signup') {
@@ -684,11 +712,11 @@ export default function AdminWebhook() {
             ref={templateTab === 'signup' ? signupRef : templateTab === 'purchase' ? purchaseRef : null}
             value={currentTemplate}
             onChange={(e) => setCurrentTemplate(e.target.value)}
-            placeholder={'예:\nsendType=at&phone={#ITEM2_NOH#}&channelConfig.senderkey=YOUR_KEY&channelConfig.templatecode=...&variables.이름={#ITEM1#}'}
+            placeholder={'shoong "코드 예제"의 cURL 통째로 붙여넣기 가능 (자동으로 JSON 본문만 추출됨)\n\n또는 JSON 직접:\n{\n  "sendType": "at",\n  "phone": "{#ITEM2_NOH#}",\n  "channelConfig.senderkey": "...",\n  "channelConfig.templatecode": "m_3",\n  "variables.고객명": "{#user_name#}"\n}'}
             rows={10}
             className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] font-mono resize-none"
           />
-          <p className="text-[11px] text-gray-500 mt-2">* 전달 파라미터 항목은 <code>&amp;</code>(앤퍼센드)로 구분합니다. 예약어는 아래 테이블에서 추가하세요.</p>
+          <p className="text-[11px] text-gray-500 mt-2">* shoong cURL 통째로 붙여넣어도 자동으로 JSON 부분만 추출됩니다. 빈 <code>""</code> 자리에 <code>{'{#변수#}'}</code> 또는 고정값 입력하세요.</p>
 
           {/* 예약어 테이블 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
