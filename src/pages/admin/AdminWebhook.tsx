@@ -305,23 +305,6 @@ export default function AdminWebhook() {
     }
   }
 
-  const handleSave = async () => {
-    if (config.enabled && !config.url) {
-      toast.error('수신 URL을 입력해주세요.')
-      return
-    }
-    setSaving(true)
-    try {
-      const saved = await webhookService.saveConfig({ ...config, scope: 'global', scope_id: null })
-      setConfig(saved)
-      toast.success('웹훅 설정이 저장되었습니다.')
-    } catch {
-      toast.error('저장에 실패했습니다.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
   const handleTest = async (tab: TabId) => {
     if (!config.url) { toast.error('수신 URL을 입력해주세요.'); return }
     const phone = (testPhone || '').replace(/[^\d]/g, '')
@@ -359,7 +342,7 @@ export default function AdminWebhook() {
       // 한글 alias
       이름: '테스트유저', 연락처: usePhoneFmt, 전화번호: usePhoneFmt, 이메일: 'test@example.com',
       // 상품/구매
-      price: tab === 'purchase_free' ? 0 : 10000, type: 'course',
+      price: 10000, type: 'course',
       강의명: config.label || `[테스트] ${labelByTab}`, 상품명: config.label || `[테스트] ${labelByTab}`,
       // 쿠폰
       coupon_name: '[테스트] 쿠폰 10,000원 할인', coupon_value: '10,000원', expires_at: '2026-12-31',
@@ -426,23 +409,6 @@ export default function AdminWebhook() {
       }, 0)
     } else {
       setCurrentTemplate(currentTemplate + v)
-    }
-  }
-
-  const insertHeaderVar = (v: string) => {
-    const el = headerRef.current
-    if (el) {
-      const start = el.selectionStart
-      const end = el.selectionEnd
-      const current = config.header_data
-      const newVal = current.slice(0, start) + v + current.slice(end)
-      setConfig((c) => ({ ...c, header_data: newVal }))
-      setTimeout(() => {
-        el.focus()
-        el.selectionStart = el.selectionEnd = start + v.length
-      }, 0)
-    } else {
-      setConfig((c) => ({ ...c, header_data: c.header_data + v }))
     }
   }
 

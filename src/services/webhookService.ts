@@ -324,7 +324,7 @@ export const webhookService = {
 
   // pg_cron 스케줄 관리
   async getCronSchedule(jobName: string): Promise<{ schedule: string; active: boolean; last_run: string | null; last_status: string | null } | null> {
-    const { data, error } = await supabase.rpc('get_cron_schedule', { p_job_name: jobName })
+    const { data, error } = await supabase.rpc('get_cron_schedule', { p_job_name: jobName } as never)
     if (error) throw error
     const list = data as Array<{ schedule: string; active: boolean; last_run: string | null; last_status: string | null }> | null
     return list?.[0] ?? null
@@ -335,13 +335,13 @@ export const webhookService = {
       p_job_name: jobName,
       p_hour_kst: kstHour,
       p_minute: kstMinute,
-    })
+    } as never)
     if (error) throw error
     return data as string
   },
 
   async setCronActive(jobName: string, active: boolean): Promise<void> {
-    const { error } = await supabase.rpc('set_cron_active', { p_job_name: jobName, p_active: active })
+    const { error } = await supabase.rpc('set_cron_active', { p_job_name: jobName, p_active: active } as never)
     if (error) throw error
   },
 
@@ -351,7 +351,7 @@ export const webhookService = {
     return (data as Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }> | null) ?? []
   },
 
-  async upsertCustomEvent(row: { id?: number; code: string; label: string; description?: string; trigger_hint?: string; template: string; enabled?: boolean; sort_order?: number; variable_aliases?: Record<string, string> }): Promise<void> {
+  async upsertCustomEvent(row: { id?: number; code: string; label: string; description?: string | null; trigger_hint?: string | null; template: string; enabled?: boolean; sort_order?: number; variable_aliases?: Record<string, string> }): Promise<void> {
     const payload = { ...row, variable_aliases: row.variable_aliases ?? {} }
     if (row.id) {
       await supabase.from('webhook_custom_events').update(payload as never).eq('id', row.id)
@@ -576,7 +576,8 @@ export const webhookService = {
   },
 
   async updateLogMemo(logId: number, memo: string): Promise<void> {
-    await updateLog(logId, { memo })
+    const { error } = await supabase.from('webhook_logs').update({ memo } as never).eq('id', logId)
+    if (error) throw error
   },
 
   captureContext(): WebhookContext {
