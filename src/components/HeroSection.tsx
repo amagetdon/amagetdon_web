@@ -162,6 +162,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
   }
 
   if (banners.length === 0) {
+    if (pageKey === 'reviews' || pageKey === 'results') return null
     return (
       <section data-no-fade className="w-full bg-black py-20 max-sm:py-12">
         <div className="max-w-[1200px] mx-auto px-5">

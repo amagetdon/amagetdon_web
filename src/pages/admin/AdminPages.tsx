@@ -69,6 +69,8 @@ export default function AdminPages() {
     hero: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     reviews: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     results: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
+    reviews_event: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
+    results_event: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
   })
   const [bannerSettingSaving, setBannerSettingSaving] = useState(false)
 
@@ -106,11 +108,20 @@ export default function AdminPages() {
       setResults(resultData.data)
       const settingsValue = (settingsData.data as { value?: Record<string, { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }> } | null)?.value
       if (settingsValue) {
+        const normalize = (s?: { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }) => ({
+          height: s?.height || 'auto',
+          heightMobile: s?.heightMobile || 'auto',
+          speed: s?.speed || '5',
+          fit: s?.fit || 'cover',
+          fitMobile: s?.fitMobile || 'cover',
+        })
         setBannerSettings((prev) => ({
           ...prev,
-          hero: { height: settingsValue.hero?.height || 'auto', heightMobile: settingsValue.hero?.heightMobile || 'auto', speed: settingsValue.hero?.speed || '5', fit: settingsValue.hero?.fit || 'cover', fitMobile: settingsValue.hero?.fitMobile || 'cover' },
-          reviews: { height: settingsValue.reviews?.height || 'auto', heightMobile: settingsValue.reviews?.heightMobile || 'auto', speed: settingsValue.reviews?.speed || '5', fit: settingsValue.reviews?.fit || 'cover', fitMobile: settingsValue.reviews?.fitMobile || 'cover' },
-          results: { height: settingsValue.results?.height || 'auto', heightMobile: settingsValue.results?.heightMobile || 'auto', speed: settingsValue.results?.speed || '5', fit: settingsValue.results?.fit || 'cover', fitMobile: settingsValue.results?.fitMobile || 'cover' },
+          hero: normalize(settingsValue.hero),
+          reviews: normalize(settingsValue.reviews),
+          results: normalize(settingsValue.results),
+          reviews_event: normalize(settingsValue.reviews_event),
+          results_event: normalize(settingsValue.results_event),
         }))
       }
     } catch {
@@ -622,6 +633,142 @@ export default function AdminPages() {
                 >
                   <i className="ti ti-plus text-sm" /> 이벤트 안내 추가
                 </button>
+              </div>
+              <div className="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-col gap-3">
+                {([
+                  { device: 'PC', heightField: 'height', fitField: 'fit' },
+                  { device: '모바일', heightField: 'heightMobile', fitField: 'fitMobile' },
+                ] as const).map(({ device, heightField, fitField }) => {
+                  const heightPresets = [
+                    { value: 'auto', label: '자동' },
+                    { value: '300px', label: '300' },
+                    { value: '400px', label: '400' },
+                    { value: '500px', label: '500' },
+                    { value: '600px', label: '600' },
+                    { value: '100vh', label: '전체' },
+                  ]
+                  const fitPresets = [
+                    {
+                      value: 'cover',
+                      label: '채우기',
+                      icon: (
+                        <svg width="14" height="10" viewBox="0 0 14 10" className="shrink-0">
+                          <rect x="0.5" y="0.5" width="13" height="9" rx="1" fill="currentColor" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      value: 'width',
+                      label: '가로',
+                      icon: (
+                        <svg width="14" height="10" viewBox="0 0 14 10" className="shrink-0">
+                          <rect x="0.5" y="0.5" width="13" height="9" rx="1" fill="none" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1" />
+                          <rect x="0.5" y="3.5" width="13" height="3" fill="currentColor" />
+                        </svg>
+                      ),
+                    },
+                    {
+                      value: 'height',
+                      label: '세로',
+                      icon: (
+                        <svg width="14" height="10" viewBox="0 0 14 10" className="shrink-0">
+                          <rect x="0.5" y="0.5" width="13" height="9" rx="1" fill="none" stroke="currentColor" strokeOpacity="0.4" strokeWidth="1" />
+                          <rect x="5" y="0.5" width="4" height="9" fill="currentColor" />
+                        </svg>
+                      ),
+                    },
+                  ]
+                  const currentHeight = bannerSettings[eventKey]?.[heightField] || 'auto'
+                  const currentFit = bannerSettings[eventKey]?.[fitField] || 'cover'
+                  const isCustom = !heightPresets.some((p) => p.value === currentHeight)
+                  const customValue = isCustom ? (currentHeight.replace(/px$/, '') || '') : ''
+                  return (
+                    <div key={device} className="flex items-center gap-6 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-600 whitespace-nowrap w-12">{device}</span>
+                        <span className="text-xs font-bold text-gray-400 whitespace-nowrap">높이</span>
+                        <div className="flex gap-1">
+                          {heightPresets.map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setBannerSettings((prev) => ({ ...prev, [eventKey]: { ...prev[eventKey], [heightField]: opt.value } }))}
+                              className={`px-2.5 py-1 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
+                                currentHeight === opt.value ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                              }`}
+                            >
+                              {opt.label}
+                            </button>
+                          ))}
+                          <div className={`flex items-center rounded border transition-colors ${isCustom ? 'bg-gray-900 border-gray-900' : 'bg-white border-gray-200'}`}>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              placeholder="직접"
+                              value={customValue}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '')
+                                setBannerSettings((prev) => ({ ...prev, [eventKey]: { ...prev[eventKey], [heightField]: val ? `${val}px` : 'auto' } }))
+                              }}
+                              className={`w-14 px-1.5 py-1 rounded text-[11px] font-medium outline-none border-none bg-transparent text-right ${isCustom ? 'text-white placeholder:text-gray-400' : 'text-gray-600 placeholder:text-gray-400'}`}
+                            />
+                            <span className={`pr-1.5 text-[10px] ${isCustom ? 'text-gray-300' : 'text-gray-400'}`}>px</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-gray-400 whitespace-nowrap">맞춤</span>
+                        <div className="flex gap-1">
+                          {fitPresets.map((opt) => (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => setBannerSettings((prev) => ({ ...prev, [eventKey]: { ...prev[eventKey], [fitField]: opt.value } }))}
+                              className={`px-2.5 py-1 rounded text-[11px] font-medium border cursor-pointer transition-colors inline-flex items-center gap-1.5 ${
+                                currentFit === opt.value ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                              }`}
+                            >
+                              {opt.icon}
+                              {opt.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+                <div className="flex items-center gap-6 flex-wrap border-t border-gray-100 pt-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-gray-600 whitespace-nowrap w-12">전환</span>
+                    <div className="flex gap-1">
+                      {[
+                        { value: '3', label: '3초' },
+                        { value: '5', label: '5초' },
+                        { value: '7', label: '7초' },
+                        { value: '10', label: '10초' },
+                        { value: '15', label: '15초' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setBannerSettings((prev) => ({ ...prev, [eventKey]: { ...prev[eventKey], speed: opt.value } }))}
+                          className={`px-2.5 py-1 rounded text-[11px] font-medium border cursor-pointer transition-colors ${
+                            bannerSettings[eventKey]?.speed === opt.value ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-400 border-gray-200 hover:border-gray-400'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleBannerSettingSave}
+                    disabled={bannerSettingSaving}
+                    className="bg-[#2ED573] text-white px-4 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50 ml-auto"
+                  >
+                    {bannerSettingSaving ? '저장 중...' : '설정 저장'}
+                  </button>
+                </div>
               </div>
               {eventBanners.length === 0 ? (
                 <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-400 text-sm">등록된 이벤트 안내가 없습니다.</div>

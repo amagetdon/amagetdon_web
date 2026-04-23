@@ -190,7 +190,7 @@ function ReviewResultsPage() {
 
   return (
     <section className="w-full bg-white">
-      {eventBanners.length > 0 && <EventBanner banner={eventBanners[0]} />}
+      {eventBanners.length > 0 && <EventBanner banners={eventBanners} pageKey="results_event" />}
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">
         <div className="flex items-center justify-between mt-10 mb-8">

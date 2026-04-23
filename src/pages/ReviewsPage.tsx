@@ -62,7 +62,7 @@ function ReviewsPage() {
 
   return (
     <section className="w-full bg-white">
-      {eventBanners.length > 0 && <EventBanner banner={eventBanners[0]} />}
+      {eventBanners.length > 0 && <EventBanner banners={eventBanners} pageKey="reviews_event" />}
 
       <div className="max-w-[1200px] mx-auto px-5 pb-16">
         <h1 className="text-2xl font-bold text-gray-900 mt-10 mb-8">조작없는 100% 수강생 후기</h1>
