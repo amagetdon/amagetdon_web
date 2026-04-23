@@ -53,7 +53,7 @@ interface ReservedVar {
   desc: string
 }
 
-function ReservedWordTable({ title, rows, onInsert, onInsertHeader, defaultOpen = false }: { title: string; rows: ReservedVar[]; onInsert: (v: string) => void; onInsertHeader: (v: string) => void; defaultOpen?: boolean }) {
+function ReservedWordTable({ title, rows, onInsert, defaultOpen = false }: { title: string; rows: ReservedVar[]; onInsert: (v: string) => void; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen)
   const copy = (text: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -75,7 +75,7 @@ function ReservedWordTable({ title, rows, onInsert, onInsertHeader, defaultOpen 
                 <th className="px-3 py-2 text-left font-bold text-gray-600">이름</th>
                 <th className="px-3 py-2 text-left font-bold text-gray-600">변수명</th>
                 <th className="px-3 py-2 text-left font-bold text-gray-600">내용</th>
-                <th className="px-3 py-2 text-center font-bold text-gray-600 w-28">추가</th>
+                <th className="px-3 py-2 text-center font-bold text-gray-600 w-20">추가</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -91,10 +91,7 @@ function ReservedWordTable({ title, rows, onInsert, onInsertHeader, defaultOpen 
                   <td className="px-3 py-2 text-gray-500">{v.desc}</td>
                   <td className="px-3 py-2 text-center whitespace-nowrap">
                     <button onClick={() => onInsert(v.var)} className="px-2 py-1 bg-[#2ED573] text-white text-[10px] font-bold rounded border-none cursor-pointer hover:bg-[#25B866]" title="파라미터에 추가">
-                      파라미터
-                    </button>
-                    <button onClick={() => onInsertHeader(v.var)} className="ml-1 px-2 py-1 bg-gray-600 text-white text-[10px] font-bold rounded border-none cursor-pointer hover:bg-gray-700" title="헤더에 추가">
-                      헤더
+                      추가
                     </button>
                   </td>
                 </tr>
@@ -141,8 +138,7 @@ export default function AdminWebhook() {
   const [testPhone, setTestPhone] = useState<string>(() => (typeof window !== 'undefined' ? window.localStorage.getItem('webhook_test_phone') || '' : ''))
   const [testResult, setTestResult] = useState<{ status?: string; response_status?: number; response_body?: string; request_url?: string; request_body?: string; error_message?: string; reason?: string } | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const signupRef = useRef<HTMLTextAreaElement>(null)
-  const purchaseRef = useRef<HTMLTextAreaElement>(null)
+  const templateRef = useRef<HTMLTextAreaElement>(null)
   const headerRef = useRef<HTMLTextAreaElement>(null)
 
   // 커스텀 이벤트
@@ -394,29 +390,38 @@ export default function AdminWebhook() {
     }
   }
 
-  const insertIntoRef = (ref: React.RefObject<HTMLTextAreaElement | null>, field: 'signup_template' | 'purchase_template' | 'header_data', v: string) => {
-    const el = ref.current
+  const insertVar = (v: string) => {
+    const el = templateRef.current
     if (el) {
       const start = el.selectionStart
       const end = el.selectionEnd
-      const current = config[field]
-      const newVal = current.slice(0, start) + v + current.slice(end)
-      setConfig((c) => ({ ...c, [field]: newVal }))
+      const newVal = currentTemplate.slice(0, start) + v + currentTemplate.slice(end)
+      setCurrentTemplate(newVal)
       setTimeout(() => {
         el.focus()
         el.selectionStart = el.selectionEnd = start + v.length
       }, 0)
     } else {
-      setConfig((c) => ({ ...c, [field]: c[field] + v }))
+      setCurrentTemplate(currentTemplate + v)
     }
   }
 
-  const insertVar = (v: string) => {
-    if (templateTab === 'signup') insertIntoRef(signupRef, 'signup_template', v)
-    else insertIntoRef(purchaseRef, 'purchase_template', v)
+  const insertHeaderVar = (v: string) => {
+    const el = headerRef.current
+    if (el) {
+      const start = el.selectionStart
+      const end = el.selectionEnd
+      const current = config.header_data
+      const newVal = current.slice(0, start) + v + current.slice(end)
+      setConfig((c) => ({ ...c, header_data: newVal }))
+      setTimeout(() => {
+        el.focus()
+        el.selectionStart = el.selectionEnd = start + v.length
+      }, 0)
+    } else {
+      setConfig((c) => ({ ...c, header_data: c.header_data + v }))
+    }
   }
-
-  const insertHeaderVar = (v: string) => insertIntoRef(headerRef, 'header_data', v)
 
   const addHeader = () => {
     if (!headerKey.trim()) return
@@ -710,7 +715,7 @@ export default function AdminWebhook() {
 
           {/* 템플릿 에디터 */}
           <textarea
-            ref={templateTab === 'signup' ? signupRef : templateTab === 'purchase' ? purchaseRef : null}
+            ref={templateRef}
             value={currentTemplate}
             onChange={(e) => setCurrentTemplate(e.target.value)}
             placeholder={'shoong "코드 예제"의 cURL 통째로 붙여넣기 가능 (자동으로 JSON 본문만 추출됨)\n\n또는 JSON 직접:\n{\n  "sendType": "at",\n  "phone": "{#ITEM2_NOH#}",\n  "channelConfig.senderkey": "...",\n  "channelConfig.templatecode": "m_3",\n  "variables.고객명": "{#user_name#}"\n}'}
@@ -721,10 +726,10 @@ export default function AdminWebhook() {
 
           {/* 예약어 테이블 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
-            <ReservedWordTable title="기본정보 예약어" rows={BASIC_VARS} onInsert={insertVar} onInsertHeader={insertHeaderVar} />
+            <ReservedWordTable title="기본정보 예약어" rows={BASIC_VARS} onInsert={insertVar} />
             <ReservedWordTable
               title={`추가정보 예약어 (${templateTab === 'signup' ? '회원가입' : '구매'})`}
-              rows={extraVars} onInsert={insertVar} onInsertHeader={insertHeaderVar} />
+              rows={extraVars} onInsert={insertVar} />
           </div>
         </div>
 
