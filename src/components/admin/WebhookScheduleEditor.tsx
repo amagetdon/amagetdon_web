@@ -390,11 +390,57 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1">전달 파라미터 (shoong API에 보낼 형식)</label>
                 <textarea value={editing.request_template ?? ''}
-                  onChange={(e) => setEditing({ ...editing, request_template: e.target.value })}
-                  rows={6}
-                  placeholder={`예:\nsendType=at&phone={#user_phone#}&channelConfig.senderkey=YOUR_SENDER_KEY&channelConfig.templatecode=start_3&variables.이름={#user_name#}&variables.강의명={#TITLE#}&variables.일시={#DATE#} {#TIME#}`}
+                  onChange={(e) => {
+                    let val = e.target.value
+                    // shoong cURL 자동 추출
+                    const t = val.trim()
+                    if (t.startsWith('curl ') || /\s-d\s+['"]/.test(t)) {
+                      const dIdx = t.lastIndexOf("-d '")
+                      if (dIdx !== -1) {
+                        const start = dIdx + 4
+                        const end = t.lastIndexOf("'")
+                        if (end > start) {
+                          const body = t.slice(start, end).trim()
+                          if (body.startsWith('{')) {
+                            val = body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"')
+                            toast.success('cURL에서 JSON 본문 자동 추출됨')
+                          }
+                        }
+                      }
+                    }
+                    setEditing({ ...editing, request_template: val })
+                  }}
+                  rows={8}
+                  placeholder={`shoong "코드 예제" cURL 통째 붙여넣기 OK (자동 추출)\n\n또는 JSON 직접:\n{\n  "sendType":"at",\n  "phone":"{#ITEM2_NOH#}",\n  "channelConfig.senderkey":"...",\n  "channelConfig.templatecode":"...",\n  "variables.강의명":"{#TITLE#}",\n  "variables.강사명":"{#instructor_name#}",\n  "variables.일시":"{#강의일시#}",\n  "variables.링크":"{#course_url#}"\n}`}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] font-mono resize-none" />
-                <p className="text-[10px] text-gray-400 mt-1">사용 가능한 예약어: <code>{`{#TITLE#}`}</code>(강의명) <code>{`{#DATE#}`}</code>(강의 날짜) <code>{`{#TIME#}`}</code>(강의 시간) <code>{`{#user_name#}`}</code> <code>{`{#user_phone#}`}</code> <code>{`{#user_email#}`}</code> <code>{`{#DBNO#}`}</code></p>
+                <details className="mt-2">
+                  <summary className="text-[11px] text-gray-600 cursor-pointer hover:text-gray-900">📚 사용 가능한 예약어 (자동 채움)</summary>
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] bg-gray-50 rounded p-2">
+                    <div>
+                      <p className="font-bold text-gray-700 mb-1">강의/상품 정보 (자동)</p>
+                      <ul className="space-y-0.5 text-gray-600">
+                        <li><code>{`{#TITLE#}`}</code> <code>{`{#title#}`}</code> <code>{`{#강의명#}`}</code> <code>{`{#상품명#}`}</code> — 강의명</li>
+                        <li><code>{`{#instructor_name#}`}</code> <code>{`{#강사명#}`}</code> — 강사 이름</li>
+                        <li><code>{`{#course_url#}`}</code> <code>{`{#URL#}`}</code> — 강의 페이지 URL</li>
+                        <li><code>{`{#price#}`}</code> — 가격</li>
+                        <li><code>{`{#DATE#}`}</code> <code>{`{#SCHEDULED_DATE#}`}</code> — 강의 날짜</li>
+                        <li><code>{`{#TIME#}`}</code> <code>{`{#SCHEDULED_TIME#}`}</code> — 강의 시간</li>
+                        <li><code>{`{#강의일시#}`}</code> — "2026년 4월 24일 19:30" 형식</li>
+                        <li><code>{`{#SCHEDULED_AT#}`}</code> — ISO 형식</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-bold text-gray-700 mb-1">사용자 정보 (자동)</p>
+                      <ul className="space-y-0.5 text-gray-600">
+                        <li><code>{`{#user_name#}`}</code> <code>{`{#name#}`}</code> <code>{`{#ITEM1#}`}</code> — 이름</li>
+                        <li><code>{`{#user_phone#}`}</code> <code>{`{#phone#}`}</code> <code>{`{#ITEM2#}`}</code> — 010-xxxx-xxxx</li>
+                        <li><code>{`{#ITEM2_NOH#}`}</code> — 01012345678 (shoong용)</li>
+                        <li><code>{`{#user_email#}`}</code> <code>{`{#email#}`}</code> — 이메일</li>
+                        <li><code>{`{#DBNO#}`}</code> — 데이터 고유번호</li>
+                      </ul>
+                    </div>
+                  </div>
+                </details>
               </div>
 
               <div className="flex items-center gap-2">

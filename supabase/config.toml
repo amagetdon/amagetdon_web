@@ -3,3 +3,6 @@ verify_jwt = false
 
 [functions.cancel-payment]
 verify_jwt = false
+
+[functions.webhook-schedule-runner]
+verify_jwt = false

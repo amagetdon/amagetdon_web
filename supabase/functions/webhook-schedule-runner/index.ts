@@ -184,10 +184,43 @@ Deno.serve(async (req: Request) => {
         continue
       }
 
-      // payload 빌드 (스냅샷 + 강의 일정 정보)
+      // payload 빌드 (스냅샷 + 강의 일정 정보 + 강사·링크 자동 채움)
       const scheduledAt = run.course_scheduled_at ? new Date(run.course_scheduled_at) : null
       const fmt = (d: Date | null, opts: Intl.DateTimeFormatOptions) =>
         d ? d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', ...opts }) : ''
+
+      // 강의/전자책 추가 정보 (강사명·URL)
+      const SITE_URL = Deno.env.get('SITE_URL') || 'https://amagetdon.com'
+      let instructorName = ''
+      let courseUrl = ''
+      let coursePrice = 0
+      if (sched.scope === 'course') {
+        const { data: course } = await supabase
+          .from('courses')
+          .select('id, instructor_id, sale_price, original_price')
+          .eq('id', sched.scope_id)
+          .maybeSingle()
+        const c = course as { id: number; instructor_id?: number; sale_price?: number; original_price?: number } | null
+        if (c?.instructor_id) {
+          const { data: ins } = await supabase
+            .from('instructors')
+            .select('name')
+            .eq('id', c.instructor_id)
+            .maybeSingle()
+          instructorName = (ins as { name?: string } | null)?.name ?? ''
+        }
+        coursePrice = c?.sale_price ?? c?.original_price ?? 0
+        courseUrl = `${SITE_URL}/course/${sched.scope_id}`
+      } else if (sched.scope === 'ebook') {
+        const { data: ebook } = await supabase
+          .from('ebooks')
+          .select('id, sale_price, original_price')
+          .eq('id', sched.scope_id)
+          .maybeSingle()
+        const e = ebook as { id: number; sale_price?: number; original_price?: number } | null
+        coursePrice = e?.sale_price ?? e?.original_price ?? 0
+        courseUrl = `${SITE_URL}/ebook/${sched.scope_id}`
+      }
 
       const phone = run.user_phone ?? ''
       const data: Record<string, unknown> = {
@@ -199,7 +232,10 @@ Deno.serve(async (req: Request) => {
         TIME: fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: false }),
         TIMES: fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
         SCHEDULED_AT: run.course_scheduled_at ?? '',
+        SCHEDULED_DATE: fmt(scheduledAt, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
+        SCHEDULED_TIME: fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: false }),
         DBNO: run.id,
+        MOBILE: 'W',
         // 사용자 정보 (양쪽 표기 지원)
         name: run.user_name ?? '',
         user_name: run.user_name ?? '',
@@ -208,6 +244,19 @@ Deno.serve(async (req: Request) => {
         email: run.user_email ?? '',
         user_email: run.user_email ?? '',
         title: run.course_title ?? '',
+        // 강의/전자책 추가
+        course_url: courseUrl,
+        course_link: courseUrl,
+        URL: courseUrl,
+        instructor_name: instructorName,
+        instructor: instructorName,
+        강사명: instructorName,
+        강의명: run.course_title ?? '',
+        상품명: run.course_title ?? '',
+        price: coursePrice,
+        강의일시: run.course_scheduled_at
+          ? `${fmt(scheduledAt, { year: 'numeric', month: 'long', day: 'numeric' })} ${fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: false })}`
+          : '',
       }
 
       // 템플릿 치환 + body 빌드
