@@ -1,7 +1,23 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
+import OpenaiKeyManager from '../../components/admin/OpenaiKeyManager'
+import CustomCanonicalVarsManager from '../../components/admin/CustomCanonicalVarsManager'
+import TemplateAliasConfirmModal from '../../components/admin/TemplateAliasConfirmModal'
 import { webhookService, defaultWebhookConfig, type WebhookConfig } from '../../services/webhookService'
+
+function fillEmptySlots(template: string, slotFills: Record<string, string>): string {
+  let out = template
+  for (const [slot, value] of Object.entries(slotFills)) {
+    if (!value) continue
+    const esc = slot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`"variables\\.${esc}"\\s*:\\s*""`, 'g')
+    const isLiteral = /^https?:\/\//i.test(value) || (/[\s/:?=&]/.test(value) && !/^[A-Za-z0-9_가-힣]+$/.test(value))
+    const escapedValue = isLiteral ? JSON.stringify(value).slice(1, -1) : `{#${value}#}`
+    out = out.replace(re, `"variables.${slot}":"${escapedValue}"`)
+  }
+  return out
+}
 import { supabase } from '../../lib/supabase'
 
 // 기본정보 예약어 (모든 이벤트 공통)
@@ -114,6 +130,7 @@ interface CustomEvent {
   enabled: boolean
   built_in: boolean
   sort_order: number
+  variable_aliases?: Record<string, string>
 }
 
 export default function AdminWebhook() {
@@ -122,13 +139,10 @@ export default function AdminWebhook() {
   const [loading, setLoading] = useState(true)
   const [headerKey, setHeaderKey] = useState('')
   const [headerValue, setHeaderValue] = useState('')
-  type TabId = 'signup' | 'purchase' | 'purchase_free' | 'purchase_premium' | 'coupon_issued' | 'coupon_expiring_d3' | 'coupon_expiring_d1' | 'coupon_expired' | 'point_charge'
+  type TabId = 'signup' | 'coupon_issued' | 'coupon_expiring_d3' | 'coupon_expiring_d1' | 'coupon_expired' | 'point_charge'
   const TABS: Array<{ id: TabId; label: string; isCustom: boolean }> = [
     { id: 'signup', label: '회원가입', isCustom: false },
-    { id: 'purchase', label: '구매 (공통)', isCustom: false },
-    { id: 'purchase_free', label: '무료 구매', isCustom: true },
-    { id: 'purchase_premium', label: '유료 구매', isCustom: true },
-    { id: 'coupon_issued', label: '쿠폰 발급', isCustom: true },
+    { id: 'coupon_issued', label: '쿠폰 발급 (공용 기본)', isCustom: true },
     { id: 'coupon_expiring_d3', label: '쿠폰 D-3', isCustom: true },
     { id: 'coupon_expiring_d1', label: '쿠폰 D-1', isCustom: true },
     { id: 'coupon_expired', label: '쿠폰 만료', isCustom: true },
@@ -144,6 +158,15 @@ export default function AdminWebhook() {
   // 커스텀 이벤트
   const [customEvents, setCustomEvents] = useState<CustomEvent[]>([])
   const [customEditing, setCustomEditing] = useState<Partial<CustomEvent> | null>(null)
+
+  // LLM 템플릿 분석 모달
+  const [aliasConfirm, setAliasConfirm] = useState<{
+    unknownVars: string[]
+    suggestedAliases: Record<string, { canonical: string; reason: string }>
+    emptySlots: string[]
+    suggestedSlotFills: Record<string, { canonical: string; reason: string }>
+    warning?: string
+  } | null>(null)
 
   // cron 스케줄
   const [cronInfo, setCronInfo] = useState<{ schedule: string; active: boolean; last_run: string | null; last_status: string | null } | null>(null)
@@ -440,6 +463,7 @@ export default function AdminWebhook() {
 
   const extraVars = useMemo(() => {
     if (templateTab === 'signup') return [...EXTRA_COMMON_VARS, ...SIGNUP_EXTRA_VARS]
+    if (templateTab === 'point_charge') return [...EXTRA_COMMON_VARS, ...PURCHASE_EXTRA_VARS]
     return [...EXTRA_COMMON_VARS, ...PURCHASE_EXTRA_VARS]
   }, [templateTab])
 
@@ -448,7 +472,7 @@ export default function AdminWebhook() {
   const customEventForTab = customEvents.find((ce) => ce.code === templateTab)
   const currentTemplate = isCustomTab
     ? (customEventForTab?.template ?? '')
-    : (templateTab === 'signup' ? config.signup_template : config.purchase_template)
+    : config.signup_template
   const setCurrentTemplate = (val: string) => {
     // cURL 명령어 자동 감지 → JSON 본문만 추출
     const trimmed = val.trim()
@@ -471,10 +495,8 @@ export default function AdminWebhook() {
             // 추출된 JSON으로 대체
             if (isCustomTab) {
               setCustomEvents((list) => list.map((e) => e.code === templateTab ? { ...e, template: body } : e))
-            } else if (templateTab === 'signup') {
-              setConfig((c) => ({ ...c, signup_template: body }))
             } else {
-              setConfig((c) => ({ ...c, purchase_template: body }))
+              setConfig((c) => ({ ...c, signup_template: body }))
             }
             toast.success(phoneReplaced
               ? 'cURL JSON 추출 완료. phone 자동으로 {#ITEM2_NOH#} 변환됨.'
@@ -486,25 +508,30 @@ export default function AdminWebhook() {
     }
     if (isCustomTab) {
       setCustomEvents((list) => list.map((e) => e.code === templateTab ? { ...e, template: val } : e))
-    } else if (templateTab === 'signup') {
-      setConfig((c) => ({ ...c, signup_template: val }))
     } else {
-      setConfig((c) => ({ ...c, purchase_template: val }))
+      setConfig((c) => ({ ...c, signup_template: val }))
     }
   }
-  const handleSaveCurrentTemplate = async () => {
-    if (config.enabled && !config.url) {
-      toast.error('수신 URL을 입력해주세요.')
-      return
-    }
+  const performSaveTemplate = async (aliases: Record<string, string>, slotFills: Record<string, string>) => {
     setSaving(true)
     try {
-      // 1) 글로벌 설정 저장 (URL · 인증 헤더 · signup/purchase 템플릿 등)
-      //    어떤 탭에서 저장하든 헤더와 글로벌 설정은 항상 함께 저장
-      const saved = await webhookService.saveConfig({ ...config, scope: 'global', scope_id: null })
+      // 현재 탭 템플릿에 slot 채움 적용
+      const rewriteIfNeeded = (tpl: string) => Object.keys(slotFills).length > 0 ? fillEmptySlots(tpl, slotFills) : tpl
+
+      // 1) 글로벌 설정 저장 + signup alias 병합 (구매는 per-scope only로 변경됨)
+      const nextConfig: WebhookConfig = { ...config, scope: 'global', scope_id: null }
+      if (templateTab === 'signup') {
+        nextConfig.signup_template = rewriteIfNeeded(nextConfig.signup_template)
+      }
+      type ConfigWithAliases = WebhookConfig & { signup_variable_aliases?: Record<string, string> }
+      const cfgExt = nextConfig as ConfigWithAliases
+      if (templateTab === 'signup') {
+        cfgExt.signup_variable_aliases = { ...(cfgExt.signup_variable_aliases ?? {}), ...aliases }
+      }
+      const saved = await webhookService.saveConfig(nextConfig)
       setConfig(saved)
 
-      // 2) 커스텀 탭이면 해당 이벤트 템플릿도 함께 저장
+      // 2) 커스텀 탭이면 해당 이벤트 템플릿도 저장 (alias 포함)
       if (isCustomTab && customEventForTab) {
         await webhookService.upsertCustomEvent({
           id: customEventForTab.id,
@@ -512,17 +539,54 @@ export default function AdminWebhook() {
           label: customEventForTab.label,
           description: customEventForTab.description ?? '',
           trigger_hint: customEventForTab.trigger_hint ?? '',
-          template: customEventForTab.template,
+          template: rewriteIfNeeded(customEventForTab.template),
           enabled: customEventForTab.enabled,
           sort_order: customEventForTab.sort_order,
+          variable_aliases: { ...(customEventForTab.variable_aliases ?? {}), ...aliases },
         })
         fetchCustomEvents()
       }
       toast.success('저장되었습니다.')
+      setAliasConfirm(null)
     } catch {
       toast.error('저장에 실패했습니다.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSaveCurrentTemplate = async () => {
+    if (config.enabled && !config.url) {
+      toast.error('수신 URL을 입력해주세요.')
+      return
+    }
+    // 현재 탭 템플릿 분석 — 미확인 변수 + 빈 슬롯 제안
+    const tpl = isCustomTab
+      ? (customEventForTab?.template ?? '')
+      : config.signup_template
+    if (!tpl.trim()) {
+      // 템플릿 비어있으면 그냥 저장
+      await performSaveTemplate({}, {})
+      return
+    }
+    setSaving(true)
+    try {
+      const analysis = await webhookService.analyzeTemplateVariables(tpl)
+      const unknownVars = analysis.unknown_vars ?? []
+      const emptySlots = analysis.empty_slots ?? []
+      const suggestedAliases = analysis.suggested_aliases ?? {}
+      const suggestedSlotFills = analysis.suggested_slot_fills ?? {}
+      if (unknownVars.length > 0 || emptySlots.length > 0) {
+        setAliasConfirm({ unknownVars, suggestedAliases, emptySlots, suggestedSlotFills, warning: analysis.warning })
+        setSaving(false)
+        return
+      }
+      if (analysis.warning) toast(analysis.warning, { icon: 'ℹ️', duration: 5000 })
+      await performSaveTemplate({}, {})
+    } catch (err) {
+      console.error(err)
+      toast.error('변수 분석 중 오류, alias 없이 저장합니다.')
+      await performSaveTemplate({}, {})
     }
   }
 
@@ -541,12 +605,16 @@ export default function AdminWebhook() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">웹훅 (CRM 연동) — 기본 설정</h1>
         <p className="text-sm text-gray-500 mt-1">
-          모든 강의·전자책에서 공통으로 사용할 연결 정보(URL · 인증 헤더)와 회원가입·구매 알림톡을 설정합니다.
+          연결 정보(URL · 인증 헤더)와 전역 이벤트(회원가입 · 포인트 충전 등) 알림톡을 설정합니다.
         </p>
         <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-start gap-2">
           <i className="ti ti-info-circle text-blue-600 text-sm mt-0.5" />
-          <div className="text-xs text-blue-900">
-            상품별 알림톡(구매 알림 override · D-3·정원 도달 등 예약 알림)은 해당 강의·전자책 상세 페이지의 <strong>"알림톡" 탭</strong>에서 관리합니다.
+          <div className="text-xs text-blue-900 space-y-1">
+            <p><strong>구매 알림톡은 이 페이지에 없습니다</strong> — 강의·전자책마다 메시지가 달라 per-scope로만 관리됩니다:</p>
+            <ul className="list-disc list-inside ml-1 space-y-0.5">
+              <li>강의·전자책 구매/예약 알림 → 해당 <strong>강의/전자책 상세 페이지의 "알림톡" 탭</strong></li>
+              <li>쿠폰 알림 → <strong>쿠폰 관리 페이지에서 쿠폰별 <i className="ti ti-message-circle" /> 버튼</strong></li>
+            </ul>
           </div>
         </div>
       </div>
@@ -685,6 +753,17 @@ export default function AdminWebhook() {
             ))}
           </div>
 
+          {templateTab.startsWith('coupon_') && (
+            <div className="mb-3 bg-blue-50 border border-blue-100 rounded-lg p-2.5 text-[11px] text-blue-900 flex items-start gap-2">
+              <i className="ti ti-info-circle text-blue-600 mt-0.5" />
+              <div>
+                여기서 편집하는 템플릿은 <strong>모든 쿠폰에 공통으로 적용되는 기본값</strong>입니다.
+                특정 쿠폰에만 다른 템플릿을 쓰고 싶다면 <a href="/admin/coupons" className="font-bold underline">쿠폰 관리</a>에서
+                해당 쿠폰의 <i className="ti ti-message-circle" /> 버튼을 눌러 전용 템플릿을 설정하세요.
+              </div>
+            </div>
+          )}
+
           {isCustomTab && customEventForTab && (
             <div className="mb-3 flex items-center gap-2 text-[11px]">
               <span className={`px-2 py-0.5 rounded-full font-medium ${customEventForTab.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
@@ -728,7 +807,7 @@ export default function AdminWebhook() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5">
             <ReservedWordTable title="기본정보 예약어" rows={BASIC_VARS} onInsert={insertVar} />
             <ReservedWordTable
-              title={`추가정보 예약어 (${templateTab === 'signup' ? '회원가입' : '구매'})`}
+              title={`추가정보 예약어 (${TABS.find((t) => t.id === templateTab)?.label ?? templateTab})`}
               rows={extraVars} onInsert={insertVar} />
           </div>
         </div>
@@ -748,7 +827,7 @@ export default function AdminWebhook() {
           </button>
           <button onClick={() => handleTest(templateTab)} disabled={!config.url}
             className="bg-gray-900 text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-gray-800 disabled:opacity-50">
-            <i className="ti ti-send mr-1.5" />테스트 전송 ({templateTab === 'signup' ? '회원가입' : templateTab === 'purchase' ? '구매' : templateTab === 'purchase_free' ? '무료구매' : '유료구매'})
+            <i className="ti ti-send mr-1.5" />테스트 전송 ({TABS.find((t) => t.id === templateTab)?.label ?? templateTab})
           </button>
         </div>
 
@@ -801,6 +880,12 @@ export default function AdminWebhook() {
             </div>
           </div>
         )}
+
+        {/* 사용자 정의 canonical 변수 */}
+        <CustomCanonicalVarsManager />
+
+        {/* OpenAI API 키 관리 */}
+        <OpenaiKeyManager />
 
         {/* 스케줄 발송 시간 (cron) */}
         <div className="bg-white rounded-xl shadow-sm p-6">
@@ -988,6 +1073,19 @@ SELECT cron.schedule(
             </div>
           </div>
         </div>
+      )}
+
+      {aliasConfirm && (
+        <TemplateAliasConfirmModal
+          isOpen
+          unknownVars={aliasConfirm.unknownVars}
+          suggestedAliases={aliasConfirm.suggestedAliases}
+          emptySlots={aliasConfirm.emptySlots}
+          suggestedSlotFills={aliasConfirm.suggestedSlotFills}
+          warning={aliasConfirm.warning}
+          onCancel={() => setAliasConfirm(null)}
+          onConfirm={(aliases, slotFills) => performSaveTemplate(aliases, slotFills)}
+        />
       )}
     </AdminLayout>
   )

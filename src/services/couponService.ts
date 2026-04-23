@@ -91,6 +91,8 @@ export const couponService = {
           userPhone: p.phone ?? '',
           userEmail: p.email ?? '',
           title: c.title ?? '',
+          scope: 'coupon',
+          scopeId: couponId,
         }).catch(() => {})
       }
     } catch {

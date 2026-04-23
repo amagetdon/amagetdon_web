@@ -181,6 +181,8 @@ Deno.serve(async (req: Request) => {
           body: JSON.stringify({
             event: 'custom',
             custom_event_code: t.code,
+            scope: 'coupon',
+            scope_id: coupon.id,
             user_id: t.claim.user_id,
             payload,
           }),

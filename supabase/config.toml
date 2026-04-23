@@ -6,3 +6,12 @@ verify_jwt = false
 
 [functions.webhook-schedule-runner]
 verify_jwt = false
+
+[functions.webhook-template-analyze]
+verify_jwt = false
+
+[functions.webhook-send]
+verify_jwt = false
+
+[functions.coupon-expiry-scanner]
+verify_jwt = false

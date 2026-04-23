@@ -19,7 +19,8 @@ interface WebhookConfigRow {
 type Payload = Record<string, unknown>
 
 function resolveTemplate(template: string, data: Payload): string {
-  return template.replace(/\{#(\w+)#\}/g, (_, k) => String(data[k] ?? ''))
+  // 한글 변수명(예: {#이름#}, {#강의명#})도 지원하도록 \w 대신 [^#\s] 사용
+  return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => String(data[k] ?? ''))
 }
 
 function parseHeaderData(h: string): Record<string, string> {
@@ -77,7 +78,6 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
-    const supabase = createClient(supabaseUrl, serviceKey)
 
     // 인증 확인 (test_mode인 경우 admin만 허용)
     const authHeader = req.headers.get('Authorization')
@@ -89,36 +89,68 @@ Deno.serve(async (req: Request) => {
     }
     const token = authHeader.replace('Bearer ', '')
 
-    // Service role key로 직접 호출하는 경우 (cron 등) → user 없음으로 통과
+    // Service role 토큰이거나 admin 사용자 통과
     let user: { id: string } | null = null
-    if (token !== serviceKey) {
-      // 사용자 JWT 검증은 anon client로 (Supabase 권장 패턴)
-      const userClient = createClient(supabaseUrl, anonKey)
-      const { data, error } = await userClient.auth.getUser(token)
-      if (error || !data.user) {
-        return new Response(JSON.stringify({ error: 'Invalid auth: ' + (error?.message ?? 'no user') }), {
+    let isServiceRole = token === serviceKey
+    if (!isServiceRole) {
+      // legacy service_role JWT 대응 — auth/v1/admin/users 호출로 service_role 여부 판정
+      try {
+        const probeRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'apikey': token },
+        })
+        if (probeRes.ok) isServiceRole = true
+      } catch { /* ignore */ }
+    }
+    if (!isServiceRole) {
+      // 사용자 JWT 검증
+      try {
+        const userClient = createClient(supabaseUrl, anonKey)
+        const { data, error } = await userClient.auth.getUser(token)
+        if (error || !data.user) {
+          return new Response(JSON.stringify({ error: 'Invalid auth: ' + (error?.message ?? 'no user') }), {
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        user = data.user
+      } catch (authErr) {
+        return new Response(JSON.stringify({ error: 'Auth error: ' + (authErr instanceof Error ? authErr.message : String(authErr)) }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
-      user = data.user
     }
 
     if (test_mode) {
-      if (!user) {
+      if (!user && !isServiceRole) {
         return new Response(JSON.stringify({ error: 'Test mode requires admin login' }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
-      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
-      if ((prof as { role?: string } | null)?.role !== 'admin') {
-        return new Response(JSON.stringify({ error: 'Admin only' }), {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      // service_role이면 admin 체크 skip (cron/관리자 도구). 그 외엔 profiles.role='admin' 확인
+      if (user) {
+        // 본인 JWT로 자기 profile 조회 (RLS로 본인은 read 가능). env serviceKey가 불일치해도 동작.
+        const userClient2 = createClient(supabaseUrl, anonKey, {
+          global: { headers: { Authorization: `Bearer ${token}` } },
         })
+        const { data: prof, error: profErr } = await userClient2.from('profiles').select('role').eq('id', user.id).maybeSingle()
+        if (profErr) {
+          return new Response(JSON.stringify({ error: `Profile check failed: ${profErr.message}` }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        if ((prof as { role?: string } | null)?.role !== 'admin') {
+          return new Response(JSON.stringify({ error: `Admin only (current role: ${(prof as { role?: string } | null)?.role ?? 'none'})` }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
       }
     }
+
+    // 본체에서 사용할 DB 클라이언트: service_role 인증된 경우 해당 토큰, 아니면 env serviceKey
+    const supabase = createClient(supabaseUrl, isServiceRole ? token : serviceKey)
 
     // IP는 서버 측에서 더 정확하게 추출
     const ip = context.ip
@@ -200,20 +232,38 @@ Deno.serve(async (req: Request) => {
       ;(payload as Payload).DBNO = 999999
     }
 
-    // 템플릿 결정
+    // 템플릿 + alias 결정
     let template = ''
+    let aliases: Record<string, string> = {}
     if (event === 'custom' && custom_event_code) {
-      // 커스텀 이벤트: webhook_custom_events에서 코드로 조회
+      // 커스텀 이벤트: override(scope별) → 전역 기본값(webhook_custom_events) 순으로 조회
       template = custom_template_override ?? ''
+
+      // 1) scope + scope_id override 먼저 조회
+      if (!template && scope !== 'global' && scope_id != null) {
+        const { data: ov } = await supabase
+          .from('webhook_custom_event_overrides')
+          .select('template, enabled, variable_aliases')
+          .eq('event_code', custom_event_code)
+          .eq('scope', scope)
+          .eq('scope_id', scope_id)
+          .maybeSingle()
+        const ovRow = ov as { template?: string; enabled?: boolean; variable_aliases?: Record<string, string> } | null
+        if (ovRow?.enabled && ovRow.template?.trim()) {
+          template = ovRow.template
+          aliases = ovRow.variable_aliases ?? {}
+        }
+      }
+
+      // 2) override 없으면 전역 기본값
       if (!template) {
         const { data: ce } = await supabase
           .from('webhook_custom_events')
-          .select('template, enabled')
+          .select('template, enabled, variable_aliases')
           .eq('code', custom_event_code)
           .maybeSingle()
-        const ceRow = ce as { template?: string; enabled?: boolean } | null
+        const ceRow = ce as { template?: string; enabled?: boolean; variable_aliases?: Record<string, string> } | null
         if (!ceRow || !ceRow.enabled || !ceRow.template?.trim()) {
-          // 정의 없거나 비활성이거나 템플릿 비어있음 → 스킵 로그
           const reason = !ceRow ? `custom event "${custom_event_code}" not defined`
             : !ceRow.enabled ? `custom event "${custom_event_code}" disabled`
             : `custom event "${custom_event_code}" template empty`
@@ -228,10 +278,30 @@ Deno.serve(async (req: Request) => {
           })
         }
         template = ceRow.template ?? ''
+        aliases = ceRow.variable_aliases ?? {}
       }
     } else {
       template = event === 'signup' ? config.signup_template : config.purchase_template
+      // signup/purchase alias는 webhook_configs row에서 읽기
+      const cfgFull = config as unknown as { signup_variable_aliases?: Record<string, string>; purchase_variable_aliases?: Record<string, string> }
+      aliases = (event === 'signup' ? cfgFull.signup_variable_aliases : cfgFull.purchase_variable_aliases) ?? {}
     }
+
+    // 사용자 정의 canonical 변수 주입 (open_chat_url 등)
+    try {
+      const { data: customVars } = await supabase.from('custom_canonical_vars').select('key, value')
+      for (const cv of ((customVars as Array<{ key: string; value: string }> | null) ?? [])) {
+        if ((payload as Payload)[cv.key] === undefined) (payload as Payload)[cv.key] = cv.value
+      }
+    } catch { /* noop */ }
+
+    // variable_aliases 오버레이 — 사전 매핑된 임의 변수명을 canonical 값으로 주입
+    for (const [alias, canonical] of Object.entries(aliases)) {
+      if ((payload as Payload)[canonical] !== undefined && (payload as Payload)[alias] === undefined) {
+        ;(payload as Payload)[alias] = (payload as Payload)[canonical]
+      }
+    }
+
     let outBody: Payload | string = payload
     if (template) {
       const resolved = resolveTemplate(template, payload)

@@ -22,6 +22,7 @@ interface ScheduleRow {
   label: string
   request_template: string
   enabled: boolean
+  variable_aliases?: Record<string, string>
 }
 
 interface ConfigRow {
@@ -37,7 +38,8 @@ interface ConfigRow {
 }
 
 function resolveTemplate(template: string, data: Record<string, unknown>): string {
-  return template.replace(/\{#(\w+)#\}/g, (_, k) => String(data[k] ?? ''))
+  // 한글 변수명(예: {#이름#}, {#강의명#})도 지원하도록 \w 대신 [^#\s] 사용
+  return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => String(data[k] ?? ''))
 }
 
 function parseHeaderData(h: string): Record<string, string> {
@@ -58,7 +60,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // 보안: pg_cron이 service role key로 호출하거나, 어드민 사용자만 호출 가능
+    // 보안: service_role 토큰(legacy JWT 또는 sb_secret) 또는 어드민 사용자만 호출 가능
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const authHeader = req.headers.get('Authorization')
@@ -69,7 +71,22 @@ Deno.serve(async (req: Request) => {
       })
     }
     const token = authHeader.replace('Bearer ', '')
-    if (token !== serviceKey) {
+    let isServiceRole = token === serviceKey
+    if (!isServiceRole) {
+      // legacy JWT 대응 — JWT 페이로드에서 role 확인 (Supabase 서버가 서명 검증하는 REST 호출로 권한 판정)
+      try {
+        const probeClient = createClient(supabaseUrl, token)
+        // auth.users는 service_role만 SELECT 가능 — 에러가 없으면 service_role 확정
+        const probeRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'apikey': token },
+        })
+        if (probeRes.ok) isServiceRole = true
+        void probeClient
+      } catch {
+        // ignore
+      }
+    }
+    if (!isServiceRole) {
       // 어드민 사용자라면 허용
       const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '')
       const { data: { user } } = await userClient.auth.getUser(token)
@@ -89,7 +106,8 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    const supabase = createClient(supabaseUrl, serviceKey)
+    // service_role이 검증된 토큰을 사용 (env SUPABASE_SERVICE_ROLE_KEY가 실제로는 다른 포맷일 수 있음)
+    const supabase = createClient(supabaseUrl, isServiceRole ? token : serviceKey)
 
     // 1) 도래한 미발송 후보 ID 조회 (최대 50건/분)
     const { data: candidates } = await supabase
@@ -107,22 +125,17 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    // 2) 원자적 claim — 다른 cron 호출과의 race 방지
-    const { data: claimed } = await supabase
-      .from('webhook_schedule_runs')
-      .update({ status: 'processing' })
-      .in('id', candidateIds)
-      .eq('status', 'pending')
-      .select('*')
-
-    const runList = (claimed as RunRow[] | null) ?? []
-    if (runList.length === 0) {
-      return new Response(JSON.stringify({ processed: 0, note: 'all candidates were claimed by another invocation' }), {
+    // 2) 원자적 claim — RPC(SECURITY DEFINER)로 RLS 우회하여 확실히 rows 반환
+    const { data: claimed, error: claimErr } = await supabase.rpc('claim_webhook_schedule_runs', { p_ids: candidateIds })
+    if (claimErr) {
+      return new Response(JSON.stringify({ processed: 0, error: `claim failed: ${claimErr.message}` }), {
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
+    const runList = (claimed as RunRow[] | null) ?? []
     if (runList.length === 0) {
-      return new Response(JSON.stringify({ processed: 0 }), {
+      return new Response(JSON.stringify({ processed: 0, note: 'all candidates were claimed by another invocation' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
@@ -190,7 +203,7 @@ Deno.serve(async (req: Request) => {
         d ? d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', ...opts }) : ''
 
       // 강의/전자책 추가 정보 (강사명·URL)
-      const SITE_URL = Deno.env.get('SITE_URL') || 'https://amagetdon.com'
+      const SITE_URL = Deno.env.get('SITE_URL') || 'https://amag-class.com'
       let instructorName = ''
       let courseUrl = ''
       let coursePrice = 0
@@ -223,40 +236,86 @@ Deno.serve(async (req: Request) => {
       }
 
       const phone = run.user_phone ?? ''
+      const userName = run.user_name ?? ''
+      const title = run.course_title ?? ''
+      const longDt = run.course_scheduled_at
+        ? `${fmt(scheduledAt, { year: 'numeric', month: 'long', day: 'numeric' })} ${fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: false })}`
+        : ''
+      const dateStr = fmt(scheduledAt, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '')
+      const timeStr = fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: false })
+
       const data: Record<string, unknown> = {
-        TITLE: run.course_title ?? '',
-        ITEM1: run.user_name ?? '',
+        TITLE: title,
+        ITEM1: userName,
         ITEM2: phone,
         ITEM2_NOH: phone.replace(/-/g, ''),
-        DATE: fmt(scheduledAt, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
-        TIME: fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: false }),
+        DATE: dateStr,
+        TIME: timeStr,
         TIMES: fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
         SCHEDULED_AT: run.course_scheduled_at ?? '',
-        SCHEDULED_DATE: fmt(scheduledAt, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, ''),
-        SCHEDULED_TIME: fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: false }),
+        SCHEDULED_DATE: dateStr,
+        SCHEDULED_TIME: timeStr,
         DBNO: run.id,
         MOBILE: 'W',
         // 사용자 정보 (양쪽 표기 지원)
-        name: run.user_name ?? '',
-        user_name: run.user_name ?? '',
+        name: userName,
+        user_name: userName,
         phone,
         user_phone: phone,
         email: run.user_email ?? '',
         user_email: run.user_email ?? '',
-        title: run.course_title ?? '',
+        title,
         // 강의/전자책 추가
         course_url: courseUrl,
         course_link: courseUrl,
         URL: courseUrl,
         instructor_name: instructorName,
         instructor: instructorName,
-        강사명: instructorName,
-        강의명: run.course_title ?? '',
-        상품명: run.course_title ?? '',
         price: coursePrice,
-        강의일시: run.course_scheduled_at
-          ? `${fmt(scheduledAt, { year: 'numeric', month: 'long', day: 'numeric' })} ${fmt(scheduledAt, { hour: '2-digit', minute: '2-digit', hour12: false })}`
-          : '',
+        // 한글 변수명 별칭 (shoong 알림톡 템플릿에서 자주 쓰이는 이름들)
+        이름: userName,
+        고객명: userName,
+        회원명: userName,
+        성함: userName,
+        연락처: phone,
+        전화번호: phone,
+        핸드폰번호: phone,
+        이메일: run.user_email ?? '',
+        강사명: instructorName,
+        강사: instructorName,
+        선생님: instructorName,
+        강의명: title,
+        모임명: title,
+        모임: title,
+        수업명: title,
+        상품명: title,
+        서비스명: title,
+        클래스명: title,
+        일시: longDt,
+        모임일시: longDt,
+        강의일시: longDt,
+        날짜: dateStr,
+        시간: timeStr,
+        링크: courseUrl,
+        URL주소: courseUrl,
+        가격: coursePrice ? `${coursePrice.toLocaleString()}원` : '',
+        금액: coursePrice ? `${coursePrice.toLocaleString()}원` : '',
+      }
+
+      // 사용자 정의 canonical 변수 주입 (open_chat_url 등)
+      try {
+        const { data: customVars } = await supabase.from('custom_canonical_vars').select('key, value')
+        for (const cv of ((customVars as Array<{ key: string; value: string }> | null) ?? [])) {
+          if (data[cv.key] === undefined) data[cv.key] = cv.value
+        }
+      } catch { /* noop */ }
+
+      // variable_aliases 오버레이 — LLM 분석으로 사전 등록된 임의 변수명을 canonical 값으로 매핑
+      const aliases = sched.variable_aliases ?? {}
+      for (const [alias, canonical] of Object.entries(aliases)) {
+        if (data[canonical] !== undefined && data[alias] === undefined) {
+          data[alias] = data[canonical]
+        }
       }
 
       // 템플릿 치환 + body 빌드

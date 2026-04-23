@@ -7,7 +7,29 @@ import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
 import { couponService } from '../../services/couponService'
+import CustomEventOverrideEditor from '../../components/admin/CustomEventOverrideEditor'
 import type { Coupon } from '../../types'
+
+const COUPON_EVENT_CODES = ['coupon_issued', 'coupon_expiring_d3', 'coupon_expiring_d1', 'coupon_expired']
+
+function couponSampleVars(c: Coupon): Array<{ name: string; code: string; sample: string }> {
+  const expires = c.expires_at
+    ? new Date(c.expires_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
+    : c.use_days
+    ? `발급 후 ${c.use_days}일`
+    : '무기한'
+  const value = c.discount_type === 'percent' ? `${c.discount_value}%` : `${c.discount_value.toLocaleString()}원`
+  return [
+    { name: '쿠폰명', code: 'coupon_name', sample: c.title },
+    { name: '쿠폰명', code: 'TITLE', sample: c.title },
+    { name: '할인', code: 'coupon_value', sample: value },
+    { name: '만료일', code: 'expires_at', sample: expires },
+    { name: '이름', code: 'ITEM1', sample: '홍길동' },
+    { name: '이름', code: 'user_name', sample: '홍길동' },
+    { name: '연락처', code: 'ITEM2', sample: '010-1234-5678' },
+    { name: '연락처(하이픈X)', code: 'ITEM2_NOH', sample: '01012345678' },
+  ]
+}
 
 export default function AdminCoupons() {
   const [coupons, setCoupons] = useState<Coupon[]>([])
@@ -15,6 +37,7 @@ export default function AdminCoupons() {
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  const [webhookTarget, setWebhookTarget] = useState<Coupon | null>(null)
 
   const fetchData = async () => {
     try {
@@ -180,6 +203,10 @@ export default function AdminCoupons() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
+                        <button onClick={() => setWebhookTarget(c)}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="알림톡 설정" title="알림톡 설정">
+                          <i className="ti ti-message-circle text-sm" />
+                        </button>
                         <button onClick={() => setEditing(c as unknown as Record<string, unknown>)}
                           className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정">
                           <i className="ti ti-pencil text-sm" />
@@ -372,6 +399,40 @@ export default function AdminCoupons() {
         title="쿠폰 삭제"
         message="이 쿠폰을 삭제하시겠습니까?"
       />
+
+      {/* 쿠폰별 알림톡 override 모달 */}
+      {webhookTarget && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setWebhookTarget(null) }}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">쿠폰별 알림톡 설정</h3>
+                <p className="text-xs text-gray-500 mt-0.5">이 쿠폰에만 적용되는 전용 템플릿을 설정할 수 있습니다.</p>
+              </div>
+              <button onClick={() => setWebhookTarget(null)} className="text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer">
+                <i className="ti ti-x text-xl" />
+              </button>
+            </div>
+            <CustomEventOverrideEditor
+              scope="coupon"
+              scopeId={webhookTarget.id}
+              eventCodes={COUPON_EVENT_CODES}
+              autoVars={couponSampleVars(webhookTarget)}
+              contextBanner={
+                <div className="space-y-0.5">
+                  <div><strong>{webhookTarget.title}</strong></div>
+                  <div className="text-[11px] text-blue-700">
+                    할인: {webhookTarget.discount_type === 'percent' ? `${webhookTarget.discount_value}%` : `${webhookTarget.discount_value.toLocaleString()}원`}
+                    {' · '}
+                    만료: {webhookTarget.expires_at ? new Date(webhookTarget.expires_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : webhookTarget.use_days ? `발급 후 ${webhookTarget.use_days}일` : '무기한'}
+                  </div>
+                </div>
+              }
+            />
+          </div>
+        </div>
+      )}
     </AdminLayout>
   )
 }

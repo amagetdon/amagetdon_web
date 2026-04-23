@@ -78,19 +78,23 @@ function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record
   const now = new Date()
   const ctx = options.context || {}
   const utm = options.utm || {}
+  const name = options.displayName || (extras.name as string) || ''
+  const phone = options.displayPhone || (extras.phone as string) || ''
+  const email = options.displayEmail || (extras.email as string) || ''
+  const title = options.displayTitle || (extras.title as string) || ''
   return {
     event,
     ...extras,
     // 이름/연락처
-    name: options.displayName || extras.name || '',
-    phone: options.displayPhone || extras.phone || '',
-    email: options.displayEmail || extras.email || '',
-    title: options.displayTitle || extras.title || '',
+    name,
+    phone,
+    email,
+    title,
     // 별칭 (디비카트 스타일)
-    TITLE: options.displayTitle || extras.title || '',
-    ITEM1: options.displayName || extras.name || '',
-    ITEM2: options.displayPhone || extras.phone || '',
-    ITEM2_NOH: String(options.displayPhone || extras.phone || '').replace(/-/g, ''),
+    TITLE: title,
+    ITEM1: name,
+    ITEM2: phone,
+    ITEM2_NOH: String(phone).replace(/-/g, ''),
     // 시간
     DATE: now.toLocaleDateString('ko-KR').replace(/\. /g, '.').replace(/\.$/, ''),
     TIME: now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
@@ -98,6 +102,22 @@ function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record
     date: now.toLocaleDateString('ko-KR'),
     time: now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
     timestamp: now.toISOString(),
+    // 한글 변수명 별칭 (shoong 알림톡 템플릿에서 자주 쓰이는 이름들)
+    이름: name,
+    고객명: name,
+    회원명: name,
+    성함: name,
+    연락처: phone,
+    전화번호: phone,
+    핸드폰번호: phone,
+    이메일: email,
+    강의명: title,
+    모임명: title,
+    모임: title,
+    수업명: title,
+    상품명: title,
+    서비스명: title,
+    클래스명: title,
     // 컨텍스트
     IP: ctx.ip || '',
     AGENT: ctx.user_agent || '',
@@ -269,12 +289,16 @@ export const webhookService = {
     userPhone?: string
     userEmail?: string
     title?: string
+    scope?: 'coupon' | 'course' | 'ebook'
+    scopeId?: number | null
   }): Promise<void> {
     try {
       await supabase.functions.invoke('webhook-send', {
         body: {
           event: 'custom',
           custom_event_code: code,
+          scope: options?.scope ?? 'global',
+          scope_id: options?.scopeId ?? null,
           user_id: options?.userId ?? null,
           payload: {
             ...payload,
@@ -327,16 +351,140 @@ export const webhookService = {
     return (data as Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }> | null) ?? []
   },
 
-  async upsertCustomEvent(row: { id?: number; code: string; label: string; description?: string; trigger_hint?: string; template: string; enabled?: boolean; sort_order?: number }): Promise<void> {
+  async upsertCustomEvent(row: { id?: number; code: string; label: string; description?: string; trigger_hint?: string; template: string; enabled?: boolean; sort_order?: number; variable_aliases?: Record<string, string> }): Promise<void> {
+    const payload = { ...row, variable_aliases: row.variable_aliases ?? {} }
     if (row.id) {
-      await supabase.from('webhook_custom_events').update(row as never).eq('id', row.id)
+      await supabase.from('webhook_custom_events').update(payload as never).eq('id', row.id)
     } else {
-      await supabase.from('webhook_custom_events').insert(row as never)
+      await supabase.from('webhook_custom_events').insert(payload as never)
     }
   },
 
   async deleteCustomEvent(id: number): Promise<void> {
     await supabase.from('webhook_custom_events').delete().eq('id', id)
+  },
+
+  // 커스텀 이벤트 scope별 override CRUD (쿠폰별 개별 템플릿 등)
+  async listCustomEventOverrides(scope: 'coupon' | 'course' | 'ebook', scopeId: number): Promise<Array<{ id: number; event_code: string; scope: string; scope_id: number; template: string; enabled: boolean }>> {
+    const { data } = await supabase
+      .from('webhook_custom_event_overrides')
+      .select('*')
+      .eq('scope', scope)
+      .eq('scope_id', scopeId)
+    return (data as Array<{ id: number; event_code: string; scope: string; scope_id: number; template: string; enabled: boolean }> | null) ?? []
+  },
+
+  async upsertCustomEventOverride(row: { id?: number; event_code: string; scope: 'coupon' | 'course' | 'ebook'; scope_id: number; template: string; enabled?: boolean; variable_aliases?: Record<string, string> }): Promise<void> {
+    const payload = {
+      event_code: row.event_code,
+      scope: row.scope,
+      scope_id: row.scope_id,
+      template: row.template,
+      enabled: row.enabled ?? true,
+      variable_aliases: row.variable_aliases ?? {},
+    }
+    if (row.id) {
+      const { error } = await supabase.from('webhook_custom_event_overrides').update(payload as never).eq('id', row.id)
+      if (error) throw error
+    } else {
+      const { error } = await supabase
+        .from('webhook_custom_event_overrides')
+        .upsert(payload as never, { onConflict: 'event_code,scope,scope_id' })
+      if (error) throw error
+    }
+  },
+
+  async deleteCustomEventOverride(id: number): Promise<void> {
+    const { error } = await supabase.from('webhook_custom_event_overrides').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  // 사용자 정의 canonical 변수 CRUD
+  async listCustomCanonicalVars(): Promise<Array<{ id: number; key: string; value: string; description: string; sort_order: number }>> {
+    const { data } = await supabase.from('custom_canonical_vars').select('*').order('sort_order').order('key')
+    return (data as Array<{ id: number; key: string; value: string; description: string; sort_order: number }> | null) ?? []
+  },
+
+  async upsertCustomCanonicalVar(row: { id?: number; key: string; value: string; description?: string; sort_order?: number }): Promise<void> {
+    const payload = {
+      key: row.key,
+      value: row.value,
+      description: row.description ?? '',
+      sort_order: row.sort_order ?? 0,
+    }
+    if (row.id) {
+      const { error } = await supabase.from('custom_canonical_vars').update(payload as never).eq('id', row.id)
+      if (error) throw error
+    } else {
+      const { error } = await supabase
+        .from('custom_canonical_vars')
+        .upsert(payload as never, { onConflict: 'key' })
+      if (error) throw error
+    }
+  },
+
+  async deleteCustomCanonicalVar(id: number): Promise<void> {
+    const { error } = await supabase.from('custom_canonical_vars').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  // OpenAI API 키 풀 CRUD
+  async listOpenaiKeys(): Promise<Array<{ id: number; label: string; api_key: string; enabled: boolean; last_used_at: string | null; last_error_at: string | null; last_error_message: string | null; error_count: number; use_count: number; sort_order: number }>> {
+    const { data } = await supabase.from('openai_api_keys').select('*').order('sort_order').order('id')
+    return (data as Array<{ id: number; label: string; api_key: string; enabled: boolean; last_used_at: string | null; last_error_at: string | null; last_error_message: string | null; error_count: number; use_count: number; sort_order: number }> | null) ?? []
+  },
+
+  async upsertOpenaiKey(row: { id?: number; label: string; api_key: string; enabled?: boolean; sort_order?: number }): Promise<void> {
+    const payload = {
+      label: row.label,
+      api_key: row.api_key,
+      enabled: row.enabled ?? true,
+      sort_order: row.sort_order ?? 0,
+    }
+    if (row.id) {
+      const { error } = await supabase.from('openai_api_keys').update(payload as never).eq('id', row.id)
+      if (error) throw error
+    } else {
+      const { error } = await supabase.from('openai_api_keys').insert(payload as never)
+      if (error) throw error
+    }
+  },
+
+  async deleteOpenaiKey(id: number): Promise<void> {
+    const { error } = await supabase.from('openai_api_keys').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  async bulkInsertOpenaiKeys(keys: string[], labelPrefix = 'Key'): Promise<number> {
+    if (keys.length === 0) return 0
+    const rows = keys.map((k, i) => ({
+      label: `${labelPrefix} #${i + 1}`,
+      api_key: k.trim(),
+      enabled: true,
+      sort_order: i,
+    }))
+    const { error } = await supabase.from('openai_api_keys').insert(rows as never)
+    if (error) throw error
+    return rows.length
+  },
+
+  // 템플릿 변수명 분석 — 미확인 변수 매핑 + 빈 슬롯 채움 제안 (GPT-5.4-mini)
+  async analyzeTemplateVariables(template: string): Promise<{
+    unknown_vars: string[]
+    suggested_aliases: Record<string, { canonical: string; reason: string }>
+    empty_slots: string[]
+    suggested_slot_fills: Record<string, { canonical: string; reason: string }>
+    warning?: string
+  }> {
+    const { data, error } = await supabase.functions.invoke('webhook-template-analyze', { body: { template } })
+    if (error) throw error
+    return data as {
+      unknown_vars: string[]
+      suggested_aliases: Record<string, { canonical: string; reason: string }>
+      empty_slots: string[]
+      suggested_slot_fills: Record<string, { canonical: string; reason: string }>
+      warning?: string
+    }
   },
 
   async getConfig(scope: WebhookScope = 'global', scopeId: number | null = null): Promise<WebhookConfig> {
@@ -351,6 +499,7 @@ export const webhookService = {
   },
 
   async saveConfig(config: WebhookConfig): Promise<WebhookConfig> {
+    const cfgExt = config as WebhookConfig & { signup_variable_aliases?: Record<string, string>; purchase_variable_aliases?: Record<string, string> }
     const payload = {
       scope: config.scope,
       scope_id: config.scope_id,
@@ -365,6 +514,8 @@ export const webhookService = {
       signup_template: config.signup_template,
       purchase_template: config.purchase_template,
       label: config.label,
+      signup_variable_aliases: cfgExt.signup_variable_aliases ?? {},
+      purchase_variable_aliases: cfgExt.purchase_variable_aliases ?? {},
     }
     if (config.id) {
       const { data, error } = await supabase.from('webhook_configs').update(payload as never).eq('id', config.id).select().single()

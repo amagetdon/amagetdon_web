@@ -13,6 +13,7 @@ export interface WebhookSchedule {
   enabled: boolean
   sort_order: number
   enrollment_full_fired_at: string | null
+  variable_aliases: Record<string, string>
   created_at: string
   updated_at: string
 }
@@ -213,6 +214,14 @@ export const webhookScheduleService = {
       return 0
     }
     return Number(data ?? 0)
+  },
+
+  // 어드민용 — 지금 즉시 도래한 큐 처리 (webhook-schedule-runner 수동 실행)
+  async runDueNow(): Promise<{ processed: number; errors: number }> {
+    const { data, error } = await supabase.functions.invoke('webhook-schedule-runner', { body: {} })
+    if (error) throw error
+    const result = data as { processed?: number; errors?: number } | null
+    return { processed: result?.processed ?? 0, errors: result?.errors ?? 0 }
   },
 
   // 어드민용 — 강의의 모든 사용자 발송 현황 조회

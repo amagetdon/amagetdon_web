@@ -3,6 +3,105 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { webhookScheduleService, type WebhookSchedule, type WebhookScheduleRun, type TriggerType } from '../../services/webhookScheduleService'
 import { webhookService, type WebhookConfig } from '../../services/webhookService'
+import { supabase } from '../../lib/supabase'
+import TemplateAliasConfirmModal from './TemplateAliasConfirmModal'
+
+interface ScopeInfo {
+  title: string
+  instructorName: string
+  price: number
+  url: string
+  upcomingScheduledAt: string | null
+}
+
+function resolveTemplate(template: string, vars: Record<string, string>): string {
+  return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => vars[k] ?? `{#${k}#}`)
+}
+
+/** 빈 "variables.X":"" 슬롯에 canonical 참조 또는 literal 값을 채워 넣음 */
+function fillEmptySlots(template: string, slotFills: Record<string, string>): string {
+  let out = template
+  for (const [slot, value] of Object.entries(slotFills)) {
+    if (!value) continue
+    const esc = slot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`"variables\\.${esc}"\\s*:\\s*""`, 'g')
+    // URL이거나 공백/특수문자 포함하면 literal로 취급, 그 외엔 canonical 참조로 래핑
+    const isLiteral = /^https?:\/\//i.test(value) || /[\s/:?=&]/.test(value) && !/^[A-Za-z0-9_가-힣]+$/.test(value)
+    // JSON 문자열로 안전하게 이스케이프
+    const escapedValue = isLiteral ? JSON.stringify(value).slice(1, -1) : `{#${value}#}`
+    out = out.replace(re, `"variables.${slot}":"${escapedValue}"`)
+  }
+  return out
+}
+
+function fmt(d: Date | null, opts: Intl.DateTimeFormatOptions): string {
+  return d ? d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', ...opts }) : ''
+}
+
+function buildScopeVars(info: ScopeInfo | null): Record<string, string> {
+  if (!info) return {}
+  const at = info.upcomingScheduledAt ? new Date(info.upcomingScheduledAt) : null
+  const date = fmt(at, { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\. /g, '.').replace(/\.$/, '')
+  const time = fmt(at, { hour: '2-digit', minute: '2-digit', hour12: false })
+  const longDt = at ? `${fmt(at, { year: 'numeric', month: 'long', day: 'numeric' })} ${time}` : ''
+  const sampleName = '홍길동'
+  const samplePhone = '010-1234-5678'
+  const sampleEmail = 'test@example.com'
+  return {
+    TITLE: info.title,
+    title: info.title,
+    instructor_name: info.instructorName,
+    instructor: info.instructorName,
+    course_url: info.url,
+    course_link: info.url,
+    URL: info.url,
+    price: String(info.price),
+    DATE: date,
+    TIME: time,
+    SCHEDULED_DATE: date,
+    SCHEDULED_TIME: time,
+    SCHEDULED_AT: info.upcomingScheduledAt ?? '',
+    // 한글 변수명 별칭
+    이름: sampleName,
+    고객명: sampleName,
+    회원명: sampleName,
+    성함: sampleName,
+    연락처: samplePhone,
+    전화번호: samplePhone,
+    핸드폰번호: samplePhone,
+    이메일: sampleEmail,
+    강사명: info.instructorName,
+    강사: info.instructorName,
+    선생님: info.instructorName,
+    강의명: info.title,
+    모임명: info.title,
+    모임: info.title,
+    수업명: info.title,
+    상품명: info.title,
+    서비스명: info.title,
+    클래스명: info.title,
+    일시: longDt,
+    모임일시: longDt,
+    강의일시: longDt,
+    날짜: date,
+    시간: time,
+    링크: info.url,
+    URL주소: info.url,
+    가격: info.price ? `${info.price.toLocaleString()}원` : '',
+    금액: info.price ? `${info.price.toLocaleString()}원` : '',
+    // 샘플 사용자 (영문)
+    ITEM1: sampleName,
+    ITEM2: samplePhone,
+    ITEM2_NOH: '01012345678',
+    user_name: sampleName,
+    user_phone: samplePhone,
+    user_email: sampleEmail,
+    name: sampleName,
+    phone: samplePhone,
+    email: sampleEmail,
+    DBNO: '999999',
+  }
+}
 
 const TRIGGER_LABEL: Record<TriggerType, string> = {
   time_offset: '강의 일정 기준',
@@ -24,6 +123,7 @@ const COMMON_PRESETS: Array<{ label: string; minutes: number }> = [
   { label: '강의 시작 시', minutes: 0 },
   { label: '강의 1시간 후', minutes: 60 },
 ]
+
 
 function offsetLabel(min: number): string {
   if (min === 0) return '강의 시작 시'
@@ -49,8 +149,22 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
   const [globalConfig, setGlobalConfig] = useState<WebhookConfig | null>(null)
   const [scopedConfig, setScopedConfig] = useState<WebhookConfig | null>(null)
   const [purchaseTemplate, setPurchaseTemplate] = useState('')
-  const [overrideEnabled, setOverrideEnabled] = useState(false)
+  const [overrideEnabled, setOverrideEnabled] = useState(true)
   const [savingPurchase, setSavingPurchase] = useState(false)
+
+  // scope(강의/전자책) 정보 — 자동 채움 배너 + 미리보기용
+  const [scopeInfo, setScopeInfo] = useState<ScopeInfo | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
+
+  // 변수 분석 확인 모달
+  const [aliasConfirm, setAliasConfirm] = useState<{
+    unknownVars: string[]
+    suggestedAliases: Record<string, { canonical: string; reason: string }>
+    emptySlots: string[]
+    suggestedSlotFills: Record<string, { canonical: string; reason: string }>
+    warning?: string
+  } | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
 
   const fetchSchedules = useCallback(async () => {
     if (!scopeId) return
@@ -66,17 +180,67 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     ])
     setGlobalConfig(g)
     setScopedConfig(s.id ? s : null)
+    // 강의/전자책은 메시지가 많이 달라 per-scope 전용을 기본값으로
     if (s.id && s.purchase_template) {
       setPurchaseTemplate(s.purchase_template)
       setOverrideEnabled(true)
     } else {
-      setPurchaseTemplate(g.purchase_template || '')
-      setOverrideEnabled(false)
+      setPurchaseTemplate('')
+      setOverrideEnabled(true)
+    }
+  }, [scope, scopeId])
+
+  const fetchScopeInfo = useCallback(async () => {
+    if (!scopeId) return
+    const siteUrl = typeof window !== 'undefined' ? window.location.origin : ''
+    try {
+      if (scope === 'course') {
+        const { data: course } = await supabase
+          .from('courses')
+          .select('id, title, sale_price, original_price, instructor:instructors(name)')
+          .eq('id', scopeId)
+          .maybeSingle()
+        const c = course as { id: number; title: string; sale_price?: number; original_price?: number; instructor?: { name?: string } | null } | null
+        // 가장 가까운 미래 schedule
+        const { data: sc } = await supabase
+          .from('schedules')
+          .select('scheduled_at')
+          .eq('course_id', scopeId)
+          .gte('scheduled_at', new Date().toISOString())
+          .order('scheduled_at')
+          .limit(1)
+          .maybeSingle()
+        const nearest = (sc as { scheduled_at?: string } | null)?.scheduled_at ?? null
+        setScopeInfo({
+          title: c?.title ?? '',
+          instructorName: c?.instructor?.name ?? '',
+          price: c?.sale_price ?? c?.original_price ?? 0,
+          url: `${siteUrl}/course/${scopeId}`,
+          upcomingScheduledAt: nearest,
+        })
+      } else {
+        const { data: ebook } = await supabase
+          .from('ebooks')
+          .select('id, title, sale_price, original_price')
+          .eq('id', scopeId)
+          .maybeSingle()
+        const e = ebook as { id: number; title: string; sale_price?: number; original_price?: number } | null
+        setScopeInfo({
+          title: e?.title ?? '',
+          instructorName: '',
+          price: e?.sale_price ?? e?.original_price ?? 0,
+          url: `${siteUrl}/ebook/${scopeId}`,
+          upcomingScheduledAt: null,
+        })
+      }
+    } catch {
+      setScopeInfo(null)
     }
   }, [scope, scopeId])
 
   useEffect(() => { fetchSchedules() }, [fetchSchedules])
   useEffect(() => { fetchConfigs() }, [fetchConfigs])
+  useEffect(() => { fetchScopeInfo() }, [fetchScopeInfo])
 
   const handleSavePurchaseTemplate = async () => {
     if (!globalConfig) return
@@ -108,24 +272,56 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     }
   }
 
-  const handleSave = async () => {
+  const performSave = async (aliases: Record<string, string>, slotFills: Record<string, string>) => {
     if (!editing) return
-    if (!editing.label?.trim()) { toast.error('라벨을 입력해주세요.'); return }
-    if (!editing.request_template?.trim()) { toast.error('전달 파라미터를 입력해주세요.'); return }
     try {
+      const filledTemplate = Object.keys(slotFills).length > 0 && editing.request_template
+        ? fillEmptySlots(editing.request_template, slotFills)
+        : editing.request_template
       await webhookScheduleService.upsert({
         ...editing,
+        request_template: filledTemplate,
         scope,
         scope_id: scopeId,
         trigger_type: (editing.trigger_type as TriggerType) || 'time_offset',
         offset_minutes: Number(editing.offset_minutes ?? 0),
         enabled: editing.enabled ?? true,
-      })
+        variable_aliases: { ...(editing.variable_aliases ?? {}), ...aliases },
+      } as Partial<WebhookSchedule>)
       toast.success('저장되었습니다.')
       setEditing(null)
+      setAliasConfirm(null)
       fetchSchedules()
     } catch {
       toast.error('저장 실패')
+    }
+  }
+
+  const handleSave = async () => {
+    if (!editing) return
+    if (!editing.label?.trim()) { toast.error('라벨을 입력해주세요.'); return }
+    if (!editing.request_template?.trim()) { toast.error('전달 파라미터를 입력해주세요.'); return }
+
+    // 템플릿 분석: 미확인 {#변수#} 매핑 + 빈 variables.X 슬롯 자동 채움 제안
+    setAnalyzing(true)
+    try {
+      const analysis = await webhookService.analyzeTemplateVariables(editing.request_template)
+      const unknownVars = analysis.unknown_vars ?? []
+      const emptySlots = analysis.empty_slots ?? []
+      const suggestedAliases = analysis.suggested_aliases ?? {}
+      const suggestedSlotFills = analysis.suggested_slot_fills ?? {}
+      if (unknownVars.length > 0 || emptySlots.length > 0) {
+        setAliasConfirm({ unknownVars, suggestedAliases, emptySlots, suggestedSlotFills, warning: analysis.warning })
+      } else {
+        if (analysis.warning) toast(analysis.warning, { icon: 'ℹ️', duration: 5000 })
+        await performSave({}, {})
+      }
+    } catch (err) {
+      toast.error('변수 분석 중 오류, alias 없이 저장합니다.')
+      console.error(err)
+      await performSave({}, {})
+    } finally {
+      setAnalyzing(false)
     }
   }
 
@@ -188,7 +384,7 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
             <p className="text-xs text-gray-500 mt-0.5">사용자가 이 {scope === 'course' ? '강의' : '전자책'}을 구매하는 즉시 발송됩니다.</p>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
-            <span className="text-xs text-gray-500">{overrideEnabled ? '이 강의 전용' : '기본 설정 사용'}</span>
+            <span className="text-xs text-gray-500">{overrideEnabled ? `이 ${scope === 'course' ? '강의' : '전자책'} 전용 (기본값)` : '발송 안 함'}</span>
             <button type="button"
               onClick={() => setOverrideEnabled((v) => !v)}
               className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer border-none ${overrideEnabled ? 'bg-[#2ED573]' : 'bg-gray-300'}`}>
@@ -211,13 +407,16 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
             </div>
           </>
         ) : (
-          <div className="text-xs text-gray-500 bg-gray-50 rounded p-3 space-y-1">
-            <div>이 강의 구매 시 <strong>기본 구매 알림톡</strong>이 사용됩니다.</div>
-            <pre className="text-[11px] font-mono text-gray-600 break-all whitespace-pre-wrap">{globalConfig?.purchase_template || '(기본 설정에 구매 템플릿 미입력)'}</pre>
+          <div className="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded p-3 space-y-1">
+            <div>
+              <i className="ti ti-alert-triangle text-amber-600 mr-1" />
+              이 {scope === 'course' ? '강의' : '전자책'}은 <strong>구매 즉시 알림톡을 발송하지 않습니다</strong>.
+            </div>
+            <div className="text-[11px] text-gray-500">구매자에게 알림톡을 발송하려면 토글을 켜고 전용 템플릿을 작성하세요.</div>
             {scopedConfig?.id && (
               <button onClick={handleSavePurchaseTemplate} disabled={savingPurchase}
                 className="mt-2 text-[11px] text-red-600 hover:text-red-800 bg-transparent border-none cursor-pointer underline">
-                기존 전용 설정 삭제 (기본으로 복귀)
+                기존 전용 설정 삭제
               </button>
             )}
           </div>
@@ -339,6 +538,21 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
             </div>
 
             <div className="space-y-4">
+              {scopeInfo && (
+                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-xs">
+                  <div className="font-bold text-blue-900">{scopeInfo.title || '(제목 없음)'}</div>
+                  <div className="text-blue-700 mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5">
+                    {scopeInfo.instructorName && <span>강사: {scopeInfo.instructorName}</span>}
+                    <span>가격: {scopeInfo.price.toLocaleString()}원</span>
+                    {scopeInfo.upcomingScheduledAt && (
+                      <span>가까운 일정: {new Date(scopeInfo.upcomingScheduledAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+                    )}
+                    <span className="truncate">URL: <code className="text-[10px] bg-white/60 px-1 rounded">{scopeInfo.url}</code></span>
+                  </div>
+                  <p className="text-[10px] text-blue-600 mt-1">위 정보는 <code>{`{#TITLE#}`}</code>, <code>{`{#instructor_name#}`}</code>, <code>{`{#course_url#}`}</code> 등으로 자동 치환됩니다.</p>
+                </div>
+              )}
+
               <div>
                 <label className="text-xs font-bold text-gray-700 block mb-1">라벨 (관리용)</label>
                 <input value={editing.label ?? ''} onChange={(e) => setEditing({ ...editing, label: e.target.value })}
@@ -413,29 +627,42 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
                   rows={8}
                   placeholder={`shoong "코드 예제" cURL 통째 붙여넣기 OK (자동 추출)\n\n또는 JSON 직접:\n{\n  "sendType":"at",\n  "phone":"{#ITEM2_NOH#}",\n  "channelConfig.senderkey":"...",\n  "channelConfig.templatecode":"...",\n  "variables.강의명":"{#TITLE#}",\n  "variables.강사명":"{#instructor_name#}",\n  "variables.일시":"{#강의일시#}",\n  "variables.링크":"{#course_url#}"\n}`}
                   className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] font-mono resize-none" />
+                <div className="mt-2 flex items-center gap-2">
+                  <button type="button"
+                    onClick={() => setShowPreview(!showPreview)}
+                    className="text-[11px] text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1 border-none cursor-pointer">
+                    <i className="ti ti-eye mr-0.5" />{showPreview ? '미리보기 닫기' : '치환 미리보기'}
+                  </button>
+                  <span className="text-[10px] text-gray-400">이 {scope === 'course' ? '강의' : '전자책'} 정보 + 샘플 사용자로 치환된 결과</span>
+                </div>
+                {showPreview && editing.request_template && (
+                  <pre className="mt-2 text-[11px] text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all max-h-60 overflow-y-auto">
+                    {resolveTemplate(editing.request_template, buildScopeVars(scopeInfo))}
+                  </pre>
+                )}
+
                 <details className="mt-2">
                   <summary className="text-[11px] text-gray-600 cursor-pointer hover:text-gray-900">📚 사용 가능한 예약어 (자동 채움)</summary>
                   <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2 text-[10px] bg-gray-50 rounded p-2">
                     <div>
                       <p className="font-bold text-gray-700 mb-1">강의/상품 정보 (자동)</p>
                       <ul className="space-y-0.5 text-gray-600">
-                        <li><code>{`{#TITLE#}`}</code> <code>{`{#title#}`}</code> <code>{`{#강의명#}`}</code> <code>{`{#상품명#}`}</code> — 강의명</li>
-                        <li><code>{`{#instructor_name#}`}</code> <code>{`{#강사명#}`}</code> — 강사 이름</li>
-                        <li><code>{`{#course_url#}`}</code> <code>{`{#URL#}`}</code> — 강의 페이지 URL</li>
-                        <li><code>{`{#price#}`}</code> — 가격</li>
-                        <li><code>{`{#DATE#}`}</code> <code>{`{#SCHEDULED_DATE#}`}</code> — 강의 날짜</li>
-                        <li><code>{`{#TIME#}`}</code> <code>{`{#SCHEDULED_TIME#}`}</code> — 강의 시간</li>
-                        <li><code>{`{#강의일시#}`}</code> — "2026년 4월 24일 19:30" 형식</li>
-                        <li><code>{`{#SCHEDULED_AT#}`}</code> — ISO 형식</li>
+                        <li><code>{`{#TITLE#}`}</code> <code>{`{#강의명#}`}</code> <code>{`{#모임명#}`}</code> <code>{`{#수업명#}`}</code> <code>{`{#상품명#}`}</code> <code>{`{#클래스명#}`}</code> — 제목</li>
+                        <li><code>{`{#instructor_name#}`}</code> <code>{`{#강사명#}`}</code> <code>{`{#강사#}`}</code> <code>{`{#선생님#}`}</code> — 강사 이름</li>
+                        <li><code>{`{#course_url#}`}</code> <code>{`{#URL#}`}</code> <code>{`{#링크#}`}</code> — 페이지 URL</li>
+                        <li><code>{`{#price#}`}</code> <code>{`{#가격#}`}</code> <code>{`{#금액#}`}</code> — 가격</li>
+                        <li><code>{`{#DATE#}`}</code> <code>{`{#날짜#}`}</code> <code>{`{#SCHEDULED_DATE#}`}</code> — 날짜</li>
+                        <li><code>{`{#TIME#}`}</code> <code>{`{#시간#}`}</code> — 시간</li>
+                        <li><code>{`{#일시#}`}</code> <code>{`{#강의일시#}`}</code> <code>{`{#모임일시#}`}</code> — "2026년 4월 24일 19:30"</li>
                       </ul>
                     </div>
                     <div>
                       <p className="font-bold text-gray-700 mb-1">사용자 정보 (자동)</p>
                       <ul className="space-y-0.5 text-gray-600">
-                        <li><code>{`{#user_name#}`}</code> <code>{`{#name#}`}</code> <code>{`{#ITEM1#}`}</code> — 이름</li>
-                        <li><code>{`{#user_phone#}`}</code> <code>{`{#phone#}`}</code> <code>{`{#ITEM2#}`}</code> — 010-xxxx-xxxx</li>
+                        <li><code>{`{#user_name#}`}</code> <code>{`{#이름#}`}</code> <code>{`{#고객명#}`}</code> <code>{`{#성함#}`}</code> <code>{`{#ITEM1#}`}</code> — 이름</li>
+                        <li><code>{`{#user_phone#}`}</code> <code>{`{#연락처#}`}</code> <code>{`{#전화번호#}`}</code> <code>{`{#ITEM2#}`}</code> — 010-xxxx-xxxx</li>
                         <li><code>{`{#ITEM2_NOH#}`}</code> — 01012345678 (shoong용)</li>
-                        <li><code>{`{#user_email#}`}</code> <code>{`{#email#}`}</code> — 이메일</li>
+                        <li><code>{`{#user_email#}`}</code> <code>{`{#이메일#}`}</code> — 이메일</li>
                         <li><code>{`{#DBNO#}`}</code> — 데이터 고유번호</li>
                       </ul>
                     </div>
@@ -453,10 +680,27 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
 
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setEditing(null)} className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm cursor-pointer hover:bg-gray-50">취소</button>
-              <button onClick={handleSave} className="px-4 py-2 rounded-lg bg-[#2ED573] text-white text-sm font-bold cursor-pointer border-none hover:bg-[#25B866]">저장</button>
+              <button onClick={handleSave} disabled={analyzing}
+                className="px-4 py-2 rounded-lg bg-[#2ED573] text-white text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] disabled:opacity-50">
+                {analyzing ? '분석 중...' : '저장'}
+              </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* LLM 기반 변수 매핑 확인 모달 */}
+      {aliasConfirm && (
+        <TemplateAliasConfirmModal
+          isOpen
+          unknownVars={aliasConfirm.unknownVars}
+          suggestedAliases={aliasConfirm.suggestedAliases}
+          emptySlots={aliasConfirm.emptySlots}
+          suggestedSlotFills={aliasConfirm.suggestedSlotFills}
+          warning={aliasConfirm.warning}
+          onCancel={() => setAliasConfirm(null)}
+          onConfirm={(aliases, slotFills) => performSave(aliases, slotFills)}
+        />
       )}
     </div>
   )
