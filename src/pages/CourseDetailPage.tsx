@@ -372,13 +372,13 @@ function CourseDetailPage() {
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="flex gap-8 max-md:flex-col">
             <div className="flex-1">
-              <div className="bg-gray-100 rounded-xl h-[300px] flex items-center justify-center overflow-hidden">
-                {course.video_url ? (
-                  <VideoEmbed url={course.video_url} className="w-full" />
-                ) : (
+              {course.video_url ? (
+                <VideoEmbed url={course.video_url} className="w-full" />
+              ) : (
+                <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center overflow-hidden">
                   <span className="text-sm text-gray-400">O.T 및 광고 영상</span>
-                )}
-              </div>
+                </div>
+              )}
               <div className="bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center mt-6 overflow-hidden">
                 {course.landing_image_url ? (
                   <img src={course.landing_image_url} alt={course.title} className="w-full" />

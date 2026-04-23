@@ -39,6 +39,9 @@ interface FormErrors {
   password?: string
   passwordConfirm?: string
   phone?: string
+  gender?: string
+  address?: string
+  birthDate?: string
 }
 
 function MyPage() {
@@ -107,6 +110,27 @@ function MyPage() {
       newErrors.name = '이름을 입력해주세요.'
     }
 
+    if (!form.gender) {
+      newErrors.gender = '성별을 선택해주세요.'
+    }
+
+    if (!form.zonecode || !form.address) {
+      newErrors.address = '주소를 입력해주세요.'
+    } else if (!form.addressDetail.trim()) {
+      newErrors.address = '상세주소를 입력해주세요.'
+    }
+
+    const phoneRegex = /^\d{3,4}$/
+    if (!form.phone2 || !form.phone3) {
+      newErrors.phone = '휴대폰 번호를 입력해주세요.'
+    } else if (!phoneRegex.test(form.phone2) || !phoneRegex.test(form.phone3)) {
+      newErrors.phone = '올바른 휴대폰 번호를 입력해주세요.'
+    }
+
+    if (!form.birthYear || !form.birthMonth || !form.birthDay) {
+      newErrors.birthDate = '생년월일을 선택해주세요.'
+    }
+
     if (form.password || form.passwordConfirm) {
       if (!form.password && form.passwordConfirm) {
         newErrors.password = '비밀번호를 입력해주세요.'
@@ -118,13 +142,6 @@ function MyPage() {
         if (form.password !== form.passwordConfirm) {
           newErrors.passwordConfirm = '비밀번호가 일치하지 않습니다.'
         }
-      }
-    }
-
-    const phoneRegex = /^\d{3,4}$/
-    if (form.phone2 || form.phone3) {
-      if (!phoneRegex.test(form.phone2) || !phoneRegex.test(form.phone3)) {
-        newErrors.phone = '올바른 휴대폰 번호를 입력해주세요.'
       }
     }
 
@@ -266,7 +283,10 @@ function MyPage() {
         </div>
 
         <div>
-          <h2 className="font-bold border-b-2 border-[#2ED573] pb-2">회원정보입력</h2>
+          <h2 className="font-bold border-b-2 border-[#2ED573] pb-2 flex items-center justify-between">
+            <span>회원정보입력</span>
+            <span className="text-xs font-medium text-[#2ED573]"><span className="align-middle">*</span> 필수 정보</span>
+          </h2>
 
           {/* 이메일 (읽기 전용) */}
           <div className="flex items-center gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
@@ -283,7 +303,7 @@ function MyPage() {
 
           {/* 이름 */}
           <div className="flex items-center gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
-            <label className="w-[100px] font-bold text-sm shrink-0">이름</label>
+            <label className="w-[100px] font-bold text-sm shrink-0">이름<span className="text-[#2ED573] ml-0.5">*</span></label>
             <div className="flex-1 max-sm:w-full">
               <input
                 type="text"
@@ -300,34 +320,39 @@ function MyPage() {
 
           {/* 성별 */}
           <div className="flex items-center gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
-            <label className="w-[100px] font-bold text-sm shrink-0">성별</label>
-            <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="gender"
-                  checked={form.gender === 'male'}
-                  onChange={() => handleChange('gender', 'male')}
-                  className="accent-[#2ED573]"
-                />
-                <span className="text-sm">남성</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="gender"
-                  checked={form.gender === 'female'}
-                  onChange={() => handleChange('gender', 'female')}
-                  className="accent-[#2ED573]"
-                />
-                <span className="text-sm">여성</span>
-              </label>
+            <label className="w-[100px] font-bold text-sm shrink-0">성별<span className="text-[#2ED573] ml-0.5">*</span></label>
+            <div>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="gender"
+                    checked={form.gender === 'male'}
+                    onChange={() => handleChange('gender', 'male')}
+                    className="accent-[#2ED573]"
+                  />
+                  <span className="text-sm">남성</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="gender"
+                    checked={form.gender === 'female'}
+                    onChange={() => handleChange('gender', 'female')}
+                    className="accent-[#2ED573]"
+                  />
+                  <span className="text-sm">여성</span>
+                </label>
+              </div>
+              {errors.gender && (
+                <p className="text-xs text-red-500 mt-1">{errors.gender}</p>
+              )}
             </div>
           </div>
 
           {/* 주소 */}
           <div className="flex items-start gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
-            <label className="w-[100px] font-bold text-sm shrink-0 pt-1">주소</label>
+            <label className="w-[100px] font-bold text-sm shrink-0 pt-1">주소<span className="text-[#2ED573] ml-0.5">*</span></label>
             <div className="flex-1 max-sm:w-full">
               <div className="flex items-center gap-2 mb-2">
                 <input
@@ -367,8 +392,13 @@ function MyPage() {
                 value={form.addressDetail}
                 onChange={(e) => handleChange('addressDetail', e.target.value)}
                 placeholder="상세주소를 입력해주세요."
+                autoComplete="off"
+                name="mypage-address-detail"
                 className="border-b px-2 py-1 text-sm w-full outline-none"
               />
+              {errors.address && (
+                <p className="text-xs text-red-500 mt-1">{errors.address}</p>
+              )}
             </div>
           </div>
 
@@ -382,20 +412,44 @@ function MyPage() {
                   value={form.password}
                   onChange={(e) => handleChange('password', e.target.value)}
                   placeholder="새 비밀번호 (변경 시에만 입력)"
+                  autoComplete="new-password"
                   className="border-b px-2 py-1 text-sm w-full outline-none"
                 />
-                <p className="text-xs mt-1 text-red-400">
-                  {errors.password || '8~18자의 영문/숫자/특수문자를 함께 입력해주세요.'}
-                </p>
+                {(() => {
+                  const pw = form.password
+                  if (!pw) {
+                    return <p className="text-xs mt-1 text-gray-400">8~18자의 영문/숫자/특수문자를 함께 입력해주세요.</p>
+                  }
+                  const checks = [
+                    { label: '8~18자', ok: pw.length >= 8 && pw.length <= 18 },
+                    { label: '영문', ok: /[a-zA-Z]/.test(pw) },
+                    { label: '숫자', ok: /\d/.test(pw) },
+                    { label: '특수문자', ok: /[!@#$%^&*]/.test(pw) },
+                  ]
+                  return (
+                    <div className="text-xs mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                      {checks.map((c) => (
+                        <span key={c.label} className={`inline-flex items-center gap-0.5 ${c.ok ? 'text-[#2ED573]' : 'text-gray-400'}`}>
+                          <i className={`ti ${c.ok ? 'ti-check' : 'ti-x'}`} />
+                          {c.label}
+                        </span>
+                      ))}
+                    </div>
+                  )
+                })()}
                 <input
                   type="password"
                   value={form.passwordConfirm}
                   onChange={(e) => handleChange('passwordConfirm', e.target.value)}
                   placeholder="비밀번호를 다시 입력해주세요."
+                  autoComplete="new-password"
                   className="border-b px-2 py-1 text-sm w-full outline-none mt-3"
                 />
-                {errors.passwordConfirm && (
-                  <p className="text-xs text-red-500 mt-1">{errors.passwordConfirm}</p>
+                {form.passwordConfirm && (
+                  <p className={`text-xs mt-1 ${form.password === form.passwordConfirm ? 'text-[#2ED573]' : 'text-red-500'}`}>
+                    <i className={`ti ${form.password === form.passwordConfirm ? 'ti-check' : 'ti-x'} mr-0.5`} />
+                    {form.password === form.passwordConfirm ? '비밀번호가 일치합니다.' : '비밀번호가 일치하지 않습니다.'}
+                  </p>
                 )}
               </div>
             </div>
@@ -403,7 +457,7 @@ function MyPage() {
 
           {/* 휴대폰 번호 */}
           <div className="flex items-center gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
-            <label className="w-[100px] font-bold text-sm shrink-0">휴대폰 번호</label>
+            <label className="w-[100px] font-bold text-sm shrink-0">휴대폰 번호<span className="text-[#2ED573] ml-0.5">*</span></label>
             <div className="max-sm:w-full">
               <div className="flex items-center gap-2">
                 <input
@@ -438,38 +492,43 @@ function MyPage() {
 
           {/* 생년월일 */}
           <div className="flex items-center gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
-            <label className="w-[100px] font-bold text-sm shrink-0">생년월일</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={form.birthYear}
-                onChange={(e) => handleChange('birthYear', e.target.value)}
-                className="border px-2 py-1 rounded text-sm outline-none"
-              >
-                <option value="">년도</option>
-                {years.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-              <select
-                value={form.birthMonth}
-                onChange={(e) => handleChange('birthMonth', e.target.value)}
-                className="border px-2 py-1 rounded text-sm outline-none"
-              >
-                <option value="">월</option>
-                {months.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              <select
-                value={form.birthDay}
-                onChange={(e) => handleChange('birthDay', e.target.value)}
-                className="border px-2 py-1 rounded text-sm outline-none"
-              >
-                <option value="">일</option>
-                {days.map((d) => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
+            <label className="w-[100px] font-bold text-sm shrink-0">생년월일<span className="text-[#2ED573] ml-0.5">*</span></label>
+            <div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={form.birthYear}
+                  onChange={(e) => handleChange('birthYear', e.target.value)}
+                  className="border px-2 py-1 rounded text-sm outline-none"
+                >
+                  <option value="">년도</option>
+                  {years.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <select
+                  value={form.birthMonth}
+                  onChange={(e) => handleChange('birthMonth', e.target.value)}
+                  className="border px-2 py-1 rounded text-sm outline-none"
+                >
+                  <option value="">월</option>
+                  {months.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+                <select
+                  value={form.birthDay}
+                  onChange={(e) => handleChange('birthDay', e.target.value)}
+                  className="border px-2 py-1 rounded text-sm outline-none"
+                >
+                  <option value="">일</option>
+                  {days.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+              {errors.birthDate && (
+                <p className="text-xs text-red-500 mt-1">{errors.birthDate}</p>
+              )}
             </div>
           </div>
 

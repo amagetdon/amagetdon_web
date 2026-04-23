@@ -16,23 +16,58 @@ function getEmbedUrl(url: string): { type: 'youtube' | 'raw'; src: string } | nu
 }
 
 const bannerCache = new Map<string, Banner[]>()
-const settingsCache = { loaded: false, data: null as Record<string, { height?: string; speed?: string }> | null }
+const settingsCache = { loaded: false, data: null as Record<string, { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }> | null }
+
+type FitMode = 'cover' | 'width' | 'height'
+
+function mediaClassName(fit: FitMode): string {
+  const base = 'absolute transition-opacity duration-500'
+  if (fit === 'width') return `${base} left-0 right-0 top-1/2 -translate-y-1/2 w-full h-auto max-h-none`
+  if (fit === 'height') return `${base} top-0 bottom-0 left-1/2 -translate-x-1/2 h-full w-auto max-w-none`
+  return `${base} inset-0 w-full h-full object-cover`
+}
+
+function iframeLayout(fit: FitMode): { className: string; style: React.CSSProperties } {
+  if (fit === 'width') {
+    return {
+      className: 'absolute left-0 right-0 top-1/2 -translate-y-1/2 w-full border-none pointer-events-none',
+      style: { aspectRatio: '16 / 9' },
+    }
+  }
+  if (fit === 'height') {
+    return {
+      className: 'absolute top-0 bottom-0 left-1/2 -translate-x-1/2 h-full border-none pointer-events-none',
+      style: { aspectRatio: '16 / 9' },
+    }
+  }
+  return {
+    className: 'absolute top-1/2 left-1/2 border-none pointer-events-none',
+    style: { width: '300%', height: '300%', transform: 'translate(-50%, -50%)' },
+  }
+}
 
 interface HeroSectionProps {
   banners?: Banner[]
   loading?: boolean
   height?: string
+  heightMobile?: string
   speed?: number
+  fit?: FitMode
+  fitMobile?: FitMode
   pageKey?: string
 }
 
-function HeroSection({ banners: propBanners, loading: propLoading, height: propHeight, speed: propSpeed, pageKey = 'hero' }: HeroSectionProps) {
+function HeroSection({ banners: propBanners, loading: propLoading, height: propHeight, heightMobile: propHeightMobile, speed: propSpeed, fit: propFit, fitMobile: propFitMobile, pageKey = 'hero' }: HeroSectionProps) {
   const cached = bannerCache.get(pageKey)
   const [selfBanners, setSelfBanners] = useState<Banner[]>(cached || [])
   const [selfLoading, setSelfLoading] = useState(!propBanners && !cached)
   const [current, setCurrent] = useState(0)
   const [heroHeight, setHeroHeight] = useState<string>(propHeight || 'auto')
+  const [heroHeightMobile, setHeroHeightMobile] = useState<string>(propHeightMobile || 'auto')
   const [heroSpeed, setHeroSpeed] = useState<number>(propSpeed || 5)
+  const [heroFit, setHeroFit] = useState<FitMode>(propFit || 'cover')
+  const [heroFitMobile, setHeroFitMobile] = useState<FitMode>(propFitMobile || 'cover')
+  const [isMobile, setIsMobile] = useState<boolean>(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches)
 
   const banners = propBanners ?? selfBanners
   const loading = propLoading ?? selfLoading
@@ -54,25 +89,39 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
   }, [propBanners, pageKey])
 
   useEffect(() => {
-    if (propHeight && propSpeed) return
+    if (propHeight && propHeightMobile && propSpeed && propFit && propFitMobile) return
     if (settingsCache.loaded && settingsCache.data) {
       const s = settingsCache.data[pageKey]
       if (!propHeight && s?.height) setHeroHeight(s.height)
+      if (!propHeightMobile && s?.heightMobile) setHeroHeightMobile(s.heightMobile)
       if (!propSpeed && s?.speed) setHeroSpeed(Number(s.speed) || 5)
+      if (!propFit && s?.fit) setHeroFit((s.fit as FitMode) || 'cover')
+      if (!propFitMobile && s?.fitMobile) setHeroFitMobile((s.fitMobile as FitMode) || 'cover')
       return
     }
     supabase.from('site_settings').select('value').eq('key', 'banner_settings').maybeSingle()
       .then(({ data }) => {
         if (data) {
-          const settings = (data as Record<string, unknown>).value as Record<string, { height?: string; speed?: string }>
+          const settings = (data as Record<string, unknown>).value as Record<string, { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }>
           settingsCache.loaded = true
           settingsCache.data = settings
           const s = settings?.[pageKey]
           if (!propHeight && s?.height) setHeroHeight(s.height)
+          if (!propHeightMobile && s?.heightMobile) setHeroHeightMobile(s.heightMobile)
           if (!propSpeed && s?.speed) setHeroSpeed(Number(s.speed) || 5)
+          if (!propFit && s?.fit) setHeroFit((s.fit as FitMode) || 'cover')
+          if (!propFitMobile && s?.fitMobile) setHeroFitMobile((s.fitMobile as FitMode) || 'cover')
         }
       })
-  }, [propHeight, propSpeed, pageKey])
+  }, [propHeight, propHeightMobile, propSpeed, propFit, propFitMobile, pageKey])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mql = window.matchMedia('(max-width: 639px)')
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mql.addEventListener('change', handler)
+    return () => mql.removeEventListener('change', handler)
+  }, [])
 
   const next = useCallback(() => {
     setCurrent((prev) => (prev + 1) % banners.length)
@@ -88,7 +137,9 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
     return () => clearInterval(timer)
   }, [banners.length, next, heroSpeed])
 
-  const hasFixedHeight = heroHeight !== 'auto'
+  const activeHeight = isMobile ? heroHeightMobile : heroHeight
+  const activeFit = isMobile ? heroFitMobile : heroFit
+  const hasFixedHeight = activeHeight !== 'auto'
 
   if (loading) {
     return (
@@ -146,27 +197,32 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
     <section
       data-no-fade
       className={`relative w-full bg-black overflow-hidden ${banner.link_url ? 'cursor-pointer' : ''} ${hasFixedHeight ? 'flex items-center justify-start' : 'py-20 max-sm:py-12'}`}
-      style={hasFixedHeight ? { height: heroHeight } : undefined}
+      style={hasFixedHeight ? { height: activeHeight } : undefined}
       onClick={banner.link_url ? handleBannerClick : undefined}
     >
       {isVideo && videoInfo ? (
         videoInfo.type === 'youtube' ? (
           <div className="absolute inset-0 overflow-hidden" style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }}>
-            <iframe
-              key={videoInfo.src}
-              src={videoInfo.src}
-              className="absolute top-1/2 left-1/2 border-none pointer-events-none"
-              style={{ width: '300%', height: '300%', transform: 'translate(-50%, -50%)' }}
-              allow="autoplay; encrypted-media"
-              tabIndex={-1}
-            />
+            {(() => {
+              const layout = iframeLayout(activeFit)
+              return (
+                <iframe
+                  key={videoInfo.src}
+                  src={videoInfo.src}
+                  className={layout.className}
+                  style={layout.style}
+                  allow="autoplay; encrypted-media"
+                  tabIndex={-1}
+                />
+              )
+            })()}
           </div>
         ) : (
           <video
             key={videoInfo.src}
             src={videoInfo.src}
             poster={banner.image_url || undefined}
-            className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
+            className={mediaClassName(activeFit)}
             style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }}
             autoPlay
             loop
@@ -175,7 +231,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
           />
         )
       ) : banner.image_url ? (
-        <img src={banner.image_url} alt="" className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500" style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }} />
+        <img src={banner.image_url} alt="" className={mediaClassName(activeFit)} style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }} />
       ) : null}
       <div className="relative w-full max-w-[1200px] mx-auto px-5">
         {banner.subtitle && (
