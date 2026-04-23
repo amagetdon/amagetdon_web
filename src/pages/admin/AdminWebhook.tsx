@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
-import { webhookService, defaultWebhookConfig, type WebhookConfig, type WebhookScope } from '../../services/webhookService'
-import { supabase } from '../../lib/supabase'
+import { webhookService, defaultWebhookConfig, type WebhookConfig } from '../../services/webhookService'
 
 // 기본정보 예약어 (모든 이벤트 공통)
 const BASIC_VARS = [
@@ -46,11 +45,6 @@ const PURCHASE_EXTRA_VARS = [
   { name: '결제 금액', var: '{#price#}', desc: '포인트 금액' },
   { name: '상품 유형', var: '{#type#}', desc: 'course 또는 ebook' },
 ]
-
-interface ProductRef {
-  id: number
-  title: string
-}
 
 interface ReservedVar {
   name: string
@@ -106,12 +100,7 @@ function ReservedWordTable({ title, rows, onInsert, onInsertHeader }: { title: s
 }
 
 export default function AdminWebhook() {
-  const [scope, setScope] = useState<WebhookScope>('global')
-  const [scopeId, setScopeId] = useState<number | null>(null)
   const [config, setConfig] = useState<WebhookConfig>({ ...defaultWebhookConfig })
-  const [courses, setCourses] = useState<ProductRef[]>([])
-  const [ebooks, setEbooks] = useState<ProductRef[]>([])
-  const [configuredKeys, setConfiguredKeys] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [headerKey, setHeaderKey] = useState('')
@@ -122,27 +111,12 @@ export default function AdminWebhook() {
   const headerRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    (async () => {
-      const [{ data: courseData }, { data: ebookData }, configs] = await Promise.all([
-        supabase.from('courses').select('id, title').eq('is_published', true).order('id', { ascending: false }),
-        supabase.from('ebooks').select('id, title').eq('is_published', true).order('id', { ascending: false }),
-        webhookService.listConfigs(),
-      ])
-      setCourses((courseData as ProductRef[] | null) ?? [])
-      setEbooks((ebookData as ProductRef[] | null) ?? [])
-      const keys = new Set<string>()
-      for (const c of configs) keys.add(`${c.scope}:${c.scope_id ?? ''}`)
-      setConfiguredKeys(keys)
-    })()
-  }, [])
-
-  useEffect(() => {
     setLoading(true)
-    webhookService.getConfig(scope, scopeId).then((c) => {
+    webhookService.getConfig('global', null).then((c) => {
       setConfig(c)
       setLoading(false)
     })
-  }, [scope, scopeId])
+  }, [])
 
   const handleSave = async () => {
     if (config.enabled && !config.url) {
@@ -151,51 +125,14 @@ export default function AdminWebhook() {
     }
     setSaving(true)
     try {
-      const saved = await webhookService.saveConfig(config)
+      const saved = await webhookService.saveConfig({ ...config, scope: 'global', scope_id: null })
       setConfig(saved)
-      setConfiguredKeys((prev) => new Set(prev).add(`${saved.scope}:${saved.scope_id ?? ''}`))
       toast.success('웹훅 설정이 저장되었습니다.')
     } catch {
       toast.error('저장에 실패했습니다.')
     } finally {
       setSaving(false)
     }
-  }
-
-  const handleDelete = async () => {
-    if (!config.id) return
-    if (!confirm('이 설정을 삭제하시겠습니까? 삭제하면 기본(global) 설정으로 폴백됩니다.')) return
-    try {
-      await webhookService.deleteConfig(config.id)
-      setConfiguredKeys((prev) => {
-        const next = new Set(prev)
-        next.delete(`${config.scope}:${config.scope_id ?? ''}`)
-        return next
-      })
-      setConfig({ ...defaultWebhookConfig, scope, scope_id: scopeId })
-      toast.success('설정이 삭제되었습니다.')
-    } catch {
-      toast.error('삭제에 실패했습니다.')
-    }
-  }
-
-  const handleLoadDefault = async () => {
-    if (!confirm('기본(global) 설정을 현재 편집창으로 불러옵니다. 저장하지 않은 변경 사항은 사라집니다.')) return
-    const global = await webhookService.getConfig('global', null)
-    setConfig((c) => ({
-      ...c,
-      enabled: global.enabled,
-      url: global.url,
-      method: global.method,
-      use_json_header: global.use_json_header,
-      header_data: global.header_data,
-      headers: global.headers,
-      events: global.events,
-      use_template: global.use_template,
-      signup_template: global.signup_template,
-      purchase_template: global.purchase_template,
-    }))
-    toast.success('기본값을 불러왔습니다. "설정 저장"을 눌러 적용하세요.')
   }
 
   const handleTest = async (eventType: 'signup' | 'purchase') => {
@@ -256,25 +193,6 @@ export default function AdminWebhook() {
     }
   }
 
-  const handleSaveAsDefault = async () => {
-    if (!confirm('현재 입력값을 기본(global) 설정으로 저장합니다. 기존 기본값은 덮어씌워집니다.')) return
-    setSaving(true)
-    try {
-      await webhookService.saveConfig({
-        ...config,
-        id: undefined,
-        scope: 'global',
-        scope_id: null,
-      })
-      setConfiguredKeys((prev) => new Set(prev).add('global:'))
-      toast.success('기본값으로 저장되었습니다.')
-    } catch {
-      toast.error('저장에 실패했습니다.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
   const insertIntoRef = (ref: React.RefObject<HTMLTextAreaElement | null>, field: 'signup_template' | 'purchase_template' | 'header_data', v: string) => {
     const el = ref.current
     if (el) {
@@ -314,8 +232,6 @@ export default function AdminWebhook() {
     })
   }
 
-  const scopeKey = `${scope}:${scopeId ?? ''}`
-  const hasOverride = configuredKeys.has(scopeKey) && scope !== 'global'
   const extraVars = useMemo(() => {
     if (templateTab === 'signup') return [...EXTRA_COMMON_VARS, ...SIGNUP_EXTRA_VARS]
     return [...EXTRA_COMMON_VARS, ...PURCHASE_EXTRA_VARS]
@@ -334,76 +250,14 @@ export default function AdminWebhook() {
   return (
     <AdminLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">웹훅 (CRM 연동)</h1>
-        <p className="text-sm text-gray-500 mt-1">회원가입·구매 시 외부 CRM으로 데이터를 자동 전송합니다. 상품별로 다른 설정을 사용할 수 있습니다.</p>
-      </div>
-
-      {/* Scope Selector */}
-      <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-bold text-gray-600 whitespace-nowrap">설정 대상</span>
-          <button
-            onClick={() => { setScope('global'); setScopeId(null) }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${scope === 'global' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}
-          >
-            기본 (global)
-          </button>
-          <button
-            onClick={() => { setScope('course'); setScopeId(courses[0]?.id ?? null) }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${scope === 'course' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}
-          >
-            강의별
-          </button>
-          <button
-            onClick={() => { setScope('ebook'); setScopeId(ebooks[0]?.id ?? null) }}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${scope === 'ebook' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}
-          >
-            전자책별
-          </button>
-          {scope !== 'global' && (
-            <select
-              value={scopeId ?? ''}
-              onChange={(e) => setScopeId(e.target.value ? Number(e.target.value) : null)}
-              className="border border-gray-200 rounded-lg px-3 py-1.5 text-xs outline-none focus:border-[#2ED573] ml-2"
-            >
-              <option value="">— 선택 —</option>
-              {(scope === 'course' ? courses : ebooks).map((p) => {
-                const k = `${scope}:${p.id}`
-                const marked = configuredKeys.has(k)
-                return (
-                  <option key={p.id} value={p.id}>{marked ? '● ' : '○ '}{p.title}</option>
-                )
-              })}
-            </select>
-          )}
-          <div className="ml-auto flex items-center gap-2 flex-wrap">
-            {scope !== 'global' && (
-              <>
-                <button
-                  type="button"
-                  onClick={handleLoadDefault}
-                  className="text-[11px] text-gray-700 bg-white border border-gray-200 hover:border-gray-400 rounded-md px-2.5 py-1 font-medium cursor-pointer"
-                  title="기본(global) 설정을 현재 편집창으로 불러옵니다"
-                >
-                  <i className="ti ti-download mr-1" />기본값 불러오기
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveAsDefault}
-                  disabled={saving}
-                  className="text-[11px] text-white bg-gray-700 hover:bg-gray-800 rounded-md px-2.5 py-1 font-medium cursor-pointer border-none disabled:opacity-50"
-                  title="현재 입력값을 기본(global) 설정으로도 저장합니다"
-                >
-                  <i className="ti ti-bookmark-plus mr-1" />기본값 등록하기
-                </button>
-              </>
-            )}
-            {hasOverride && (
-              <span className="text-[11px] text-blue-600 bg-blue-50 rounded-full px-2.5 py-1">개별 설정 적용 중</span>
-            )}
-            {scope === 'global' && (
-              <span className="text-[11px] text-gray-500 bg-gray-50 rounded-full px-2.5 py-1">기본 설정 (모든 상품 폴백)</span>
-            )}
+        <h1 className="text-2xl font-bold text-gray-900">웹훅 (CRM 연동) — 기본 설정</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          모든 강의·전자책에서 공통으로 사용할 연결 정보(URL · 인증 헤더)와 회원가입·구매 알림톡을 설정합니다.
+        </p>
+        <div className="mt-3 bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-start gap-2">
+          <i className="ti ti-info-circle text-blue-600 text-sm mt-0.5" />
+          <div className="text-xs text-blue-900">
+            상품별 알림톡(구매 알림 override · D-3·정원 도달 등 예약 알림)은 해당 강의·전자책 상세 페이지의 <strong>"알림톡" 탭</strong>에서 관리합니다.
           </div>
         </div>
       </div>
@@ -570,12 +424,6 @@ export default function AdminWebhook() {
             className="bg-gray-900 text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-gray-800 disabled:opacity-50">
             <i className="ti ti-send mr-1.5" />테스트 전송 ({templateTab === 'signup' ? '회원가입' : '구매'})
           </button>
-          {config.id && scope !== 'global' && (
-            <button onClick={handleDelete}
-              className="bg-red-50 text-red-600 px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border border-red-200 hover:bg-red-100 ml-auto">
-              이 설정 삭제
-            </button>
-          )}
         </div>
       </div>
     </AdminLayout>
