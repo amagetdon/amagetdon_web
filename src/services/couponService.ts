@@ -65,6 +65,37 @@ export const couponService = {
     if (claimError) throw claimError
 
     await supabase.rpc('increment_coupon_claims', { coupon_id_input: couponId } as never)
+
+    // 쿠폰 발급 알림톡 트리거 (실패해도 메인 흐름에 영향 없음)
+    try {
+      const [{ data: coupon }, { data: profile }] = await Promise.all([
+        supabase.from('coupons').select('title, discount_type, discount_value, expires_at, use_days').eq('id', couponId).maybeSingle(),
+        supabase.from('profiles').select('name, phone, email').eq('id', userId).maybeSingle(),
+      ])
+      const c = coupon as { title?: string; discount_type?: string; discount_value?: number; expires_at?: string | null; use_days?: number | null } | null
+      const p = profile as { name?: string | null; phone?: string | null; email?: string | null } | null
+      if (c && p) {
+        const expiresAt = c.expires_at
+          ? new Date(c.expires_at).toLocaleDateString('ko-KR')
+          : c.use_days
+          ? new Date(Date.now() + c.use_days * 86400_000).toLocaleDateString('ko-KR')
+          : ''
+        const { webhookService } = await import('./webhookService')
+        webhookService.fireCustomEvent('coupon_issued', {
+          coupon_name: c.title ?? '',
+          coupon_value: c.discount_type === 'percent' ? `${c.discount_value}%` : `${(c.discount_value ?? 0).toLocaleString()}원`,
+          expires_at: expiresAt,
+        }, {
+          userId,
+          userName: p.name ?? '',
+          userPhone: p.phone ?? '',
+          userEmail: p.email ?? '',
+          title: c.title ?? '',
+        }).catch(() => {})
+      }
+    } catch {
+      // noop
+    }
   },
 
   async getUserClaims(userId: string) {

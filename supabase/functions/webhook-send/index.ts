@@ -46,6 +46,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json()
     const {
       event,
+      custom_event_code = null,
       scope = 'global',
       scope_id = null,
       user_id = null,
@@ -55,9 +56,11 @@ Deno.serve(async (req: Request) => {
       utm = {},
       context = {},
       config_override = null,
+      custom_template_override = null,
       test_mode = false,
     } = body as {
       event: string
+      custom_event_code?: string | null
       scope?: string
       scope_id?: number | null
       user_id?: string | null
@@ -67,6 +70,7 @@ Deno.serve(async (req: Request) => {
       utm?: Record<string, string | null>
       context?: { ip?: string; user_agent?: string; referrer?: string; device_type?: string; submission_duration_ms?: number }
       config_override?: WebhookConfigRow | null
+      custom_template_override?: string | null
       test_mode?: boolean
     }
 
@@ -178,8 +182,35 @@ Deno.serve(async (req: Request) => {
       ;(payload as Payload).DBNO = 999999
     }
 
-    // 템플릿 치환
-    const template = event === 'signup' ? config.signup_template : config.purchase_template
+    // 템플릿 결정
+    let template = ''
+    if (event === 'custom' && custom_event_code) {
+      // 커스텀 이벤트: webhook_custom_events에서 코드로 조회
+      template = custom_template_override ?? ''
+      if (!template) {
+        const { data: ce } = await supabase
+          .from('webhook_custom_events')
+          .select('template, enabled')
+          .eq('code', custom_event_code)
+          .maybeSingle()
+        const ceRow = ce as { template?: string; enabled?: boolean } | null
+        if (!ceRow || !ceRow.enabled) {
+          // 정의 없거나 비활성 → 스킵 로그
+          if (!test_mode && logId) {
+            await supabase.from('webhook_logs').update({
+              send_status: 'skipped',
+              error_message: !ceRow ? `custom event "${custom_event_code}" not defined` : `custom event "${custom_event_code}" disabled`,
+            } as never).eq('id', logId)
+          }
+          return new Response(JSON.stringify({ status: 'skipped', reason: 'custom event missing or disabled' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        template = ceRow.template ?? ''
+      }
+    } else {
+      template = event === 'signup' ? config.signup_template : config.purchase_template
+    }
     let outBody: Payload | string = payload
     if (template) {
       const resolved = resolveTemplate(template, payload)

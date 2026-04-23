@@ -262,6 +262,60 @@ export const webhookService = {
     })
   },
 
+  // 커스텀 이벤트 발사 (쿠폰 발급, 포인트 충전 등 임의 이벤트)
+  async fireCustomEvent(code: string, payload: Record<string, unknown>, options?: {
+    userId?: string | null
+    userName?: string
+    userPhone?: string
+    userEmail?: string
+    title?: string
+  }): Promise<void> {
+    try {
+      await supabase.functions.invoke('webhook-send', {
+        body: {
+          event: 'custom',
+          custom_event_code: code,
+          user_id: options?.userId ?? null,
+          payload: {
+            ...payload,
+            // 디비카트 스타일 별칭 매핑
+            ITEM1: options?.userName ?? payload.user_name ?? payload.name ?? '',
+            ITEM2: options?.userPhone ?? payload.user_phone ?? payload.phone ?? '',
+            ITEM2_NOH: String(options?.userPhone ?? payload.user_phone ?? payload.phone ?? '').replace(/-/g, ''),
+            TITLE: options?.title ?? payload.title ?? '',
+            name: options?.userName ?? payload.name ?? '',
+            user_name: options?.userName ?? payload.user_name ?? '',
+            phone: options?.userPhone ?? payload.phone ?? '',
+            user_phone: options?.userPhone ?? payload.user_phone ?? '',
+            email: options?.userEmail ?? payload.email ?? '',
+            user_email: options?.userEmail ?? payload.user_email ?? '',
+            title: options?.title ?? payload.title ?? '',
+          },
+        },
+      })
+    } catch {
+      // fire-and-forget
+    }
+  },
+
+  // 커스텀 이벤트 정의 CRUD
+  async listCustomEvents(): Promise<Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }>> {
+    const { data } = await supabase.from('webhook_custom_events').select('*').order('sort_order').order('id')
+    return (data as Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }> | null) ?? []
+  },
+
+  async upsertCustomEvent(row: { id?: number; code: string; label: string; description?: string; trigger_hint?: string; template: string; enabled?: boolean; sort_order?: number }): Promise<void> {
+    if (row.id) {
+      await supabase.from('webhook_custom_events').update(row as never).eq('id', row.id)
+    } else {
+      await supabase.from('webhook_custom_events').insert(row as never)
+    }
+  },
+
+  async deleteCustomEvent(id: number): Promise<void> {
+    await supabase.from('webhook_custom_events').delete().eq('id', id)
+  },
+
   async getConfig(scope: WebhookScope = 'global', scopeId: number | null = null): Promise<WebhookConfig> {
     const data = await loadConfig(scope, scopeId)
     if (data) return data

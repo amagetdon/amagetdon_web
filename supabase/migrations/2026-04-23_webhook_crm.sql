@@ -44,7 +44,7 @@ CREATE TRIGGER set_updated_at BEFORE UPDATE ON webhook_configs
 -- 모든 호출(성공/실패) 기록
 CREATE TABLE IF NOT EXISTS webhook_logs (
   id BIGSERIAL PRIMARY KEY,
-  event_type TEXT NOT NULL CHECK (event_type IN ('signup', 'purchase', 'refund', 'cancel')),
+  event_type TEXT NOT NULL CHECK (event_type IN ('signup', 'purchase', 'refund', 'cancel', 'custom')),
   config_id INTEGER REFERENCES webhook_configs(id) ON DELETE SET NULL,
   config_scope TEXT,
   config_scope_id BIGINT,
