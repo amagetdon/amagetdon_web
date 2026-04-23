@@ -260,6 +260,7 @@ Deno.serve(async (req: Request) => {
         SCHEDULED_AT: run.course_scheduled_at ?? '',
         SCHEDULED_DATE: dateStr,
         SCHEDULED_TIME: timeStr,
+        SCHEDULED_DATETIME: longDt,
         DBNO: run.id,
         MOBILE: 'W',
         // 사용자 정보 (양쪽 표기 지원)

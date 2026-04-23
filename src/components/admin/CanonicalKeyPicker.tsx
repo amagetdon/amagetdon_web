@@ -20,7 +20,7 @@ export const CANONICAL_GROUPS: CanonicalOption[] = [
   { key: 'ITEM2_NOH', label: '전화번호(하이픈X)', group: '사용자' },
   { key: 'user_email', label: '이메일', group: '사용자' },
   // 일시
-  { key: '강의일시', label: '전체 일시(날짜+시간)', group: '일시' },
+  { key: 'SCHEDULED_DATETIME', label: '전체 일시(날짜+시간)', group: '일시' },
   { key: 'SCHEDULED_DATE', label: '날짜(yyyy.mm.dd)', group: '일시' },
   { key: 'SCHEDULED_TIME', label: '시간(HH:mm)', group: '일시' },
   // 쿠폰

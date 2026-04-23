@@ -35,7 +35,7 @@ const CANONICAL_KEYS = [
   { key: 'user_phone', desc: '구매자 전화번호 (하이픈 포함)' },
   { key: 'ITEM2_NOH', desc: '전화번호 (하이픈 제거, 01012345678)' },
   { key: 'user_email', desc: '이메일' },
-  { key: '강의일시', desc: '"2026년 4월 24일 19:30" 형식 전체 일시' },
+  { key: 'SCHEDULED_DATETIME', desc: '"2026년 4월 24일 19:30" 형식 전체 일시' },
   { key: 'SCHEDULED_DATE', desc: '날짜 (2026.04.24)' },
   { key: 'SCHEDULED_TIME', desc: '시간 (19:30)' },
   { key: 'coupon_name', desc: '쿠폰 이름' },
