@@ -76,26 +76,41 @@ Deno.serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
     const supabase = createClient(supabaseUrl, serviceKey)
 
     // 인증 확인 (test_mode인 경우 admin만 허용)
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      return new Response(JSON.stringify({ error: 'Unauthorized: Authorization header missing' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user } } = await supabase.auth.getUser(token)
-    if (!user) {
-      return new Response(JSON.stringify({ error: 'Invalid auth' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+
+    // Service role key로 직접 호출하는 경우 (cron 등) → user 없음으로 통과
+    let user: { id: string } | null = null
+    if (token !== serviceKey) {
+      // 사용자 JWT 검증은 anon client로 (Supabase 권장 패턴)
+      const userClient = createClient(supabaseUrl, anonKey)
+      const { data, error } = await userClient.auth.getUser(token)
+      if (error || !data.user) {
+        return new Response(JSON.stringify({ error: 'Invalid auth: ' + (error?.message ?? 'no user') }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      user = data.user
     }
 
     if (test_mode) {
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Test mode requires admin login' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
       const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
       if ((prof as { role?: string } | null)?.role !== 'admin') {
         return new Response(JSON.stringify({ error: 'Admin only' }), {
