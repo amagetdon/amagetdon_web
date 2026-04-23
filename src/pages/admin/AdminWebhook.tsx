@@ -310,19 +310,33 @@ export default function AdminWebhook() {
 
     const now = new Date()
     const labelByTab = TABS.find((t) => t.id === tab)?.label ?? tab
+    const dateStr = now.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
+    const timeStr = now.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false })
+    const timesStr = now.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
     const fakePayload = {
+      // 디비카트 표준 (대문자)
       TITLE: config.label || `[테스트] ${labelByTab}`,
       ITEM1: '테스트유저', ITEM2: usePhoneFmt, ITEM2_NOH: usePhone,
-      DATE: now.toLocaleDateString('ko-KR'),
-      TIME: now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
-      TIMES: now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+      DATE: dateStr, TIME: timeStr, TIMES: timesStr,
       MOBILE: 'W', REFERER: '(test)',
       U_SO: 'test', U_ME: 'test', U_CA: 'test', U_CO: 'test', U_TE: 'test',
+      // 소문자 alias (date, time 등)
+      date: dateStr, time: timeStr, times: timesStr,
+      // 사용자 정보 (양쪽 표기)
       name: '테스트유저', email: 'test@example.com', phone: usePhoneFmt,
       gender: 'male', address: '12345|서울|테스트동', birth_date: '1990-01-01', provider: 'email',
       user_name: '테스트유저', user_email: 'test@example.com', user_phone: usePhoneFmt,
-      title: config.label || `[테스트] ${labelByTab}`, price: tab === 'purchase_free' ? 0 : 10000, type: 'course',
-      coupon_name: '[테스트] 쿠폰', coupon_value: '10,000원', expires_at: '2026-12-31',
+      // 한글 alias
+      이름: '테스트유저', 연락처: usePhoneFmt, 전화번호: usePhoneFmt, 이메일: 'test@example.com',
+      // 상품/구매
+      price: tab === 'purchase_free' ? 0 : 10000, type: 'course',
+      강의명: config.label || `[테스트] ${labelByTab}`, 상품명: config.label || `[테스트] ${labelByTab}`,
+      // 쿠폰
+      coupon_name: '[테스트] 쿠폰 10,000원 할인', coupon_value: '10,000원', expires_at: '2026-12-31',
+      쿠폰명: '[테스트] 쿠폰 10,000원 할인', 쿠폰값: '10,000원', 유효기간: '2026-12-31',
+      // 포인트
+      point_amount: 10000, point_balance: 50000,
+      포인트: 10000, 잔액: 50000,
     }
 
     try {
