@@ -297,10 +297,18 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     }
     if (!purchaseTemplate.trim()) { toast.error('템플릿을 입력해주세요.'); return }
 
+    // 저장 직전에도 cURL 추출 한 번 더 (사용자가 버튼 안 눌렀어도 커버)
+    const { body: extractedTpl, extracted } = extractCurlBody(purchaseTemplate)
+    if (extracted) {
+      setPurchaseTemplate(extractedTpl)
+      toast.success('cURL에서 JSON 본문 자동 추출됨')
+    }
+    const templateForAnalysis = extractedTpl
+
     // 템플릿 분석: 미확인 {#변수#} + 빈 variables.X:"" 슬롯
     setSavingPurchase(true)
     try {
-      const analysis = await webhookService.analyzeTemplateVariables(purchaseTemplate)
+      const analysis = await webhookService.analyzeTemplateVariables(templateForAnalysis)
       const unknownVars = analysis.unknown_vars ?? []
       const emptySlots = analysis.empty_slots ?? []
       const suggestedAliases = analysis.suggested_aliases ?? {}
@@ -311,37 +319,49 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
         return
       }
       if (analysis.warning) toast(analysis.warning, { icon: 'ℹ️', duration: 5000 })
-      await performSavePurchase(purchaseTemplate, {})
+      await performSavePurchase(templateForAnalysis, {})
     } catch (err) {
       console.error(err)
       toast.error('변수 분석 중 오류, alias 없이 저장합니다.')
-      await performSavePurchase(purchaseTemplate, {})
+      await performSavePurchase(templateForAnalysis, {})
     }
   }
 
-  // textarea cURL 자동 추출
-  const handlePurchaseTextareaChange = (val: string) => {
+  // cURL → JSON 본문 추출 (별도 함수로 분리해서 onChange/버튼/save에서 재사용)
+  const extractCurlBody = (val: string): { body: string; extracted: boolean } => {
     const t = val.trim()
-    let next = val
-    if (t.startsWith('curl ') || t.startsWith('curl\n') || /\s-d\s+['"]/.test(t)) {
-      const dIdxSingle = t.lastIndexOf("-d '")
-      const dIdxDouble = t.lastIndexOf('-d "')
-      const isSingle = dIdxSingle > dIdxDouble
-      const dIdx = isSingle ? dIdxSingle : dIdxDouble
-      const quote = isSingle ? "'" : '"'
-      if (dIdx !== -1) {
-        const start = dIdx + 4
-        const end = t.lastIndexOf(quote)
-        if (end > start) {
-          const body = t.slice(start, end).trim()
-          if (body.startsWith('{')) {
-            next = body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"')
-            toast.success('cURL에서 JSON 본문 자동 추출됨')
-          }
-        }
-      }
+    if (!(t.startsWith('curl ') || t.startsWith('curl\n') || /\s-d\s+['"]/.test(t))) {
+      return { body: val, extracted: false }
     }
-    setPurchaseTemplate(next)
+    const dIdxSingle = t.lastIndexOf("-d '")
+    const dIdxDouble = t.lastIndexOf('-d "')
+    const isSingle = dIdxSingle > dIdxDouble
+    const dIdx = isSingle ? dIdxSingle : dIdxDouble
+    const quote = isSingle ? "'" : '"'
+    if (dIdx === -1) return { body: val, extracted: false }
+    const start = dIdx + 4
+    const end = t.lastIndexOf(quote)
+    if (end <= start) return { body: val, extracted: false }
+    const body = t.slice(start, end).trim()
+    if (!body.startsWith('{')) return { body: val, extracted: false }
+    const replaced = body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"')
+    return { body: replaced, extracted: true }
+  }
+
+  const handlePurchaseTextareaChange = (val: string) => {
+    const { body, extracted } = extractCurlBody(val)
+    if (extracted) toast.success('cURL에서 JSON 본문 자동 추출됨')
+    setPurchaseTemplate(body)
+  }
+
+  const handleExtractCurl = () => {
+    const { body, extracted } = extractCurlBody(purchaseTemplate)
+    if (extracted) {
+      setPurchaseTemplate(body)
+      toast.success('cURL에서 JSON 본문 추출됨')
+    } else {
+      toast('cURL 형태가 아니거나 이미 추출된 상태입니다', { icon: 'ℹ️' })
+    }
   }
 
   const performSave = async (aliases: Record<string, string>, slotFills: Record<string, string>) => {
@@ -470,7 +490,14 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
               rows={8}
               placeholder={`shoong "코드 예제" cURL 통째 붙여넣기 OK (자동 추출)\n\n또는 JSON 직접:\n{\n  "sendType":"at",\n  "phone":"{#ITEM2_NOH#}",\n  "channelConfig.senderkey":"...",\n  "channelConfig.templatecode":"...",\n  "variables.강의명":"{#TITLE#}",\n  "variables.이름":"{#user_name#}"\n}`}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] font-mono resize-none" />
-            <p className="text-[10px] text-gray-400 mt-1">저장 시 GPT-5.4-mini가 빈 변수 슬롯을 자동 채움 제안합니다. 사용 변수: <code>{`{#user_name#}`}</code> <code>{`{#user_phone#}`}</code> <code>{`{#title#}`}</code> <code>{`{#TITLE#}`}</code> <code>{`{#price#}`}</code> <code>{`{#DBNO#}`}</code></p>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <button type="button" onClick={handleExtractCurl}
+                className="text-[11px] bg-gray-100 hover:bg-gray-200 text-gray-700 rounded px-2 py-1 border-none cursor-pointer">
+                <i className="ti ti-file-code mr-1" />cURL에서 JSON 추출
+              </button>
+              <span className="text-[10px] text-gray-400">저장 시 GPT-5.4-mini가 빈 변수 슬롯을 자동 채움 제안합니다.</span>
+            </div>
+            <p className="text-[10px] text-gray-400 mt-1">사용 변수: <code>{`{#user_name#}`}</code> <code>{`{#user_phone#}`}</code> <code>{`{#title#}`}</code> <code>{`{#TITLE#}`}</code> <code>{`{#price#}`}</code> <code>{`{#DBNO#}`}</code></p>
             <div className="flex justify-end mt-3">
               <button onClick={handleSavePurchaseTemplate} disabled={savingPurchase}
                 className="bg-[#2ED573] text-white px-4 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none hover:bg-[#25B866] disabled:opacity-50">
