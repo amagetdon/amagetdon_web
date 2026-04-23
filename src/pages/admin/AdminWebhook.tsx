@@ -118,7 +118,19 @@ export default function AdminWebhook() {
   const [loading, setLoading] = useState(true)
   const [headerKey, setHeaderKey] = useState('')
   const [headerValue, setHeaderValue] = useState('')
-  const [templateTab, setTemplateTab] = useState<'signup' | 'purchase' | 'purchase_free' | 'purchase_premium'>('signup')
+  type TabId = 'signup' | 'purchase' | 'purchase_free' | 'purchase_premium' | 'coupon_issued' | 'coupon_expiring_d3' | 'coupon_expiring_d1' | 'coupon_expired' | 'point_charge'
+  const TABS: Array<{ id: TabId; label: string; isCustom: boolean }> = [
+    { id: 'signup', label: '회원가입', isCustom: false },
+    { id: 'purchase', label: '구매 (공통)', isCustom: false },
+    { id: 'purchase_free', label: '무료 구매', isCustom: true },
+    { id: 'purchase_premium', label: '유료 구매', isCustom: true },
+    { id: 'coupon_issued', label: '쿠폰 발급', isCustom: true },
+    { id: 'coupon_expiring_d3', label: '쿠폰 D-3', isCustom: true },
+    { id: 'coupon_expiring_d1', label: '쿠폰 D-1', isCustom: true },
+    { id: 'coupon_expired', label: '쿠폰 만료', isCustom: true },
+    { id: 'point_charge', label: '포인트 충전', isCustom: true },
+  ]
+  const [templateTab, setTemplateTab] = useState<TabId>('signup')
   const [testPhone, setTestPhone] = useState<string>(() => (typeof window !== 'undefined' ? window.localStorage.getItem('webhook_test_phone') || '' : ''))
   const signupRef = useRef<HTMLTextAreaElement>(null)
   const purchaseRef = useRef<HTMLTextAreaElement>(null)
@@ -282,7 +294,7 @@ export default function AdminWebhook() {
     }
   }
 
-  const handleTest = async (tab: 'signup' | 'purchase' | 'purchase_free' | 'purchase_premium') => {
+  const handleTest = async (tab: TabId) => {
     if (!config.url) { toast.error('수신 URL을 입력해주세요.'); return }
     const phone = (testPhone || '').replace(/[^\d]/g, '')
     if (phone && (phone.length < 10 || phone.length > 11)) {
@@ -296,7 +308,7 @@ export default function AdminWebhook() {
     if (typeof window !== 'undefined') window.localStorage.setItem('webhook_test_phone', testPhone)
 
     const now = new Date()
-    const labelByTab = tab === 'signup' ? '회원가입' : tab === 'purchase' ? '구매' : tab === 'purchase_free' ? '무료 구매' : '유료 구매'
+    const labelByTab = TABS.find((t) => t.id === tab)?.label ?? tab
     const fakePayload = {
       TITLE: config.label || `[테스트] ${labelByTab}`,
       ITEM1: '테스트유저', ITEM2: usePhoneFmt, ITEM2_NOH: usePhone,
@@ -313,7 +325,7 @@ export default function AdminWebhook() {
     }
 
     try {
-      const isCustom = tab === 'purchase_free' || tab === 'purchase_premium'
+      const isCustom = TABS.find((t) => t.id === tab)?.isCustom ?? false
       const customTpl = customEvents.find((c) => c.code === tab)?.template ?? ''
       const { data, error } = await supabase.functions.invoke('webhook-send', {
         body: isCustom ? {
@@ -395,8 +407,8 @@ export default function AdminWebhook() {
     return [...EXTRA_COMMON_VARS, ...PURCHASE_EXTRA_VARS]
   }, [templateTab])
 
-  // 무료/유료 구매 탭일 때는 webhook_custom_events 사용
-  const isCustomTab = templateTab === 'purchase_free' || templateTab === 'purchase_premium'
+  // 빌트인 커스텀 이벤트 탭은 webhook_custom_events 사용
+  const isCustomTab = TABS.find((t) => t.id === templateTab)?.isCustom ?? false
   const customEventForTab = customEvents.find((ce) => ce.code === templateTab)
   const currentTemplate = isCustomTab
     ? (customEventForTab?.template ?? '')
@@ -581,30 +593,39 @@ export default function AdminWebhook() {
           <p className="text-xs text-gray-400 mb-4">외부 주소로 전달할 정보를 설정합니다. 예약어를 활용해 발송 내용을 만드세요. JSON 또는 <code>key=value&amp;key=value</code> 형식 지원.</p>
 
           <div className="flex gap-2 mb-3 flex-wrap">
-            {([
-              { v: 'signup', label: '회원가입' },
-              { v: 'purchase', label: '구매 (공통)' },
-              { v: 'purchase_free', label: '무료 구매' },
-              { v: 'purchase_premium', label: '유료 구매' },
-            ] as const).map((t) => (
-              <button key={t.v} onClick={() => setTemplateTab(t.v)}
-                className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${templateTab === t.v ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+            {TABS.map((t) => (
+              <button key={t.id} onClick={() => setTemplateTab(t.id)}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${templateTab === t.id ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
                 {t.label}
               </button>
             ))}
           </div>
 
           {isCustomTab && customEventForTab && (
-            <div className="mb-3 bg-blue-50 border border-blue-100 rounded p-2 text-[11px] text-blue-900">
-              <i className="ti ti-info-circle mr-1" />
-              이 탭은 커스텀 이벤트 <code className="bg-white/60 px-1 rounded">{customEventForTab.code}</code>의 템플릿을 편집합니다. 활성/비활성은 하단 "커스텀 이벤트" 섹션에서 관리.
-              {!customEventForTab.enabled && <span className="ml-2 text-amber-700">⚠ 현재 비활성 상태</span>}
+            <div className="mb-3 flex items-center gap-2 text-[11px]">
+              <span className={`px-2 py-0.5 rounded-full font-medium ${customEventForTab.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                {customEventForTab.enabled ? '활성' : '비활성'}
+              </span>
+              <button type="button"
+                onClick={async () => {
+                  try {
+                    await webhookService.upsertCustomEvent({ ...customEventForTab, enabled: !customEventForTab.enabled })
+                    fetchCustomEvents()
+                    toast.success(customEventForTab.enabled ? '비활성화됨' : '활성화됨')
+                  } catch { toast.error('변경 실패') }
+                }}
+                className="text-gray-600 hover:text-gray-900 bg-transparent border-none cursor-pointer underline">
+                {customEventForTab.enabled ? '비활성화' : '활성화'}
+              </button>
+              {customEventForTab.trigger_hint && (
+                <span className="text-gray-400">— {customEventForTab.trigger_hint}</span>
+              )}
             </div>
           )}
           {isCustomTab && !customEventForTab && (
             <div className="mb-3 bg-amber-50 border border-amber-100 rounded p-2 text-[11px] text-amber-800">
               <i className="ti ti-alert-triangle mr-1" />
-              {templateTab} 빌트인 이벤트가 마이그레이션되지 않았습니다. <code>2026-04-23_webhook_custom_events.sql</code> 실행 필요.
+              빌트인 이벤트가 등록되지 않았습니다. <code>2026-04-23_webhook_custom_events.sql</code> 마이그레이션을 실행해주세요.
             </div>
           )}
 
@@ -719,12 +740,12 @@ SELECT cron.schedule(
           )}
         </div>
 
-        {/* 커스텀 이벤트 */}
+        {/* 사용자 정의 커스텀 이벤트 */}
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-sm font-bold text-gray-900">커스텀 이벤트</h2>
-              <p className="text-xs text-gray-400 mt-0.5">쿠폰 발급, 포인트 충전 등 회원가입·구매 외 임의 이벤트의 알림톡 템플릿을 정의합니다.</p>
+              <h2 className="text-sm font-bold text-gray-900">사용자 정의 커스텀 이벤트</h2>
+              <p className="text-xs text-gray-400 mt-0.5">위 정규 탭(회원가입·구매·쿠폰·포인트) 외에 자체 코드로 추가하는 알림톡 (예: 회원 등급 변경, 생일 축하 등)</p>
             </div>
             <button onClick={() => setCustomEditing({ code: '', label: '', description: '', trigger_hint: '', template: '', enabled: true, built_in: false, sort_order: 100 })}
               className="bg-[#2ED573] text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none hover:bg-[#25B866]">
@@ -732,11 +753,11 @@ SELECT cron.schedule(
             </button>
           </div>
 
-          {customEvents.length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-6">등록된 커스텀 이벤트가 없습니다.</p>
+          {customEvents.filter((c) => !c.built_in).length === 0 ? (
+            <p className="text-xs text-gray-400 text-center py-6">사용자 정의 이벤트가 없습니다. "이벤트 추가"로 만들고 코드 측에서 <code>fireCustomEvent('your_code', ...)</code> 호출.</p>
           ) : (
             <div className="space-y-2">
-              {customEvents.map((ce) => (
+              {customEvents.filter((c) => !c.built_in).map((ce) => (
                 <div key={ce.id} className="border border-gray-200 rounded-lg p-3">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ce.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
