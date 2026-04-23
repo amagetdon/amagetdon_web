@@ -127,9 +127,63 @@ export default function AdminWebhook() {
   const [customEvents, setCustomEvents] = useState<CustomEvent[]>([])
   const [customEditing, setCustomEditing] = useState<Partial<CustomEvent> | null>(null)
 
+  // cron 스케줄
+  const [cronInfo, setCronInfo] = useState<{ schedule: string; active: boolean; last_run: string | null; last_status: string | null } | null>(null)
+  const [cronExists, setCronExists] = useState(false)
+  const [cronHour, setCronHour] = useState(9)
+  const [cronMinute, setCronMinute] = useState(0)
+  const [cronSaving, setCronSaving] = useState(false)
+
   const fetchCustomEvents = async () => {
     const list = await webhookService.listCustomEvents()
     setCustomEvents(list as CustomEvent[])
+  }
+
+  const fetchCronInfo = async () => {
+    try {
+      const info = await webhookService.getCronSchedule('coupon-expiry-scanner-daily')
+      setCronInfo(info)
+      setCronExists(!!info)
+      if (info) {
+        // cron expression: "min hour * * *" → KST = (UTC hour + 9) % 24
+        const parts = info.schedule.split(/\s+/)
+        if (parts.length >= 2) {
+          const m = parseInt(parts[0], 10)
+          const utcH = parseInt(parts[1], 10)
+          if (!isNaN(m) && !isNaN(utcH)) {
+            setCronMinute(m)
+            setCronHour((utcH + 9) % 24)
+          }
+        }
+      }
+    } catch {
+      setCronInfo(null)
+      setCronExists(false)
+    }
+  }
+
+  const handleSaveCron = async () => {
+    setCronSaving(true)
+    try {
+      await webhookService.updateCronSchedule('coupon-expiry-scanner-daily', cronHour, cronMinute)
+      toast.success(`발송 시각이 매일 ${String(cronHour).padStart(2, '0')}:${String(cronMinute).padStart(2, '0')} (KST)로 변경되었습니다.`)
+      fetchCronInfo()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '변경 실패')
+    } finally {
+      setCronSaving(false)
+    }
+  }
+
+  const handleToggleCron = async () => {
+    if (!cronInfo) return
+    try {
+      await webhookService.setCronActive('coupon-expiry-scanner-daily', !cronInfo.active)
+      toast.success(`스케줄이 ${cronInfo.active ? '비활성화' : '활성화'}되었습니다.`)
+      fetchCronInfo()
+    } catch {
+      toast.error('변경 실패')
+    }
   }
 
   useEffect(() => {
@@ -137,6 +191,7 @@ export default function AdminWebhook() {
     Promise.all([
       webhookService.getConfig('global', null).then(setConfig),
       fetchCustomEvents(),
+      fetchCronInfo(),
     ]).finally(() => setLoading(false))
   }, [])
 
@@ -515,6 +570,78 @@ export default function AdminWebhook() {
             className="bg-gray-900 text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-gray-800 disabled:opacity-50">
             <i className="ti ti-send mr-1.5" />테스트 전송 ({templateTab === 'signup' ? '회원가입' : '구매'})
           </button>
+        </div>
+
+        {/* 스케줄 발송 시간 (cron) */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-sm font-bold text-gray-900">스케줄 발송 시간</h2>
+              <p className="text-xs text-gray-400 mt-0.5">쿠폰 만료 임박/만료 알림이 매일 자동 발송될 시각 (한국시간 기준)</p>
+            </div>
+            {cronExists && cronInfo && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <span className="text-xs text-gray-500">{cronInfo.active ? '활성' : '비활성'}</span>
+                <button type="button" onClick={handleToggleCron}
+                  className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer border-none ${cronInfo.active ? 'bg-[#2ED573]' : 'bg-gray-300'}`}>
+                  <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform shadow ${cronInfo.active ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </label>
+            )}
+          </div>
+
+          {!cronExists ? (
+            <div className="bg-amber-50 border border-amber-100 rounded-lg p-4">
+              <p className="text-xs text-amber-900 mb-2">
+                <i className="ti ti-alert-triangle mr-1" />
+                <strong>cron 작업이 아직 등록되지 않았습니다.</strong>
+              </p>
+              <p className="text-[11px] text-amber-800 mb-3">
+                Supabase Dashboard → SQL Editor에서 아래 SQL을 한 번 실행해주세요. (service_role key는 Project Settings → API에서 복사)
+              </p>
+              <pre className="text-[10px] bg-white border border-amber-200 rounded p-2 overflow-x-auto whitespace-pre-wrap">{`CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+SELECT cron.schedule(
+  'coupon-expiry-scanner-daily',
+  '0 0 * * *',
+  $$ SELECT net.http_post(
+    url := 'https://${(import.meta.env.VITE_SUPABASE_URL || '').replace(/^https?:\/\//, '').replace(/\/.*$/, '')}/functions/v1/coupon-expiry-scanner',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'Authorization', 'Bearer YOUR_SERVICE_ROLE_KEY'),
+    body := '{}'::jsonb
+  ); $$
+);`}</pre>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-gray-600">매일</span>
+                <select value={cronHour} onChange={(e) => setCronHour(Number(e.target.value))}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#2ED573]">
+                  {Array.from({ length: 24 }).map((_, h) => (
+                    <option key={h} value={h}>{String(h).padStart(2, '0')}시</option>
+                  ))}
+                </select>
+                <select value={cronMinute} onChange={(e) => setCronMinute(Number(e.target.value))}
+                  className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm outline-none focus:border-[#2ED573]">
+                  {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                    <option key={m} value={m}>{String(m).padStart(2, '0')}분</option>
+                  ))}
+                </select>
+                <span className="text-xs text-gray-500">에 발송 (한국시간)</span>
+                <button onClick={handleSaveCron} disabled={cronSaving}
+                  className="ml-2 bg-[#2ED573] text-white px-4 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none hover:bg-[#25B866] disabled:opacity-50">
+                  {cronSaving ? '적용 중...' : '적용'}
+                </button>
+              </div>
+              <div className="text-[11px] text-gray-500 space-y-0.5">
+                <div>현재 등록된 cron: <code className="bg-gray-100 px-1.5 py-0.5 rounded">{cronInfo?.schedule}</code> (UTC 기준)</div>
+                {cronInfo?.last_run && (
+                  <div>마지막 실행: {new Date(cronInfo.last_run).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })} — <span className={cronInfo.last_status === 'succeeded' ? 'text-emerald-600' : 'text-red-600'}>{cronInfo.last_status}</span></div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 커스텀 이벤트 */}
