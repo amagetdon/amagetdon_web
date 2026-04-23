@@ -53,7 +53,8 @@ interface ReservedVar {
   desc: string
 }
 
-function ReservedWordTable({ title, rows, onInsert, onInsertHeader }: { title: string; rows: ReservedVar[]; onInsert: (v: string) => void; onInsertHeader: (v: string) => void }) {
+function ReservedWordTable({ title, rows, onInsert, onInsertHeader, defaultOpen = false }: { title: string; rows: ReservedVar[]; onInsert: (v: string) => void; onInsertHeader: (v: string) => void; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen)
   const copy = (text: string) => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(text).then(() => toast.success(`${text} 복사됨`)).catch(() => {})
@@ -61,41 +62,47 @@ function ReservedWordTable({ title, rows, onInsert, onInsertHeader }: { title: s
   }
   return (
     <div>
-      <h3 className="text-xs font-bold text-gray-700 mb-2">{title}</h3>
-      <div className="border border-gray-200 rounded-lg overflow-hidden">
-        <table className="w-full text-xs">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-2 text-left font-bold text-gray-600">이름</th>
-              <th className="px-3 py-2 text-left font-bold text-gray-600">변수명</th>
-              <th className="px-3 py-2 text-left font-bold text-gray-600">내용</th>
-              <th className="px-3 py-2 text-center font-bold text-gray-600 w-28">추가</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {rows.map((v) => (
-              <tr key={v.var} className="hover:bg-gray-50">
-                <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{v.name}</td>
-                <td className="px-3 py-2">
-                  <code className="text-[#2ED573] bg-green-50 px-1.5 py-0.5 rounded text-[11px]">{v.var}</code>
-                  <button type="button" onClick={() => copy(v.var)} className="ml-1 text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer" title="복사">
-                    <i className="ti ti-copy text-[11px]" />
-                  </button>
-                </td>
-                <td className="px-3 py-2 text-gray-500">{v.desc}</td>
-                <td className="px-3 py-2 text-center whitespace-nowrap">
-                  <button onClick={() => onInsert(v.var)} className="px-2 py-1 bg-[#2ED573] text-white text-[10px] font-bold rounded border-none cursor-pointer hover:bg-[#25B866]" title="파라미터에 추가">
-                    파라미터
-                  </button>
-                  <button onClick={() => onInsertHeader(v.var)} className="ml-1 px-2 py-1 bg-gray-600 text-white text-[10px] font-bold rounded border-none cursor-pointer hover:bg-gray-700" title="헤더에 추가">
-                    헤더
-                  </button>
-                </td>
+      <button type="button" onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg px-3 py-2 cursor-pointer mb-2">
+        <h3 className="text-xs font-bold text-gray-700">{title} ({rows.length}개)</h3>
+        <i className={`ti ti-chevron-${open ? 'up' : 'down'} text-gray-500`} />
+      </button>
+      {open && (
+        <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-3 py-2 text-left font-bold text-gray-600">이름</th>
+                <th className="px-3 py-2 text-left font-bold text-gray-600">변수명</th>
+                <th className="px-3 py-2 text-left font-bold text-gray-600">내용</th>
+                <th className="px-3 py-2 text-center font-bold text-gray-600 w-28">추가</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {rows.map((v) => (
+                <tr key={v.var} className="hover:bg-gray-50">
+                  <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{v.name}</td>
+                  <td className="px-3 py-2">
+                    <code className="text-[#2ED573] bg-green-50 px-1.5 py-0.5 rounded text-[11px]">{v.var}</code>
+                    <button type="button" onClick={() => copy(v.var)} className="ml-1 text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer" title="복사">
+                      <i className="ti ti-copy text-[11px]" />
+                    </button>
+                  </td>
+                  <td className="px-3 py-2 text-gray-500">{v.desc}</td>
+                  <td className="px-3 py-2 text-center whitespace-nowrap">
+                    <button onClick={() => onInsert(v.var)} className="px-2 py-1 bg-[#2ED573] text-white text-[10px] font-bold rounded border-none cursor-pointer hover:bg-[#25B866]" title="파라미터에 추가">
+                      파라미터
+                    </button>
+                    <button onClick={() => onInsertHeader(v.var)} className="ml-1 px-2 py-1 bg-gray-600 text-white text-[10px] font-bold rounded border-none cursor-pointer hover:bg-gray-700" title="헤더에 추가">
+                      헤더
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -132,7 +139,7 @@ export default function AdminWebhook() {
   ]
   const [templateTab, setTemplateTab] = useState<TabId>('signup')
   const [testPhone, setTestPhone] = useState<string>(() => (typeof window !== 'undefined' ? window.localStorage.getItem('webhook_test_phone') || '' : ''))
-  const [testResult, setTestResult] = useState<{ status?: string; response_status?: number; response_body?: string; request_url?: string; request_body?: string; error_message?: string } | null>(null)
+  const [testResult, setTestResult] = useState<{ status?: string; response_status?: number; response_body?: string; request_url?: string; request_body?: string; error_message?: string; reason?: string } | null>(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const signupRef = useRef<HTMLTextAreaElement>(null)
   const purchaseRef = useRef<HTMLTextAreaElement>(null)
@@ -369,10 +376,12 @@ export default function AdminWebhook() {
         setTestResult({ error_message: error.message })
         return
       }
-      const result = data as { status?: string; response_status?: number; response_body?: string; request_url?: string; request_body?: string; error_message?: string }
+      const result = data as { status?: string; response_status?: number; response_body?: string; request_url?: string; request_body?: string; error_message?: string; reason?: string }
       setTestResult(result)
       if (result.status === 'success') {
         toast.success(`전송 성공 (HTTP ${result.response_status ?? '?'}). 아래에서 응답 본문 확인.`)
+      } else if (result.status === 'skipped') {
+        toast.error(`전송 스킵: ${result.reason || result.error_message || '알 수 없음'}`, { duration: 6000 })
       } else {
         toast.error(`전송 실패 (HTTP ${result.response_status ?? '?'}): ${(result.response_body || result.error_message || '').slice(0, 120)}`, { duration: 6000 })
       }
@@ -760,6 +769,12 @@ export default function AdminWebhook() {
                 <div className="flex items-start gap-2">
                   <span className="font-bold text-gray-600 w-20 shrink-0">응답 본문</span>
                   <pre className="flex-1 text-[11px] font-mono text-gray-700 bg-gray-50 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all max-h-40 overflow-y-auto">{testResult.response_body}</pre>
+                </div>
+              )}
+              {testResult.reason && (
+                <div className="flex items-start gap-2">
+                  <span className="font-bold text-gray-600 w-20 shrink-0">스킵 이유</span>
+                  <code className="text-[11px] text-amber-700">{testResult.reason}</code>
                 </div>
               )}
               {testResult.error_message && (
