@@ -460,7 +460,7 @@ function EbookDetailPage() {
       {/* 환불규정 */}
       {ebook.refund_policy && ebook.refund_policy.trim() && (
         <section className="w-full bg-white py-12 border-t border-gray-100">
-          <div className="max-w-[900px] mx-auto px-5">
+          <div className="max-w-[1200px] mx-auto px-5">
             <details className="group" open>
               <summary className="list-none cursor-pointer flex items-center justify-between gap-3 py-2">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">

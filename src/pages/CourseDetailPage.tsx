@@ -311,7 +311,7 @@ function CourseDetailPage() {
     if (course && course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments && !owned) {
       return (
         <button disabled className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-4 cursor-not-allowed">
-          정원 마감 ({enrollmentCount}/{course.max_enrollments}명)
+          정원 마감
         </button>
       )
     }
@@ -469,21 +469,6 @@ function CourseDetailPage() {
                   </p>
                 )}
 
-                {course.max_enrollments != null && course.max_enrollments > 0 && (
-                  <div className="mt-4 bg-gray-50 rounded-xl p-3">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-gray-500">모집 현황</span>
-                      <span className="font-bold text-gray-900">{enrollmentCount} / {course.max_enrollments}명</span>
-                    </div>
-                    <div className="mt-2 w-full bg-gray-200 rounded-full overflow-hidden h-1.5">
-                      <div className="h-full rounded-full transition-all" style={{
-                        width: `${Math.min(100, (enrollmentCount / course.max_enrollments) * 100)}%`,
-                        backgroundColor: enrollmentCount >= course.max_enrollments ? '#9ca3af' : '#2ED573',
-                      }} />
-                    </div>
-                  </div>
-                )}
-
                 {course.enrollment_deadline && (
                   <div className="text-center mt-6">
                     <p className="text-sm text-gray-600">강의 모집 마감까지</p>
@@ -544,8 +529,8 @@ function CourseDetailPage() {
       {/* 환불규정 */}
       {course.refund_policy && course.refund_policy.trim() && (
         <section className="w-full bg-white py-12 border-t border-gray-100">
-          <div className="max-w-[900px] mx-auto px-5">
-            <details className="group">
+          <div className="max-w-[1200px] mx-auto px-5">
+            <details className="group" open>
               <summary className="list-none cursor-pointer flex items-center justify-between gap-3 py-2">
                 <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                   <i className="ti ti-receipt-refund text-[#2ED573]" /> 환불규정
