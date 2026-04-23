@@ -458,7 +458,7 @@ export default function AdminWebhook() {
             // shoong placeholder phone을 변수로 자동 치환
             const before = body
             body = body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"')
-            // shoong cURL이 버튼 링크 키를 `variables.{링크명5` 처럼 `}` 없이 내려주는 버그 보정
+            // shoong cURL의 변수 키를 Kakao 표준 `variables.#{{변수명}}` 로 보정
             body = normalizeAlimtalkKeys(body)
             const phoneReplaced = before !== body
             // 추출된 JSON으로 대체

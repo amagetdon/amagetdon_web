@@ -23,10 +23,10 @@ function resolveTemplate(template: string, data: Payload): string {
   return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => String(data[k] ?? ''))
 }
 
-// shoong-api 등 알림톡 제공사 cURL이 버튼 링크 변수 키를 `variables.{링크명5` 처럼 닫는 `}` 없이 내려주는 버그를 런타임에 보정.
-// 닫는 `}`가 빠진 상태로 넘어가면 제공사 측 부분 매칭으로 실제 버튼 URL 뒤에 `%7D` 가 붙어 없는 페이지로 연결됨.
+// shoong-api 는 Kakao 표준 문법 `variables.#{{변수명}}` 를 요구하지만, 제공사 cURL 생성기가
+// 바깥 `#{` 와 `}` 를 빼먹고 `variables.{변수명` 으로 내리는 버그가 있어 런타임에 보정.
 function normalizeAlimtalkKeys(body: string): string {
-  return body.replace(/"(variables\.#?\{[^"{}]*)":/g, '"$1}":')
+  return body.replace(/"variables\.\{([^"{}]+)\}?":/g, '"variables.#{{$1}}":')
 }
 
 function parseHeaderData(h: string): Record<string, string> {
