@@ -242,34 +242,106 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
   useEffect(() => { fetchConfigs() }, [fetchConfigs])
   useEffect(() => { fetchScopeInfo() }, [fetchScopeInfo])
 
-  const handleSavePurchaseTemplate = async () => {
+  // purchase alias 저장 상태 (모달 확인 후 실제 저장에 쓰임)
+  const [purchaseAliasConfirm, setPurchaseAliasConfirm] = useState<{
+    unknownVars: string[]
+    suggestedAliases: Record<string, { canonical: string; reason: string }>
+    emptySlots: string[]
+    suggestedSlotFills: Record<string, { canonical: string; reason: string }>
+    warning?: string
+  } | null>(null)
+
+  const performSavePurchase = async (templateToSave: string, aliases: Record<string, string>) => {
     if (!globalConfig) return
     setSavingPurchase(true)
     try {
-      if (overrideEnabled) {
-        // 강의별 override 저장 — global URL/auth 상속 + purchase_template만 교체
-        await webhookService.saveConfig({
-          ...globalConfig,
-          ...(scopedConfig || {}),
-          id: scopedConfig?.id,
-          scope,
-          scope_id: scopeId,
-          enabled: true,
-          purchase_template: purchaseTemplate,
-          label: scopedConfig?.label || `${scope === 'course' ? '강의' : '전자책'}#${scopeId} 전용`,
-        })
-        toast.success('이 강의 전용 구매 알림톡 저장됨')
-      } else if (scopedConfig?.id) {
-        // override 해제 — 기존 scoped row 삭제하여 global로 폴백
-        await webhookService.deleteConfig(scopedConfig.id)
-        toast.success('전용 설정 해제 (기본 설정 사용)')
-      }
+      const extConfig = (scopedConfig || {}) as WebhookConfig & { purchase_variable_aliases?: Record<string, string> }
+      await webhookService.saveConfig({
+        ...globalConfig,
+        ...(scopedConfig || {}),
+        id: scopedConfig?.id,
+        scope,
+        scope_id: scopeId,
+        enabled: true,
+        purchase_template: templateToSave,
+        label: scopedConfig?.label || `${scope === 'course' ? '강의' : '전자책'}#${scopeId} 전용`,
+        purchase_variable_aliases: { ...(extConfig.purchase_variable_aliases ?? {}), ...aliases },
+      } as WebhookConfig)
+      toast.success(`이 ${scope === 'course' ? '강의' : '전자책'} 전용 구매 알림톡 저장됨`)
+      setPurchaseAliasConfirm(null)
       fetchConfigs()
     } catch {
       toast.error('저장 실패')
     } finally {
       setSavingPurchase(false)
     }
+  }
+
+  const handleSavePurchaseTemplate = async () => {
+    if (!globalConfig) return
+    // 토글 OFF → 기존 override 삭제
+    if (!overrideEnabled) {
+      if (scopedConfig?.id) {
+        setSavingPurchase(true)
+        try {
+          await webhookService.deleteConfig(scopedConfig.id)
+          toast.success('전용 설정 해제')
+          fetchConfigs()
+        } catch {
+          toast.error('해제 실패')
+        } finally {
+          setSavingPurchase(false)
+        }
+      }
+      return
+    }
+    if (!purchaseTemplate.trim()) { toast.error('템플릿을 입력해주세요.'); return }
+
+    // 템플릿 분석: 미확인 {#변수#} + 빈 variables.X:"" 슬롯
+    setSavingPurchase(true)
+    try {
+      const analysis = await webhookService.analyzeTemplateVariables(purchaseTemplate)
+      const unknownVars = analysis.unknown_vars ?? []
+      const emptySlots = analysis.empty_slots ?? []
+      const suggestedAliases = analysis.suggested_aliases ?? {}
+      const suggestedSlotFills = analysis.suggested_slot_fills ?? {}
+      if (unknownVars.length > 0 || emptySlots.length > 0) {
+        setPurchaseAliasConfirm({ unknownVars, suggestedAliases, emptySlots, suggestedSlotFills, warning: analysis.warning })
+        setSavingPurchase(false)
+        return
+      }
+      if (analysis.warning) toast(analysis.warning, { icon: 'ℹ️', duration: 5000 })
+      await performSavePurchase(purchaseTemplate, {})
+    } catch (err) {
+      console.error(err)
+      toast.error('변수 분석 중 오류, alias 없이 저장합니다.')
+      await performSavePurchase(purchaseTemplate, {})
+    }
+  }
+
+  // textarea cURL 자동 추출
+  const handlePurchaseTextareaChange = (val: string) => {
+    const t = val.trim()
+    let next = val
+    if (t.startsWith('curl ') || t.startsWith('curl\n') || /\s-d\s+['"]/.test(t)) {
+      const dIdxSingle = t.lastIndexOf("-d '")
+      const dIdxDouble = t.lastIndexOf('-d "')
+      const isSingle = dIdxSingle > dIdxDouble
+      const dIdx = isSingle ? dIdxSingle : dIdxDouble
+      const quote = isSingle ? "'" : '"'
+      if (dIdx !== -1) {
+        const start = dIdx + 4
+        const end = t.lastIndexOf(quote)
+        if (end > start) {
+          const body = t.slice(start, end).trim()
+          if (body.startsWith('{')) {
+            next = body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"')
+            toast.success('cURL에서 JSON 본문 자동 추출됨')
+          }
+        }
+      }
+    }
+    setPurchaseTemplate(next)
   }
 
   const performSave = async (aliases: Record<string, string>, slotFills: Record<string, string>) => {
@@ -394,11 +466,11 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
         </div>
         {overrideEnabled ? (
           <>
-            <textarea value={purchaseTemplate} onChange={(e) => setPurchaseTemplate(e.target.value)}
-              rows={5}
-              placeholder={`예:\nsendType=at&phone={#user_phone#}&channelConfig.senderkey=YOUR_KEY&channelConfig.templatecode=m_3&variables.이름={#user_name#}&variables.강의명={#title#}`}
+            <textarea value={purchaseTemplate} onChange={(e) => handlePurchaseTextareaChange(e.target.value)}
+              rows={8}
+              placeholder={`shoong "코드 예제" cURL 통째 붙여넣기 OK (자동 추출)\n\n또는 JSON 직접:\n{\n  "sendType":"at",\n  "phone":"{#ITEM2_NOH#}",\n  "channelConfig.senderkey":"...",\n  "channelConfig.templatecode":"...",\n  "variables.강의명":"{#TITLE#}",\n  "variables.이름":"{#user_name#}"\n}`}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] font-mono resize-none" />
-            <p className="text-[10px] text-gray-400 mt-1">사용 변수: <code>{`{#user_name#}`}</code> <code>{`{#user_phone#}`}</code> <code>{`{#user_email#}`}</code> <code>{`{#title#}`}</code> <code>{`{#price#}`}</code> <code>{`{#TITLE#}`}</code> <code>{`{#DBNO#}`}</code></p>
+            <p className="text-[10px] text-gray-400 mt-1">저장 시 GPT-5.4-mini가 빈 변수 슬롯을 자동 채움 제안합니다. 사용 변수: <code>{`{#user_name#}`}</code> <code>{`{#user_phone#}`}</code> <code>{`{#title#}`}</code> <code>{`{#TITLE#}`}</code> <code>{`{#price#}`}</code> <code>{`{#DBNO#}`}</code></p>
             <div className="flex justify-end mt-3">
               <button onClick={handleSavePurchaseTemplate} disabled={savingPurchase}
                 className="bg-[#2ED573] text-white px-4 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none hover:bg-[#25B866] disabled:opacity-50">
@@ -689,7 +761,7 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
         </div>
       )}
 
-      {/* LLM 기반 변수 매핑 확인 모달 */}
+      {/* LLM 기반 변수 매핑 확인 모달 — 예약 알림톡용 */}
       {aliasConfirm && (
         <TemplateAliasConfirmModal
           isOpen
@@ -700,6 +772,26 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
           warning={aliasConfirm.warning}
           onCancel={() => setAliasConfirm(null)}
           onConfirm={(aliases, slotFills) => performSave(aliases, slotFills)}
+        />
+      )}
+
+      {/* LLM 기반 변수 매핑 확인 모달 — 구매 즉시 알림톡용 */}
+      {purchaseAliasConfirm && (
+        <TemplateAliasConfirmModal
+          isOpen
+          unknownVars={purchaseAliasConfirm.unknownVars}
+          suggestedAliases={purchaseAliasConfirm.suggestedAliases}
+          emptySlots={purchaseAliasConfirm.emptySlots}
+          suggestedSlotFills={purchaseAliasConfirm.suggestedSlotFills}
+          warning={purchaseAliasConfirm.warning}
+          onCancel={() => setPurchaseAliasConfirm(null)}
+          onConfirm={(aliases, slotFills) => {
+            const filledTemplate = Object.keys(slotFills).length > 0
+              ? fillEmptySlots(purchaseTemplate, slotFills)
+              : purchaseTemplate
+            setPurchaseTemplate(filledTemplate)
+            performSavePurchase(filledTemplate, aliases)
+          }}
         />
       )}
     </div>
