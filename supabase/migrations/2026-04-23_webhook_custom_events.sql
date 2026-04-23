@@ -55,6 +55,8 @@ CREATE POLICY "Anyone insert coupon_notification_log" ON coupon_notification_log
 -- 시스템 정의 빌트인 이벤트 시드
 INSERT INTO webhook_custom_events (code, label, description, trigger_hint, built_in, sort_order)
 VALUES
+  ('purchase_free', '무료 구매 완료', '무료 강의(course_type=free) 또는 무료 전자책(is_free=true) 구매 직후 발송', '강의/전자책 구매 시', TRUE, 5),
+  ('purchase_premium', '유료 구매 완료', '유료 강의(course_type=premium) 또는 유료 전자책(is_free=false) 구매 직후. 쿠폰으로 0원 결제도 포함', '강의/전자책 구매 시', TRUE, 6),
   ('coupon_issued', '쿠폰 발급 완료', '관리자가 사용자에게 쿠폰을 발급한 직후 발송', '어드민 → 쿠폰 → 사용자 발급', TRUE, 10),
   ('coupon_expiring_d3', '쿠폰 만료 3일 전', '쿠폰 사용 가능 만료 3일 전 알림 (매일 cron)', '쿠폰 만료 스캐너', TRUE, 20),
   ('coupon_expiring_d1', '쿠폰 만료 1일 전', '쿠폰 사용 가능 만료 1일 전 알림 (매일 cron)', '쿠폰 만료 스캐너', TRUE, 21),

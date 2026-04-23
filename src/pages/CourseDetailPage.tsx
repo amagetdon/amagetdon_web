@@ -212,6 +212,19 @@ function CourseDetailPage() {
       )
       if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
       webhookService.firePurchase({ userId: user.id, user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: course.title, price: finalPrice, type: 'course', productId: course.id }, webhookService.captureContext()).catch(() => {})
+      // 무료/유료 분기 알림톡 (course_type 기준 — 쿠폰으로 0원 결제도 premium은 유료로 분류)
+      webhookService.fireCustomEvent(course.course_type === 'free' ? 'purchase_free' : 'purchase_premium', {
+        course_type: course.course_type,
+        price: finalPrice,
+        original_price: course.original_price ?? course.sale_price ?? 0,
+        type: 'course',
+      }, {
+        userId: user.id,
+        userName: profile.name || '',
+        userPhone: profile.phone || '',
+        userEmail: profile.email || '',
+        title: course.title,
+      }).catch(() => {})
       webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile.name || '', userPhone: profile.phone || '', userEmail: profile.email || '', scope: 'course', scopeId: course.id, courseTitle: course.title }).catch(() => {})
       // 정원 도달 시 enrollment_full 자동 트리거
       webhookScheduleService.triggerEnrollmentFullIfReached('course', course.id, enrollmentCount + 1, course.max_enrollments).catch(() => {})

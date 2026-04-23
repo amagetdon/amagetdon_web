@@ -187,6 +187,19 @@ function EbookDetailPage() {
       )
       if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
       webhookService.firePurchase({ userId: user.id, user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: ebook.title, price: finalPrice, type: 'ebook', productId: ebook.id }, webhookService.captureContext()).catch(() => {})
+      // 무료/유료 분기 알림톡 (ebook.is_free 기준)
+      webhookService.fireCustomEvent(ebook.is_free ? 'purchase_free' : 'purchase_premium', {
+        is_free: ebook.is_free,
+        price: finalPrice,
+        original_price: ebook.original_price ?? ebook.sale_price ?? 0,
+        type: 'ebook',
+      }, {
+        userId: user.id,
+        userName: profile.name || '',
+        userPhone: profile.phone || '',
+        userEmail: profile.email || '',
+        title: ebook.title,
+      }).catch(() => {})
       webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile.name || '', userPhone: profile.phone || '', userEmail: profile.email || '', scope: 'ebook', scopeId: ebook.id, courseTitle: ebook.title }).catch(() => {})
       toast.success('전자책을 구매했습니다!')
       setOwned(true)
