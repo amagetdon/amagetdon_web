@@ -58,22 +58,69 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    )
+    // 보안: pg_cron이 service role key로 호출하거나, 어드민 사용자만 호출 가능
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    const token = authHeader.replace('Bearer ', '')
+    if (token !== serviceKey) {
+      // 어드민 사용자라면 허용
+      const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '')
+      const { data: { user } } = await userClient.auth.getUser(token)
+      if (!user) {
+        return new Response(JSON.stringify({ error: 'Invalid auth' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      const adminCheck = createClient(supabaseUrl, serviceKey)
+      const { data: prof } = await adminCheck.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      if ((prof as { role?: string } | null)?.role !== 'admin') {
+        return new Response(JSON.stringify({ error: 'Admin only' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+    }
 
-    // 도래한 미발송 건 조회 (최대 50건/분)
-    const { data: runs } = await supabase
+    const supabase = createClient(supabaseUrl, serviceKey)
+
+    // 1) 도래한 미발송 후보 ID 조회 (최대 50건/분)
+    const { data: candidates } = await supabase
       .from('webhook_schedule_runs')
-      .select('*')
+      .select('id')
       .eq('status', 'pending')
       .is('fired_at', null)
       .lte('fire_at', new Date().toISOString())
       .order('fire_at', { ascending: true })
       .limit(MAX_PER_RUN)
+    const candidateIds = ((candidates as Array<{ id: number }> | null) ?? []).map((c) => c.id)
+    if (candidateIds.length === 0) {
+      return new Response(JSON.stringify({ processed: 0 }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
 
-    const runList = (runs as RunRow[] | null) ?? []
+    // 2) 원자적 claim — 다른 cron 호출과의 race 방지
+    const { data: claimed } = await supabase
+      .from('webhook_schedule_runs')
+      .update({ status: 'processing' })
+      .in('id', candidateIds)
+      .eq('status', 'pending')
+      .select('*')
+
+    const runList = (claimed as RunRow[] | null) ?? []
+    if (runList.length === 0) {
+      return new Response(JSON.stringify({ processed: 0, note: 'all candidates were claimed by another invocation' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
     if (runList.length === 0) {
       return new Response(JSON.stringify({ processed: 0 }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

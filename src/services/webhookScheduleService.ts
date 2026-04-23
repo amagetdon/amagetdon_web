@@ -133,16 +133,27 @@ export const webhookScheduleService = {
     if (!sched) return { inserted: 0, recipients: 0 }
     const s = sched as WebhookSchedule
 
-    // 해당 강의/전자책의 모든 구매자 조회 (환불 안 된 사용자만)
+    // 1) 구매자 user_id 목록
     const colName = s.scope === 'course' ? 'course_id' : 'ebook_id'
     const { data: purchases } = await supabase
       .from('purchases')
-      .select(`user_id, profiles ( name, phone, email )`)
+      .select('user_id')
       .eq(colName, s.scope_id)
-    const list = (purchases as Array<{ user_id: string; profiles: { name?: string; phone?: string; email?: string } | null }> | null) ?? []
-    if (list.length === 0) return { inserted: 0, recipients: 0 }
+    const userIdSet = new Set(((purchases as Array<{ user_id: string }> | null) ?? []).map((p) => p.user_id).filter(Boolean))
+    const userIds = Array.from(userIdSet)
+    if (userIds.length === 0) return { inserted: 0, recipients: 0 }
 
-    // 강의 정보
+    // 2) 프로필 일괄 조회
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, name, phone, email')
+      .in('id', userIds)
+    const profileMap = new Map<string, { name?: string | null; phone?: string | null; email?: string | null }>(
+      ((profiles as Array<{ id: string; name?: string | null; phone?: string | null; email?: string | null }> | null) ?? [])
+        .map((p) => [p.id, p]),
+    )
+
+    // 3) 강의/전자책 정보
     let courseTitle = ''
     let scheduledAt: string | null = null
     if (s.scope === 'course') {
@@ -156,20 +167,23 @@ export const webhookScheduleService = {
     }
 
     const now = new Date().toISOString()
-    const rows = list.map((p) => ({
-      webhook_schedule_id: s.id,
-      course_schedule_id: null,
-      user_id: p.user_id,
-      user_name: p.profiles?.name ?? null,
-      user_phone: p.profiles?.phone ?? null,
-      user_email: p.profiles?.email ?? null,
-      course_title: courseTitle,
-      course_scheduled_at: scheduledAt,
-      fire_at: now,
-    }))
+    const rows = userIds.map((uid) => {
+      const p = profileMap.get(uid)
+      return {
+        webhook_schedule_id: s.id,
+        course_schedule_id: null,
+        user_id: uid,
+        user_name: p?.name ?? null,
+        user_phone: p?.phone ?? null,
+        user_email: p?.email ?? null,
+        course_title: courseTitle,
+        course_scheduled_at: scheduledAt,
+        fire_at: now,
+      }
+    })
     const { error } = await supabase.from('webhook_schedule_runs').insert(rows as never)
-    if (error) { console.error('fanOut insert failed', error); return { inserted: 0, recipients: list.length } }
-    return { inserted: rows.length, recipients: list.length }
+    if (error) { console.error('fanOut insert failed', error); return { inserted: 0, recipients: userIds.length } }
+    return { inserted: rows.length, recipients: userIds.length }
   },
 
   // 정원 도달 시 자동 트리거 (구매 직후 호출)

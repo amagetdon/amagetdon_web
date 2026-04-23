@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS webhook_schedule_runs (
 
   fire_at TIMESTAMPTZ NOT NULL,
   fired_at TIMESTAMPTZ,
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'success', 'failed', 'skipped', 'cancelled')),
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'success', 'failed', 'skipped', 'cancelled')),
   webhook_log_id BIGINT REFERENCES webhook_logs(id) ON DELETE SET NULL,
   error_message TEXT,
   attempt_count INTEGER DEFAULT 0,
