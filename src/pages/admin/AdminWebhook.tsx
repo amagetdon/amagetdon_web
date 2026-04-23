@@ -133,6 +133,7 @@ export default function AdminWebhook() {
   const [templateTab, setTemplateTab] = useState<TabId>('signup')
   const [testPhone, setTestPhone] = useState<string>(() => (typeof window !== 'undefined' ? window.localStorage.getItem('webhook_test_phone') || '' : ''))
   const [testResult, setTestResult] = useState<{ status?: string; response_status?: number; response_body?: string; request_url?: string; request_body?: string; error_message?: string } | null>(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const signupRef = useRef<HTMLTextAreaElement>(null)
   const purchaseRef = useRef<HTMLTextAreaElement>(null)
   const headerRef = useRef<HTMLTextAreaElement>(null)
@@ -538,32 +539,36 @@ export default function AdminWebhook() {
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] font-mono"
               />
             </div>
-            <div>
-              <label className="text-sm font-bold text-gray-700 block mb-1.5">전송 방식</label>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setConfig((c) => ({ ...c, method: 'POST' }))}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${config.method === 'POST' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
-                  POST
-                </button>
-                <button type="button" onClick={() => setConfig((c) => ({ ...c, method: 'GET' }))}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${config.method === 'GET' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
-                  GET
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-bold text-gray-700 block mb-1.5">Content-Type</label>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setConfig((c) => ({ ...c, use_json_header: true }))}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${config.use_json_header ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
-                  application/json
-                </button>
-                <button type="button" onClick={() => setConfig((c) => ({ ...c, use_json_header: false }))}
-                  className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${!config.use_json_header ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
-                  form-urlencoded
-                </button>
-              </div>
-            </div>
+            {showAdvanced && (
+              <>
+                <div>
+                  <label className="text-sm font-bold text-gray-700 block mb-1.5">전송 방식 <span className="ml-1 text-[10px] text-gray-400 font-normal">고급</span></label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setConfig((c) => ({ ...c, method: 'POST' }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${config.method === 'POST' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      POST
+                    </button>
+                    <button type="button" onClick={() => setConfig((c) => ({ ...c, method: 'GET' }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${config.method === 'GET' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      GET
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-gray-700 block mb-1.5">Content-Type <span className="ml-1 text-[10px] text-gray-400 font-normal">고급</span></label>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setConfig((c) => ({ ...c, use_json_header: true }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${config.use_json_header ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      application/json
+                    </button>
+                    <button type="button" onClick={() => setConfig((c) => ({ ...c, use_json_header: false }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${!config.use_json_header ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                      form-urlencoded
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
             <div>
               <label className="text-sm font-bold text-gray-700 block mb-1.5">이벤트 트리거</label>
               <div className="flex gap-4 pt-1">
@@ -581,6 +586,16 @@ export default function AdminWebhook() {
                 </label>
               </div>
             </div>
+          </div>
+          <div className="mt-4 pt-3 border-t border-gray-100">
+            <button type="button" onClick={() => setShowAdvanced((v) => !v)}
+              className="text-xs text-gray-500 hover:text-gray-700 bg-transparent border-none cursor-pointer">
+              <i className={`ti ti-chevron-${showAdvanced ? 'up' : 'down'} mr-1`} />
+              {showAdvanced ? '고급 설정 닫기' : '고급 설정 (전송 방식 · Content-Type)'}
+            </button>
+            {!showAdvanced && (
+              <p className="text-[10px] text-gray-400 mt-1">현재: <code>{config.method}</code> · <code>{config.use_json_header ? 'application/json' : 'form-urlencoded'}</code> (shoong 기본값 그대로 OK)</p>
+            )}
           </div>
         </div>
 
