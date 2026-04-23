@@ -50,7 +50,7 @@ export default function TemplateAliasConfirmModal({ isOpen, unknownVars, suggest
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-6xl max-h-[95vh] overflow-y-auto p-6">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl min-h-[92vh] max-h-[95vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-3">
           <div>
             <h3 className="text-lg font-bold text-gray-900">
