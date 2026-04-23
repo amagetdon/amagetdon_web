@@ -457,8 +457,12 @@ export default function AdminWebhook() {
         const start = dIdx + 4
         const end = trimmed.lastIndexOf(quote)
         if (end > start) {
-          const body = trimmed.slice(start, end).trim()
+          let body = trimmed.slice(start, end).trim()
           if (body.startsWith('{') || body.startsWith('[')) {
+            // shoong placeholder phone을 변수로 자동 치환
+            const before = body
+            body = body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"')
+            const phoneReplaced = before !== body
             // 추출된 JSON으로 대체
             if (isCustomTab) {
               setCustomEvents((list) => list.map((e) => e.code === templateTab ? { ...e, template: body } : e))
@@ -467,7 +471,9 @@ export default function AdminWebhook() {
             } else {
               setConfig((c) => ({ ...c, purchase_template: body }))
             }
-            toast.success('cURL에서 JSON 본문을 자동 추출했습니다.')
+            toast.success(phoneReplaced
+              ? 'cURL JSON 추출 완료. phone 자동으로 {#ITEM2_NOH#} 변환됨.'
+              : 'cURL에서 JSON 본문을 자동 추출했습니다.')
             return
           }
         }
