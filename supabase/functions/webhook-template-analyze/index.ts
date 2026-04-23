@@ -4,25 +4,47 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
 // 하드코딩 딕셔너리가 이미 커버하는 변수들 (LLM 호출 불필요)
+// webhookService.buildDataDict + webhook-schedule-runner.data 와 동기화 필수
 const KNOWN_VARS = new Set([
-  // 영문/숫자
-  'TITLE', 'title', 'ITEM1', 'ITEM2', 'ITEM2_NOH', 'DATE', 'TIME', 'TIMES', 'DBNO', 'MOBILE', 'IP', 'AGENT', 'REFERER',
-  'SCHEDULED_AT', 'SCHEDULED_DATE', 'SCHEDULED_TIME',
+  // 기본
+  'event',
+  // 타이틀/아이템 (디비카트 스타일)
+  'TITLE', 'title', 'ITEM1', 'ITEM2', 'ITEM2_NOH', 'DBNO', 'MOBILE', 'IP', 'AGENT', 'REFERER',
+  // 현재 시각
+  'DATE', 'TIME', 'TIMES', 'date', 'time', 'times', 'timestamp',
+  // 수업 진행 일시 (schedules.scheduled_at 기반)
+  'SCHEDULED_AT', 'SCHEDULED_DATE', 'SCHEDULED_TIME', 'SCHEDULED_DATETIME',
+  'scheduled_date', 'scheduled_time', 'scheduled_datetime',
+  // 강의 오픈/마감일시 (courses)
+  'ENROLLMENT_START', 'ENROLLMENT_START_DATE', 'ENROLLMENT_START_TIME', 'enrollment_start_datetime',
+  'ENROLLMENT_DEADLINE', 'ENROLLMENT_DEADLINE_DATE', 'ENROLLMENT_DEADLINE_TIME', 'enrollment_deadline_datetime',
+  // 사용자
   'name', 'user_name', 'phone', 'user_phone', 'email', 'user_email',
-  'instructor', 'instructor_name', 'course_url', 'course_link', 'URL', 'price',
+  'gender', 'address', 'birth_date', 'provider', 'GROUP', 'NICK',
+  // 강의/전자책
+  'instructor', 'instructor_name', 'course_url', 'course_link', 'URL', 'price', 'type',
+  // 쿠폰/포인트
   'coupon_name', 'coupon_value', 'expires_at', 'point_amount', 'point_balance',
-  'U_SO', 'U_ME', 'U_CA', 'U_CO', 'U_TE', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
-  'gender', 'address', 'birth_date', 'provider',
-  // 한글 (runner/webhookService의 기본 별칭)
+  // UTM
+  'U_SO', 'U_ME', 'U_CA', 'U_CO', 'U_TE',
+  'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term',
+  // 한글 — 사용자
   '이름', '고객명', '회원명', '성함',
   '연락처', '전화번호', '핸드폰번호',
   '이메일',
+  // 한글 — 강사/상품
   '강사명', '강사', '선생님',
-  '강의명', '모임명', '모임', '수업명', '상품명', '서비스명', '클래스명',
-  '일시', '모임일시', '강의일시',
+  '강의명', '강의제목', '모임명', '모임', '수업명', '상품명', '서비스명', '클래스명',
+  // 한글 — 수업 진행 일시
+  '일시', '모임일시', '강의일시', '수업일시', '예정일시',
   '날짜', '시간',
+  '강의날짜', '강의시간', '수업날짜', '수업시간', '예정일', '예정시간',
+  // 한글 — 오픈/마감일시
+  '오픈일시', '오픈날짜', '오픈시간',
+  '마감일시', '마감일', '마감시간',
+  // 한글 — 기타
   '링크', 'URL주소',
-  '가격', '금액',
+  '가격', '금액', '포인트', '잔액', '쿠폰명', '쿠폰값', '유효기간',
 ])
 
 // canonical 키 목록 (LLM이 매핑 대상으로 선택할 수 있는 키)
