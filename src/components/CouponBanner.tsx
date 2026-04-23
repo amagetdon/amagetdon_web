@@ -139,7 +139,7 @@ function CouponBanner() {
                 {coupon.expires_at && (
                   <p className="text-[10px] opacity-30 mt-2"
                     style={{ color: coupon.banner_text_color || '#171717' }}>
-                    ~{new Date(coupon.expires_at).toLocaleDateString('ko-KR')}
+                    ~{new Date(coupon.expires_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}
                   </p>
                 )}
               </div>

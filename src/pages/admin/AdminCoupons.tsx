@@ -168,7 +168,7 @@ export default function AdminCoupons() {
                       {c.claims_count}{c.max_claims ? `/${c.max_claims}` : ''}
                     </td>
                     <td className="px-4 py-3 text-center text-xs text-gray-400 max-sm:hidden">
-                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString('ko-KR') : c.use_days ? `발급 후 ${c.use_days}일` : '무기한'}
+                      {c.expires_at ? new Date(c.expires_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : c.use_days ? `발급 후 ${c.use_days}일` : '무기한'}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${
@@ -294,7 +294,7 @@ export default function AdminCoupons() {
               </div>
               {(editing._expiryMode || (editing.expires_at ? 'date' : editing.use_days ? 'days' : 'none')) === 'date' && (
                 <div>
-                  <input type="date" value={(editing.expires_at as string)?.split('T')[0] || ''} onChange={(e) => setEditing({ ...editing, expires_at: e.target.value ? `${e.target.value}T23:59:59` : null })}
+                  <input type="date" value={(editing.expires_at as string)?.split('T')[0] || ''} onChange={(e) => setEditing({ ...editing, expires_at: e.target.value ? `${e.target.value}T23:59:59+09:00` : null })}
                     className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                   <p className="text-xs text-gray-400 mt-1">해당 날짜까지 사용 가능</p>
                 </div>

@@ -15,7 +15,7 @@ function getDaysLeft(expiresAt: string | null): string {
   if (days <= 1) return '오늘 만료'
   if (days <= 7) return `D-${days}`
   if (days <= 30) return `D-${days}`
-  return `~${new Date(expiresAt).toLocaleDateString('ko-KR')}`
+  return `~${new Date(expiresAt).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })}`
 }
 
 export default function CouponSelector({ coupons, selected, onSelect, price }: CouponSelectorProps) {

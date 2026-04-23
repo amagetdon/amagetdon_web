@@ -76,9 +76,9 @@ export const couponService = {
       const p = profile as { name?: string | null; phone?: string | null; email?: string | null } | null
       if (c && p) {
         const expiresAt = c.expires_at
-          ? new Date(c.expires_at).toLocaleDateString('ko-KR')
+          ? new Date(c.expires_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
           : c.use_days
-          ? new Date(Date.now() + c.use_days * 86400_000).toLocaleDateString('ko-KR')
+          ? new Date(Date.now() + c.use_days * 86400_000).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' })
           : ''
         const { webhookService } = await import('./webhookService')
         webhookService.fireCustomEvent('coupon_issued', {
