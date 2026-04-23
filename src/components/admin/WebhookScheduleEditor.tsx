@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { webhookScheduleService, type WebhookSchedule, type WebhookScheduleRun, type TriggerType } from '../../services/webhookScheduleService'
 import { webhookService, type WebhookConfig } from '../../services/webhookService'
 import { supabase } from '../../lib/supabase'
+import { normalizeAlimtalkKeys } from '../../utils/webhookTemplate'
 import TemplateAliasConfirmModal from './TemplateAliasConfirmModal'
 
 interface ScopeInfo {
@@ -344,7 +345,10 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     if (end <= start) return { body: val, extracted: false }
     const body = t.slice(start, end).trim()
     if (!body.startsWith('{')) return { body: val, extracted: false }
-    const replaced = body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"')
+    // shoong cURL이 버튼 링크 키를 `variables.{링크명5` 처럼 `}` 없이 내려주는 버그 보정
+    const replaced = normalizeAlimtalkKeys(
+      body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"'),
+    )
     return { body: replaced, extracted: true }
   }
 

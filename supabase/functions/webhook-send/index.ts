@@ -23,6 +23,12 @@ function resolveTemplate(template: string, data: Payload): string {
   return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => String(data[k] ?? ''))
 }
 
+// shoong-api 등 알림톡 제공사 cURL이 버튼 링크 변수 키를 `variables.{링크명5` 처럼 닫는 `}` 없이 내려주는 버그를 런타임에 보정.
+// 닫는 `}`가 빠진 상태로 넘어가면 제공사 측 부분 매칭으로 실제 버튼 URL 뒤에 `%7D` 가 붙어 없는 페이지로 연결됨.
+function normalizeAlimtalkKeys(body: string): string {
+  return body.replace(/"(variables\.#?\{[^"{}]*)":/g, '"$1}":')
+}
+
 function parseHeaderData(h: string): Record<string, string> {
   const out: Record<string, string> = {}
   if (!h) return out
@@ -202,13 +208,22 @@ Deno.serve(async (req: Request) => {
       payload,
     }
 
-    // 템플릿 유무로 자동 판단 — signup/purchase 템플릿이 비어있으면 발사 안 함
-    const templateForCheck = event === 'signup' ? config?.signup_template : event === 'purchase' ? config?.purchase_template : null
-    const templateEmpty = (event === 'signup' || event === 'purchase') && !templateForCheck?.trim()
-    // (커스텀 이벤트는 아래에서 webhook_custom_events 조회 + enabled 체크로 별도 처리)
+    // 템플릿 유무로 자동 판단
+    // - signup/purchase: 기본 템플릿 필수
+    // - refund/cancel: 기본 템플릿 슬롯이 없음 → custom event 로만 지원. 여기서는 skip
+    // - custom: 아래 webhook_custom_events 조회 + enabled 체크로 별도 처리
+    const builtInEvent = event === 'signup' || event === 'purchase'
+    const templateForCheck = event === 'signup' ? config?.signup_template
+      : event === 'purchase' ? config?.purchase_template
+      : null
+    const templateEmpty = builtInEvent
+      ? !templateForCheck?.trim()
+      : event !== 'custom' // refund/cancel 등 built-in도 custom도 아닌 이벤트는 기본 발송 차단
 
     if (!config || !config.enabled || !config.url || templateEmpty) {
-      const reason = !config ? 'no config' : !config.enabled ? 'disabled' : !config.url ? 'no url' : 'template empty'
+      const reason = !config ? 'no config' : !config.enabled ? 'disabled' : !config.url ? 'no url'
+        : builtInEvent ? 'template empty'
+        : `event "${event}" has no built-in template — use a custom event instead`
       logRow.send_status = 'skipped'
       logRow.error_message = reason
       const { data: skipped } = test_mode
@@ -281,10 +296,14 @@ Deno.serve(async (req: Request) => {
         aliases = ceRow.variable_aliases ?? {}
       }
     } else {
-      template = event === 'signup' ? config.signup_template : config.purchase_template
+      template = event === 'signup' ? config.signup_template
+        : event === 'purchase' ? config.purchase_template
+        : ''
       // signup/purchase alias는 webhook_configs row에서 읽기
       const cfgFull = config as unknown as { signup_variable_aliases?: Record<string, string>; purchase_variable_aliases?: Record<string, string> }
-      aliases = (event === 'signup' ? cfgFull.signup_variable_aliases : cfgFull.purchase_variable_aliases) ?? {}
+      aliases = (event === 'signup' ? cfgFull.signup_variable_aliases
+        : event === 'purchase' ? cfgFull.purchase_variable_aliases
+        : {}) ?? {}
     }
 
     // 사용자 정의 canonical 변수 주입 (open_chat_url 등)
@@ -304,7 +323,7 @@ Deno.serve(async (req: Request) => {
 
     let outBody: Payload | string = payload
     if (template) {
-      const resolved = resolveTemplate(template, payload)
+      const resolved = normalizeAlimtalkKeys(resolveTemplate(template, payload))
       const trimmed = resolved.trim()
       if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         try { outBody = JSON.parse(trimmed) } catch { outBody = resolved }

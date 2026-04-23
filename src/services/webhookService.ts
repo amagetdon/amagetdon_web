@@ -1,7 +1,8 @@
 import { supabase } from '../lib/supabase'
+import { normalizeAlimtalkKeys } from '../utils/webhookTemplate'
 
 export type WebhookScope = 'global' | 'course' | 'ebook'
-export type WebhookEvent = 'signup' | 'purchase' | 'refund' | 'cancel'
+export type WebhookEvent = 'signup' | 'purchase' | 'refund' | 'cancel' | 'custom'
 
 export interface WebhookConfig {
   id?: number
@@ -71,7 +72,13 @@ async function loadConfig(scope: WebhookScope, scopeId: number | null): Promise<
   let query = supabase.from('webhook_configs').select('*').eq('scope', scope)
   query = scopeId == null ? query.is('scope_id', null) : query.eq('scope_id', scopeId)
   const { data } = await query.maybeSingle()
-  return data as WebhookConfig | null
+  if (!data) return null
+  const row = data as WebhookConfig
+  return {
+    ...row,
+    signup_template: normalizeAlimtalkKeys(row.signup_template || ''),
+    purchase_template: normalizeAlimtalkKeys(row.purchase_template || ''),
+  }
 }
 
 function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record<string, unknown>): Record<string, unknown> {
@@ -82,6 +89,19 @@ function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record
   const phone = options.displayPhone || (extras.phone as string) || ''
   const email = options.displayEmail || (extras.email as string) || ''
   const title = options.displayTitle || (extras.title as string) || ''
+
+  // 강의 일시(scheduled_at) 다형 포맷 — 구매/예약 이벤트에서 제일 가까운 schedule 의 값을 사용
+  const schedRaw = (extras.scheduled_at as string | null | undefined) || null
+  const sched = schedRaw ? new Date(schedRaw) : null
+  const schedValid = sched && !Number.isNaN(sched.getTime()) ? sched : null
+  const schedDate = schedValid
+    ? schedValid.toLocaleDateString('ko-KR').replace(/\. /g, '.').replace(/\.$/, '')
+    : ''
+  const schedTime = schedValid
+    ? schedValid.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+    : ''
+  const schedDatetime = schedValid ? `${schedDate} ${schedTime}` : ''
+
   return {
     event,
     ...extras,
@@ -102,6 +122,23 @@ function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record
     date: now.toLocaleDateString('ko-KR'),
     time: now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
     timestamp: now.toISOString(),
+    // 강의 일시 (한글/대문자/snake_case 모두 제공)
+    SCHEDULED_DATE: schedDate,
+    SCHEDULED_TIME: schedTime,
+    SCHEDULED_DATETIME: schedDatetime,
+    scheduled_date: schedDate,
+    scheduled_time: schedTime,
+    scheduled_datetime: schedDatetime,
+    강의날짜: schedDate,
+    강의시간: schedTime,
+    강의일시: schedDatetime,
+    수업날짜: schedDate,
+    수업시간: schedTime,
+    수업일시: schedDatetime,
+    예정일: schedDate,
+    예정시간: schedTime,
+    예정일시: schedDatetime,
+    일시: schedDatetime,
     // 한글 변수명 별칭 (shoong 알림톡 템플릿에서 자주 쓰이는 이름들)
     이름: name,
     고객명: name,
@@ -112,6 +149,7 @@ function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record
     핸드폰번호: phone,
     이메일: email,
     강의명: title,
+    강의제목: title,
     모임명: title,
     모임: title,
     수업명: title,
@@ -229,6 +267,41 @@ export const webhookService = {
     productId?: number | null
     paymentId?: number | null
   }, context?: WebhookContext) {
+    // course 인 경우 일시 자동 조회
+    // 우선순위: schedules.scheduled_at(미래→과거) → courses.enrollment_start → courses.enrollment_deadline
+    let scheduledAt: string | null = null
+    if (data.type === 'course' && data.productId) {
+      const [schedFuture, courseRow] = await Promise.all([
+        supabase
+          .from('schedules')
+          .select('scheduled_at')
+          .eq('course_id', data.productId)
+          .gte('scheduled_at', new Date().toISOString())
+          .order('scheduled_at', { ascending: true })
+          .limit(1),
+        supabase
+          .from('courses')
+          .select('enrollment_start, enrollment_deadline')
+          .eq('id', data.productId)
+          .maybeSingle(),
+      ])
+      scheduledAt = (schedFuture.data as Array<{ scheduled_at: string }> | null)?.[0]?.scheduled_at ?? null
+      if (!scheduledAt) {
+        const { data: past } = await supabase
+          .from('schedules')
+          .select('scheduled_at')
+          .eq('course_id', data.productId)
+          .order('scheduled_at', { ascending: false })
+          .limit(1)
+        scheduledAt = (past as Array<{ scheduled_at: string }> | null)?.[0]?.scheduled_at ?? null
+      }
+      if (!scheduledAt) {
+        // schedules 레코드가 없으면 courses 의 오픈일시(→마감일시) 로 폴백 — {#강의날짜#} 등이 오픈일시로 채워짐
+        const c = courseRow.data as { enrollment_start?: string | null; enrollment_deadline?: string | null } | null
+        scheduledAt = c?.enrollment_start ?? c?.enrollment_deadline ?? null
+      }
+    }
+
     await fireInternal('purchase', {
       user_email: data.user_email || '',
       user_name: data.user_name || '',
@@ -236,6 +309,7 @@ export const webhookService = {
       title: data.title || '',
       price: data.price ?? 0,
       type: data.type,
+      scheduled_at: scheduledAt,
     }, {
       scope: data.type,
       scopeId: data.productId ?? null,
@@ -293,6 +367,50 @@ export const webhookService = {
     scopeId?: number | null
   }): Promise<void> {
     try {
+      // course 인 경우 일시 자동 조회 (schedules → courses.enrollment_start → enrollment_deadline)
+      let scheduledAt: string | null = null
+      if (options?.scope === 'course' && options.scopeId) {
+        const [schedFuture, courseRow] = await Promise.all([
+          supabase
+            .from('schedules')
+            .select('scheduled_at')
+            .eq('course_id', options.scopeId)
+            .gte('scheduled_at', new Date().toISOString())
+            .order('scheduled_at', { ascending: true })
+            .limit(1),
+          supabase
+            .from('courses')
+            .select('enrollment_start, enrollment_deadline')
+            .eq('id', options.scopeId)
+            .maybeSingle(),
+        ])
+        scheduledAt = (schedFuture.data as Array<{ scheduled_at: string }> | null)?.[0]?.scheduled_at ?? null
+        if (!scheduledAt) {
+          const { data: past } = await supabase
+            .from('schedules')
+            .select('scheduled_at')
+            .eq('course_id', options.scopeId)
+            .order('scheduled_at', { ascending: false })
+            .limit(1)
+          scheduledAt = (past as Array<{ scheduled_at: string }> | null)?.[0]?.scheduled_at ?? null
+        }
+        if (!scheduledAt) {
+          const c = courseRow.data as { enrollment_start?: string | null; enrollment_deadline?: string | null } | null
+          scheduledAt = c?.enrollment_start ?? c?.enrollment_deadline ?? null
+        }
+      }
+
+      // firePurchase 등과 동일하게 buildDataDict 를 거쳐 한글 alias / 시간 포맷 / UTM 등 전부 주입
+      const enriched = buildDataDict('custom', {
+        scope: (options?.scope === 'coupon' ? 'global' : options?.scope) ?? 'global',
+        scopeId: options?.scopeId ?? null,
+        userId: options?.userId ?? null,
+        displayName: options?.userName ?? (payload.user_name as string | undefined) ?? (payload.name as string | undefined) ?? '',
+        displayPhone: options?.userPhone ?? (payload.user_phone as string | undefined) ?? (payload.phone as string | undefined) ?? '',
+        displayEmail: options?.userEmail ?? (payload.user_email as string | undefined) ?? (payload.email as string | undefined) ?? '',
+        displayTitle: options?.title ?? (payload.title as string | undefined) ?? '',
+      }, { ...payload, scheduled_at: scheduledAt })
+
       await supabase.functions.invoke('webhook-send', {
         body: {
           event: 'custom',
@@ -300,21 +418,7 @@ export const webhookService = {
           scope: options?.scope ?? 'global',
           scope_id: options?.scopeId ?? null,
           user_id: options?.userId ?? null,
-          payload: {
-            ...payload,
-            // 디비카트 스타일 별칭 매핑
-            ITEM1: options?.userName ?? payload.user_name ?? payload.name ?? '',
-            ITEM2: options?.userPhone ?? payload.user_phone ?? payload.phone ?? '',
-            ITEM2_NOH: String(options?.userPhone ?? payload.user_phone ?? payload.phone ?? '').replace(/-/g, ''),
-            TITLE: options?.title ?? payload.title ?? '',
-            name: options?.userName ?? payload.name ?? '',
-            user_name: options?.userName ?? payload.user_name ?? '',
-            phone: options?.userPhone ?? payload.phone ?? '',
-            user_phone: options?.userPhone ?? payload.user_phone ?? '',
-            email: options?.userEmail ?? payload.email ?? '',
-            user_email: options?.userEmail ?? payload.user_email ?? '',
-            title: options?.title ?? payload.title ?? '',
-          },
+          payload: enriched,
         },
       })
     } catch {
@@ -348,11 +452,12 @@ export const webhookService = {
   // 커스텀 이벤트 정의 CRUD
   async listCustomEvents(): Promise<Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }>> {
     const { data } = await supabase.from('webhook_custom_events').select('*').order('sort_order').order('id')
-    return (data as Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }> | null) ?? []
+    const list = (data as Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }> | null) ?? []
+    return list.map((r) => ({ ...r, template: normalizeAlimtalkKeys(r.template || '') }))
   },
 
   async upsertCustomEvent(row: { id?: number; code: string; label: string; description?: string | null; trigger_hint?: string | null; template: string; enabled?: boolean; sort_order?: number; variable_aliases?: Record<string, string> }): Promise<void> {
-    const payload = { ...row, variable_aliases: row.variable_aliases ?? {} }
+    const payload = { ...row, template: normalizeAlimtalkKeys(row.template || ''), variable_aliases: row.variable_aliases ?? {} }
     if (row.id) {
       await supabase.from('webhook_custom_events').update(payload as never).eq('id', row.id)
     } else {
@@ -371,7 +476,8 @@ export const webhookService = {
       .select('*')
       .eq('scope', scope)
       .eq('scope_id', scopeId)
-    return (data as Array<{ id: number; event_code: string; scope: string; scope_id: number; template: string; enabled: boolean }> | null) ?? []
+    const list = (data as Array<{ id: number; event_code: string; scope: string; scope_id: number; template: string; enabled: boolean }> | null) ?? []
+    return list.map((r) => ({ ...r, template: normalizeAlimtalkKeys(r.template || '') }))
   },
 
   async upsertCustomEventOverride(row: { id?: number; event_code: string; scope: 'coupon' | 'course' | 'ebook'; scope_id: number; template: string; enabled?: boolean; variable_aliases?: Record<string, string> }): Promise<void> {
@@ -379,7 +485,7 @@ export const webhookService = {
       event_code: row.event_code,
       scope: row.scope,
       scope_id: row.scope_id,
-      template: row.template,
+      template: normalizeAlimtalkKeys(row.template || ''),
       enabled: row.enabled ?? true,
       variable_aliases: row.variable_aliases ?? {},
     }
@@ -495,7 +601,12 @@ export const webhookService = {
 
   async listConfigs(): Promise<WebhookConfig[]> {
     const { data } = await supabase.from('webhook_configs').select('*').order('scope').order('scope_id')
-    return (data as WebhookConfig[] | null) ?? []
+    const list = (data as WebhookConfig[] | null) ?? []
+    return list.map((row) => ({
+      ...row,
+      signup_template: normalizeAlimtalkKeys(row.signup_template || ''),
+      purchase_template: normalizeAlimtalkKeys(row.purchase_template || ''),
+    }))
   },
 
   async saveConfig(config: WebhookConfig): Promise<WebhookConfig> {
@@ -511,8 +622,8 @@ export const webhookService = {
       headers: config.headers,
       events: config.events,
       use_template: config.use_template,
-      signup_template: config.signup_template,
-      purchase_template: config.purchase_template,
+      signup_template: normalizeAlimtalkKeys(config.signup_template || ''),
+      purchase_template: normalizeAlimtalkKeys(config.purchase_template || ''),
       label: config.label,
       signup_variable_aliases: cfgExt.signup_variable_aliases ?? {},
       purchase_variable_aliases: cfgExt.purchase_variable_aliases ?? {},

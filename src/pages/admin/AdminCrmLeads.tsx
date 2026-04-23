@@ -611,12 +611,17 @@ function FragmentRow({ row, isOpen, toggleOpen, isChecked, toggleChecked, memoEd
                   </div>
                 </DetailRow>
                 <DetailRow label="NOTI 전송결과">
-                  <div className="bg-white border border-gray-200 rounded p-2 text-[11px] font-mono break-all max-h-40 overflow-y-auto">
-                    {row.send_status === 'failed' ? (
-                      <span className="text-red-600">{row.error_message || 'Network error'}</span>
-                    ) : (
-                      row.response_body || '(비어있음 — no-cors 응답은 본문 확인 불가)'
+                  <div className="bg-white border border-gray-200 rounded p-2 text-[11px] font-mono break-all max-h-40 overflow-y-auto space-y-1">
+                    {row.send_status === 'failed' && (
+                      <div className="text-red-600 font-bold">
+                        {row.error_message || 'Network error'}
+                        {row.response_status ? ` (${row.response_status})` : ''}
+                      </div>
                     )}
+                    {row.response_body
+                      ? <div className="text-gray-700 whitespace-pre-wrap">{row.response_body}</div>
+                      : row.send_status !== 'failed' && <div className="text-gray-400">(비어있음 — no-cors 응답은 본문 확인 불가)</div>
+                    }
                   </div>
                 </DetailRow>
                 <DetailRow label="재전송">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { webhookService } from '../../services/webhookService'
+import CanonicalKeyPicker from './CanonicalKeyPicker'
 
 export interface AliasSuggestion {
   variable: string
@@ -19,28 +20,6 @@ interface Props {
   onConfirm: (aliases: Record<string, string>, slotFills: Record<string, string>) => void
 }
 
-// 선택 가능한 canonical 키 (webhook-template-analyze의 CANONICAL_KEYS와 동기화)
-const CANONICAL_OPTIONS = [
-  { key: '', label: '(매핑 안 함 — 빈 값 전달)' },
-  { key: 'TITLE', label: 'TITLE — 강의/전자책/쿠폰 제목' },
-  { key: 'instructor_name', label: 'instructor_name — 강사 이름' },
-  { key: 'course_url', label: 'course_url — 상품 페이지 URL' },
-  { key: 'price', label: 'price — 가격' },
-  { key: 'user_name', label: 'user_name — 구매자 이름' },
-  { key: 'user_phone', label: 'user_phone — 전화번호(하이픈)' },
-  { key: 'ITEM2_NOH', label: 'ITEM2_NOH — 전화번호(하이픈X)' },
-  { key: 'user_email', label: 'user_email — 이메일' },
-  { key: '강의일시', label: '강의일시 — 전체 일시' },
-  { key: 'SCHEDULED_DATE', label: 'SCHEDULED_DATE — 날짜' },
-  { key: 'SCHEDULED_TIME', label: 'SCHEDULED_TIME — 시간' },
-  { key: 'coupon_name', label: 'coupon_name — 쿠폰 이름' },
-  { key: 'coupon_value', label: 'coupon_value — 쿠폰 할인값' },
-  { key: 'expires_at', label: 'expires_at — 만료일' },
-  { key: 'point_amount', label: 'point_amount — 포인트 충전 금액' },
-  { key: 'point_balance', label: 'point_balance — 포인트 잔액' },
-  { key: 'DBNO', label: 'DBNO — 발송 고유번호' },
-]
-
 export default function TemplateAliasConfirmModal({ isOpen, unknownVars, suggestedAliases, emptySlots, suggestedSlotFills, warning, onCancel, onConfirm }: Props) {
   const [customCanonicals, setCustomCanonicals] = useState<Array<{ key: string; value: string; description: string }>>([])
   useEffect(() => {
@@ -50,13 +29,7 @@ export default function TemplateAliasConfirmModal({ isOpen, unknownVars, suggest
     }).catch(() => setCustomCanonicals([]))
   }, [isOpen])
 
-  const allOptions = [
-    ...CANONICAL_OPTIONS,
-    ...customCanonicals.map((c) => ({
-      key: c.key,
-      label: `${c.key} — ${c.description || c.value.slice(0, 50)} (사용자 정의)`,
-    })),
-  ]
+  const customOptions = customCanonicals.map((c) => ({ key: c.key, description: c.description || c.value.slice(0, 50) }))
 
   const [mappings, setMappings] = useState<Record<string, string>>(() => {
     const m: Record<string, string> = {}
@@ -116,17 +89,12 @@ export default function TemplateAliasConfirmModal({ isOpen, unknownVars, suggest
                         )}
                       </div>
                       <div className="flex-1 min-w-[220px]">
-                        <input
-                          list={`canon-alias-${v}`}
+                        <CanonicalKeyPicker
                           value={mappings[v] ?? ''}
-                          onChange={(e) => setMappings({ ...mappings, [v]: e.target.value })}
-                          placeholder="canonical 키 (목록에서 선택 또는 직접 입력)"
-                          className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#2ED573] bg-white font-mono" />
-                        <datalist id={`canon-alias-${v}`}>
-                          {allOptions.filter((o) => o.key).map((opt) => (
-                            <option key={opt.key} value={opt.key}>{opt.label}</option>
-                          ))}
-                        </datalist>
+                          onChange={(val) => setMappings({ ...mappings, [v]: val })}
+                          placeholder="canonical 키 선택"
+                          customOptions={customOptions}
+                        />
                       </div>
                     </div>
                   </div>
@@ -153,17 +121,14 @@ export default function TemplateAliasConfirmModal({ isOpen, unknownVars, suggest
                         )}
                       </div>
                       <div className="flex-1 min-w-[220px]">
-                        <input
-                          list={`canon-slot-${s}`}
+                        <CanonicalKeyPicker
                           value={slotFills[s] ?? ''}
-                          onChange={(e) => setSlotFills({ ...slotFills, [s]: e.target.value })}
-                          placeholder="canonical 키 (목록에서 선택 또는 직접 입력)"
-                          className="w-full border border-blue-300 rounded-lg px-2 py-1.5 text-xs outline-none focus:border-[#2ED573] bg-white font-mono" />
-                        <datalist id={`canon-slot-${s}`}>
-                          {allOptions.filter((o) => o.key).map((opt) => (
-                            <option key={opt.key} value={opt.key}>{opt.label}</option>
-                          ))}
-                        </datalist>
+                          onChange={(val) => setSlotFills({ ...slotFills, [s]: val })}
+                          placeholder="canonical 키 또는 고정값 입력"
+                          customOptions={customOptions}
+                          accentColor="blue"
+                          allowFreeInput
+                        />
                       </div>
                     </div>
                   </div>

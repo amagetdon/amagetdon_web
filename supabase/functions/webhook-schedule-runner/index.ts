@@ -42,6 +42,11 @@ function resolveTemplate(template: string, data: Record<string, unknown>): strin
   return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => String(data[k] ?? ''))
 }
 
+// shoong-api 등 알림톡 제공사 cURL이 버튼 링크 변수 키를 `variables.{링크명5` 처럼 닫는 `}` 없이 내려주는 버그를 런타임에 보정.
+function normalizeAlimtalkKeys(body: string): string {
+  return body.replace(/"(variables\.#?\{[^"{}]*)":/g, '"$1}":')
+}
+
 function parseHeaderData(h: string): Record<string, string> {
   const out: Record<string, string> = {}
   if (!h) return out
@@ -285,6 +290,7 @@ Deno.serve(async (req: Request) => {
         강사: instructorName,
         선생님: instructorName,
         강의명: title,
+        강의제목: title,
         모임명: title,
         모임: title,
         수업명: title,
@@ -294,8 +300,16 @@ Deno.serve(async (req: Request) => {
         일시: longDt,
         모임일시: longDt,
         강의일시: longDt,
+        수업일시: longDt,
+        예정일시: longDt,
         날짜: dateStr,
         시간: timeStr,
+        강의날짜: dateStr,
+        강의시간: timeStr,
+        수업날짜: dateStr,
+        수업시간: timeStr,
+        예정일: dateStr,
+        예정시간: timeStr,
         링크: courseUrl,
         URL주소: courseUrl,
         가격: coursePrice ? `${coursePrice.toLocaleString()}원` : '',
@@ -322,7 +336,7 @@ Deno.serve(async (req: Request) => {
       const template = sched.request_template || ''
       let outBody: Record<string, unknown> | string = data
       if (template) {
-        const resolved = resolveTemplate(template, data)
+        const resolved = normalizeAlimtalkKeys(resolveTemplate(template, data))
         const trimmed = resolved.trim()
         if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
           try { outBody = JSON.parse(trimmed) } catch { outBody = resolved }

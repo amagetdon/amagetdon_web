@@ -5,6 +5,7 @@ import OpenaiKeyManager from '../../components/admin/OpenaiKeyManager'
 import CustomCanonicalVarsManager from '../../components/admin/CustomCanonicalVarsManager'
 import TemplateAliasConfirmModal from '../../components/admin/TemplateAliasConfirmModal'
 import { webhookService, defaultWebhookConfig, type WebhookConfig } from '../../services/webhookService'
+import { normalizeAlimtalkKeys } from '../../utils/webhookTemplate'
 
 function fillEmptySlots(template: string, slotFills: Record<string, string>): string {
   let out = template
@@ -457,6 +458,8 @@ export default function AdminWebhook() {
             // shoong placeholder phone을 변수로 자동 치환
             const before = body
             body = body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"')
+            // shoong cURL이 버튼 링크 키를 `variables.{링크명5` 처럼 `}` 없이 내려주는 버그 보정
+            body = normalizeAlimtalkKeys(body)
             const phoneReplaced = before !== body
             // 추출된 JSON으로 대체
             if (isCustomTab) {
