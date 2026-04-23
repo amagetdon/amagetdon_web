@@ -423,8 +423,19 @@ export default function AdminWebhook() {
     }
   }
   const handleSaveCurrentTemplate = async () => {
-    if (isCustomTab && customEventForTab) {
-      try {
+    if (config.enabled && !config.url) {
+      toast.error('수신 URL을 입력해주세요.')
+      return
+    }
+    setSaving(true)
+    try {
+      // 1) 글로벌 설정 저장 (URL · 인증 헤더 · signup/purchase 템플릿 등)
+      //    어떤 탭에서 저장하든 헤더와 글로벌 설정은 항상 함께 저장
+      const saved = await webhookService.saveConfig({ ...config, scope: 'global', scope_id: null })
+      setConfig(saved)
+
+      // 2) 커스텀 탭이면 해당 이벤트 템플릿도 함께 저장
+      if (isCustomTab && customEventForTab) {
         await webhookService.upsertCustomEvent({
           id: customEventForTab.id,
           code: customEventForTab.code,
@@ -435,13 +446,13 @@ export default function AdminWebhook() {
           enabled: customEventForTab.enabled,
           sort_order: customEventForTab.sort_order,
         })
-        toast.success('저장되었습니다.')
         fetchCustomEvents()
-      } catch {
-        toast.error('저장 실패')
       }
-    } else {
-      await handleSave()
+      toast.success('저장되었습니다.')
+    } catch {
+      toast.error('저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -498,11 +509,14 @@ export default function AdminWebhook() {
               />
             </div>
             <div>
-              <label className="text-sm font-bold text-gray-700 block mb-1.5">수신 URL</label>
+              <label className="text-sm font-bold text-gray-700 block mb-1.5">
+                수신 URL
+                <span className="ml-1.5 text-[10px] text-blue-600 bg-blue-50 rounded-full px-1.5 py-0.5">모든 알림톡 공통</span>
+              </label>
               <input
                 value={config.url}
                 onChange={(e) => setConfig((c) => ({ ...c, url: e.target.value }))}
-                placeholder="https://..."
+                placeholder="https://shoong-api.coredev.co.kr/send"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] font-mono"
               />
             </div>
@@ -554,8 +568,11 @@ export default function AdminWebhook() {
 
         {/* 특수 전송 헤더 */}
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-sm font-bold text-gray-900 mb-1">특수 전송 헤더 (Header)</h2>
-          <p className="text-xs text-gray-400 mb-3">외부 주소로 전달할 헤더. key=value&amp;key=value 형식. 예약어 사용 가능.</p>
+          <h2 className="text-sm font-bold text-gray-900 mb-1 flex items-center gap-1.5">
+            특수 전송 헤더 (Header)
+            <span className="text-[10px] text-blue-600 bg-blue-50 rounded-full px-1.5 py-0.5 font-medium">모든 알림톡 공통</span>
+          </h2>
+          <p className="text-xs text-gray-400 mb-3">회원가입·구매·쿠폰 등 모든 알림톡에 공통으로 적용됩니다. <code>key=value&amp;key=value</code> 형식. 예약어 사용 가능.</p>
           <textarea
             ref={headerRef}
             value={config.header_data}
