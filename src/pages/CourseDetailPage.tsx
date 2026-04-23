@@ -10,6 +10,7 @@ import SeoHead from '../components/SeoHead'
 import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
+import { webhookScheduleService } from '../services/webhookScheduleService'
 import CouponSelector from '../components/CouponSelector'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
@@ -25,6 +26,7 @@ function CourseDetailPage() {
   const { course, loading } = useCourse(courseId)
   const [searchParams] = useSearchParams()
   const isClosed = searchParams.get('closed') === 'true'
+  useEffect(() => { webhookService.markLandingEntry() }, [])
   const navigate = useNavigate()
   const { user, profile, refreshProfile, isAdmin } = useAuth()
   const { closedVisualEffect } = useAcademySettings()
@@ -209,7 +211,10 @@ function CourseDetailPage() {
         course.enrollment_deadline || null,
       )
       if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
-      webhookService.firePurchase({ user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: course.title, price: finalPrice, type: 'course' }).catch(() => {})
+      webhookService.firePurchase({ userId: user.id, user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: course.title, price: finalPrice, type: 'course', productId: course.id }, webhookService.captureContext()).catch(() => {})
+      webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile.name || '', userPhone: profile.phone || '', userEmail: profile.email || '', scope: 'course', scopeId: course.id, courseTitle: course.title }).catch(() => {})
+      // 정원 도달 시 enrollment_full 자동 트리거
+      webhookScheduleService.triggerEnrollmentFullIfReached('course', course.id, enrollmentCount + 1, course.max_enrollments).catch(() => {})
       toast.success('강의를 구매했습니다!')
       setOwned(true)
       setConfirmOpen(false)

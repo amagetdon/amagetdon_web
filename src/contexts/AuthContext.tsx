@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, useCallback } 
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../types'
+import { webhookService } from '../services/webhookService'
 
 interface AuthContextType {
   user: User | null
@@ -130,6 +131,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (isIncomplete) {
                   window.location.replace('/mypage')
                 }
+              }
+
+              // OAuth 신규 가입자 webhook (이메일 가입은 SignUpPage에서 직접 fire)
+              const provider = newSession.user.app_metadata?.provider
+              if (provider && provider !== 'email') {
+                supabase
+                  .from('webhook_logs')
+                  .select('id', { count: 'exact', head: true })
+                  .eq('user_id', newSession.user.id)
+                  .eq('event_type', 'signup')
+                  .then(({ count }) => {
+                    if ((count ?? 0) > 0) return
+                    webhookService.fireSignup({
+                      userId: newSession.user.id,
+                      name: prof?.name || (newSession.user.user_metadata?.name as string) || (newSession.user.user_metadata?.full_name as string) || '',
+                      email: newSession.user.email || '',
+                      phone: prof?.phone || '',
+                      gender: prof?.gender || null,
+                      address: prof?.address || null,
+                      birth_date: prof?.birth_date || null,
+                      provider,
+                      utm_source: prof?.utm_source || null,
+                      utm_medium: prof?.utm_medium || null,
+                      utm_campaign: prof?.utm_campaign || null,
+                      utm_content: prof?.utm_content || null,
+                      utm_term: prof?.utm_term || null,
+                    }, webhookService.captureContext()).catch(() => {})
+                  })
               }
             }
             setLoading(false)

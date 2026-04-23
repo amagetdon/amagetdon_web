@@ -57,6 +57,7 @@ const AdminAchievements = lazy(() => import('./pages/admin/AdminAchievements'))
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'))
 const AdminUtmBuilder = lazy(() => import('./pages/admin/AdminUtmBuilder'))
 const AdminWebhook = lazy(() => import('./pages/admin/AdminWebhook'))
+const AdminCrmLeads = lazy(() => import('./pages/admin/AdminCrmLeads'))
 const AdminPages = lazy(() => import('./pages/admin/AdminPages'))
 const AdminCourseDetail = lazy(() => import('./pages/admin/AdminCourseDetail'))
 const AdminEbookDetail = lazy(() => import('./pages/admin/AdminEbookDetail'))
@@ -184,6 +185,7 @@ function App() {
                 <Route path="/admin/coupons" element={<AdminRoute><AdminCoupons /></AdminRoute>} />
                 <Route path="/admin/utm" element={<AdminRoute><AdminUtmBuilder /></AdminRoute>} />
                 <Route path="/admin/webhook" element={<AdminRoute><AdminWebhook /></AdminRoute>} />
+                <Route path="/admin/crm-leads" element={<AdminRoute><AdminCrmLeads /></AdminRoute>} />
                 <Route path="/admin/analytics" element={<AdminRoute><AdminAnalytics /></AdminRoute>} />
                 <Route path="/admin/revenue-analytics" element={<AdminRoute><AdminRevenueAnalytics /></AdminRoute>} />
                 <Route path="/admin/pages" element={<AdminRoute><AdminPages /></AdminRoute>} />

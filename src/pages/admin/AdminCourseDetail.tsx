@@ -7,6 +7,7 @@ import ImageUploader from '../../components/admin/ImageUploader'
 import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
 import RichTextEditor from '../../components/admin/RichTextEditor'
+import WebhookScheduleEditor from '../../components/admin/WebhookScheduleEditor'
 import { courseService } from '../../services/courseService'
 import { reviewService } from '../../services/reviewService'
 import { instructorService } from '../../services/instructorService'
@@ -45,13 +46,14 @@ const toKstDatetimeLocal = (iso: string | null | undefined) => {
   return kst.toISOString().slice(0, 16)
 }
 
-type DetailTab = 'info' | 'curriculum' | 'reviews' | 'members'
+type DetailTab = 'info' | 'curriculum' | 'reviews' | 'members' | 'webhooks'
 
 const TABS: { key: DetailTab; label: string; icon: string }[] = [
   { key: 'info', label: '기본 정보', icon: 'ti-info-circle' },
   { key: 'curriculum', label: '커리큘럼', icon: 'ti-list' },
   { key: 'reviews', label: '수강 후기', icon: 'ti-message-star' },
   { key: 'members', label: '수강생', icon: 'ti-users' },
+  { key: 'webhooks', label: '예약 알림톡', icon: 'ti-bell-ringing' },
 ]
 
 export default function AdminCourseDetail() {
@@ -1118,6 +1120,12 @@ export default function AdminCourseDetail() {
             </div>
           )}
         </div>
+      ) : tab === 'webhooks' ? (
+        courseId ? (
+          <WebhookScheduleEditor scope="course" scopeId={courseId} />
+        ) : (
+          <p className="text-sm text-gray-400 text-center py-12">강의를 먼저 저장한 뒤 예약 알림톡을 설정할 수 있습니다.</p>
+        )
       ) : null}
 
       <ConfirmDialog

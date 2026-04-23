@@ -7,6 +7,7 @@ import { Dialog, Transition } from '@headlessui/react'
 import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
+import { webhookScheduleService } from '../services/webhookScheduleService'
 import CouponSelector from '../components/CouponSelector'
 import SeoHead from '../components/SeoHead'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
@@ -21,6 +22,7 @@ function EbookDetailPage() {
   const navigate = useNavigate()
   const { user, profile, refreshProfile } = useAuth()
   const { closedVisualEffect } = useAcademySettings()
+  useEffect(() => { webhookService.markLandingEntry() }, [])
 
   const [ebook, setEbook] = useState<EbookWithInstructor | null>(null)
   const [loading, setLoading] = useState(true)
@@ -184,7 +186,8 @@ function EbookDetailPage() {
         selectedCoupon ? price : undefined
       )
       if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
-      webhookService.firePurchase({ user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: ebook.title, price: finalPrice, type: 'ebook' }).catch(() => {})
+      webhookService.firePurchase({ userId: user.id, user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: ebook.title, price: finalPrice, type: 'ebook', productId: ebook.id }, webhookService.captureContext()).catch(() => {})
+      webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile.name || '', userPhone: profile.phone || '', userEmail: profile.email || '', scope: 'ebook', scopeId: ebook.id, courseTitle: ebook.title }).catch(() => {})
       toast.success('전자책을 구매했습니다!')
       setOwned(true)
       setConfirmOpen(false)

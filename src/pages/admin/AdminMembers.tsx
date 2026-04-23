@@ -9,6 +9,8 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
+import { webhookService } from '../../services/webhookService'
+import { webhookScheduleService } from '../../services/webhookScheduleService'
 import type { Profile, PointLog, Coupon } from '../../types'
 
 interface MemberWithPurchases extends Profile {
@@ -275,6 +277,24 @@ export default function AdminMembers() {
       if (rewardDeducted > 0) msgs.push(`적립 회수 -${rewardDeducted.toLocaleString()}P`)
       if (refundRestoreCoupon && refundTarget.coupon_id) msgs.push('쿠폰 복구됨')
       toast.success(msgs.join(' · '))
+
+      // 환불 웹훅
+      webhookService.fireRefund({
+        userId: viewing.id,
+        user_email: viewing.email || '',
+        user_name: viewing.name || '',
+        user_phone: viewing.phone || '',
+        title: refundTarget.title,
+        price: refundTarget.price,
+        type: refundTarget.course_id ? 'course' : 'ebook',
+        productId: refundTarget.course_id ?? refundTarget.ebook_id ?? null,
+        paymentId: refundTarget.id,
+      }).catch(() => {})
+      // 미발송 예약 알림톡 취소
+      const productId = refundTarget.course_id ?? refundTarget.ebook_id
+      if (productId) {
+        webhookScheduleService.cancelForUserScope(viewing.id, refundTarget.course_id ? 'course' : 'ebook', productId).catch(() => {})
+      }
 
       const pointsChange = (isToss ? 0 : refundTarget.price) - rewardDeducted
       setRefundTarget(null)

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { webhookService } from '../services/webhookService'
@@ -48,6 +48,7 @@ function SignUpPage() {
   const externalServices = useExternalServices()
   const kakaoLoginEnabled = !!externalServices.KAKAO_LOGIN?.enabled
   const [searchParams] = useSearchParams()
+  useEffect(() => { webhookService.markLandingEntry() }, [])
   const utmParams = useMemo(() => ({
     utm_source: searchParams.get('utm_source') || sessionStorage.getItem('utm_source') || undefined,
     utm_medium: searchParams.get('utm_medium') || sessionStorage.getItem('utm_medium') || undefined,
@@ -171,6 +172,7 @@ function SignUpPage() {
       }
       // 웹훅 전송 (비동기, 실패해도 무시)
       webhookService.fireSignup({
+        userId: newUser?.id || null,
         name: form.name,
         email: form.email,
         phone,
@@ -178,7 +180,7 @@ function SignUpPage() {
         address: form.address ? `${form.zonecode}|${form.address}|${form.addressDetail}` : null,
         birth_date: birthDate || null,
         ...utmParams,
-      }).catch(() => {})
+      }, webhookService.captureContext()).catch(() => {})
     } catch (err) {
       if (err instanceof Error) {
         if (err.message.includes('already registered')) {
