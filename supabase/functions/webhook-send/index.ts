@@ -23,10 +23,12 @@ function resolveTemplate(template: string, data: Payload): string {
   return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => String(data[k] ?? ''))
 }
 
-// shoong-api 는 Kakao 표준 문법 `variables.#{{변수명}}` 를 요구하지만, 제공사 cURL 생성기가
-// 바깥 `#{` 와 `}` 를 빼먹고 `variables.{변수명` 으로 내리는 버그가 있어 런타임에 보정.
+// shoong 표준 API 키는 `variables.<변수명>` 평문. cURL 생성기가 닫는 `}` 를 빠뜨리거나
+// 이전 normalize 에서 `#{{...}}` 로 과도 변환된 경우를 `variables.{변수명}` 으로 복원.
 function normalizeAlimtalkKeys(body: string): string {
-  return body.replace(/"variables\.\{([^"{}]+)\}?":/g, '"variables.#{{$1}}":')
+  return body
+    .replace(/"variables\.#\{\{([^"{}]+)\}\}":/g, '"variables.{$1}":')
+    .replace(/"variables\.\{([^"{}]+)\}?":/g, '"variables.{$1}":')
 }
 
 function parseHeaderData(h: string): Record<string, string> {
@@ -308,11 +310,21 @@ Deno.serve(async (req: Request) => {
 
     // 사용자 정의 canonical 변수 주입 (open_chat_url 등)
     try {
-      const { data: customVars } = await supabase.from('custom_canonical_vars').select('key, value')
+      const { data: customVars, error: cvErr } = await supabase.from('custom_canonical_vars').select('key, value')
+      console.log('[webhook-send] custom_canonical_vars result', { count: customVars?.length ?? null, error: cvErr?.message ?? null })
       for (const cv of ((customVars as Array<{ key: string; value: string }> | null) ?? [])) {
-        if ((payload as Payload)[cv.key] === undefined) (payload as Payload)[cv.key] = cv.value
+        if ((payload as Payload)[cv.key] === undefined || (payload as Payload)[cv.key] === '') {
+          ;(payload as Payload)[cv.key] = cv.value
+        }
       }
-    } catch { /* noop */ }
+      console.log('[webhook-send] payload after canonical inject', {
+        open_chat_url: (payload as Payload).open_chat_url,
+        user_name: (payload as Payload).user_name,
+        강의날짜: (payload as Payload).강의날짜,
+      })
+    } catch (e) {
+      console.error('[webhook-send] custom_canonical_vars exception', e)
+    }
 
     // variable_aliases 오버레이 — 사전 매핑된 임의 변수명을 canonical 값으로 주입
     for (const [alias, canonical] of Object.entries(aliases)) {

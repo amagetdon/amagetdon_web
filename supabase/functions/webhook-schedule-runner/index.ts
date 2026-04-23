@@ -42,10 +42,12 @@ function resolveTemplate(template: string, data: Record<string, unknown>): strin
   return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => String(data[k] ?? ''))
 }
 
-// shoong-api 는 Kakao 표준 문법 `variables.#{{변수명}}` 를 요구하지만, 제공사 cURL 생성기가
-// 바깥 `#{` 와 `}` 를 빼먹고 `variables.{변수명` 으로 내리는 버그가 있어 런타임에 보정.
+// shoong 표준 API 키는 `variables.<변수명>` 평문. cURL 생성기가 닫는 `}` 를 빠뜨리거나
+// 이전 normalize 에서 `#{{...}}` 로 과도 변환된 경우를 `variables.{변수명}` 으로 복원.
 function normalizeAlimtalkKeys(body: string): string {
-  return body.replace(/"variables\.\{([^"{}]+)\}?":/g, '"variables.#{{$1}}":')
+  return body
+    .replace(/"variables\.#\{\{([^"{}]+)\}\}":/g, '"variables.{$1}":')
+    .replace(/"variables\.\{([^"{}]+)\}?":/g, '"variables.{$1}":')
 }
 
 function parseHeaderData(h: string): Record<string, string> {

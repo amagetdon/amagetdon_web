@@ -20,9 +20,11 @@ export const CANONICAL_GROUPS: CanonicalOption[] = [
   { key: 'ITEM2_NOH', label: '전화번호(하이픈X)', group: '사용자' },
   { key: 'user_email', label: '이메일', group: '사용자' },
   // 일시
-  { key: 'SCHEDULED_DATETIME', label: '전체 일시(날짜+시간)', group: '일시' },
-  { key: 'SCHEDULED_DATE', label: '날짜(yyyy.mm.dd)', group: '일시' },
-  { key: 'SCHEDULED_TIME', label: '시간(HH:mm)', group: '일시' },
+  { key: 'ENROLLMENT_START', label: '강의 오픈일시', group: '일시' },
+  { key: 'ENROLLMENT_DEADLINE', label: '강의 마감일시', group: '일시' },
+  { key: 'SCHEDULED_DATETIME', label: '수업 진행 일시(날짜+시간)', group: '일시' },
+  { key: 'SCHEDULED_DATE', label: '수업 진행 날짜', group: '일시' },
+  { key: 'SCHEDULED_TIME', label: '수업 진행 시간', group: '일시' },
   // 쿠폰
   { key: 'coupon_name', label: '쿠폰 이름', group: '쿠폰' },
   { key: 'coupon_value', label: '쿠폰 할인값', group: '쿠폰' },
@@ -108,7 +110,7 @@ export default function CanonicalKeyPicker({ value, onChange, placeholder, custo
       )}
 
       {open && (
-        <div className="absolute z-[70] mt-1 left-0 right-0 bg-white border border-gray-200 rounded-xl shadow-lg max-h-[320px] overflow-hidden flex flex-col">
+        <div className="absolute z-[70] mt-1 left-0 bg-white border border-gray-200 rounded-xl shadow-lg max-h-[400px] overflow-hidden flex flex-col w-[360px] sm:w-[480px] md:w-[560px]">
           <div className="p-2 border-b border-gray-100 flex items-center gap-2">
             <i className="ti ti-search text-gray-400 text-xs" />
             <input

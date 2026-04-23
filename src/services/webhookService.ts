@@ -90,17 +90,21 @@ function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record
   const email = options.displayEmail || (extras.email as string) || ''
   const title = options.displayTitle || (extras.title as string) || ''
 
-  // 강의 일시(scheduled_at) 다형 포맷 — 구매/예약 이벤트에서 제일 가까운 schedule 의 값을 사용
-  const schedRaw = (extras.scheduled_at as string | null | undefined) || null
-  const sched = schedRaw ? new Date(schedRaw) : null
-  const schedValid = sched && !Number.isNaN(sched.getTime()) ? sched : null
-  const schedDate = schedValid
-    ? schedValid.toLocaleDateString('ko-KR').replace(/\. /g, '.').replace(/\.$/, '')
-    : ''
-  const schedTime = schedValid
-    ? schedValid.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
-    : ''
-  const schedDatetime = schedValid ? `${schedDate} ${schedTime}` : ''
+  // 일시 포매팅 유틸 — ISO 문자열을 ko-KR date/time/datetime 3종으로 변환
+  const fmtDt = (raw: string | null | undefined): { date: string; time: string; datetime: string } => {
+    if (!raw) return { date: '', time: '', datetime: '' }
+    const d = new Date(raw)
+    if (Number.isNaN(d.getTime())) return { date: '', time: '', datetime: '' }
+    const date = d.toLocaleDateString('ko-KR').replace(/\. /g, '.').replace(/\.$/, '')
+    const time = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false })
+    return { date, time, datetime: `${date} ${time}` }
+  }
+
+  // 강의 일시(scheduled_at) 다형 포맷 — schedules 또는 그 폴백 값
+  const { date: schedDate, time: schedTime, datetime: schedDatetime } = fmtDt(extras.scheduled_at as string | null | undefined)
+  // 강의 오픈일시/마감일시 (courses.enrollment_start / enrollment_deadline)
+  const enrStart = fmtDt(extras.enrollment_start as string | null | undefined)
+  const enrDeadline = fmtDt(extras.enrollment_deadline as string | null | undefined)
 
   return {
     event,
@@ -122,13 +126,30 @@ function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record
     date: now.toLocaleDateString('ko-KR'),
     time: now.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }),
     timestamp: now.toISOString(),
-    // 강의 일시 (한글/대문자/snake_case 모두 제공)
+    // 수업 진행 일시 (schedules.scheduled_at 기준; 없으면 오픈일시 폴백)
     SCHEDULED_DATE: schedDate,
     SCHEDULED_TIME: schedTime,
     SCHEDULED_DATETIME: schedDatetime,
     scheduled_date: schedDate,
     scheduled_time: schedTime,
     scheduled_datetime: schedDatetime,
+    // 강의 오픈일시 (courses.enrollment_start)
+    ENROLLMENT_START: enrStart.datetime,
+    ENROLLMENT_START_DATE: enrStart.date,
+    ENROLLMENT_START_TIME: enrStart.time,
+    enrollment_start_datetime: enrStart.datetime,
+    오픈일시: enrStart.datetime,
+    오픈날짜: enrStart.date,
+    오픈시간: enrStart.time,
+    // 강의 마감일시 (courses.enrollment_deadline)
+    ENROLLMENT_DEADLINE: enrDeadline.datetime,
+    ENROLLMENT_DEADLINE_DATE: enrDeadline.date,
+    ENROLLMENT_DEADLINE_TIME: enrDeadline.time,
+    enrollment_deadline_datetime: enrDeadline.datetime,
+    마감일시: enrDeadline.datetime,
+    마감일: enrDeadline.date,
+    마감시간: enrDeadline.time,
+    // 수업 진행 한글 alias
     강의날짜: schedDate,
     강의시간: schedTime,
     강의일시: schedDatetime,
@@ -268,8 +289,9 @@ export const webhookService = {
     paymentId?: number | null
   }, context?: WebhookContext) {
     // course 인 경우 일시 자동 조회
-    // 우선순위: schedules.scheduled_at(미래→과거) → courses.enrollment_start → courses.enrollment_deadline
     let scheduledAt: string | null = null
+    let enrollmentStart: string | null = null
+    let enrollmentDeadline: string | null = null
     if (data.type === 'course' && data.productId) {
       const [schedFuture, courseRow] = await Promise.all([
         supabase
@@ -285,6 +307,9 @@ export const webhookService = {
           .eq('id', data.productId)
           .maybeSingle(),
       ])
+      const c = courseRow.data as { enrollment_start?: string | null; enrollment_deadline?: string | null } | null
+      enrollmentStart = c?.enrollment_start ?? null
+      enrollmentDeadline = c?.enrollment_deadline ?? null
       scheduledAt = (schedFuture.data as Array<{ scheduled_at: string }> | null)?.[0]?.scheduled_at ?? null
       if (!scheduledAt) {
         const { data: past } = await supabase
@@ -295,11 +320,8 @@ export const webhookService = {
           .limit(1)
         scheduledAt = (past as Array<{ scheduled_at: string }> | null)?.[0]?.scheduled_at ?? null
       }
-      if (!scheduledAt) {
-        // schedules 레코드가 없으면 courses 의 오픈일시(→마감일시) 로 폴백 — {#강의날짜#} 등이 오픈일시로 채워짐
-        const c = courseRow.data as { enrollment_start?: string | null; enrollment_deadline?: string | null } | null
-        scheduledAt = c?.enrollment_start ?? c?.enrollment_deadline ?? null
-      }
+      // schedules 레코드가 없으면 SCHEDULED_* 도 오픈일시/마감일시로 폴백
+      if (!scheduledAt) scheduledAt = enrollmentStart ?? enrollmentDeadline ?? null
     }
 
     await fireInternal('purchase', {
@@ -310,6 +332,8 @@ export const webhookService = {
       price: data.price ?? 0,
       type: data.type,
       scheduled_at: scheduledAt,
+      enrollment_start: enrollmentStart,
+      enrollment_deadline: enrollmentDeadline,
     }, {
       scope: data.type,
       scopeId: data.productId ?? null,
