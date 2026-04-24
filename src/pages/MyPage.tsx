@@ -173,11 +173,12 @@ function MyPage() {
       }
 
       // 비회원(guest) → 정규회원 자동 승격
-      // 비밀번호는 가입 시 이미 설정되었으므로, 누락된 추가 정보(주소/생년월일/성별)를 모두 채우면 승격
+      // 비회원 가입 시 비밀번호가 없으므로, 모든 필수 정보 + 비밀번호 설정 시 승격
       let promoted = false
       if (profile?.provider === 'guest') {
         const allFilled = !!form.name && !!phone && !!birthDate && !!form.gender && !!form.address
-        if (allFilled) {
+        const passwordSet = !!form.password
+        if (allFilled && passwordSet) {
           try {
             await profileService.promoteGuestToMember(user.id)
             promoted = true
@@ -286,8 +287,8 @@ function MyPage() {
             <div>
               <p className="text-sm font-bold text-emerald-800">비회원으로 가입되셨습니다</p>
               <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
-                현재는 이메일·비밀번호로 로그인 가능합니다. 아래에서 <strong>주소·생년월일·성별</strong>까지 입력하고 저장하시면
-                정규 회원으로 자동 전환됩니다.
+                현재는 <strong>이메일 링크로만</strong> 로그인 가능합니다. 아래에서 <strong>주소·생년월일·성별 + 비밀번호</strong>까지 입력하고 저장하시면
+                정규 회원으로 자동 전환되어 비밀번호로 직접 로그인할 수 있습니다.
               </p>
             </div>
           </div>

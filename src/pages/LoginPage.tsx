@@ -24,6 +24,32 @@ function LoginPage() {
   const [resetMessage, setResetMessage] = useState('')
   const [resetSending, setResetSending] = useState(false)
 
+  // 이메일 링크 로그인 (비회원 구매자 주로 사용)
+  const [linkSending, setLinkSending] = useState(false)
+  const [linkMessage, setLinkMessage] = useState('')
+
+  const handleSendLoginLink = async () => {
+    if (!email.trim()) { setLinkMessage('이메일을 먼저 입력해주세요.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setLinkMessage('올바른 이메일 형식이 아닙니다.'); return }
+    try {
+      setLinkSending(true)
+      setLinkMessage('')
+      await authService.sendLoginLink(email)
+      setLinkMessage('로그인 링크를 이메일로 보냈습니다. 메일함(스팸 포함)을 확인해주세요.')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '발송에 실패했습니다.'
+      if (/Signups not allowed|User not found|not found|registered/i.test(msg)) {
+        setLinkMessage('해당 이메일로 가입된 계정이 없습니다.')
+      } else if (/Too many requests/i.test(msg)) {
+        setLinkMessage('너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.')
+      } else {
+        setLinkMessage(msg)
+      }
+    } finally {
+      setLinkSending(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -185,14 +211,28 @@ function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center mt-3">
+        <div className="text-center mt-3 flex items-center justify-center gap-3 text-sm">
           <button
             onClick={() => { setShowResetModal(true); setResetEmail(email); setResetMessage('') }}
-            className="text-sm text-gray-400 cursor-pointer bg-transparent border-none hover:text-gray-600"
+            className="text-gray-400 cursor-pointer bg-transparent border-none hover:text-gray-600"
           >
-            비밀번호를 잊으셨나요?
+            비밀번호 찾기
+          </button>
+          <span className="text-gray-200">|</span>
+          <button
+            onClick={handleSendLoginLink}
+            disabled={linkSending}
+            className="text-gray-400 cursor-pointer bg-transparent border-none hover:text-[#2ED573] disabled:opacity-50"
+            title="비회원 구매자는 여기로 로그인"
+          >
+            {linkSending ? '발송 중...' : '이메일 링크로 로그인'}
           </button>
         </div>
+        {linkMessage && (
+          <p className={`text-xs text-center mt-2 ${linkMessage.includes('보냈습니다') ? 'text-[#2ED573]' : 'text-red-400'}`}>
+            {linkMessage}
+          </p>
+        )}
 
         <div className="mt-6 flex flex-col gap-3">
           <div className="flex items-center gap-3 text-gray-400 text-xs">

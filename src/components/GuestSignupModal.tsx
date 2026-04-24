@@ -24,7 +24,6 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [agree, setAgree] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -39,7 +38,6 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
     if (!trimmedName) { toast.error('이름을 입력해주세요.'); return }
     if (phoneDigits.length < 10 || phoneDigits.length > 11) { toast.error('올바른 전화번호를 입력해주세요.'); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { toast.error('올바른 이메일을 입력해주세요.'); return }
-    if (password.length < 6) { toast.error('비밀번호는 6자 이상으로 설정해주세요.'); return }
     if (!agree) { toast.error('이용약관에 동의해주세요.'); return }
 
     setSubmitting(true)
@@ -48,7 +46,6 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
         name: trimmedName,
         phone: formatPhoneKR(phone),
         email: trimmedEmail,
-        password,
         signup_referrer: signupReferrer,
       })
       toast.success('가입 완료! 구매를 진행합니다.')
@@ -89,9 +86,9 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
 
         <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-3 text-[11px] text-emerald-800 leading-relaxed">
           <i className="ti ti-info-circle mr-1" />
-          주소·생년월일·성별 없이 아래 정보만으로 바로 구매할 수 있습니다.
+          비밀번호 없이 아래 정보만으로 바로 구매하세요.
           <br />
-          이후에도 <strong>입력하신 이메일과 비밀번호</strong>로 로그인하여 구매한 강의를 시청하실 수 있습니다.
+          다음 접속 시에는 <strong>이메일로 받는 로그인 링크</strong>로 들어와 구매한 강의를 시청하실 수 있습니다.
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -127,20 +124,7 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
               placeholder="email@example.com"
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
             />
-            <p className="text-[11px] text-gray-400 mt-1">다음 접속 시 로그인 아이디로 사용됩니다.</p>
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-gray-700 block mb-1">비밀번호</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="6자 이상"
-              autoComplete="new-password"
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
-            />
-            <p className="text-[11px] text-gray-400 mt-1">다음 로그인 시 이 비밀번호를 사용합니다.</p>
+            <p className="text-[11px] text-gray-400 mt-1">다음 접속 시 이 이메일로 로그인 링크를 받을 수 있습니다.</p>
           </div>
 
           <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer py-2">
