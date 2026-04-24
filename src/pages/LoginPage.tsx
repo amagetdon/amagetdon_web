@@ -257,10 +257,10 @@ function LoginPage() {
           <button
             type="button"
             onClick={() => { setShowGuestModal(true); setGuestEmail(email); setGuestMessage('') }}
-            className="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-3 rounded-lg cursor-pointer flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
+            className="w-full bg-gray-700 text-white font-bold py-3 rounded-lg cursor-pointer flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors border-none"
           >
-            <i className="ti ti-mail-opened text-[#2ED573]" />
-            비회원 로그인 (이메일 링크)
+            <i className="ti ti-mail-opened text-white" />
+            비회원 로그인
           </button>
         </div>
 
