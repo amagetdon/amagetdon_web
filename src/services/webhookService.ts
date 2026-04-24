@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase'
-import { normalizeAlimtalkKeys } from '../utils/webhookTemplate'
 
 export type WebhookScope = 'global' | 'course' | 'ebook'
 export type WebhookEvent = 'signup' | 'purchase' | 'refund' | 'cancel' | 'custom'
@@ -72,13 +71,7 @@ async function loadConfig(scope: WebhookScope, scopeId: number | null): Promise<
   let query = supabase.from('webhook_configs').select('*').eq('scope', scope)
   query = scopeId == null ? query.is('scope_id', null) : query.eq('scope_id', scopeId)
   const { data } = await query.maybeSingle()
-  if (!data) return null
-  const row = data as WebhookConfig
-  return {
-    ...row,
-    signup_template: normalizeAlimtalkKeys(row.signup_template || ''),
-    purchase_template: normalizeAlimtalkKeys(row.purchase_template || ''),
-  }
+  return data as WebhookConfig | null
 }
 
 function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record<string, unknown>): Record<string, unknown> {
@@ -476,12 +469,11 @@ export const webhookService = {
   // 커스텀 이벤트 정의 CRUD
   async listCustomEvents(): Promise<Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }>> {
     const { data } = await supabase.from('webhook_custom_events').select('*').order('sort_order').order('id')
-    const list = (data as Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }> | null) ?? []
-    return list.map((r) => ({ ...r, template: normalizeAlimtalkKeys(r.template || '') }))
+    return (data as Array<{ id: number; code: string; label: string; description: string | null; trigger_hint: string | null; template: string; enabled: boolean; built_in: boolean; sort_order: number }> | null) ?? []
   },
 
   async upsertCustomEvent(row: { id?: number; code: string; label: string; description?: string | null; trigger_hint?: string | null; template: string; enabled?: boolean; sort_order?: number; variable_aliases?: Record<string, string> }): Promise<void> {
-    const payload = { ...row, template: normalizeAlimtalkKeys(row.template || ''), variable_aliases: row.variable_aliases ?? {} }
+    const payload = { ...row, variable_aliases: row.variable_aliases ?? {} }
     if (row.id) {
       await supabase.from('webhook_custom_events').update(payload as never).eq('id', row.id)
     } else {
@@ -500,8 +492,7 @@ export const webhookService = {
       .select('*')
       .eq('scope', scope)
       .eq('scope_id', scopeId)
-    const list = (data as Array<{ id: number; event_code: string; scope: string; scope_id: number; template: string; enabled: boolean }> | null) ?? []
-    return list.map((r) => ({ ...r, template: normalizeAlimtalkKeys(r.template || '') }))
+    return (data as Array<{ id: number; event_code: string; scope: string; scope_id: number; template: string; enabled: boolean }> | null) ?? []
   },
 
   async upsertCustomEventOverride(row: { id?: number; event_code: string; scope: 'coupon' | 'course' | 'ebook'; scope_id: number; template: string; enabled?: boolean; variable_aliases?: Record<string, string> }): Promise<void> {
@@ -509,7 +500,7 @@ export const webhookService = {
       event_code: row.event_code,
       scope: row.scope,
       scope_id: row.scope_id,
-      template: normalizeAlimtalkKeys(row.template || ''),
+      template: row.template,
       enabled: row.enabled ?? true,
       variable_aliases: row.variable_aliases ?? {},
     }
@@ -625,12 +616,7 @@ export const webhookService = {
 
   async listConfigs(): Promise<WebhookConfig[]> {
     const { data } = await supabase.from('webhook_configs').select('*').order('scope').order('scope_id')
-    const list = (data as WebhookConfig[] | null) ?? []
-    return list.map((row) => ({
-      ...row,
-      signup_template: normalizeAlimtalkKeys(row.signup_template || ''),
-      purchase_template: normalizeAlimtalkKeys(row.purchase_template || ''),
-    }))
+    return (data as WebhookConfig[] | null) ?? []
   },
 
   async saveConfig(config: WebhookConfig): Promise<WebhookConfig> {
@@ -646,8 +632,8 @@ export const webhookService = {
       headers: config.headers,
       events: config.events,
       use_template: config.use_template,
-      signup_template: normalizeAlimtalkKeys(config.signup_template || ''),
-      purchase_template: normalizeAlimtalkKeys(config.purchase_template || ''),
+      signup_template: config.signup_template,
+      purchase_template: config.purchase_template,
       label: config.label,
       signup_variable_aliases: cfgExt.signup_variable_aliases ?? {},
       purchase_variable_aliases: cfgExt.purchase_variable_aliases ?? {},

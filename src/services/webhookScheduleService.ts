@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase'
-import { normalizeAlimtalkKeys } from '../utils/webhookTemplate'
 
 export type TriggerType = 'time_offset' | 'enrollment_full' | 'manual'
 
@@ -47,23 +46,16 @@ export const webhookScheduleService = {
       .eq('scope_id', scopeId)
       .order('offset_minutes')
       .order('sort_order')
-    const list = (data as WebhookSchedule[] | null) ?? []
-    return list.map((r) => ({ ...r, request_template: normalizeAlimtalkKeys(r.request_template || '') }))
+    return (data as WebhookSchedule[] | null) ?? []
   },
 
   async upsert(schedule: Partial<WebhookSchedule>): Promise<WebhookSchedule> {
-    const normalized: Partial<WebhookSchedule> = {
-      ...schedule,
-      ...(schedule.request_template !== undefined
-        ? { request_template: normalizeAlimtalkKeys(schedule.request_template || '') }
-        : {}),
-    }
-    if (normalized.id) {
-      const { data, error } = await supabase.from('webhook_schedules').update(normalized as never).eq('id', normalized.id).select().single()
+    if (schedule.id) {
+      const { data, error } = await supabase.from('webhook_schedules').update(schedule as never).eq('id', schedule.id).select().single()
       if (error) throw error
       return data as WebhookSchedule
     }
-    const { data, error } = await supabase.from('webhook_schedules').insert(normalized as never).select().single()
+    const { data, error } = await supabase.from('webhook_schedules').insert(schedule as never).select().single()
     if (error) throw error
     return data as WebhookSchedule
   },

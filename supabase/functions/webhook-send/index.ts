@@ -23,14 +23,6 @@ function resolveTemplate(template: string, data: Payload): string {
   return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => String(data[k] ?? ''))
 }
 
-// shoong 버튼 링크 변수는 변수명 자체가 `{링크명5` (닫는 `}` 없음) 형태. 원본 cURL 이 정답.
-// 과거 과도 변환 결과(`{X}` 또는 `#{{X}}`) 를 원본으로 원복한다.
-function normalizeAlimtalkKeys(body: string): string {
-  return body
-    .replace(/"variables\.#\{\{([^"{}]+)\}\}":/g, '"variables.{$1":')
-    .replace(/"variables\.(\{[^"{}]+)\}":/g, '"variables.$1":')
-}
-
 function parseHeaderData(h: string): Record<string, string> {
   const out: Record<string, string> = {}
   if (!h) return out
@@ -335,7 +327,7 @@ Deno.serve(async (req: Request) => {
 
     let outBody: Payload | string = payload
     if (template) {
-      const resolved = normalizeAlimtalkKeys(resolveTemplate(template, payload))
+      const resolved = resolveTemplate(template, payload)
       const trimmed = resolved.trim()
       if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
         try { outBody = JSON.parse(trimmed) } catch { outBody = resolved }

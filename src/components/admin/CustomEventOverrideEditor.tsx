@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import { webhookService } from '../../services/webhookService'
-import { normalizeAlimtalkKeys } from '../../utils/webhookTemplate'
 import TemplateAliasConfirmModal from './TemplateAliasConfirmModal'
 
 interface CustomEventDef {
@@ -182,10 +181,7 @@ export default function CustomEventOverrideEditor({ scope, scopeId, eventCodes, 
         if (end > start) {
           const body = t.slice(start, end).trim()
           if (body.startsWith('{')) {
-            // shoong cURL이 버튼 링크 키를 `variables.{링크명5` 처럼 `}` 없이 내려주는 버그 보정
-            next = normalizeAlimtalkKeys(
-              body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"'),
-            )
+            next = body.replace(/"phone"\s*:\s*"01012345678"/g, '"phone":"{#ITEM2_NOH#}"')
             toast.success('cURL에서 JSON 본문 자동 추출됨')
           }
         }
