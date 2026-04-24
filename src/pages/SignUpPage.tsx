@@ -277,13 +277,33 @@ function SignUpPage() {
               value={form.password}
               onChange={(e) => handleChange('password', e.target.value)}
               placeholder="8~18자 영문/숫자/특수문자"
+              autoComplete="new-password"
               className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
             />
             {errors.password ? (
               <p className="text-xs text-red-500 mt-1">{errors.password}</p>
-            ) : (
-              <p className="text-xs text-[#2ED573] mt-1">8~18자의 영문/숫자/특수문자를 함께 입력해주세요.</p>
-            )}
+            ) : (() => {
+              const pw = form.password
+              if (!pw) {
+                return <p className="text-xs mt-1 text-gray-400">8~18자의 영문/숫자/특수문자를 함께 입력해주세요.</p>
+              }
+              const checks = [
+                { label: '8~18자', ok: pw.length >= 8 && pw.length <= 18 },
+                { label: '영문', ok: /[a-zA-Z]/.test(pw) },
+                { label: '숫자', ok: /\d/.test(pw) },
+                { label: '특수문자', ok: /[!@#$%^&*]/.test(pw) },
+              ]
+              return (
+                <div className="text-xs mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
+                  {checks.map((c) => (
+                    <span key={c.label} className={`inline-flex items-center gap-0.5 ${c.ok ? 'text-[#2ED573]' : 'text-gray-400'}`}>
+                      <i className={`ti ${c.ok ? 'ti-check' : 'ti-x'}`} />
+                      {c.label}
+                    </span>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
 
           {/* 비밀번호 확인 */}
@@ -294,10 +314,16 @@ function SignUpPage() {
               value={form.passwordConfirm}
               onChange={(e) => handleChange('passwordConfirm', e.target.value)}
               placeholder="비밀번호를 다시 입력해주세요."
+              autoComplete="new-password"
               className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
             />
-            {errors.passwordConfirm && (
+            {errors.passwordConfirm ? (
               <p className="text-xs text-red-500 mt-1">{errors.passwordConfirm}</p>
+            ) : form.passwordConfirm && (
+              <p className={`text-xs mt-1 ${form.password === form.passwordConfirm ? 'text-[#2ED573]' : 'text-red-500'}`}>
+                <i className={`ti ${form.password === form.passwordConfirm ? 'ti-check' : 'ti-x'} mr-0.5`} />
+                {form.password === form.passwordConfirm ? '비밀번호가 일치합니다.' : '비밀번호가 일치하지 않습니다.'}
+              </p>
             )}
           </div>
 
