@@ -316,9 +316,11 @@ export default function AdminInstructors() {
                       value={(editing.hero_bullets || []).join('\n')}
                       onChange={(e) => setEditing({ ...editing, hero_bullets: e.target.value.split('\n') })}
                       rows={3}
-                      placeholder={'운영중인 채널 월 평균 조회수 수익만 1,500만 원 이상\n한달 평균 조회수 1억회 이상\n\'릴스\' 하나로 광고비 한 푼 없이 브랜드 런칭 직후 7천만 원 매출'}
+                      placeholder={'운영중인 채널 월 평균 조회수 **수익만 1,500만 원** 이상\n한달 평균 조회수 **1억회** 이상\n\'릴스\' 하나로 광고비 한 푼 없이 브랜드 런칭 직후 **7천만 원** 매출'}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#2ED573]" />
-                    <p className="text-[10px] text-gray-400 mt-1">카드에서 자동으로 "-" 접두사가 붙습니다.</p>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      카드에서 자동으로 "-" 접두사가 붙습니다. 강조하려면 <code className="bg-white px-1 rounded">**볼드**</code> 로 감싸세요.
+                    </p>
                   </div>
 
                   <div>
@@ -349,24 +351,23 @@ export default function AdminInstructors() {
                         className="absolute inset-0 rounded-[32px] overflow-hidden shadow-lg"
                         style={{ background: `linear-gradient(135deg, ${editing.hero_bg_from || '#1a1a1a'} 0%, ${editing.hero_bg_to || '#2a2a2a'} 100%)` }}
                       >
-                        <div className="relative z-10 h-full flex flex-col justify-between p-5 max-w-[58%]">
-                          <div>
-                            <h4
-                              className="text-lg font-bold leading-tight mb-1 whitespace-pre-line"
-                              style={{ color: editing.hero_title_color || '#FFFFFF' }}
-                            >
-                              {editing.hero_title || `${editing.name || '강사'} 강사입니다.`}
-                            </h4>
-                            <p className="text-white/80 text-xs font-medium">
-                              {editing.name}
-                              {editing.title && <span className="ml-1.5">{editing.title}</span>}
-                            </p>
-                          </div>
+                        <div className="relative z-10 h-full flex flex-col items-start text-left p-5 max-w-[58%]">
+                          <h4
+                            className="text-lg font-bold leading-[1.25] whitespace-pre-line"
+                            style={{ color: editing.hero_title_color || '#FFFFFF' }}
+                          >
+                            {editing.hero_title || `${editing.name || '강사'} 강사입니다.`}
+                          </h4>
+                          <p className="text-white/90 mt-3">
+                            <span className="text-sm font-bold">{editing.name}</span>
+                            {editing.title && <span className="ml-1.5 text-xs font-medium text-white/75">{editing.title}</span>}
+                          </p>
                           {(editing.hero_bullets || []).filter((b) => b.trim()).length > 0 && (
-                            <ul className="mt-3 space-y-0.5">
-                              {(editing.hero_bullets || []).filter((b) => b.trim()).slice(0, 3).map((b, i) => (
-                                <li key={i} className="text-white/85 text-[11px] leading-snug">- {b}</li>
-                              ))}
+                            <ul className="mt-2 space-y-0.5">
+                              {(editing.hero_bullets || []).filter((b) => b.trim()).map((b, i) => {
+                                const html = `- ${b.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}`
+                                return <li key={i} className="text-white/85 text-[11px] leading-snug" dangerouslySetInnerHTML={{ __html: html }} />
+                              })}
                             </ul>
                           )}
                         </div>

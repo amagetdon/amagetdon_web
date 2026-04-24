@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
 import { Link } from 'react-router-dom'
 import type { Instructor } from '../types'
 
@@ -13,16 +13,43 @@ const SLIDE_STYLES: Record<string, SlideStyle> = {
   center: { transform: 'translateX(-50%) scale(1)', opacity: 1, zIndex: 10, pointerEvents: 'auto' },
   left: { transform: 'translateX(-110%) scale(0.88)', opacity: 0.35, zIndex: 5, pointerEvents: 'auto' },
   right: { transform: 'translateX(10%) scale(0.88)', opacity: 0.35, zIndex: 5, pointerEvents: 'auto' },
-  hidden: { transform: 'translateX(-50%) scale(0.8)', opacity: 0, zIndex: 0, pointerEvents: 'none' },
+  // hidden-left: 좌측 밖, hidden-right: 우측 밖 — 방향을 유지해야 left→hidden 전환 시 중앙으로 점프하지 않음
+  'hidden-left': { transform: 'translateX(-200%) scale(0.7)', opacity: 0, zIndex: 0, pointerEvents: 'none' },
+  'hidden-right': { transform: 'translateX(100%) scale(0.7)', opacity: 0, zIndex: 0, pointerEvents: 'none' },
 }
 
+// 원형 배열 기준 가까운 쪽에 숨김 — center 오른쪽 쪽(diff 작음)은 hidden-right,
+// 왼쪽 쪽(diff 큼)은 hidden-left. 이 규칙이면 새 right 카드는 항상 오른쪽 밖(hidden-right)에서,
+// 새 left 카드는 항상 왼쪽 밖(hidden-left)에서 자연스럽게 들어옴.
 function getSlidePosition(slideIndex: number, activeIndex: number, total: number): string {
   if (total <= 1) return 'center'
   const diff = ((slideIndex - activeIndex) % total + total) % total
   if (diff === 0) return 'center'
   if (diff === 1) return 'right'
   if (diff === total - 1) return 'left'
-  return 'hidden'
+  if (diff <= total / 2) return 'hidden-right'
+  return 'hidden-left'
+}
+
+// 두 position 간 전환이 화면을 가로지르는 점프인지 (left↔right, hidden-left↔hidden-right/right 등) 판정
+function isCrossJumpTransition(prev: string | undefined, curr: string): boolean {
+  if (!prev || prev === curr) return false
+  const leftSide = new Set(['left', 'hidden-left'])
+  const rightSide = new Set(['right', 'hidden-right'])
+  return (leftSide.has(prev) && rightSide.has(curr)) || (rightSide.has(prev) && leftSide.has(curr))
+}
+
+function isVisible(pos: string): boolean {
+  return pos === 'center' || pos === 'left' || pos === 'right'
+}
+
+// `**볼드**` 문법 → <strong>. < > & 는 이스케이프 후 변환하여 XSS 방지.
+function formatBoldMarkdown(text: string): string {
+  const escaped = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+  return escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
 }
 
 function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolean }) {
@@ -39,27 +66,32 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
         className="absolute inset-0 rounded-[32px] max-sm:rounded-[24px] overflow-hidden shadow-2xl"
         style={{ background: bg }}
       >
-        {/* 왼쪽 텍스트 */}
-        <div className="relative z-10 h-full flex flex-col justify-between p-7 max-sm:p-4 max-w-[58%] max-sm:max-w-[68%]">
-          <div>
-            <h3
-              className="text-[22px] max-sm:text-[15px] font-bold leading-tight mb-2 max-sm:mb-1.5 whitespace-pre-line"
-              style={{ color: inst.hero_title_color }}
-            >
-              {inst.hero_title || `${inst.name} 강사입니다.`}
-            </h3>
-            <p className="text-white/80 text-xs max-sm:text-[10px] font-medium">
-              {inst.name}
-              {inst.title && <span className="ml-1.5">{inst.title}</span>}
-            </p>
-          </div>
+        {/* 왼쪽 텍스트 — 누끼(z-10) 위에 겹치도록 z-20
+            items-start + text-left 로 좌측 정렬 강제 (사이드 축소 카드에서도 중앙쏠림 방지).
+            justify-between 대신 고정 갭으로 제목↔이름 간격 일정 유지. */}
+        <div className="relative z-20 h-full flex flex-col items-start text-left px-10 pt-11 pb-9 max-sm:px-6 max-sm:pt-8 max-sm:pb-6 max-w-[68%] max-sm:max-w-[78%]">
+          <h3
+            className="text-[26px] max-sm:text-[17px] font-bold leading-[1.25] whitespace-pre-line"
+            style={{ color: inst.hero_title_color }}
+          >
+            {inst.hero_title || `${inst.name} 강사입니다.`}
+          </h3>
+
+          <p className="text-white/90 mt-5 max-sm:mt-4">
+            <span className="text-[18px] max-sm:text-[15px] font-bold">{inst.name}</span>
+            {inst.title && (
+              <span className="ml-1.5 text-[15px] max-sm:text-[13px] font-medium text-white/75">{inst.title}</span>
+            )}
+          </p>
 
           {bullets.length > 0 && (
-            <ul className="mt-auto pt-4 max-sm:pt-2 space-y-1 max-sm:space-y-0.5">
+            <ul className="mt-3 max-sm:mt-2 space-y-1.5 max-sm:space-y-1">
               {bullets.map((b, i) => (
-                <li key={i} className="text-white/85 text-[12px] max-sm:text-[10px] leading-relaxed">
-                  - {b}
-                </li>
+                <li
+                  key={i}
+                  className="text-white/85 text-[14px] max-sm:text-[11px] leading-relaxed"
+                  dangerouslySetInnerHTML={{ __html: `- ${formatBoldMarkdown(b)}` }}
+                />
               ))}
             </ul>
           )}
@@ -80,7 +112,7 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
       {interactive && (
         <Link
           to={`/instructors/${inst.id}`}
-          className="absolute inset-0 z-20 rounded-[32px] max-sm:rounded-[24px]"
+          className="absolute inset-0 z-30 rounded-[32px] max-sm:rounded-[24px]"
           aria-label={`${inst.name} 상세 보기`}
         />
       )}
@@ -103,15 +135,16 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
   }, [allInstructors])
 
   const [activeIndex, setActiveIndex] = useState(0)
+  const prevPositionsRef = useRef<Record<number, string>>({})
 
   const next = useCallback(() => {
     if (instructors.length === 0) return
-    setActiveIndex((prev) => (prev + 1) % instructors.length)
+    setActiveIndex((p) => (p + 1) % instructors.length)
   }, [instructors.length])
 
   const prev = useCallback(() => {
     if (instructors.length === 0) return
-    setActiveIndex((prev) => (prev - 1 + instructors.length) % instructors.length)
+    setActiveIndex((p) => (p - 1 + instructors.length) % instructors.length)
   }, [instructors.length])
 
   useEffect(() => {
@@ -119,6 +152,14 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
     const timer = setInterval(next, 5000)
     return () => clearInterval(timer)
   }, [instructors.length, next])
+
+  // 렌더 후 각 slide 의 현재 position 을 저장 → 다음 render 의 cross-jump 판정 기준
+  useLayoutEffect(() => {
+    const total = instructors.length
+    instructors.forEach((inst, idx) => {
+      prevPositionsRef.current[inst.id] = getSlidePosition(idx, activeIndex, total)
+    })
+  })
 
   if (loading || instructors.length === 0) {
     if (loading) {
@@ -142,11 +183,11 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
   return (
     <section className="w-full bg-white py-16 max-sm:py-10 overflow-hidden">
       <div className="max-w-[1200px] mx-auto px-5">
-        <div className="text-center mb-14 max-sm:mb-10">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <div className="text-center mb-20 max-sm:mb-14">
+          <h2 className="text-3xl max-sm:text-2xl font-bold text-gray-900 mb-2.5">
             아마겟돈 클래스 강사를 소개합니다.
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-base max-sm:text-sm text-gray-500">
             현장에서 이미 결과로 증명된 강사진입니다.
           </p>
         </div>
@@ -156,17 +197,36 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
           {instructors.map((inst, idx) => {
             const pos = getSlidePosition(idx, activeIndex, instructors.length)
             const style = SLIDE_STYLES[pos]
+            const prevPos = prevPositionsRef.current[inst.id]
+            // 좌↔우 반대편 점프 처리 (잔상 방지)
+            //  - visible(left/right) → hidden: opacity 먼저 페이드아웃 후 transform 점프
+            //  - hidden → visible(left/right): transform 즉시 새 위치로 이동 후 opacity 페이드인
+            let transition = 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease'
+            if (isCrossJumpTransition(prevPos, pos)) {
+              const prevVisible = prevPos && isVisible(prevPos)
+              const currVisible = isVisible(pos)
+              if (prevVisible && !currVisible) {
+                // 사라짐: 원래 위치에서 페이드아웃 → 완료 후 반대편으로 순간이동 (invisible)
+                transition = 'opacity 0.3s ease, transform 0s ease 0.3s'
+              } else if (!prevVisible && currVisible) {
+                // 등장: 반대편(invisible)에서 새 위치로 순간이동 → 새 위치에서 페이드인
+                transition = 'opacity 0.3s ease, transform 0s ease'
+              } else {
+                // hidden↔hidden: 둘 다 invisible 이므로 순간이동 OK
+                transition = 'none'
+              }
+            }
 
             return (
               <div
                 key={inst.id}
-                className="absolute left-1/2 top-0 h-[320px] max-sm:h-[220px] w-[640px] max-sm:w-[300px]"
+                className="absolute left-1/2 top-0 h-[320px] max-sm:h-[220px] w-[620px] max-sm:w-[300px]"
                 style={{
                   transform: style.transform,
                   opacity: style.opacity,
                   zIndex: style.zIndex,
                   pointerEvents: style.pointerEvents,
-                  transition: 'transform 0.6s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.6s ease',
+                  transition,
                 }}
               >
                 {pos === 'center' ? (
