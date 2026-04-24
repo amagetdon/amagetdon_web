@@ -66,12 +66,12 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
         </div>
       </div>
 
-      {/* 오른쪽 누끼 인물 — 카드 밖으로 살짝 튀어나옴 */}
+      {/* 오른쪽 누끼 인물 — 우측 딱 붙음, 위로만 튀어나옴, 모서리는 카드 우하단과 동일하게 rounded */}
       {inst.hero_portrait_url && (
         <img
           src={inst.hero_portrait_url}
           alt={inst.name}
-          className="absolute right-[-6%] bottom-0 h-[115%] max-sm:h-[108%] w-auto max-w-[60%] object-contain object-bottom pointer-events-none z-10"
+          className="absolute right-0 bottom-0 h-[115%] max-sm:h-[108%] w-auto max-w-[55%] object-contain object-bottom rounded-br-[32px] max-sm:rounded-br-[24px] pointer-events-none z-10"
           draggable={false}
         />
       )}
@@ -142,7 +142,7 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
   return (
     <section className="w-full bg-white py-16 max-sm:py-10 overflow-hidden">
       <div className="max-w-[1200px] mx-auto px-5">
-        <div className="text-center mb-8 max-sm:mb-6">
+        <div className="text-center mb-14 max-sm:mb-10">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             아마겟돈 클래스 강사를 소개합니다.
           </h2>
@@ -160,7 +160,7 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
             return (
               <div
                 key={inst.id}
-                className="absolute left-1/2 top-0 h-[320px] max-sm:h-[220px] w-[720px] max-sm:w-[300px]"
+                className="absolute left-1/2 top-0 h-[320px] max-sm:h-[220px] w-[640px] max-sm:w-[300px]"
                 style={{
                   transform: style.transform,
                   opacity: style.opacity,

@@ -344,12 +344,12 @@ export default function AdminInstructors() {
                   {/* 미리보기 — 실제 메인과 동일한 디자인 */}
                   <div className="col-span-2 max-sm:col-span-1 mt-2">
                     <label className="text-xs font-bold block mb-2">미리보기</label>
-                    <div className="relative h-[220px] px-6">
+                    <div className="relative h-[220px]">
                       <div
-                        className="absolute inset-x-6 inset-y-0 rounded-[32px] overflow-hidden shadow-lg"
+                        className="absolute inset-0 rounded-[32px] overflow-hidden shadow-lg"
                         style={{ background: `linear-gradient(135deg, ${editing.hero_bg_from || '#1a1a1a'} 0%, ${editing.hero_bg_to || '#2a2a2a'} 100%)` }}
                       >
-                        <div className="relative z-10 h-full flex flex-col justify-between p-5 max-w-[60%]">
+                        <div className="relative z-10 h-full flex flex-col justify-between p-5 max-w-[58%]">
                           <div>
                             <h4
                               className="text-lg font-bold leading-tight mb-1 whitespace-pre-line"
@@ -373,7 +373,7 @@ export default function AdminInstructors() {
                       </div>
                       {editing.hero_portrait_url && (
                         <img src={editing.hero_portrait_url} alt=""
-                          className="absolute right-0 bottom-0 h-[115%] w-auto max-w-[60%] object-contain object-bottom pointer-events-none z-10" />
+                          className="absolute right-0 bottom-0 h-[115%] w-auto max-w-[55%] object-contain object-bottom rounded-br-[32px] pointer-events-none z-10" />
                       )}
                     </div>
                   </div>
