@@ -50,6 +50,8 @@ function CourseDetailPage() {
   const fromSlug = searchParams.get('from')
   const [guestPurchaseAllowed, setGuestPurchaseAllowed] = useState(false)
   const [guestModalOpen, setGuestModalOpen] = useState(false)
+  // 비회원 가입 직후 user/profile state 가 업데이트되면 자동으로 구매 플로우 진행
+  const [pendingAutoPurchase, setPendingAutoPurchase] = useState(false)
 
   useEffect(() => {
     if (!fromSlug) { setGuestPurchaseAllowed(false); return }
@@ -198,6 +200,24 @@ function CourseDetailPage() {
 
     setConfirmOpen(true)
   }
+
+  // 비회원 가입이 완료되고 auth state 에 user 가 반영되면 자동으로 구매 진행
+  useEffect(() => {
+    if (!pendingAutoPurchase) return
+    if (!user) return
+    setPendingAutoPurchase(false)
+    if (owned) {
+      navigate('/my-classroom')
+      return
+    }
+    if (isFree) {
+      handleEnrollFree()
+    } else {
+      setConfirmOpen(true)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAutoPurchase, user, isFree, owned])
+
 
   const handleEnrollFree = async () => {
     if (!user || !course || !courseId) return
@@ -712,15 +732,11 @@ function CourseDetailPage() {
         onClose={() => setGuestModalOpen(false)}
         signupReferrer={fromSlug ? `/landing/${fromSlug}` : undefined}
         description={course?.title ? `"${course.title}" 을(를) 회원가입 없이 바로 구매하세요.` : undefined}
-        onSuccess={async () => {
+        onSuccess={() => {
+          // 모달만 닫고 플래그 세팅 → useEffect 가 user 준비되는 순간 자동으로 구매 플로우 진행
           setGuestModalOpen(false)
-          // 잠시 후 refreshProfile 되고 user 세팅 → 다음 클릭에 정상 플로우
-          // 편의상 바로 구매 플로우 트리거
-          await refreshProfile()
-          setTimeout(() => {
-            // profile 갱신 후 바로 구매 시도 — free/paid 분기는 handlePurchaseClick 재호출로 처리
-            handlePurchaseClick()
-          }, 100)
+          setPendingAutoPurchase(true)
+          refreshProfile()
         }}
       />
     </>
