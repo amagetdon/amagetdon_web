@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { withTimeout } from '../lib/fetchWithTimeout'
-import { useStaleRefreshKey } from './useVisibilityRefresh'
-import { getCached, setCache } from '../lib/cache'
 import type {
   Banner,
   CourseWithInstructor,
@@ -35,79 +33,44 @@ const EMPTY: HomeData = {
   bottomLinks: [],
 }
 
+async function fetchHomeData(year: number, month: number): Promise<HomeData> {
+  const startDate = new Date(year, month - 1, 1).toISOString()
+  const endDate = new Date(year, month, 0, 23, 59, 59).toISOString()
+
+  const queries = [
+    supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order').then((r) => r),
+    supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order').then((r) => r),
+    supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('sort_order').then((r) => r),
+    supabase.from('instructors').select('*').eq('is_published', true).order('sort_order').then((r) => r),
+    supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(4).then((r) => r),
+    supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).gte('rating', 4).order('created_at', { ascending: false }).limit(10).then((r) => r),
+    supabase.from('schedules').select('*, course:courses(id, title), instructor:instructors(id, name, image_url, thumbnail_url)').gte('scheduled_at', startDate).lte('scheduled_at', endDate).order('scheduled_at').then((r) => r),
+    supabase.from('banners').select('*').eq('page_key', 'bottom_links').eq('is_published', true).order('sort_order').then((r) => r),
+  ]
+
+  const results = await Promise.allSettled(queries.map((q) => withTimeout(q, 15000)))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const getData = (r: PromiseSettledResult<any>) => (r.status === 'fulfilled' ? (r.value.data ?? []) : [])
+  const [hero, ebooks, courses, instructors, resultData, reviews, schedules, bottomLinks] = results
+
+  return {
+    heroBanners: getData(hero) as Banner[],
+    freeEbooks: getData(ebooks) as EbookWithInstructor[],
+    freeCourses: getData(courses) as CourseWithInstructor[],
+    instructors: getData(instructors) as Instructor[],
+    results: getData(resultData) as Result[],
+    reviews: getData(reviews) as ReviewWithCourse[],
+    schedules: getData(schedules) as ScheduleWithDetails[],
+    bottomLinks: getData(bottomLinks) as Banner[],
+  }
+}
+
 export function useHomeData(year: number, month: number) {
-  const cacheKey = `homeData:${year}-${month}`
-  const cached = getCached<HomeData>(cacheKey)
-  const [data, setData] = useState<HomeData>(cached || EMPTY)
-  const [loading, setLoading] = useState(!cached)
-  const refreshKey = useStaleRefreshKey()
-
-  useEffect(() => {
-    let cancelled = false
-    const startDate = new Date(year, month - 1, 1).toISOString()
-    const endDate = new Date(year, month, 0, 23, 59, 59).toISOString()
-
-    const load = async (attempt = 1) => {
-      try {
-        const queries = [
-          supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order').then((r) => r),
-          supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order').then((r) => r),
-          supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('sort_order').then((r) => r),
-          supabase.from('instructors').select('*').eq('is_published', true).order('sort_order').then((r) => r),
-          supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(4).then((r) => r),
-          supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).gte('rating', 4).order('created_at', { ascending: false }).limit(10).then((r) => r),
-          supabase.from('schedules').select('*, course:courses(id, title), instructor:instructors(id, name, image_url, thumbnail_url)').gte('scheduled_at', startDate).lte('scheduled_at', endDate).order('scheduled_at').then((r) => r),
-          supabase.from('banners').select('*').eq('page_key', 'bottom_links').eq('is_published', true).order('sort_order').then((r) => r),
-        ]
-
-        const results = await Promise.allSettled(queries.map((q) => withTimeout(q, 15000)))
-
-        if (cancelled) return
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const getData = (r: PromiseSettledResult<any>) =>
-          r.status === 'fulfilled' ? (r.value.data ?? []) : []
-
-        const allEmpty = results.every((r) =>
-          r.status !== 'fulfilled' || !r.value.data || r.value.data.length === 0
-        )
-
-        if (allEmpty && attempt < 3) {
-          try { await supabase.auth.refreshSession() } catch { /* */ }
-          if (!cancelled) {
-            await new Promise((r) => setTimeout(r, 500))
-            return load(attempt + 1)
-          }
-          return
-        }
-
-        const [hero, ebooks, courses, instructors, resultData, reviews, schedules, bottomLinks] = results
-        const newData = {
-          heroBanners: getData(hero) as Banner[],
-          freeEbooks: getData(ebooks) as EbookWithInstructor[],
-          freeCourses: getData(courses) as CourseWithInstructor[],
-          instructors: getData(instructors) as Instructor[],
-          results: getData(resultData) as Result[],
-          reviews: getData(reviews) as ReviewWithCourse[],
-          schedules: getData(schedules) as ScheduleWithDetails[],
-          bottomLinks: getData(bottomLinks) as Banner[],
-        }
-        setCache(cacheKey, newData)
-        setData(newData)
-      } catch {
-        if (!cancelled && attempt < 3) {
-          try { await supabase.auth.refreshSession() } catch { /* */ }
-          await new Promise((r) => setTimeout(r, 1000 * attempt))
-          return load(attempt + 1)
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    load()
-    return () => { cancelled = true }
-  }, [year, month, refreshKey, cacheKey])
-
-  return { data, loading }
+  const q = useQuery<HomeData>({
+    queryKey: ['home-data', year, month],
+    queryFn: () => fetchHomeData(year, month),
+    // 홈 데이터는 비교적 오래 유지 — 탐색 중 반복 fetch 방지
+    staleTime: 60_000,
+  })
+  return { data: q.data ?? EMPTY, loading: q.isLoading }
 }

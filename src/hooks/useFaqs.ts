@@ -1,29 +1,19 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { faqService } from '../services/faqService'
 import type { Faq } from '../types'
 
 export function useFaqs(options?: { search?: string; page?: number; perPage?: number }) {
-  const [faqs, setFaqs] = useState<Faq[]>([])
-  const [totalCount, setTotalCount] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetch = useCallback(async () => {
-    try {
-      setLoading(true)
-      const { data, count } = await faqService.getAll(options)
-      setFaqs(data)
-      setTotalCount(count)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'FAQ를 불러오는데 실패했습니다')
-    } finally {
-      setLoading(false)
-    }
-  }, [options?.search, options?.page, options?.perPage])
-
-  useEffect(() => {
-    fetch()
-  }, [fetch])
-
-  return { faqs, totalCount, loading, error }
+  const search = options?.search
+  const page = options?.page
+  const perPage = options?.perPage
+  const q = useQuery<{ data: Faq[]; count: number }>({
+    queryKey: ['faqs', search ?? null, page ?? null, perPage ?? null],
+    queryFn: () => faqService.getAll({ search, page, perPage }),
+  })
+  return {
+    faqs: q.data?.data ?? [],
+    totalCount: q.data?.count ?? 0,
+    loading: q.isLoading,
+    error: q.error ? ((q.error as Error).message || 'FAQ를 불러오는데 실패했습니다') : null,
+  }
 }

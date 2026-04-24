@@ -1,5 +1,6 @@
 import { useState, useEffect, Fragment } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { useCourse } from '../hooks/useCourses'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
@@ -38,8 +39,8 @@ function CourseDetailPage() {
   const [ownershipLoading, setOwnershipLoading] = useState(true)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [purchasing, setPurchasing] = useState(false)
-  const [enrollmentCount, setEnrollmentCount] = useState(0)
-  const [relatedCourses, setRelatedCourses] = useState<Array<{ id: number; title: string; thumbnail_url: string | null; sale_price: number | null; course_type: string; enrollment_deadline: string | null }>>([])
+  // 정원 / 관련 강의 — React Query 로 dedup + 캐싱
+  type RelatedCourse = { id: number; title: string; thumbnail_url: string | null; sale_price: number | null; course_type: string; enrollment_deadline: string | null }
   const [myCoupons, setMyCoupons] = useState<Coupon[]>([])
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
@@ -108,36 +109,36 @@ function CourseDetailPage() {
     couponService.getUsableCoupons(user.id).then(setMyCoupons).catch(() => {})
   }, [user])
 
-  // 정원 확인 (현재 구매자 수)
-  useEffect(() => {
-    if (!courseId) return
-    let cancelled = false
-    Promise.resolve(supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('course_id', courseId))
-      .then(({ count }) => { if (!cancelled) setEnrollmentCount(count ?? 0) })
-      .catch(() => {})
-    return () => { cancelled = true }
-  }, [courseId])
+  // 정원 (현재 구매자 수)
+  const enrollmentQ = useQuery<number>({
+    queryKey: ['course-enrollment-count', courseId],
+    queryFn: async () => {
+      if (!courseId) return 0
+      const { count } = await supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('course_id', courseId)
+      return count ?? 0
+    },
+    enabled: courseId != null,
+  })
+  const enrollmentCount = enrollmentQ.data ?? 0
 
-  // 관련 강의 로드
-  useEffect(() => {
-    if (!course?.related_course_ids || course.related_course_ids.length === 0) {
-      setRelatedCourses([])
-      return
-    }
-    let cancelled = false
-    const nowIso = new Date().toISOString()
-    Promise.resolve(
-      supabase
+  // 관련 강의
+  const relatedIds = course?.related_course_ids ?? []
+  const relatedQ = useQuery<RelatedCourse[]>({
+    queryKey: ['related-courses', courseId, relatedIds.join(',')],
+    queryFn: async () => {
+      if (relatedIds.length === 0) return []
+      const nowIso = new Date().toISOString()
+      const { data } = await supabase
         .from('courses')
         .select('id, title, thumbnail_url, sale_price, course_type, enrollment_deadline')
-        .in('id', course.related_course_ids)
+        .in('id', relatedIds)
         .eq('is_published', true)
         .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
-    ).then(({ data }) => {
-      if (!cancelled) setRelatedCourses((data ?? []) as typeof relatedCourses)
-    }).catch(() => {})
-    return () => { cancelled = true }
-  }, [course?.related_course_ids])
+      return (data ?? []) as RelatedCourse[]
+    },
+    enabled: relatedIds.length > 0,
+  })
+  const relatedCourses = relatedQ.data ?? []
 
   const pad = (n: number) => String(n).padStart(2, '0')
   const hasDeadline = !!course?.enrollment_deadline
