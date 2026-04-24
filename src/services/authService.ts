@@ -73,8 +73,8 @@ export const authService = {
     if (error) throw error
   },
 
-  // 비회원 간소 가입 — 이름/전화/이메일만 받고 즉시 가입 + 자동 로그인 (비밀번호는 내부 랜덤)
-  // 다음 접속 시엔 이메일 매직 링크(sendLoginLink) 로 비밀번호 없이 로그인 가능.
+  // 비회원 간소 가입 — guest-signup edge function 으로 이메일 확인을 자동 처리한 뒤
+  // 랜덤 비번으로 즉시 signInWithPassword 하여 로그인 상태로 전환.
   async guestSignUp(input: {
     name: string
     phone: string
@@ -82,36 +82,34 @@ export const authService = {
     signup_referrer?: string
   }) {
     const randomPassword = `g_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`
-    const { data, error } = await supabase.auth.signUp({
-      email: input.email,
-      password: randomPassword,
-      options: {
-        data: {
-          name: input.name,
-          phone: input.phone,
-          provider: 'guest',
-          signup_referrer: input.signup_referrer,
-        },
-      },
-    })
-    if (error) {
-      if (/registered|already|exists|duplicate/i.test(error.message)) {
-        throw new Error('이미 가입된 이메일입니다. 로그인 페이지에서 "이메일 링크로 로그인" 을 이용해주세요.')
-      }
-      throw error
-    }
-    // 이메일 확인 required 설정이면 session null → 랜덤 비번으로 즉시 로그인 시도
-    if (!data.session) {
-      const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+
+    const { data: fnData, error: fnErr } = await supabase.functions.invoke('guest-signup', {
+      body: {
         email: input.email,
         password: randomPassword,
-      })
-      if (signInErr) {
-        throw new Error('가입은 성공했지만 자동 로그인에 실패했습니다. 로그인 페이지에서 "이메일 링크로 로그인" 을 사용해주세요.')
+        name: input.name,
+        phone: input.phone,
+        signup_referrer: input.signup_referrer,
+      },
+    })
+
+    const payload = (fnData ?? {}) as { user_id?: string; error?: string }
+    if (fnErr || payload.error) {
+      const msg = payload.error || fnErr?.message || ''
+      if (msg === 'ALREADY_REGISTERED' || /already|registered|exists|duplicate/i.test(msg)) {
+        throw new Error('이미 가입된 이메일입니다. 로그인 페이지에서 "비회원 로그인" 을 이용해주세요.')
       }
-      return signInData
+      throw new Error(msg || '가입에 실패했습니다.')
     }
-    return data
+
+    const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
+      email: input.email,
+      password: randomPassword,
+    })
+    if (signInErr) {
+      throw new Error('가입은 완료됐지만 자동 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.')
+    }
+    return signInData
   },
 
   // 이메일 매직 링크 로그인 — 비회원 구매로 만들어진 계정의 비밀번호 없이 로그인
