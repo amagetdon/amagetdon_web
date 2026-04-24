@@ -109,6 +109,19 @@ export const authService = {
     if (signInErr) {
       throw new Error('가입은 완료됐지만 자동 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.')
     }
+
+    // signup 웹훅/알림톡 발송 — 비회원도 CRM 기록 + 가입 안내 알림톡 받도록
+    if (signInData?.user?.id) {
+      const { webhookService } = await import('./webhookService')
+      webhookService.fireSignup({
+        userId: signInData.user.id,
+        name: input.name,
+        email: input.email,
+        phone: input.phone,
+        provider: 'guest',
+      }, webhookService.captureContext()).catch(() => { /* fire-and-forget */ })
+    }
+
     return signInData
   },
 
