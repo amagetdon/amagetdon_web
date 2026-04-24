@@ -24,29 +24,31 @@ function LoginPage() {
   const [resetMessage, setResetMessage] = useState('')
   const [resetSending, setResetSending] = useState(false)
 
-  // 이메일 링크 로그인 (비회원 구매자 주로 사용)
-  const [linkSending, setLinkSending] = useState(false)
-  const [linkMessage, setLinkMessage] = useState('')
+  // 비회원 로그인 모달 — 이메일로 로그인 링크 발송
+  const [showGuestModal, setShowGuestModal] = useState(false)
+  const [guestEmail, setGuestEmail] = useState('')
+  const [guestSending, setGuestSending] = useState(false)
+  const [guestMessage, setGuestMessage] = useState('')
 
   const handleSendLoginLink = async () => {
-    if (!email.trim()) { setLinkMessage('이메일을 먼저 입력해주세요.'); return }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setLinkMessage('올바른 이메일 형식이 아닙니다.'); return }
+    if (!guestEmail.trim()) { setGuestMessage('이메일을 입력해주세요.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) { setGuestMessage('올바른 이메일 형식이 아닙니다.'); return }
     try {
-      setLinkSending(true)
-      setLinkMessage('')
-      await authService.sendLoginLink(email)
-      setLinkMessage('로그인 링크를 이메일로 보냈습니다. 메일함(스팸 포함)을 확인해주세요.')
+      setGuestSending(true)
+      setGuestMessage('')
+      await authService.sendLoginLink(guestEmail)
+      setGuestMessage('로그인 링크를 이메일로 보냈습니다. 메일함(스팸 포함)을 확인해주세요.')
     } catch (err) {
       const msg = err instanceof Error ? err.message : '발송에 실패했습니다.'
       if (/Signups not allowed|User not found|not found|registered/i.test(msg)) {
-        setLinkMessage('해당 이메일로 가입된 계정이 없습니다.')
+        setGuestMessage('해당 이메일로 가입된 계정이 없습니다.')
       } else if (/Too many requests/i.test(msg)) {
-        setLinkMessage('너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.')
+        setGuestMessage('너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.')
       } else {
-        setLinkMessage(msg)
+        setGuestMessage(msg)
       }
     } finally {
-      setLinkSending(false)
+      setGuestSending(false)
     }
   }
 
@@ -211,28 +213,14 @@ function LoginPage() {
           </button>
         </form>
 
-        <div className="text-center mt-3 flex items-center justify-center gap-3 text-sm">
+        <div className="text-center mt-3">
           <button
             onClick={() => { setShowResetModal(true); setResetEmail(email); setResetMessage('') }}
-            className="text-gray-400 cursor-pointer bg-transparent border-none hover:text-gray-600"
+            className="text-sm text-gray-400 cursor-pointer bg-transparent border-none hover:text-gray-600"
           >
-            비밀번호 찾기
-          </button>
-          <span className="text-gray-200">|</span>
-          <button
-            onClick={handleSendLoginLink}
-            disabled={linkSending}
-            className="text-gray-400 cursor-pointer bg-transparent border-none hover:text-[#2ED573] disabled:opacity-50"
-            title="비회원 구매자는 여기로 로그인"
-          >
-            {linkSending ? '발송 중...' : '이메일 링크로 로그인'}
+            비밀번호를 잊으셨나요?
           </button>
         </div>
-        {linkMessage && (
-          <p className={`text-xs text-center mt-2 ${linkMessage.includes('보냈습니다') ? 'text-[#2ED573]' : 'text-red-400'}`}>
-            {linkMessage}
-          </p>
-        )}
 
         <div className="mt-6 flex flex-col gap-3">
           <div className="flex items-center gap-3 text-gray-400 text-xs">
@@ -264,6 +252,15 @@ function LoginPage() {
               <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
             </svg>
             Google로 로그인
+          </button>
+
+          <button
+            type="button"
+            onClick={() => { setShowGuestModal(true); setGuestEmail(email); setGuestMessage('') }}
+            className="w-full bg-gray-50 border border-gray-200 text-gray-700 font-bold py-3 rounded-lg cursor-pointer flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
+          >
+            <i className="ti ti-mail-opened text-[#2ED573]" />
+            비회원 로그인 (이메일 링크)
           </button>
         </div>
 
@@ -333,6 +330,79 @@ function LoginPage() {
               >
                 돌아가기
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 비회원 로그인 모달 — 이메일로 로그인 링크 발송 */}
+      {showGuestModal && (
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !guestSending) setShowGuestModal(false) }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-2xl w-full max-w-[420px] overflow-hidden">
+            <div className="bg-black px-6 py-5 flex items-center justify-between">
+              <h2 className="text-white font-bold text-lg flex items-center gap-2">
+                <i className="ti ti-mail-opened text-[#2ED573]" />
+                비회원 로그인
+              </h2>
+              <button
+                onClick={() => setShowGuestModal(false)}
+                disabled={guestSending}
+                className="text-gray-400 hover:text-white bg-transparent border-none cursor-pointer text-xl disabled:opacity-50"
+                aria-label="닫기"
+              >
+                <i className="ti ti-x" />
+              </button>
+            </div>
+
+            <div className="p-6">
+              <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+                비회원 구매 시 사용하신 이메일을 입력하시면<br />
+                <strong>로그인 링크</strong>를 보내드립니다. 메일을 열어 링크를 클릭하면 자동으로 로그인됩니다.
+              </p>
+
+              <div className="mb-4">
+                <label className="text-sm font-bold block mb-1">이메일</label>
+                <input
+                  type="email"
+                  value={guestEmail}
+                  onChange={(e) => { setGuestEmail(e.target.value); setGuestMessage('') }}
+                  placeholder="email@example.com"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendLoginLink() }}
+                  autoFocus
+                />
+              </div>
+
+              {guestMessage && (
+                <p className={`text-sm mb-4 ${guestMessage.includes('보냈습니다') ? 'text-[#2ED573]' : 'text-red-400'}`}>
+                  {guestMessage}
+                </p>
+              )}
+
+              <button
+                onClick={handleSendLoginLink}
+                disabled={guestSending}
+                className="w-full bg-[#2ED573] text-white font-bold py-3 rounded-lg cursor-pointer border-none disabled:opacity-50"
+              >
+                {guestSending ? '발송 중...' : '로그인 링크 받기'}
+              </button>
+
+              <button
+                onClick={() => setShowGuestModal(false)}
+                className="w-full mt-2 bg-transparent text-gray-400 py-2 cursor-pointer border-none text-sm hover:text-gray-600"
+              >
+                돌아가기
+              </button>
+
+              <p className="text-[11px] text-gray-400 text-center mt-4 leading-relaxed">
+                ※ 비회원 구매 이력이 있는 이메일만 가능합니다.<br />
+                처음이시라면 강의 페이지에서 바로 구매해주세요.
+              </p>
             </div>
           </div>
         </div>
