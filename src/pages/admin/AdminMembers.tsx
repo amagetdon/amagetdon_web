@@ -24,6 +24,7 @@ export default function AdminMembers() {
   const [members, setMembers] = useState<MemberWithPurchases[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [memberTab, setMemberTab] = useState<'all' | 'email' | 'kakao' | 'google' | 'guest'>('all')
   const [viewing, setViewing] = useState<MemberWithPurchases | null>(null)
   const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null }[]>([])
   const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; newRole: 'user' | 'admin' } | null>(null)
@@ -405,12 +406,30 @@ export default function AdminMembers() {
     }
   }
 
-  const filtered = members.filter((m) =>
-    (m.name || '').includes(search) ||
-    (m.email || '').includes(search) ||
-    (m.phone || '').includes(search) ||
-    m.id.includes(search)
-  )
+  const resolveProvider = (m: MemberWithPurchases): string => {
+    const p = (m as unknown as Record<string, unknown>).provider as string | undefined
+    if (p) return p
+    if (m.email?.endsWith('@kakao.com')) return 'kakao'
+    return 'email'
+  }
+
+  const filtered = members.filter((m) => {
+    const matchesSearch = (m.name || '').includes(search)
+      || (m.email || '').includes(search)
+      || (m.phone || '').includes(search)
+      || m.id.includes(search)
+    if (!matchesSearch) return false
+    if (memberTab === 'all') return true
+    return resolveProvider(m) === memberTab
+  })
+
+  const tabCounts = {
+    all: members.length,
+    email: members.filter((m) => resolveProvider(m) === 'email').length,
+    kakao: members.filter((m) => resolveProvider(m) === 'kakao').length,
+    google: members.filter((m) => resolveProvider(m) === 'google').length,
+    guest: members.filter((m) => resolveProvider(m) === 'guest').length,
+  }
 
   const exportToExcel = (data: MemberWithPurchases[]) => {
     const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', 'utm_source', 'utm_medium', 'utm_campaign', '가입일', '마지막 접속']
@@ -418,7 +437,7 @@ export default function AdminMembers() {
       const provider = (m as unknown as Record<string, unknown>).provider as string | undefined || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
       return [
         m.name || '',
-        provider === 'kakao' ? '카카오' : provider === 'google' ? '구글' : '이메일',
+        provider === 'kakao' ? '카카오' : provider === 'google' ? '구글' : provider === 'guest' ? '비회원' : '이메일',
         m.email || '',
         m.phone || '',
         m.gender === 'male' ? '남' : m.gender === 'female' ? '여' : '',
@@ -479,8 +498,8 @@ export default function AdminMembers() {
         </div>
       </div>
 
-      <div className="mb-4">
-        <div className="relative max-w-xs">
+      <div className="mb-4 flex items-center justify-between gap-3 flex-wrap">
+        <div className="relative max-w-xs flex-1 min-w-[200px]">
           <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
           <input
             value={search}
@@ -488,6 +507,23 @@ export default function AdminMembers() {
             placeholder="이름, 전화번호 검색..."
             className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
           />
+        </div>
+        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
+          {(['all', 'email', 'kakao', 'google', 'guest'] as const).map((t) => {
+            const label = { all: '전체', email: '이메일', kakao: '카카오', google: '구글', guest: '비회원' }[t]
+            const active = memberTab === t
+            return (
+              <button
+                key={t}
+                onClick={() => setMemberTab(t)}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold border-none cursor-pointer transition-colors ${
+                  active ? 'bg-[#2ED573] text-white' : 'bg-transparent text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {label} <span className={`ml-1 text-[10px] ${active ? 'text-white/80' : 'text-gray-400'}`}>{tabCounts[t]}</span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -529,6 +565,7 @@ export default function AdminMembers() {
                         const provider = p || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
                         if (provider === 'kakao') return <span className="ml-1.5 text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">카카오</span>
                         if (provider === 'google') return <span className="ml-1.5 text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">구글</span>
+                        if (provider === 'guest') return <span className="ml-1.5 text-[10px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">비회원</span>
                         return <span className="ml-1.5 text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">이메일</span>
                       })()}
                     </td>

@@ -204,6 +204,7 @@ export interface LandingCategory {
   slug: string
   name: string
   is_published: boolean
+  allow_guest_purchase: boolean
   sort_order: number
   seo: LandingCategorySeo | null
   created_at: string

@@ -17,6 +17,7 @@ interface EditingForm {
   slug: string
   name: string
   is_published: boolean
+  allow_guest_purchase: boolean
   sort_order: number
   seo: LandingCategorySeo
 }
@@ -25,6 +26,7 @@ const emptyForm: EditingForm = {
   slug: '',
   name: '',
   is_published: true,
+  allow_guest_purchase: false,
   sort_order: 0,
   seo: {},
 }
@@ -171,6 +173,7 @@ export default function AdminPages() {
         slug: editing.slug,
         name: editing.name,
         is_published: editing.is_published,
+        allow_guest_purchase: editing.allow_guest_purchase,
         sort_order: editing.sort_order,
         seo: editing.seo,
       }
@@ -362,6 +365,7 @@ export default function AdminPages() {
                             slug: c.slug,
                             name: c.name,
                             is_published: c.is_published,
+                            allow_guest_purchase: c.allow_guest_purchase ?? false,
                             sort_order: c.sort_order,
                             seo: c.seo ?? {},
                           })} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정">
@@ -897,6 +901,11 @@ export default function AdminPages() {
                     <input type="checkbox" checked={editing.is_published} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" />
                     상단 메뉴에 노출
                   </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer py-2.5">
+                    <input type="checkbox" checked={editing.allow_guest_purchase} onChange={(e) => setEditing({ ...editing, allow_guest_purchase: e.target.checked })} className="accent-[#2ED573]" />
+                    비회원 구매 가능
+                  </label>
+                  <p className="text-[11px] text-gray-400 -mt-1">이 랜딩페이지를 통해 접근한 강의는 로그인 없이도 구매할 수 있습니다.</p>
                 </div>
               </div>
             </div>

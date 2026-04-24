@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../contexts/AuthContext'
 import { reviewService } from '../services/reviewService'
 import { usePurchaseCheck } from '../hooks/usePurchaseCheck'
-import type { Review } from '../types'
 import Pagination from './Pagination'
 import ReviewForm from './ReviewForm'
 
@@ -20,61 +20,41 @@ export default function CourseReviewSection({
   const { user } = useAuth()
   const { purchased } = usePurchaseCheck(courseId)
 
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [totalCount, setTotalCount] = useState(0)
-  const [avgRating, setAvgRating] = useState(0)
   const [page, setPage] = useState(1)
-  const [loading, setLoading] = useState(true)
-  const [alreadyReviewed, setAlreadyReviewed] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
+  const queryClient = useQueryClient()
+
+  // course review 통계 (평균/총개수) — dedup, 같은 courseId 로 여러 컴포넌트에서 호출해도 1번만
+  const statsQ = useQuery({
+    queryKey: ['course-review-stats', courseId],
+    queryFn: () => reviewService.getCourseStats(courseId),
+  })
+  const avgRating = statsQ.data?.avgRating ?? 0
+  const totalCount = statsQ.data?.totalCount ?? 0
+
+  // course review 목록 — 페이지별 캐싱
+  const listQ = useQuery({
+    queryKey: ['course-reviews', courseId, page, PER_PAGE],
+    queryFn: () => reviewService.getByCourse(courseId, page, PER_PAGE),
+  })
+  const reviews = listQ.data?.data ?? []
+  const loading = listQ.isLoading
+
+  // 해당 유저가 이 강의 리뷰를 이미 작성했는지
+  const myReviewQ = useQuery({
+    queryKey: ['my-course-review', user?.id ?? null, courseId],
+    queryFn: () => (user ? reviewService.getByUser(user.id, courseId) : Promise.resolve(null)),
+    enabled: !!user,
+  })
+  const alreadyReviewed = !!myReviewQ.data
 
   const totalPages = Math.ceil(totalCount / PER_PAGE)
-  const [refreshKey, setRefreshKey] = useState(0)
-
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const stats = await reviewService.getCourseStats(courseId)
-        setAvgRating(stats.avgRating)
-        setTotalCount(stats.totalCount)
-      } catch {
-        // 통계 조회 실패 시 기본값 유지
-      }
-    }
-    loadStats()
-  }, [courseId, refreshKey])
-
-  useEffect(() => {
-    const loadReviews = async () => {
-      setLoading(true)
-      try {
-        const result = await reviewService.getByCourse(courseId, page, PER_PAGE)
-        setReviews(result.data)
-      } catch {
-        // 조회 실패 시 빈 상태 유지
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadReviews()
-  }, [courseId, page, refreshKey])
-
-  useEffect(() => {
-    if (!user) return
-    const checkReview = async () => {
-      try {
-        const existing = await reviewService.getByUser(user.id, courseId)
-        setAlreadyReviewed(existing !== null)
-      } catch {
-        // 확인 실패 시 기본 false 유지
-      }
-    }
-    checkReview()
-  }, [user, courseId, refreshKey])
 
   const handleSuccess = () => {
     setPage(1)
-    setRefreshKey((k) => k + 1)
+    queryClient.invalidateQueries({ queryKey: ['course-review-stats', courseId] })
+    queryClient.invalidateQueries({ queryKey: ['course-reviews', courseId] })
+    queryClient.invalidateQueries({ queryKey: ['my-course-review'] })
   }
 
   const renderStars = (rating: number) => {

@@ -11,6 +11,8 @@ import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
 import { webhookScheduleService } from '../services/webhookScheduleService'
+import { landingCategoryService } from '../services/landingCategoryService'
+import GuestSignupModal from '../components/GuestSignupModal'
 import CouponSelector from '../components/CouponSelector'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
@@ -42,6 +44,21 @@ function CourseDetailPage() {
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
   const [tossLoading, setTossLoading] = useState(false)
+
+  // 랜딩 페이지(?from=slug) 를 통해 진입한 경우, 해당 랜딩의 비회원 구매 허용 여부 체크
+  const fromSlug = searchParams.get('from')
+  const [guestPurchaseAllowed, setGuestPurchaseAllowed] = useState(false)
+  const [guestModalOpen, setGuestModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (!fromSlug) { setGuestPurchaseAllowed(false); return }
+    let cancelled = false
+    landingCategoryService.getBySlug(fromSlug).then((cat) => {
+      if (cancelled) return
+      setGuestPurchaseAllowed(!!cat?.allow_guest_purchase)
+    }).catch(() => setGuestPurchaseAllowed(false))
+    return () => { cancelled = true }
+  }, [fromSlug])
 
   useEffect(() => {
     if (!course?.enrollment_deadline || isClosed) return
@@ -151,11 +168,18 @@ function CourseDetailPage() {
 
   const handlePurchaseClick = () => {
     if (!user) {
+      // 비회원 구매 허용 랜딩을 통해 진입한 경우 간편가입 모달 오픈
+      if (guestPurchaseAllowed) {
+        setGuestModalOpen(true)
+        return
+      }
       navigate('/login')
       return
     }
 
-    if (profile && (!profile.phone || !profile.address || !profile.name || !profile.gender || !profile.birth_date)) {
+    // 게스트(간편가입) 유저는 추가 프로필 입력 스킵 — 이름/전화/이메일만으로 구매 가능
+    const isGuest = profile?.provider === 'guest'
+    if (!isGuest && profile && (!profile.phone || !profile.address || !profile.name || !profile.gender || !profile.birth_date)) {
       toast.error('회원정보를 먼저 입력해주세요.')
       navigate('/mypage')
       return
@@ -680,6 +704,24 @@ function CourseDetailPage() {
           </div>
         </Dialog>
       </Transition>
+
+      {/* 비회원 간편 가입 모달 — allow_guest_purchase=true 인 랜딩에서 진입했을 때 */}
+      <GuestSignupModal
+        isOpen={guestModalOpen}
+        onClose={() => setGuestModalOpen(false)}
+        signupReferrer={fromSlug ? `/landing/${fromSlug}` : undefined}
+        description={course?.title ? `"${course.title}" 을(를) 회원가입 없이 바로 구매하세요.` : undefined}
+        onSuccess={async () => {
+          setGuestModalOpen(false)
+          // 잠시 후 refreshProfile 되고 user 세팅 → 다음 클릭에 정상 플로우
+          // 편의상 바로 구매 플로우 트리거
+          await refreshProfile()
+          setTimeout(() => {
+            // profile 갱신 후 바로 구매 시도 — free/paid 분기는 handlePurchaseClick 재호출로 처리
+            handlePurchaseClick()
+          }, 100)
+        }}
+      />
     </>
   )
 }

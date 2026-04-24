@@ -18,6 +18,7 @@ export const profileService = {
     birth_date?: string | null
     gender?: 'male' | 'female' | null
     address?: string | null
+    provider?: string | null
   }) {
     const { data, error } = await supabase
       .from('profiles')
@@ -33,6 +34,15 @@ export const profileService = {
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     })
+    if (error) throw error
+  },
+
+  // 비회원 게스트 계정을 정규 이메일 계정으로 승격
+  async promoteGuestToMember(userId: string) {
+    const { error } = await supabase
+      .from('profiles')
+      .update({ provider: 'email' } as never)
+      .eq('id', userId)
     if (error) throw error
   },
 }

@@ -1,81 +1,30 @@
-import { useState, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { courseService } from '../services/courseService'
-import { useStaleRefreshKey } from './useVisibilityRefresh'
-import { getCached } from '../lib/cache'
 import type { CourseWithInstructor, CourseWithCurriculum } from '../types'
 
+// React Query 기반 — 동일 queryKey 는 자동 dedup (페이지에서 여러 컴포넌트가 같은 데이터 fetch 해도 API 1회만)
 export function useCourses(type?: 'free' | 'premium') {
-  const cacheKey = `courses:public:${type || 'all'}`
-  const cached = getCached<CourseWithInstructor[]>(cacheKey)
-  const [courses, setCourses] = useState<CourseWithInstructor[]>(cached || [])
-  const [loading, setLoading] = useState(!cached)
-  const [error, setError] = useState<string | null>(null)
-  const refreshKey = useStaleRefreshKey()
-
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        if (!cached) setLoading(true)
-        const data = await courseService.getAllPublic(type)
-        setCourses(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '강의를 불러오는데 실패했습니다')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetch()
-  }, [type, refreshKey])
-
-  return { courses, loading, error }
+  const q = useQuery<CourseWithInstructor[]>({
+    queryKey: ['courses', 'public', type ?? 'all'],
+    queryFn: () => courseService.getAllPublic(type),
+  })
+  return { courses: q.data ?? [], loading: q.isLoading, error: q.error ? ((q.error as Error).message || '강의를 불러오는데 실패했습니다') : null }
 }
 
 export function useCourse(id: number | null) {
-  const [course, setCourse] = useState<CourseWithCurriculum | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const refreshKey = useStaleRefreshKey()
-
-  useEffect(() => {
-    if (!id) return
-    const fetch = async () => {
-      try {
-        setLoading(true)
-        const data = await courseService.getById(id)
-        setCourse(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '강의를 불러오는데 실패했습니다')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetch()
-  }, [id, refreshKey])
-
-  return { course, loading, error }
+  const q = useQuery<CourseWithCurriculum | null>({
+    queryKey: ['course', id],
+    queryFn: () => (id ? courseService.getById(id) : Promise.resolve(null)),
+    enabled: id != null,
+  })
+  return { course: q.data ?? null, loading: q.isLoading, error: q.error ? ((q.error as Error).message || '강의를 불러오는데 실패했습니다') : null }
 }
 
 export function useCoursesByInstructor(instructorId: number | null) {
-  const [courses, setCourses] = useState<CourseWithInstructor[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const refreshKey = useStaleRefreshKey()
-
-  useEffect(() => {
-    if (!instructorId) return
-    const fetch = async () => {
-      try {
-        setLoading(true)
-        const data = await courseService.getByInstructor(instructorId)
-        setCourses(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '강의를 불러오는데 실패했습니다')
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetch()
-  }, [instructorId, refreshKey])
-
-  return { courses, loading, error }
+  const q = useQuery<CourseWithInstructor[]>({
+    queryKey: ['courses', 'by-instructor', instructorId],
+    queryFn: () => (instructorId ? courseService.getByInstructor(instructorId) : Promise.resolve([])),
+    enabled: instructorId != null,
+  })
+  return { courses: q.data ?? [], loading: q.isLoading, error: q.error ? ((q.error as Error).message || '강의를 불러오는데 실패했습니다') : null }
 }

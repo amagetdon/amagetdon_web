@@ -172,8 +172,21 @@ function MyPage() {
         setForm((prev) => ({ ...prev, password: '', passwordConfirm: '' }))
       }
 
+      // 비회원(guest) → 정규회원 자동 승격
+      // 비밀번호는 가입 시 이미 설정되었으므로, 누락된 추가 정보(주소/생년월일/성별)를 모두 채우면 승격
+      let promoted = false
+      if (profile?.provider === 'guest') {
+        const allFilled = !!form.name && !!phone && !!birthDate && !!form.gender && !!form.address
+        if (allFilled) {
+          try {
+            await profileService.promoteGuestToMember(user.id)
+            promoted = true
+          } catch { /* 승격 실패해도 저장은 성공 */ }
+        }
+      }
+
       await refreshProfile()
-      setSaveMessage('저장되었습니다.')
+      setSaveMessage(promoted ? '정규 회원으로 전환되었습니다!' : '저장되었습니다.')
     } catch (err) {
       if (err instanceof Error) {
         const msg = err.message
@@ -267,7 +280,19 @@ function MyPage() {
       <div className="bg-black h-[200px] w-full" />
 
       <div className="max-w-[800px] mx-auto px-6">
-        {isIncomplete && (
+        {profile?.provider === 'guest' && (
+          <div className="mt-8 mb-4 bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-start gap-3">
+            <i className="ti ti-user-check text-emerald-500 text-xl shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-emerald-800">비회원으로 가입되셨습니다</p>
+              <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
+                현재는 이메일·비밀번호로 로그인 가능합니다. 아래에서 <strong>주소·생년월일·성별</strong>까지 입력하고 저장하시면
+                정규 회원으로 자동 전환됩니다.
+              </p>
+            </div>
+          </div>
+        )}
+        {isIncomplete && profile?.provider !== 'guest' && (
           <div className="mt-8 mb-4 bg-yellow-50 border border-yellow-200 rounded-xl p-5 flex items-start gap-3">
             <i className="ti ti-alert-triangle text-yellow-500 text-xl shrink-0 mt-0.5" />
             <div>

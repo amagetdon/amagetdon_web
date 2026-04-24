@@ -80,7 +80,7 @@ function LandingPage() {
             {courses.map((course) => {
               const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
               return (
-                <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">
+                <Link key={course.id} to={`/course/${course.id}?from=${slug}`} className="no-underline group">
                   <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
                     {course.thumbnail_url ? (
                       <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
