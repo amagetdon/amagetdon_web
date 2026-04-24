@@ -360,11 +360,6 @@ function LoginPage() {
             </div>
 
             <div className="p-6">
-              <p className="text-sm text-gray-500 mb-5 leading-relaxed">
-                비회원 구매 시 사용하신 이메일을 입력하시면<br />
-                <strong>로그인 링크</strong>를 보내드립니다. 메일을 열어 링크를 클릭하면 자동으로 로그인됩니다.
-              </p>
-
               <div className="mb-4">
                 <label className="text-sm font-bold block mb-1">이메일</label>
                 <input
@@ -378,31 +373,28 @@ function LoginPage() {
                 />
               </div>
 
-              {guestMessage && (
-                <p className={`text-sm mb-4 ${guestMessage.includes('보냈습니다') ? 'text-[#2ED573]' : 'text-red-400'}`}>
-                  {guestMessage}
-                </p>
-              )}
-
               <button
                 onClick={handleSendLoginLink}
                 disabled={guestSending}
                 className="w-full bg-[#2ED573] text-white font-bold py-3 rounded-lg cursor-pointer border-none disabled:opacity-50"
               >
-                {guestSending ? '발송 중...' : '로그인 링크 받기'}
+                {guestSending ? '발송 중...' : '로그인'}
               </button>
 
-              <button
-                onClick={() => setShowGuestModal(false)}
-                className="w-full mt-2 bg-transparent text-gray-400 py-2 cursor-pointer border-none text-sm hover:text-gray-600"
-              >
-                돌아가기
-              </button>
-
-              <p className="text-[11px] text-gray-400 text-center mt-4 leading-relaxed">
-                ※ 비회원 구매 이력이 있는 이메일만 가능합니다.<br />
-                처음이시라면 강의 페이지에서 바로 구매해주세요.
-              </p>
+              {guestMessage && (
+                <div className={`mt-4 rounded-lg px-4 py-3 text-sm flex items-start gap-2 ${
+                  guestMessage.includes('보냈습니다')
+                    ? 'bg-emerald-50 border border-emerald-100 text-emerald-800'
+                    : 'bg-red-50 border border-red-100 text-red-600'
+                }`}>
+                  <i className={`ti ${guestMessage.includes('보냈습니다') ? 'ti-mail-check' : 'ti-alert-circle'} mt-0.5 shrink-0`} />
+                  <span className="leading-relaxed">
+                    {guestMessage.includes('보냈습니다')
+                      ? '메일을 보내드렸습니다. 메일함(스팸 포함)을 확인해주세요.'
+                      : guestMessage}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>
