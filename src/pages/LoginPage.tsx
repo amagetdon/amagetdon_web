@@ -257,7 +257,7 @@ function LoginPage() {
           <button
             type="button"
             onClick={() => { setShowGuestModal(true); setGuestEmail(email); setGuestMessage('') }}
-            className="w-full bg-gray-700 text-white font-bold py-3 rounded-lg cursor-pointer flex items-center justify-center gap-2 hover:bg-gray-800 transition-colors border-none"
+            className="w-full bg-gray-500 text-white font-bold py-3 rounded-lg cursor-pointer flex items-center justify-center gap-2 hover:bg-gray-600 transition-colors border-none"
           >
             <i className="ti ti-mail-opened text-white" />
             비회원 로그인
