@@ -67,20 +67,20 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
         style={{ background: bg }}
       >
         {/* 왼쪽 텍스트 — 누끼(z-10) 위에 겹치도록 z-20
-            items-start + text-left 로 좌측 정렬 강제 (사이드 축소 카드에서도 중앙쏠림 방지).
-            justify-between 대신 고정 갭으로 제목↔이름 간격 일정 유지. */}
-        <div className="relative z-20 h-full flex flex-col items-start text-left px-10 pt-11 pb-9 max-sm:px-6 max-sm:pt-8 max-sm:pb-6 max-w-[68%] max-sm:max-w-[78%]">
+            데스크탑: 좌측 텍스트 + 우측 누끼 (max-w-[68%] 로 폭 제한)
+            모바일: 세로배치 — 텍스트 전체폭 사용, 하단에 누끼 영역(약 130px) 확보 */}
+        <div className="relative z-20 h-full flex flex-col items-start text-left px-10 pt-11 pb-9 max-sm:px-6 max-sm:pt-7 max-sm:pb-[180px] max-w-[68%] max-sm:max-w-full">
           <h3
-            className="text-[26px] max-sm:text-[17px] font-bold leading-[1.25] whitespace-pre-line"
+            className="text-[26px] max-sm:text-[19px] font-bold leading-[1.25] whitespace-pre-line"
             style={{ color: inst.hero_title_color }}
           >
             {inst.hero_title || `${inst.name} 강사입니다.`}
           </h3>
 
-          <p className="text-white/90 mt-5 max-sm:mt-4">
-            <span className="text-[18px] max-sm:text-[15px] font-bold">{inst.name}</span>
+          <p className="text-white/90 mt-5 max-sm:mt-3">
+            <span className="text-[18px] max-sm:text-[16px] font-bold">{inst.name}</span>
             {inst.title && (
-              <span className="ml-1.5 text-[15px] max-sm:text-[13px] font-medium text-white/75">{inst.title}</span>
+              <span className="ml-1.5 text-[15px] max-sm:text-[14px] font-medium text-white/75">{inst.title}</span>
             )}
           </p>
 
@@ -89,7 +89,7 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
               {bullets.map((b, i) => (
                 <li
                   key={i}
-                  className="text-white/85 text-[14px] max-sm:text-[11px] leading-relaxed"
+                  className="text-white/85 text-[14px] max-sm:text-[12.5px] leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: `- ${formatBoldMarkdown(b)}` }}
                 />
               ))}
@@ -98,12 +98,14 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
         </div>
       </div>
 
-      {/* 오른쪽 누끼 인물 — 우측 딱 붙음, 위로만 튀어나옴, 모서리는 카드 우하단과 동일하게 rounded */}
+      {/* 누끼 인물
+          데스크탑: 우측 전체 높이(115%) 를 차지하며 위로 살짝 튀어나옴
+          모바일: 세로배치로 변경 — 우하단에 작게(높이 ~170px) */}
       {inst.hero_portrait_url && (
         <img
           src={inst.hero_portrait_url}
           alt={inst.name}
-          className="absolute right-0 bottom-0 h-[115%] max-sm:h-[108%] w-auto max-w-[55%] object-contain object-bottom rounded-br-[32px] max-sm:rounded-br-[24px] pointer-events-none z-10"
+          className="absolute right-0 bottom-0 h-[115%] max-sm:h-[220px] w-auto max-w-[55%] max-sm:max-w-[60%] object-contain object-bottom rounded-br-[32px] max-sm:rounded-br-[24px] pointer-events-none z-10"
           draggable={false}
         />
       )}
@@ -193,7 +195,7 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
         </div>
 
         {/* 캐러셀 */}
-        <div className="relative h-[320px] max-sm:h-[220px]">
+        <div className="relative h-[320px] max-sm:h-[430px]">
           {instructors.map((inst, idx) => {
             const pos = getSlidePosition(idx, activeIndex, instructors.length)
             const style = SLIDE_STYLES[pos]
@@ -220,7 +222,7 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
             return (
               <div
                 key={inst.id}
-                className="absolute left-1/2 top-0 h-[320px] max-sm:h-[220px] w-[620px] max-sm:w-[300px]"
+                className="absolute left-1/2 top-0 h-[320px] max-sm:h-[430px] w-[620px] max-sm:w-[300px]"
                 style={{
                   transform: style.transform,
                   opacity: style.opacity,
