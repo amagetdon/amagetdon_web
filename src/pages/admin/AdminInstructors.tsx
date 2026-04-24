@@ -41,7 +41,12 @@ export default function AdminInstructors() {
     }
     try {
       setSaving(true)
-      const saveData = { ...editing, careers: (editing.careers as string[] || []).filter((c: string) => c.trim()), bio_bullets: (editing.bio_bullets as string[] || []).filter((b: string) => b.trim()) }
+      const saveData = {
+        ...editing,
+        careers: (editing.careers as string[] || []).filter((c: string) => c.trim()),
+        bio_bullets: (editing.bio_bullets as string[] || []).filter((b: string) => b.trim()),
+        hero_bullets: (editing.hero_bullets as string[] || []).filter((b: string) => b.trim()),
+      }
       if (editing.id) {
         await instructorService.update(editing.id, saveData)
         toast.success('강사 정보가 수정되었습니다.')
@@ -225,22 +230,140 @@ export default function AdminInstructors() {
                 className="h-[180px]"
               />
             </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">썸네일 이미지</label>
-              <p className="text-xs text-gray-400 mb-1">미등록 시 메인 페이지 강사 소개에 표시되지 않습니다.</p>
-              <ImageUploader
-                bucket="instructors"
-                path={`${editing.id || 'new'}/thumbnail-${Date.now()}`}
-                currentUrl={editing.thumbnail_url}
-                onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })}
-                className="h-[140px]"
-              />
-            </div>
             <div className="flex flex-col gap-3 justify-center">
               <label className="text-sm font-bold block mb-1">옵션</label>
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" /> 공개</label>
               </div>
+            </div>
+
+            {/* 홈 히어로 카드 (메인 페이지 강사 소개 영역) */}
+            <div className="col-span-2 max-sm:col-span-1 mt-4 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">홈 히어로 카드</h3>
+                  <p className="text-[11px] text-gray-400 mt-0.5">메인 페이지 강사 소개 슬라이더에 표시되는 카드</p>
+                </div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox"
+                    checked={editing.hero_enabled ?? false}
+                    onChange={(e) => setEditing({ ...editing, hero_enabled: e.target.checked })}
+                    className="accent-[#2ED573]" />
+                  <span className={`text-xs font-bold ${editing.hero_enabled ? 'text-emerald-600' : 'text-gray-400'}`}>
+                    {editing.hero_enabled ? 'ON' : 'OFF'}
+                  </span>
+                </label>
+              </div>
+
+              {editing.hero_enabled && (
+                <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-3 bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <div className="col-span-2 max-sm:col-span-1">
+                    <label className="text-xs font-bold block mb-1">제목 (줄바꿈 <code className="text-[10px] bg-white px-1">\n</code> 허용)</label>
+                    <textarea value={editing.hero_title || ''}
+                      onChange={(e) => setEditing({ ...editing, hero_title: e.target.value })}
+                      rows={2}
+                      placeholder={"'릴스' 하나로 억대 매출 만드는\n은우입니다."}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#2ED573]" />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold block mb-1">제목 색상</label>
+                    <div className="flex items-center gap-2">
+                      <input type="color"
+                        value={editing.hero_title_color || '#FFFFFF'}
+                        onChange={(e) => setEditing({ ...editing, hero_title_color: e.target.value })}
+                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5" />
+                      <input type="text"
+                        value={editing.hero_title_color || '#FFFFFF'}
+                        onChange={(e) => setEditing({ ...editing, hero_title_color: e.target.value })}
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#2ED573]" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold block mb-1">배경 그라데이션</label>
+                    <div className="flex items-center gap-2">
+                      <input type="color"
+                        value={editing.hero_bg_from || '#1a1a1a'}
+                        onChange={(e) => setEditing({ ...editing, hero_bg_from: e.target.value })}
+                        title="시작색"
+                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5" />
+                      <span className="text-gray-400 text-xs">→</span>
+                      <input type="color"
+                        value={editing.hero_bg_to || '#2a2a2a'}
+                        onChange={(e) => setEditing({ ...editing, hero_bg_to: e.target.value })}
+                        title="끝색"
+                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5" />
+                    </div>
+                  </div>
+
+                  <div className="col-span-2 max-sm:col-span-1">
+                    <label className="text-xs font-bold block mb-1">내용 불릿 (줄바꿈 구분)</label>
+                    <textarea
+                      value={(editing.hero_bullets || []).join('\n')}
+                      onChange={(e) => setEditing({ ...editing, hero_bullets: e.target.value.split('\n') })}
+                      rows={3}
+                      placeholder={'운영중인 채널 월 평균 조회수 수익만 1,500만 원 이상\n한달 평균 조회수 1억회 이상\n\'릴스\' 하나로 광고비 한 푼 없이 브랜드 런칭 직후 7천만 원 매출'}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#2ED573]" />
+                    <p className="text-[10px] text-gray-400 mt-1">카드에서 자동으로 "-" 접두사가 붙습니다.</p>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold block mb-1">누끼 이미지 (오른쪽 인물)</label>
+                    <ImageUploader
+                      bucket="instructors"
+                      path={`${editing.id || 'new'}/hero-${Date.now()}`}
+                      currentUrl={editing.hero_portrait_url}
+                      onUpload={(url) => setEditing({ ...editing, hero_portrait_url: url })}
+                      className="h-[140px]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold block mb-1">카드 순서</label>
+                    <input type="number"
+                      value={editing.hero_sort_order ?? 0}
+                      onChange={(e) => setEditing({ ...editing, hero_sort_order: Number(e.target.value) })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573]" />
+                    <p className="text-[10px] text-gray-400 mt-1">숫자가 작을수록 먼저 표시.</p>
+                  </div>
+
+                  {/* 미리보기 */}
+                  <div className="col-span-2 max-sm:col-span-1 mt-2">
+                    <label className="text-xs font-bold block mb-2">미리보기</label>
+                    <div
+                      className="relative rounded-2xl overflow-hidden h-[220px] shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${editing.hero_bg_from || '#1a1a1a'} 0%, ${editing.hero_bg_to || '#2a2a2a'} 100%)` }}
+                    >
+                      {editing.hero_portrait_url && (
+                        <img src={editing.hero_portrait_url} alt=""
+                          className="absolute right-0 bottom-0 h-full w-auto max-w-[55%] object-contain object-bottom pointer-events-none" />
+                      )}
+                      <div className="relative z-10 h-full flex flex-col justify-between p-5 max-w-[60%]">
+                        <div>
+                          <h4
+                            className="text-lg font-bold leading-tight mb-1 whitespace-pre-line"
+                            style={{ color: editing.hero_title_color || '#FFFFFF' }}
+                          >
+                            {editing.hero_title || `${editing.name || '강사'} 강사입니다.`}
+                          </h4>
+                          <p className="text-white/80 text-xs font-medium">
+                            {editing.name}
+                            {editing.title && <span className="ml-1.5">{editing.title}</span>}
+                          </p>
+                        </div>
+                        {(editing.hero_bullets || []).filter((b) => b.trim()).length > 0 && (
+                          <ul className="mt-3 space-y-0.5">
+                            {(editing.hero_bullets || []).filter((b) => b.trim()).slice(0, 3).map((b, i) => (
+                              <li key={i} className="text-white/85 text-[11px] leading-snug">- {b}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

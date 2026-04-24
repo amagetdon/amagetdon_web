@@ -126,6 +126,15 @@ export interface Instructor {
   has_active_course: boolean
   sort_order: number
   is_published: boolean
+  // 홈 히어로 카드 (왼쪽 텍스트 + 오른쪽 누끼 이미지)
+  hero_enabled: boolean
+  hero_title: string | null
+  hero_title_color: string
+  hero_bg_from: string
+  hero_bg_to: string
+  hero_bullets: string[]
+  hero_portrait_url: string | null
+  hero_sort_order: number
   created_at: string
   updated_at: string
 }
