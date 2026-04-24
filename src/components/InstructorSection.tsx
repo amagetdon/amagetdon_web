@@ -32,59 +32,55 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
     : (inst.bio_bullets ?? [])
 
   return (
-    <div
-      className="relative w-full h-full rounded-2xl overflow-hidden shadow-2xl"
-      style={{ background: bg }}
-    >
-      {/* 오른쪽 누끼 인물 — 큰 이미지 (카드 오른쪽 절반) */}
+    // 바깥 wrapper: overflow-visible — 누끼가 카드 밖으로 살짝 튀어나오게
+    <div className="relative w-full h-full">
+      {/* 배경 카드 (둥근 모서리 + 그라데이션) */}
+      <div
+        className="absolute inset-0 rounded-[32px] max-sm:rounded-[24px] overflow-hidden shadow-2xl"
+        style={{ background: bg }}
+      >
+        {/* 왼쪽 텍스트 */}
+        <div className="relative z-10 h-full flex flex-col justify-between p-7 max-sm:p-4 max-w-[58%] max-sm:max-w-[68%]">
+          <div>
+            <h3
+              className="text-[22px] max-sm:text-[15px] font-bold leading-tight mb-2 max-sm:mb-1.5 whitespace-pre-line"
+              style={{ color: inst.hero_title_color }}
+            >
+              {inst.hero_title || `${inst.name} 강사입니다.`}
+            </h3>
+            <p className="text-white/80 text-xs max-sm:text-[10px] font-medium">
+              {inst.name}
+              {inst.title && <span className="ml-1.5">{inst.title}</span>}
+            </p>
+          </div>
+
+          {bullets.length > 0 && (
+            <ul className="mt-auto pt-4 max-sm:pt-2 space-y-1 max-sm:space-y-0.5">
+              {bullets.map((b, i) => (
+                <li key={i} className="text-white/85 text-[12px] max-sm:text-[10px] leading-relaxed">
+                  - {b}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      {/* 오른쪽 누끼 인물 — 카드 밖으로 살짝 튀어나옴 */}
       {inst.hero_portrait_url && (
         <img
           src={inst.hero_portrait_url}
           alt={inst.name}
-          className="absolute right-0 bottom-0 h-full w-auto max-w-[55%] object-contain object-bottom pointer-events-none"
+          className="absolute right-[-6%] bottom-0 h-[115%] max-sm:h-[108%] w-auto max-w-[60%] object-contain object-bottom pointer-events-none z-10"
           draggable={false}
         />
       )}
-
-      {/* 오른쪽 페이드 그라데이션 (누끼 경계 부드럽게) */}
-      {inst.hero_portrait_url && (
-        <div
-          className="absolute inset-y-0 right-0 w-[40%] pointer-events-none"
-          style={{ background: `linear-gradient(to left, transparent 0%, ${inst.hero_bg_to}22 100%)` }}
-        />
-      )}
-
-      {/* 왼쪽 텍스트 */}
-      <div className="relative z-10 h-full flex flex-col justify-between p-8 max-sm:p-5 max-w-[60%] max-sm:max-w-[70%]">
-        <div>
-          <h3
-            className="text-[28px] max-sm:text-[18px] font-bold leading-tight mb-3 max-sm:mb-2 whitespace-pre-line"
-            style={{ color: inst.hero_title_color }}
-          >
-            {inst.hero_title || `${inst.name} 강사입니다.`}
-          </h3>
-          <p className="text-white/80 text-sm max-sm:text-xs font-medium">
-            {inst.name}
-            {inst.title && <span className="ml-1.5">{inst.title}</span>}
-          </p>
-        </div>
-
-        {bullets.length > 0 && (
-          <ul className="mt-auto pt-6 max-sm:pt-4 space-y-1.5 max-sm:space-y-1">
-            {bullets.map((b, i) => (
-              <li key={i} className="text-white/85 text-[13px] max-sm:text-[11px] leading-relaxed">
-                - {b}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
 
       {/* 카드 전체 클릭 영역 (interactive 일 때만) */}
       {interactive && (
         <Link
           to={`/instructors/${inst.id}`}
-          className="absolute inset-0 z-20"
+          className="absolute inset-0 z-20 rounded-[32px] max-sm:rounded-[24px]"
           aria-label={`${inst.name} 상세 보기`}
         />
       )}
@@ -156,7 +152,7 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
         </div>
 
         {/* 캐러셀 */}
-        <div className="relative h-[420px] max-sm:h-[280px]">
+        <div className="relative h-[320px] max-sm:h-[220px]">
           {instructors.map((inst, idx) => {
             const pos = getSlidePosition(idx, activeIndex, instructors.length)
             const style = SLIDE_STYLES[pos]
@@ -164,7 +160,7 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
             return (
               <div
                 key={inst.id}
-                className="absolute left-1/2 top-0 h-[420px] max-sm:h-[280px] w-[880px] max-sm:w-[320px]"
+                className="absolute left-1/2 top-0 h-[320px] max-sm:h-[220px] w-[720px] max-sm:w-[300px]"
                 style={{
                   transform: style.transform,
                   opacity: style.opacity,

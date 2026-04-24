@@ -280,20 +280,33 @@ export default function AdminInstructors() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-bold block mb-1">배경 그라데이션</label>
-                    <div className="flex items-center gap-2">
-                      <input type="color"
-                        value={editing.hero_bg_from || '#1a1a1a'}
-                        onChange={(e) => setEditing({ ...editing, hero_bg_from: e.target.value })}
-                        title="시작색"
-                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5" />
-                      <span className="text-gray-400 text-xs">→</span>
-                      <input type="color"
-                        value={editing.hero_bg_to || '#2a2a2a'}
-                        onChange={(e) => setEditing({ ...editing, hero_bg_to: e.target.value })}
-                        title="끝색"
-                        className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5" />
+                  <div className="col-span-2 max-sm:col-span-1">
+                    <label className="text-xs font-bold block mb-1">배경 그라데이션 (시작 → 끝)</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-center gap-2">
+                        <input type="color"
+                          value={editing.hero_bg_from || '#1a1a1a'}
+                          onChange={(e) => setEditing({ ...editing, hero_bg_from: e.target.value })}
+                          title="시작색"
+                          className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5 shrink-0" />
+                        <input type="text"
+                          value={editing.hero_bg_from || '#1a1a1a'}
+                          onChange={(e) => setEditing({ ...editing, hero_bg_from: e.target.value })}
+                          placeholder="#1a1a1a"
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#2ED573]" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="color"
+                          value={editing.hero_bg_to || '#2a2a2a'}
+                          onChange={(e) => setEditing({ ...editing, hero_bg_to: e.target.value })}
+                          title="끝색"
+                          className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5 shrink-0" />
+                        <input type="text"
+                          value={editing.hero_bg_to || '#2a2a2a'}
+                          onChange={(e) => setEditing({ ...editing, hero_bg_to: e.target.value })}
+                          placeholder="#2a2a2a"
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#2ED573]" />
+                      </div>
                     </div>
                   </div>
 
@@ -328,38 +341,40 @@ export default function AdminInstructors() {
                     <p className="text-[10px] text-gray-400 mt-1">숫자가 작을수록 먼저 표시.</p>
                   </div>
 
-                  {/* 미리보기 */}
+                  {/* 미리보기 — 실제 메인과 동일한 디자인 */}
                   <div className="col-span-2 max-sm:col-span-1 mt-2">
                     <label className="text-xs font-bold block mb-2">미리보기</label>
-                    <div
-                      className="relative rounded-2xl overflow-hidden h-[220px] shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${editing.hero_bg_from || '#1a1a1a'} 0%, ${editing.hero_bg_to || '#2a2a2a'} 100%)` }}
-                    >
+                    <div className="relative h-[220px] px-6">
+                      <div
+                        className="absolute inset-x-6 inset-y-0 rounded-[32px] overflow-hidden shadow-lg"
+                        style={{ background: `linear-gradient(135deg, ${editing.hero_bg_from || '#1a1a1a'} 0%, ${editing.hero_bg_to || '#2a2a2a'} 100%)` }}
+                      >
+                        <div className="relative z-10 h-full flex flex-col justify-between p-5 max-w-[60%]">
+                          <div>
+                            <h4
+                              className="text-lg font-bold leading-tight mb-1 whitespace-pre-line"
+                              style={{ color: editing.hero_title_color || '#FFFFFF' }}
+                            >
+                              {editing.hero_title || `${editing.name || '강사'} 강사입니다.`}
+                            </h4>
+                            <p className="text-white/80 text-xs font-medium">
+                              {editing.name}
+                              {editing.title && <span className="ml-1.5">{editing.title}</span>}
+                            </p>
+                          </div>
+                          {(editing.hero_bullets || []).filter((b) => b.trim()).length > 0 && (
+                            <ul className="mt-3 space-y-0.5">
+                              {(editing.hero_bullets || []).filter((b) => b.trim()).slice(0, 3).map((b, i) => (
+                                <li key={i} className="text-white/85 text-[11px] leading-snug">- {b}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
                       {editing.hero_portrait_url && (
                         <img src={editing.hero_portrait_url} alt=""
-                          className="absolute right-0 bottom-0 h-full w-auto max-w-[55%] object-contain object-bottom pointer-events-none" />
+                          className="absolute right-0 bottom-0 h-[115%] w-auto max-w-[60%] object-contain object-bottom pointer-events-none z-10" />
                       )}
-                      <div className="relative z-10 h-full flex flex-col justify-between p-5 max-w-[60%]">
-                        <div>
-                          <h4
-                            className="text-lg font-bold leading-tight mb-1 whitespace-pre-line"
-                            style={{ color: editing.hero_title_color || '#FFFFFF' }}
-                          >
-                            {editing.hero_title || `${editing.name || '강사'} 강사입니다.`}
-                          </h4>
-                          <p className="text-white/80 text-xs font-medium">
-                            {editing.name}
-                            {editing.title && <span className="ml-1.5">{editing.title}</span>}
-                          </p>
-                        </div>
-                        {(editing.hero_bullets || []).filter((b) => b.trim()).length > 0 && (
-                          <ul className="mt-3 space-y-0.5">
-                            {(editing.hero_bullets || []).filter((b) => b.trim()).slice(0, 3).map((b, i) => (
-                              <li key={i} className="text-white/85 text-[11px] leading-snug">- {b}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
