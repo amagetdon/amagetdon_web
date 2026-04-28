@@ -424,12 +424,25 @@ function CourseDetailPage() {
 
     if (owned) {
       return (
-        <button
-          onClick={() => navigate('/my-classroom')}
-          className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-4 cursor-pointer"
-        >
-          내 강의실로 이동
-        </button>
+        <>
+          <button
+            onClick={() => navigate('/my-classroom')}
+            className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-4 cursor-pointer"
+          >
+            내 강의실로 이동
+          </button>
+          {course?.after_purchase_url && (
+            <a
+              href={course.after_purchase_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-4 bg-[#FAE100] text-[#3C1E1E] font-bold text-center rounded-xl mt-2 cursor-pointer no-underline flex items-center justify-center gap-1.5 hover:brightness-95 transition-all"
+            >
+              <i className="ti ti-message-circle text-base" />
+              채팅방 이동하기
+            </a>
+          )}
+        </>
       )
     }
 
