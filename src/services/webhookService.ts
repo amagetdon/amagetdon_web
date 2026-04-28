@@ -351,8 +351,10 @@ export const webhookService = {
     type: 'course' | 'ebook'
     productId?: number | null
     paymentId?: number | null
-  }, context?: WebhookContext) {
-    await fireInternal('refund', {
+  }, _context?: WebhookContext) {
+    // refund 는 built-in event 도 webhook_configs.refund_template 도 따로 없어서
+    // 어드민이 'refund' 라는 custom event 로 템플릿 관리하도록 위임.
+    await this.fireCustomEvent('refund', {
       user_email: data.user_email || '',
       user_name: data.user_name || '',
       user_phone: data.user_phone || '',
@@ -360,16 +362,13 @@ export const webhookService = {
       price: data.price ?? 0,
       type: data.type,
     }, {
+      userId: data.userId ?? null,
+      userName: data.user_name,
+      userPhone: data.user_phone,
+      userEmail: data.user_email,
+      title: data.title,
       scope: data.type,
       scopeId: data.productId ?? null,
-      userId: data.userId ?? null,
-      relatedType: 'payment',
-      relatedId: data.paymentId ?? null,
-      displayName: data.user_name || '',
-      displayPhone: data.user_phone || '',
-      displayEmail: data.user_email || '',
-      displayTitle: data.title || '',
-      context,
     })
   },
 
