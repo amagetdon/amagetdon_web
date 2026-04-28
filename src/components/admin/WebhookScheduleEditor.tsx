@@ -179,14 +179,9 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     ])
     setGlobalConfig(g)
     setScopedConfig(s.id ? s : null)
-    // 강의/전자책은 메시지가 많이 달라 per-scope 전용을 기본값으로
-    if (s.id && s.purchase_template) {
-      setPurchaseTemplate(s.purchase_template)
-      setOverrideEnabled(true)
-    } else {
-      setPurchaseTemplate('')
-      setOverrideEnabled(true)
-    }
+    // 토글 상태 = scoped 가 존재하고 enabled === true. 그 외 (없거나 disabled) 는 OFF (기본 웹훅 사용).
+    setPurchaseTemplate(s.purchase_template || '')
+    setOverrideEnabled(s.id ? s.enabled !== false : false)
   }, [scope, scopeId])
 
   const fetchScopeInfo = useCallback(async () => {
@@ -340,24 +335,28 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     }
   }
 
+  // 토글 클릭 시 즉시 DB 반영. ON ↔ OFF 가 UI 상에서만 바뀌고 DB 는 그대로라 헷갈리던 문제 해결.
+  // OFF 로 가도 데이터는 보존(enabled=false) — 다시 ON 할 때 작성한 템플릿 그대로 살아남음.
+  const handleToggleOverride = async () => {
+    const next = !overrideEnabled
+    setOverrideEnabled(next)
+    if (!scopedConfig?.id) return // 아직 저장된 전용 설정이 없으면 DB 작업 불필요
+    setSavingPurchase(true)
+    try {
+      await webhookService.saveConfig({ ...scopedConfig, enabled: next } as WebhookConfig)
+      toast.success(next ? '전용 설정 활성화' : '기본 웹훅 설정으로 전환됨 (전용 템플릿은 보존)')
+      fetchConfigs()
+    } catch {
+      // 실패 시 토글 롤백
+      setOverrideEnabled(!next)
+      toast.error('전환 실패')
+    } finally {
+      setSavingPurchase(false)
+    }
+  }
+
   const handleSavePurchaseTemplate = async () => {
     if (!globalConfig) return
-    // 토글 OFF → 기존 override 삭제
-    if (!overrideEnabled) {
-      if (scopedConfig?.id) {
-        setSavingPurchase(true)
-        try {
-          await webhookService.deleteConfig(scopedConfig.id)
-          toast.success('전용 설정 해제')
-          fetchConfigs()
-        } catch {
-          toast.error('해제 실패')
-        } finally {
-          setSavingPurchase(false)
-        }
-      }
-      return
-    }
     if (!purchaseTemplate.trim()) { toast.error('템플릿을 입력해주세요.'); return }
 
     // 저장 직전에도 cURL 추출 한 번 더 (사용자가 버튼 안 눌렀어도 커버)
@@ -550,8 +549,9 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
           <label className="flex items-center gap-2 cursor-pointer">
             <span className="text-xs text-gray-500">{overrideEnabled ? `이 ${scope === 'course' ? '강의' : '전자책'} 전용 (기본값)` : '기본 웹훅 설정 사용'}</span>
             <button type="button"
-              onClick={() => setOverrideEnabled((v) => !v)}
-              className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer border-none ${overrideEnabled ? 'bg-[#2ED573]' : 'bg-gray-300'}`}>
+              onClick={handleToggleOverride}
+              disabled={savingPurchase}
+              className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer border-none ${overrideEnabled ? 'bg-[#2ED573]' : 'bg-gray-300'} disabled:opacity-50`}>
               <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform shadow ${overrideEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>
           </label>
@@ -591,10 +591,9 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
               {' '}<Link to="/admin/webhook" className="underline text-blue-700 font-bold">기본 웹훅 설정 →</Link>
             </div>
             {scopedConfig?.id && (
-              <button onClick={handleSavePurchaseTemplate} disabled={savingPurchase}
-                className="mt-2 text-[11px] text-red-600 hover:text-red-800 bg-transparent border-none cursor-pointer underline">
-                기존 전용 설정 삭제
-              </button>
+              <div className="text-[11px] text-gray-400 mt-1">
+                이전에 작성한 전용 템플릿은 보존되어 있어요. 다시 토글 ON 하면 살아납니다.
+              </div>
             )}
           </div>
         )}
