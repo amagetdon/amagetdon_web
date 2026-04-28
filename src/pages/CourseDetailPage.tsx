@@ -230,9 +230,8 @@ function CourseDetailPage() {
         course.enrollment_deadline ? (course.duration_days || null) : null,
         course.enrollment_deadline || null,
       )
-      // 무료 구매 알림톡 + CRM 웹훅 + D-N 예약 알림톡 큐 적재
-      // (handleConfirmPurchase 의 유료 path 와 동일하게 처리하던 게 빠져있던 버그)
-      webhookService.firePurchase({ userId: user.id, user_email: profile?.email || '', user_name: profile?.name || '', user_phone: profile?.phone || '', title: course.title, price: 0, type: 'course', productId: course.id }, webhookService.captureContext()).catch(() => {})
+      // 무료 구매 알림톡 + D-N 예약 알림톡 큐 적재
+      // ('purchase' built-in event 는 legacy 라 호출하지 않음 — purchase_free custom event 가 대체)
       webhookService.fireCustomEvent('purchase_free', {
         course_type: course.course_type,
         price: 0,
@@ -278,8 +277,8 @@ function CourseDetailPage() {
         course.enrollment_deadline || null,
       )
       if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
-      webhookService.firePurchase({ userId: user.id, user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: course.title, price: finalPrice, type: 'course', productId: course.id }, webhookService.captureContext()).catch(() => {})
       // 무료/유료 분기 알림톡 (course_type 기준 — 쿠폰으로 0원 결제도 premium은 유료로 분류)
+      // ('purchase' built-in event 는 더 이상 호출하지 않음 — purchase_free/premium custom event 가 대체)
       webhookService.fireCustomEvent(course.course_type === 'free' ? 'purchase_free' : 'purchase_premium', {
         course_type: course.course_type,
         price: finalPrice,

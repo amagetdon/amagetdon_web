@@ -161,8 +161,7 @@ function EbookDetailPage() {
         ebook.title,
         ebook.duration_days
       )
-      // 무료 구매 알림톡 + CRM 웹훅 (handleConfirmPurchase 와 동일하게 발사 — 빠져있던 버그)
-      webhookService.firePurchase({ userId: user.id, user_email: profile?.email || '', user_name: profile?.name || '', user_phone: profile?.phone || '', title: ebook.title, price: 0, type: 'ebook', productId: ebook.id }, webhookService.captureContext()).catch(() => {})
+      // 무료 구매 알림톡 ('purchase' built-in event 는 legacy 라 호출하지 않음 — purchase_free custom event 가 대체)
       webhookService.fireCustomEvent('purchase_free', {
         is_free: ebook.is_free,
         price: 0,
@@ -202,8 +201,8 @@ function EbookDetailPage() {
         selectedCoupon ? price : undefined
       )
       if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
-      webhookService.firePurchase({ userId: user.id, user_email: profile.email || '', user_name: profile.name || '', user_phone: profile.phone || '', title: ebook.title, price: finalPrice, type: 'ebook', productId: ebook.id }, webhookService.captureContext()).catch(() => {})
       // 무료/유료 분기 알림톡 (ebook.is_free 기준)
+      // ('purchase' built-in event 는 더 이상 호출하지 않음 — purchase_free/premium custom event 가 대체)
       webhookService.fireCustomEvent(ebook.is_free ? 'purchase_free' : 'purchase_premium', {
         is_free: ebook.is_free,
         price: finalPrice,
