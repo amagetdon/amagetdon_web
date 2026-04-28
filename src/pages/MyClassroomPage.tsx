@@ -66,8 +66,10 @@ function MyClassroomPage() {
   const navigate = useNavigate()
   const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string } | null>(null)
   const { user, profile } = useAuth()
-  // 다시 페이지 진입할 때마다 배너 노출되도록 — 컴포넌트 로컬 state 만 사용 (storage X)
-  const [guestBannerDismissed, setGuestBannerDismissed] = useState(false)
+  const [guestBannerDismissed, setGuestBannerDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return sessionStorage.getItem('guest_banner_dismissed') === '1'
+  })
   const [coursePurchases, setCoursePurchases] = useState<CoursePurchase[]>([])
   const [ebookPurchases, setEbookPurchases] = useState<EbookPurchase[]>([])
   const [loading, setLoading] = useState(true)
@@ -424,7 +426,10 @@ function MyClassroomPage() {
                 회원가입하기
               </button>
               <button
-                onClick={() => setGuestBannerDismissed(true)}
+                onClick={() => {
+                  setGuestBannerDismissed(true)
+                  sessionStorage.setItem('guest_banner_dismissed', '1')
+                }}
                 className="bg-white border border-gray-200 text-gray-500 text-xs font-medium px-3 py-1.5 rounded-md cursor-pointer hover:bg-gray-50 transition-colors max-sm:flex-1"
               >
                 나중에
