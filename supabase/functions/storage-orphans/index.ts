@@ -2,7 +2,10 @@
 // admin 만 호출 가능. service_role 토큰 또는 admin 사용자 JWT.
 //
 // POST 본문:
-//   { action: 'list' }            → 버킷별 orphan 파일 리스트 반환
+//   { action: 'buckets' }         → 검사 대상 버킷 목록 반환 (클라이언트 진행률 표시용)
+//   { action: 'list' }            → 모든 버킷 일괄 스캔 (legacy, 큰 사이트에선 느림)
+//   { action: 'list', bucket: 'courses' }
+//                                  → 해당 버킷만 스캔 — 클라이언트가 버킷 단위로 호출하며 진행률 표시
 //   { action: 'delete', items: [{ bucket, path }, ...] }
 //                                  → 지정된 파일들 일괄 삭제
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -171,7 +174,11 @@ Deno.serve(async (req: Request) => {
     }
 
     const supabase = createClient(supabaseUrl, serviceKey)
-    const body = await req.json().catch(() => ({})) as { action?: string; items?: Array<{ bucket: string; path: string }> }
+    const body = await req.json().catch(() => ({})) as { action?: string; bucket?: string; items?: Array<{ bucket: string; path: string }> }
+
+    if (body.action === 'buckets') {
+      return json({ status: 'ok', buckets: BUCKETS })
+    }
 
     if (body.action === 'delete') {
       const items = body.items ?? []
@@ -192,12 +199,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // action: 'list' (기본)
+    // bucket 파라미터 있으면 해당 버킷만, 없으면 전체
+    const targetBuckets = body.bucket ? [body.bucket].filter((b) => BUCKETS.includes(b)) : BUCKETS
     const referenced = await collectReferencedUrls(supabase)
 
     const orphans: ListItem[] = []
     let totalSize = 0
     let scannedCount = 0
-    for (const bucket of BUCKETS) {
+    for (const bucket of targetBuckets) {
       const files = await listAllFiles(supabase, bucket)
       scannedCount += files.length
       for (const f of files) {

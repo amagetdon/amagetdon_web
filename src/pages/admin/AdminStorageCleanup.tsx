@@ -21,6 +21,11 @@ interface ListResponse {
   orphans: OrphanItem[]
 }
 
+interface BucketsResponse {
+  status: string
+  buckets: string[]
+}
+
 const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
@@ -35,21 +40,52 @@ export default function AdminStorageCleanup() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [bucketFilter, setBucketFilter] = useState<string>('')
+  const [progress, setProgress] = useState<{ current: number; total: number; bucket: string } | null>(null)
 
   const itemKey = (it: OrphanItem) => `${it.bucket}/${it.path}`
 
   const handleScan = async () => {
     setLoading(true)
     setSelected(new Set())
+    setData(null)
     try {
-      const { data, error } = await supabase.functions.invoke('storage-orphans', { body: { action: 'list' } })
-      if (error) throw error
-      setData(data as ListResponse)
+      // 1) 검사 대상 버킷 목록 가져오기
+      const { data: bucketsRes, error: bErr } = await supabase.functions.invoke('storage-orphans', { body: { action: 'buckets' } })
+      if (bErr) throw bErr
+      const buckets = (bucketsRes as BucketsResponse).buckets ?? []
+      if (buckets.length === 0) throw new Error('스캔할 버킷이 없습니다.')
+
+      // 2) 버킷별로 순차 호출하면서 진행률 업데이트
+      const allOrphans: OrphanItem[] = []
+      let scanned = 0
+      let referenced = 0
+      let totalBytes = 0
+      for (let i = 0; i < buckets.length; i++) {
+        const bucket = buckets[i]
+        setProgress({ current: i, total: buckets.length, bucket })
+        const { data: r, error } = await supabase.functions.invoke('storage-orphans', { body: { action: 'list', bucket } })
+        if (error) throw error
+        const result = r as ListResponse
+        allOrphans.push(...result.orphans)
+        scanned += result.scanned
+        referenced = Math.max(referenced, result.referenced)
+        totalBytes += result.orphan_total_bytes
+      }
+      setProgress({ current: buckets.length, total: buckets.length, bucket: '' })
+      setData({
+        status: 'ok',
+        scanned,
+        referenced,
+        orphan_count: allOrphans.length,
+        orphan_total_bytes: totalBytes,
+        orphans: allOrphans,
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : '스캔 실패'
       toast.error(msg)
     } finally {
       setLoading(false)
+      setProgress(null)
     }
   }
 
@@ -125,7 +161,7 @@ export default function AdminStorageCleanup() {
             <i className="ti ti-refresh text-base" />
             {loading ? '스캔 중...' : data ? '다시 스캔' : '스캔 시작'}
           </button>
-          {data && (
+          {data && !loading && (
             <div className="text-xs text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
               <span>전체 파일: <strong className="text-gray-900">{data.scanned}개</strong></span>
               <span>DB 참조: <strong className="text-gray-900">{data.referenced}개</strong></span>
@@ -133,6 +169,27 @@ export default function AdminStorageCleanup() {
             </div>
           )}
         </div>
+        {loading && progress && (
+          <div className="mt-4">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+              <span>
+                {progress.bucket
+                  ? <>스캔 중: <code className="font-mono text-gray-700">{progress.bucket}</code></>
+                  : '완료'}
+              </span>
+              <span>
+                <strong className="text-[#2ED573]">{Math.round((progress.current / progress.total) * 100)}%</strong>
+                <span className="text-gray-400 ml-1.5">({progress.current}/{progress.total})</span>
+              </span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#2ED573] transition-all duration-300"
+                style={{ width: `${(progress.current / progress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {data && data.orphans.length > 0 && (
