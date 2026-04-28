@@ -55,6 +55,7 @@ const NAV_GROUPS = [
       { path: '/admin/faqs', label: 'FAQ', icon: 'ti-help-circle' },
       { path: '/admin/pages', label: '페이지 관리', icon: 'ti-layout-navbar' },
       { path: '/admin/site-settings', label: '사이트 설정', icon: 'ti-settings' },
+      { path: '/admin/storage-cleanup', label: '저장소 정리', icon: 'ti-trash' },
     ],
   },
 ]

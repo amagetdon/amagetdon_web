@@ -2,6 +2,11 @@
 // 대상 URL 이 Supabase Storage 의 public object URL 일 때만 transform 을 적용해
 // WebP 변환 + 사이즈 축소로 Cached Egress 절감.
 // 외부 URL (cafe24, blog 등) 은 그대로 반환.
+//
+// 정책: 어드민 업로드 시점에 client-side 에서 1920px·WebP·82q 로 미리 압축해 저장하므로
+// (storageService.uploadImage 참고), 사용자 페이지에서는 transform endpoint 를 굳이 거칠 필요가 없다.
+// → transform quota (월 100 unique origins) 를 보존하기 위해 기본은 raw URL 반환.
+// 필요한 경우 (예: 더 작은 sub-thumbnail) 명시적으로 transform 을 강제할 수 있도록 force 플래그 노출.
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || '').replace(/\/+$/, '')
 const STORAGE_OBJECT_PREFIX = `${SUPABASE_URL}/storage/v1/object/`
@@ -49,10 +54,19 @@ function applyTransform(url: string, opts: TransformOptions): string {
   return `${transformedBase}?${params.toString()}`
 }
 
-export function imgUrl(url: string | null | undefined, presetOrOpts: ImageTransformPreset | TransformOptions = 'card'): string {
+/**
+ * 기본은 raw URL 반환 (업로드 시 이미 압축돼 있어 transform 불필요).
+ * `_force` 가 true 일 때만 transform endpoint 를 호출 → quota 차감 발생.
+ */
+export function imgUrl(
+  url: string | null | undefined,
+  _presetOrOpts: ImageTransformPreset | TransformOptions = 'card',
+  _force = false,
+): string {
   if (!url) return ''
+  if (!_force) return url
   if (!isSupabaseStorage(url)) return url
-  const opts = typeof presetOrOpts === 'string' ? PRESETS[presetOrOpts] : presetOrOpts
+  const opts = typeof _presetOrOpts === 'string' ? PRESETS[_presetOrOpts] : _presetOrOpts
   return applyTransform(url, opts)
 }
 
