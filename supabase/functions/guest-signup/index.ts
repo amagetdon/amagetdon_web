@@ -4,6 +4,24 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 
+async function verifyTurnstile(token: string | undefined): Promise<boolean> {
+  const secret = Deno.env.get('TURNSTILE_SECRET_KEY')
+  // Secret 미설정 — Turnstile 적용 전 단계로 간주, 검증 우회
+  if (!secret) return true
+  if (!token) return false
+  try {
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ secret, response: token }).toString(),
+    })
+    const data = await res.json() as { success?: boolean }
+    return !!data.success
+  } catch {
+    return false
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -16,13 +34,21 @@ Deno.serve(async (req: Request) => {
       name: string
       phone: string
       signup_referrer?: string
+      captchaToken?: string
     }
 
-    const { email, password, name, phone, signup_referrer } = body
+    const { email, password, name, phone, signup_referrer, captchaToken } = body
 
     if (!email || !password) {
       return new Response(JSON.stringify({ error: 'email and password required' }), {
         status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!(await verifyTurnstile(captchaToken))) {
+      return new Response(JSON.stringify({ error: '봇 방지 검증에 실패했습니다.' }), {
+        status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }

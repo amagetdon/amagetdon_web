@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { authService } from '../services/authService'
+import Turnstile from './Turnstile'
 
 interface Props {
   isOpen: boolean
@@ -26,6 +27,7 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
   const [email, setEmail] = useState('')
   const [agree, setAgree] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
 
   if (!isOpen) return null
 
@@ -39,6 +41,10 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
     if (phoneDigits.length < 10 || phoneDigits.length > 11) { toast.error('올바른 전화번호를 입력해주세요.'); return }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) { toast.error('올바른 이메일을 입력해주세요.'); return }
     if (!agree) { toast.error('이용약관에 동의해주세요.'); return }
+    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !captchaToken) {
+      toast.error('잠시만 기다려주세요. 봇 방지 확인이 진행 중입니다.')
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -47,7 +53,7 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
         phone: formatPhoneKR(phone),
         email: trimmedEmail,
         signup_referrer: signupReferrer,
-      })
+      }, captchaToken)
       toast.success('가입 완료! 구매를 진행합니다.')
       onSuccess()
     } catch (err) {
@@ -138,6 +144,8 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
               <strong>서비스 이용약관</strong> 및 <strong>개인정보 처리방침</strong>에 동의합니다.
             </span>
           </label>
+
+          <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} className="flex justify-center" />
 
           <div className="flex gap-2 pt-2">
             <button

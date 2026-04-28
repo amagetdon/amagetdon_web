@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { courseService } from '../services/courseService'
 import { isCourseClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
+import { imgUrl } from '../lib/image'
 import type { CourseWithInstructor } from '../types'
 
 function PremiumCourses({ courses: propCourses, loading: propLoading }: { courses?: CourseWithInstructor[]; loading?: boolean } = {}) {
@@ -49,7 +50,7 @@ function PremiumCourses({ courses: propCourses, loading: propLoading }: { course
                 <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">
                   <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
                     {course.thumbnail_url ? (
-                      <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+                      <img src={imgUrl(course.thumbnail_url, 'thumb')} alt={course.title} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-sm text-gray-400">썸네일<br />16:9</span>
                     )}

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ebookService } from '../services/ebookService'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
+import { imgUrl } from '../lib/image'
 import type { EbookWithInstructor } from '../types'
 
 function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: EbookWithInstructor[]; loading?: boolean } = {}) {
@@ -46,7 +47,7 @@ function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: Ebo
                 <Link key={book.id} to={`/ebook/${book.id}`} className="no-underline group">
                   <div className={`bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
                     {book.thumbnail_url ? (
-                      <img src={book.thumbnail_url} alt={book.title} className="w-full h-full object-cover" />
+                      <img src={imgUrl(book.thumbnail_url, 'thumb')} alt={book.title} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-sm text-gray-400">썸네일</span>
                     )}

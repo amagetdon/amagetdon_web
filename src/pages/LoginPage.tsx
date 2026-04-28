@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { supabase } from '../lib/supabase'
 import { useExternalServices } from '../hooks/useExternalServices'
+import Turnstile from '../components/Turnstile'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -17,6 +18,7 @@ function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [showResend, setShowResend] = useState(false)
   const [resendMessage, setResendMessage] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
 
   // 비밀번호 찾기 모달
   const [showResetModal, setShowResetModal] = useState(false)
@@ -36,7 +38,7 @@ function LoginPage() {
     try {
       setGuestSending(true)
       setGuestMessage('')
-      await authService.sendLoginLink(guestEmail)
+      await authService.sendLoginLink(guestEmail, captchaToken)
       setGuestMessage('로그인 링크를 이메일로 보냈습니다. 메일함(스팸 포함)을 확인해주세요.')
     } catch (err) {
       const msg = err instanceof Error ? err.message : '발송에 실패했습니다.'
@@ -61,10 +63,15 @@ function LoginPage() {
       return
     }
 
+    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !captchaToken) {
+      setError('잠시만 기다려주세요. 봇 방지 확인이 진행 중입니다.')
+      return
+    }
+
     try {
       setLoading(true)
       sessionStorage.setItem('pendingSignIn', '1')
-      const { user } = await authService.signIn(email, password)
+      const { user } = await authService.signIn(email, password, captchaToken)
 
       // 프로필 정보가 비어있으면 마이페이지로, 아니면 홈으로
       if (from !== '/mypage' && from !== '/') {
@@ -105,7 +112,7 @@ function LoginPage() {
     }
     try {
       setResendMessage('발송 중...')
-      await authService.resendConfirmation(email)
+      await authService.resendConfirmation(email, captchaToken)
       setResendMessage('인증 메일이 재발송되었습니다. 이메일을 확인해주세요.')
       setShowResend(false)
     } catch (err) {
@@ -131,7 +138,7 @@ function LoginPage() {
     try {
       setResetSending(true)
       setResetMessage('')
-      await authService.resetPassword(resetEmail)
+      await authService.resetPassword(resetEmail, captchaToken)
       setResetMessage('비밀번호 재설정 링크가 이메일로 발송되었습니다. 메일함을 확인해주세요.')
     } catch (err) {
       if (err instanceof Error) {
@@ -203,6 +210,8 @@ function LoginPage() {
               {resendMessage}
             </p>
           )}
+
+          <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} className="flex justify-center" />
 
           <button
             type="submit"

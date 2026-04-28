@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { imgUrl } from '../lib/image'
 import type { Instructor } from '../types'
 
 interface SlideStyle {
@@ -103,8 +104,9 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
           모바일: 세로배치로 변경 — 우하단에 작게(높이 ~170px) */}
       {inst.hero_portrait_url && (
         <img
-          src={inst.hero_portrait_url}
+          src={imgUrl(inst.hero_portrait_url, 'card')}
           alt={inst.name}
+          loading="lazy"
           className="absolute right-0 bottom-0 h-[115%] max-sm:h-[220px] w-auto max-w-[55%] max-sm:max-w-[60%] object-contain object-bottom rounded-br-[32px] max-sm:rounded-br-[24px] pointer-events-none z-10"
           draggable={false}
         />

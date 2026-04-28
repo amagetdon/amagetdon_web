@@ -14,22 +14,24 @@ export const authService = {
     utm_content?: string
     utm_term?: string
     signup_referrer?: string
-  }) {
+  }, captchaToken?: string) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: meta,
+        captchaToken,
       },
     })
     if (error) throw error
     return data
   },
 
-  async signIn(email: string, password: string) {
+  async signIn(email: string, password: string, captchaToken?: string) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
+      options: { captchaToken },
     })
     if (error) throw error
     return data
@@ -58,17 +60,19 @@ export const authService = {
     return data.session
   },
 
-  async resendConfirmation(email: string) {
+  async resendConfirmation(email: string, captchaToken?: string) {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email,
+      options: { captchaToken },
     })
     if (error) throw error
   },
 
-  async resetPassword(email: string) {
+  async resetPassword(email: string, captchaToken?: string) {
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
+      captchaToken,
     })
     if (error) throw error
   },
@@ -80,7 +84,7 @@ export const authService = {
     phone: string
     email: string
     signup_referrer?: string
-  }) {
+  }, captchaToken?: string) {
     const randomPassword = `g_${Math.random().toString(36).slice(2, 10)}_${Date.now().toString(36)}`
 
     const { data: fnData, error: fnErr } = await supabase.functions.invoke('guest-signup', {
@@ -90,6 +94,7 @@ export const authService = {
         name: input.name,
         phone: input.phone,
         signup_referrer: input.signup_referrer,
+        captchaToken,
       },
     })
 
@@ -127,12 +132,13 @@ export const authService = {
 
   // 이메일 매직 링크 로그인 — 비회원 구매로 만들어진 계정의 비밀번호 없이 로그인
   // shouldCreateUser:false 로 기존 계정만 허용 (가입 유도는 비회원 구매/회원가입 페이지로)
-  async sendLoginLink(email: string) {
+  async sendLoginLink(email: string, captchaToken?: string) {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
         emailRedirectTo: `${window.location.origin}/`,
         shouldCreateUser: false,
+        captchaToken,
       },
     })
     if (error) throw error

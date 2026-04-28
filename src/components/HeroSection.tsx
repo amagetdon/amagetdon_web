@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { bannerService } from '../services/bannerService'
 import { supabase } from '../lib/supabase'
+import { imgUrl } from '../lib/image'
 import type { Banner } from '../types'
 
 function getEmbedUrl(url: string): { type: 'youtube' | 'raw'; src: string } | null {
@@ -222,7 +223,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
           <video
             key={videoInfo.src}
             src={videoInfo.src}
-            poster={banner.image_url || undefined}
+            poster={imgUrl(banner.image_url, 'hero') || undefined}
             className={mediaClassName(activeFit)}
             style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }}
             autoPlay
@@ -232,7 +233,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
           />
         )
       ) : banner.image_url ? (
-        <img src={banner.image_url} alt="" className={mediaClassName(activeFit)} style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }} />
+        <img src={imgUrl(banner.image_url, 'hero')} alt="" className={mediaClassName(activeFit)} style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }} />
       ) : null}
       <div className="relative w-full max-w-[1200px] mx-auto px-5">
         {banner.subtitle && (

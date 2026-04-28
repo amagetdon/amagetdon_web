@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { useEbooks } from '../hooks/useEbooks'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
+import { imgUrl } from '../lib/image'
 
 function SecretBooks() {
   const { ebooks, loading } = useEbooks({ isFree: false })
@@ -38,7 +39,7 @@ function SecretBooks() {
                 <Link key={book.id} to={`/ebook/${book.id}`} className="cursor-pointer group no-underline">
                   <div className={`bg-gray-800 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
                     {book.thumbnail_url ? (
-                      <img src={book.thumbnail_url} alt={book.title} className="w-full h-full object-cover" />
+                      <img src={imgUrl(book.thumbnail_url, 'thumb')} alt={book.title} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-sm text-gray-500">썸네일<br />16:9</span>
                     )}

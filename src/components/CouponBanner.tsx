@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { couponService } from '../services/couponService'
 import toast from 'react-hot-toast'
+import { imgUrl } from '../lib/image'
 import type { Coupon } from '../types'
 
 function CouponBanner() {
@@ -169,7 +170,7 @@ function CouponBanner() {
 
                 {coupon.banner_image_url && (
                   <div className="w-[280px] max-sm:w-full max-sm:h-[140px] shrink-0 self-stretch">
-                    <img src={coupon.banner_image_url} alt="" className="w-full h-full object-cover" />
+                    <img src={imgUrl(coupon.banner_image_url, 'wide')} alt="" loading="lazy" className="w-full h-full object-cover" />
                   </div>
                 )}
               </div>

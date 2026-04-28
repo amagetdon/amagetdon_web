@@ -4,6 +4,7 @@ import { authService } from '../services/authService'
 import { webhookService } from '../services/webhookService'
 import { supabase } from '../lib/supabase'
 import { useExternalServices } from '../hooks/useExternalServices'
+import Turnstile from '../components/Turnstile'
 
 declare global {
   interface Window {
@@ -77,6 +78,7 @@ function SignUpPage() {
   const [serverError, setServerError] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState('')
 
   const handleChange = (field: keyof SignUpForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -145,6 +147,11 @@ function SignUpPage() {
       ? `${form.birthYear}-${form.birthMonth.padStart(2, '0')}-${form.birthDay.padStart(2, '0')}`
       : undefined
 
+    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !captchaToken) {
+      setServerError('잠시만 기다려주세요. 봇 방지 확인이 진행 중입니다.')
+      return
+    }
+
     try {
       setLoading(true)
       await authService.signUp(form.email, form.password, {
@@ -154,7 +161,7 @@ function SignUpPage() {
         address: form.address ? `${form.zonecode}|${form.address}|${form.addressDetail}` : undefined,
         birth_date: birthDate,
         ...utmParams,
-      })
+      }, captchaToken)
       setSuccess(true)
       // 트리거가 UTM을 안 넣으므로 직접 업데이트
       const { data: { user: newUser } } = await supabase.auth.getUser()
@@ -467,6 +474,8 @@ function SignUpPage() {
           {serverError && (
             <p className="text-red-500 text-sm">{serverError}</p>
           )}
+
+          <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} className="flex justify-center" />
 
           <button
             type="submit"

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { imgUrl } from '../lib/image'
 import type { Banner } from '../types'
 
 type FitMode = 'cover' | 'width' | 'height'
@@ -91,8 +92,9 @@ function EventBanner({ banners, pageKey }: EventBannerProps) {
     >
       {banner.image_url && (
         <img
-          src={banner.image_url}
+          src={imgUrl(banner.image_url, 'wide')}
           alt=""
+          loading="lazy"
           className={mediaClassName(activeFit)}
           style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }}
         />
