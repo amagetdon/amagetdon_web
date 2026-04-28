@@ -230,6 +230,25 @@ function CourseDetailPage() {
         course.enrollment_deadline ? (course.duration_days || null) : null,
         course.enrollment_deadline || null,
       )
+      // 무료 구매 알림톡 + CRM 웹훅 + D-N 예약 알림톡 큐 적재
+      // (handleConfirmPurchase 의 유료 path 와 동일하게 처리하던 게 빠져있던 버그)
+      webhookService.firePurchase({ userId: user.id, user_email: profile?.email || '', user_name: profile?.name || '', user_phone: profile?.phone || '', title: course.title, price: 0, type: 'course', productId: course.id }, webhookService.captureContext()).catch(() => {})
+      webhookService.fireCustomEvent('purchase_free', {
+        course_type: course.course_type,
+        price: 0,
+        original_price: course.original_price ?? course.sale_price ?? 0,
+        type: 'course',
+      }, {
+        userId: user.id,
+        userName: profile?.name || '',
+        userPhone: profile?.phone || '',
+        userEmail: profile?.email || '',
+        title: course.title,
+        scope: 'course',
+        scopeId: course.id,
+      }).catch(() => {})
+      webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile?.name || '', userPhone: profile?.phone || '', userEmail: profile?.email || '', scope: 'course', scopeId: course.id, courseTitle: course.title }).catch(() => {})
+      webhookScheduleService.triggerEnrollmentFullIfReached('course', course.id, enrollmentCount + 1, course.max_enrollments).catch(() => {})
       toast.success('강의가 등록되었습니다!')
       setOwned(true)
       if (course.after_purchase_url) {

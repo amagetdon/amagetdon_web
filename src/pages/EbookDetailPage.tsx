@@ -161,6 +161,22 @@ function EbookDetailPage() {
         ebook.title,
         ebook.duration_days
       )
+      // 무료 구매 알림톡 + CRM 웹훅 (handleConfirmPurchase 와 동일하게 발사 — 빠져있던 버그)
+      webhookService.firePurchase({ userId: user.id, user_email: profile?.email || '', user_name: profile?.name || '', user_phone: profile?.phone || '', title: ebook.title, price: 0, type: 'ebook', productId: ebook.id }, webhookService.captureContext()).catch(() => {})
+      webhookService.fireCustomEvent('purchase_free', {
+        is_free: ebook.is_free,
+        price: 0,
+        original_price: ebook.original_price ?? ebook.sale_price ?? 0,
+        type: 'ebook',
+      }, {
+        userId: user.id,
+        userName: profile?.name || '',
+        userPhone: profile?.phone || '',
+        userEmail: profile?.email || '',
+        title: ebook.title,
+        scope: 'ebook',
+        scopeId: ebook.id,
+      }).catch(() => {})
       toast.success('전자책이 등록되었습니다!')
       setOwned(true)
       await refreshProfile()
