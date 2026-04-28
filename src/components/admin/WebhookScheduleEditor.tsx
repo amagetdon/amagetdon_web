@@ -18,17 +18,16 @@ function resolveTemplate(template: string, vars: Record<string, string>): string
   return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => vars[k] ?? `{#${k}#}`)
 }
 
-/** 빈 "variables.X":"" 슬롯에 canonical 참조 또는 literal 값을 채워 넣음 */
+/** 빈 "variables.X":"" 슬롯에 picker가 emit한 값을 그대로 채워 넣음
+ *  picker는 canonical 선택 시 `{#KEY#}` 형태로, 고정값/URL은 raw 값으로 emit하므로
+ *  여기서는 추측 없이 JSON 이스케이프만 해서 삽입한다. */
 function fillEmptySlots(template: string, slotFills: Record<string, string>): string {
   let out = template
   for (const [slot, value] of Object.entries(slotFills)) {
     if (!value) continue
     const esc = slot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const re = new RegExp(`"variables\\.${esc}"\\s*:\\s*""`, 'g')
-    // URL이거나 공백/특수문자 포함하면 literal로 취급, 그 외엔 canonical 참조로 래핑
-    const isLiteral = /^https?:\/\//i.test(value) || /[\s/:?=&]/.test(value) && !/^[A-Za-z0-9_가-힣]+$/.test(value)
-    // JSON 문자열로 안전하게 이스케이프
-    const escapedValue = isLiteral ? JSON.stringify(value).slice(1, -1) : `{#${value}#}`
+    const escapedValue = JSON.stringify(value).slice(1, -1)
     out = out.replace(re, `"variables.${slot}":"${escapedValue}"`)
   }
   return out
@@ -627,7 +626,7 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
       {/* 편집 모달 */}
       {editing && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setEditing(null) }}>
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setEditing(null) }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">{editing.id ? '예약 알림톡 수정' : '예약 알림톡 추가'}</h3>

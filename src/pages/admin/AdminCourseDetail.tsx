@@ -374,6 +374,7 @@ export default function AdminCourseDetail() {
         description: editing.description ?? null,
         landing_category_id: ((editing.landing_category_ids as number[]) ?? [])[0] ?? null,
         refund_policy: ((editing.refund_policy as string) || '').trim() || null,
+        after_purchase_url: ((editing.after_purchase_url as string) || '').trim() || null,
         duration_days: editing.duration_days ?? 40,
       }
       if (isNew) {
@@ -643,6 +644,17 @@ export default function AdminCourseDetail() {
                   onChange={(e) => setEditing({ ...editing, enrollment_deadline: e.target.value ? e.target.value + ':00+09:00' : null })}
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                 <p className="text-xs text-gray-400 mt-1">이후 구매 회원도 시청 불가</p>
+              </div>
+              <div className="w-full">
+                <label className="text-sm font-bold block mb-1">구매 후 안내 링크</label>
+                <input
+                  type="url"
+                  value={(editing.after_purchase_url as string) || ''}
+                  onChange={(e) => setEditing({ ...editing, after_purchase_url: e.target.value })}
+                  placeholder="https://open.kakao.com/o/..."
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+                <p className="text-xs text-gray-400 mt-1">구매 직후 새 창으로 자동 이동시킬 URL (오픈채팅방 등). 비워두면 표시되지 않습니다.</p>
               </div>
               <div className="w-full">
                 <label className="text-sm font-bold block mb-1">연관 키워드</label>

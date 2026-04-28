@@ -65,7 +65,7 @@ type TabType = 'all' | 'courses' | 'ebooks'
 function MyClassroomPage() {
   const navigate = useNavigate()
   const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string } | null>(null)
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [coursePurchases, setCoursePurchases] = useState<CoursePurchase[]>([])
   const [ebookPurchases, setEbookPurchases] = useState<EbookPurchase[]>([])
   const [loading, setLoading] = useState(true)
@@ -405,6 +405,18 @@ function MyClassroomPage() {
       <div className="bg-black h-[200px] w-full" />
 
       <div className="max-w-[800px] mx-auto px-6">
+        {profile?.provider === 'guest' && (
+          <div className="mt-8 mb-4 bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-start gap-3">
+            <i className="ti ti-user-check text-emerald-500 text-xl shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-emerald-800">비회원으로 가입되셨습니다</p>
+              <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
+                현재는 <strong>이메일 링크로만</strong> 로그인 가능합니다. <a href="/mypage" className="underline font-bold text-emerald-800">마이페이지</a>에서 <strong>주소·생년월일·성별 + 비밀번호</strong>까지 입력하고 저장하시면
+                정규 회원으로 자동 전환되어 비밀번호로 직접 로그인할 수 있습니다.
+              </p>
+            </div>
+          </div>
+        )}
         <h1 className="text-3xl font-bold mt-16 mb-6">내 강의실</h1>
 
         {/* 탭 */}

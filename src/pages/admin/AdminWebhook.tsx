@@ -6,14 +6,14 @@ import CustomCanonicalVarsManager from '../../components/admin/CustomCanonicalVa
 import TemplateAliasConfirmModal from '../../components/admin/TemplateAliasConfirmModal'
 import { webhookService, defaultWebhookConfig, type WebhookConfig } from '../../services/webhookService'
 
+/** picker가 emit한 값(canonical은 `{#KEY#}`, 고정값은 raw)을 빈 슬롯에 그대로 삽입 */
 function fillEmptySlots(template: string, slotFills: Record<string, string>): string {
   let out = template
   for (const [slot, value] of Object.entries(slotFills)) {
     if (!value) continue
     const esc = slot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const re = new RegExp(`"variables\\.${esc}"\\s*:\\s*""`, 'g')
-    const isLiteral = /^https?:\/\//i.test(value) || (/[\s/:?=&]/.test(value) && !/^[A-Za-z0-9_가-힣]+$/.test(value))
-    const escapedValue = isLiteral ? JSON.stringify(value).slice(1, -1) : `{#${value}#}`
+    const escapedValue = JSON.stringify(value).slice(1, -1)
     out = out.replace(re, `"variables.${slot}":"${escapedValue}"`)
   }
   return out
@@ -983,7 +983,7 @@ SELECT cron.schedule(
       {/* 커스텀 이벤트 편집 모달 */}
       {customEditing && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setCustomEditing(null) }}>
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setCustomEditing(null) }}>
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-bold text-gray-900">{customEditing.id ? '커스텀 이벤트 수정' : '커스텀 이벤트 추가'}</h3>

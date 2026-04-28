@@ -93,11 +93,12 @@ Deno.serve(async (req: Request) => {
     let rewardPoints = 0
     let maxPrice = 0
     let isFreeItem = false
+    let afterPurchaseUrl: string | null = null
 
     if (itemType === 'course') {
       const { data: course } = await supabase
         .from('courses')
-        .select('title, original_price, sale_price, course_type, reward_points, duration_days, enrollment_deadline')
+        .select('title, original_price, sale_price, course_type, reward_points, duration_days, enrollment_deadline, after_purchase_url')
         .eq('id', itemId)
         .maybeSingle()
       if (!course) return json({ error: '강의를 찾을 수 없습니다.' }, 404)
@@ -106,6 +107,7 @@ Deno.serve(async (req: Request) => {
       rewardPoints = course.reward_points ?? 0
       isFreeItem = course.course_type === 'free'
       maxPrice = Math.max(course.original_price ?? 0, course.sale_price ?? 0)
+      afterPurchaseUrl = course.after_purchase_url ?? null
       if (course.enrollment_deadline && course.duration_days && course.duration_days > 0) {
         const base = new Date(course.enrollment_deadline)
         base.setDate(base.getDate() + course.duration_days)
@@ -199,7 +201,7 @@ Deno.serve(async (req: Request) => {
       } catch { /* 포인트 지급 실패는 구매 흐름에 영향 없음 */ }
     }
 
-    return json({ success: true, title })
+    return json({ success: true, title, after_purchase_url: afterPurchaseUrl })
   } catch (err) {
     return json(
       { error: err instanceof Error ? err.message : '서버 오류가 발생했습니다.' },

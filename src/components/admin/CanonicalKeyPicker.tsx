@@ -91,7 +91,8 @@ export default function CanonicalKeyPicker({ value, onChange, placeholder, custo
   const focusRing = accentColor === 'blue' ? 'focus:border-[#2ED573]' : 'focus:border-[#2ED573]'
   const borderColor = accentColor === 'blue' ? 'border-blue-300' : 'border-gray-300'
 
-  const selected = allOptions.find((o) => o.key === value)
+  // allowFreeInput 모드에서는 canonical 선택 시 `{#KEY#}` 형태로 emit하므로 양쪽 모두 매칭
+  const selected = allOptions.find((o) => o.key === value || `{#${o.key}#}` === value)
 
   return (
     <div ref={rootRef} className="relative">
@@ -154,17 +155,22 @@ export default function CanonicalKeyPicker({ value, onChange, placeholder, custo
                   {group}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-0">
-                  {items.map((o) => (
+                  {items.map((o) => {
+                    // allowFreeInput 모드에서는 canonical 키를 `{#KEY#}` 템플릿 형태로 저장 (실행 시 resolveTemplate 가 치환)
+                    const emit = allowFreeInput ? `{#${o.key}#}` : o.key
+                    const isSelected = value === o.key || value === emit
+                    return (
                     <button
                       key={o.key}
                       type="button"
-                      onClick={() => { onChange(o.key); setOpen(false); setQuery('') }}
-                      className={`text-left px-3 py-2 text-xs border-b border-gray-50 border-l-0 border-r-0 border-t-0 bg-white hover:bg-[#2ED573]/5 cursor-pointer ${value === o.key ? 'bg-[#2ED573]/10' : ''}`}
+                      onClick={() => { onChange(emit); setOpen(false); setQuery('') }}
+                      className={`text-left px-3 py-2 text-xs border-b border-gray-50 border-l-0 border-r-0 border-t-0 bg-white hover:bg-[#2ED573]/5 cursor-pointer ${isSelected ? 'bg-[#2ED573]/10' : ''}`}
                     >
                       <code className="font-mono text-[11px] text-gray-900 block truncate">{o.key}</code>
                       <span className="text-[10px] text-gray-500 block truncate">{o.label}</span>
                     </button>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             ))}

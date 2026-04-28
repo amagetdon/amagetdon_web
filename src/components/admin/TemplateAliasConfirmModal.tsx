@@ -41,7 +41,9 @@ export default function TemplateAliasConfirmModal({ isOpen, unknownVars, suggest
   const [slotFills, setSlotFills] = useState<Record<string, string>>(() => {
     const m: Record<string, string> = {}
     for (const s of emptySlots) {
-      m[s] = suggestedSlotFills[s]?.canonical ?? ''
+      // GPT 제안은 bare canonical 키(`TITLE`)로 오므로 picker 의 allowFreeInput emit 형식인 `{#TITLE#}` 로 변환
+      const c = suggestedSlotFills[s]?.canonical
+      m[s] = c ? `{#${c}#}` : ''
     }
     return m
   })
@@ -49,7 +51,7 @@ export default function TemplateAliasConfirmModal({ isOpen, unknownVars, suggest
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}>
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onCancel() }}>
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl min-h-[92vh] max-h-[95vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-3">
           <div>

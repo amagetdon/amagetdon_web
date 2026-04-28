@@ -232,6 +232,9 @@ function CourseDetailPage() {
       )
       toast.success('강의가 등록되었습니다!')
       setOwned(true)
+      if (course.after_purchase_url) {
+        window.open(course.after_purchase_url, '_blank', 'noopener,noreferrer')
+      }
       await refreshProfile()
     } catch (err) {
       const message = err instanceof Error ? err.message : '등록에 실패했습니다.'
@@ -277,6 +280,9 @@ function CourseDetailPage() {
       setOwned(true)
       setConfirmOpen(false)
       setSelectedCoupon(null)
+      if (course.after_purchase_url) {
+        window.open(course.after_purchase_url, '_blank', 'noopener,noreferrer')
+      }
       await refreshProfile()
     } catch (err) {
       const message = err instanceof Error ? err.message : '구매에 실패했습니다.'
@@ -435,14 +441,10 @@ function CourseDetailPage() {
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="flex gap-8 max-md:flex-col">
             <div className="flex-1">
-              {course.video_url ? (
+              {course.video_url && (
                 <VideoEmbed url={course.video_url} className="w-full" />
-              ) : (
-                <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center overflow-hidden">
-                  <span className="text-sm text-gray-400">O.T 및 광고 영상</span>
-                </div>
               )}
-              <div className="bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center mt-6 overflow-hidden">
+              <div className={`bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center overflow-hidden ${course.video_url ? 'mt-6' : ''}`}>
                 {course.landing_image_url ? (
                   <img src={course.landing_image_url} alt={course.title} className="w-full" />
                 ) : (

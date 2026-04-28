@@ -285,7 +285,7 @@ function LoginPage() {
       {showResetModal && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowResetModal(false) }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setShowResetModal(false) }}
           role="dialog"
           aria-modal="true"
         >
@@ -348,7 +348,7 @@ function LoginPage() {
       {showGuestModal && (
         <div
           className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
-          onClick={(e) => { if (e.target === e.currentTarget && !guestSending) setShowGuestModal(false) }}
+          onMouseDown={(e) => { if (e.target === e.currentTarget && !guestSending) setShowGuestModal(false) }}
           role="dialog"
           aria-modal="true"
         >

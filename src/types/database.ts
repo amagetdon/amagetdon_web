@@ -182,6 +182,7 @@ export interface Course {
   sort_order: number
   landing_category_id: number | null
   refund_policy: string | null
+  after_purchase_url: string | null
   created_at: string
   updated_at: string
 }

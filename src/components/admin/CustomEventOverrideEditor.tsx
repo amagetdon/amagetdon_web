@@ -37,14 +37,14 @@ function applyTemplate(template: string, vars: Record<string, string>): string {
   return template.replace(/\{#([^#\s]+)#\}/g, (_, k) => vars[k] ?? `{#${k}#}`)
 }
 
+/** picker가 emit한 값(canonical은 `{#KEY#}`, 고정값은 raw)을 빈 슬롯에 그대로 삽입 */
 function fillEmptySlots(template: string, slotFills: Record<string, string>): string {
   let out = template
   for (const [slot, value] of Object.entries(slotFills)) {
     if (!value) continue
     const esc = slot.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     const re = new RegExp(`"variables\\.${esc}"\\s*:\\s*""`, 'g')
-    const isLiteral = /^https?:\/\//i.test(value) || (/[\s/:?=&]/.test(value) && !/^[A-Za-z0-9_가-힣]+$/.test(value))
-    const escapedValue = isLiteral ? JSON.stringify(value).slice(1, -1) : `{#${value}#}`
+    const escapedValue = JSON.stringify(value).slice(1, -1)
     out = out.replace(re, `"variables.${slot}":"${escapedValue}"`)
   }
   return out

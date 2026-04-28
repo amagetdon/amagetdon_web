@@ -100,7 +100,17 @@ export const authService = {
 
     const payload = (fnData ?? {}) as { user_id?: string; error?: string }
     if (fnErr || payload.error) {
-      const msg = payload.error || fnErr?.message || ''
+      // supabase-js 는 non-2xx 응답을 받으면 error 에 FunctionsHttpError 를 세팅하고 data 는 null 로 둔다.
+      // 원본 응답 body 는 error.context (Response) 에 있어 직접 파싱해야 한다.
+      let bodyError: string | null = null
+      const ctx = (fnErr as { context?: unknown } | null)?.context
+      if (ctx instanceof Response) {
+        try {
+          const parsed = await ctx.clone().json() as { error?: string }
+          bodyError = parsed?.error ?? null
+        } catch { /* JSON 아니면 무시 */ }
+      }
+      const msg = bodyError || payload.error || fnErr?.message || ''
       if (msg === 'ALREADY_REGISTERED' || /already|registered|exists|duplicate/i.test(msg)) {
         throw new Error('이미 가입된 이메일입니다. 로그인 페이지에서 "비회원 로그인" 을 이용해주세요.')
       }
