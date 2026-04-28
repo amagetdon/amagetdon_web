@@ -113,6 +113,15 @@ interface Props {
   scopeId: number
 }
 
+type CourseType = 'free' | 'premium' | null
+
+interface DefaultTemplateState {
+  code: string
+  label: string
+  template: string
+  enabled: boolean
+}
+
 const COMMON_PRESETS: Array<{ label: string; minutes: number }> = [
   { label: '강의 7일 전', minutes: -10080 },
   { label: '강의 3일 전', minutes: -4320 },
@@ -122,6 +131,16 @@ const COMMON_PRESETS: Array<{ label: string; minutes: number }> = [
   { label: '강의 시작 시', minutes: 0 },
   { label: '강의 1시간 후', minutes: 60 },
 ]
+
+// 기본 알림톡 (default schedule 카드) — '강의 N일 전' 자동 시드 대상.
+// 구매 즉시 알림톡처럼 카드 단위로 표시되도록.
+const DEFAULT_SCHEDULE_CARDS: Array<{ code: string; offset: number; label: string }> = [
+  { code: 'course_d7', offset: -10080, label: '강의 7일 전' },
+  { code: 'course_d3', offset: -4320, label: '강의 3일 전' },
+  { code: 'course_d1', offset: -1440, label: '강의 1일 전' },
+  { code: 'course_d0', offset: 0, label: '강의 당일' },
+]
+const DEFAULT_OFFSETS = new Set(DEFAULT_SCHEDULE_CARDS.map((c) => c.offset))
 
 
 function offsetLabel(min: number): string {
@@ -154,6 +173,11 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
   // scope(강의/전자책) 정보 — 자동 채움 배너 + 미리보기용
   const [scopeInfo, setScopeInfo] = useState<ScopeInfo | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+
+  // 강의 타입 (free / premium) — 기본 템플릿이 어떤 custom event 인지 판정용
+  const [courseType, setCourseType] = useState<CourseType>(null)
+  // 해당 scope 의 기본 구매 알림톡 custom event 상태 (purchase_free 또는 purchase_premium)
+  const [defaultPurchaseEvent, setDefaultPurchaseEvent] = useState<DefaultTemplateState | null>(null)
 
   // 변수 분석 확인 모달
   const [aliasConfirm, setAliasConfirm] = useState<{
@@ -235,6 +259,33 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
   useEffect(() => { fetchSchedules() }, [fetchSchedules])
   useEffect(() => { fetchConfigs() }, [fetchConfigs])
   useEffect(() => { fetchScopeInfo() }, [fetchScopeInfo])
+
+  // 강의 타입 + 기본 구매 custom event 상태 로드
+  // (구매 즉시 알림톡 섹션이 어드민이 '유료/무료 구매 (기본)' 탭에 작성한 템플릿을 정확히 반영하도록)
+  useEffect(() => {
+    if (!scopeId) { setCourseType(null); setDefaultPurchaseEvent(null); return }
+    let cancelled = false
+    const load = async () => {
+      let type: CourseType = null
+      if (scope === 'course') {
+        const { data } = await supabase.from('courses').select('course_type').eq('id', scopeId).maybeSingle()
+        type = (data as { course_type?: 'free' | 'premium' } | null)?.course_type ?? null
+      } else {
+        const { data } = await supabase.from('ebooks').select('is_free').eq('id', scopeId).maybeSingle()
+        type = (data as { is_free?: boolean } | null)?.is_free ? 'free' : 'premium'
+      }
+      const code = type === 'free' ? 'purchase_free' : 'purchase_premium'
+      const { data: evt } = await supabase.from('webhook_custom_events')
+        .select('code, label, template, enabled')
+        .eq('code', code)
+        .maybeSingle()
+      if (cancelled) return
+      setCourseType(type)
+      setDefaultPurchaseEvent(evt ? evt as DefaultTemplateState : null)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [scope, scopeId])
 
   // 강의/전자책이 처음 webhook 페이지를 열었을 때 global default 템플릿(course_d7/d3/d1/d0)을
   // 이 scope 의 webhook_schedules 로 자동 시드. 한 번만 실행되도록 default_webhooks_seeded 플래그로 가드.
@@ -435,6 +486,40 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     }
   }
 
+  // 기본 알림톡 카드(D-7/D-3/D-1/D-0) 토글 — schedule row 가 없으면 global 템플릿으로 새로 생성
+  const handleToggleDefaultCard = async (card: { code: string; offset: number; label: string }) => {
+    const existing = schedules.find((s) => s.trigger_type === 'time_offset' && s.offset_minutes === card.offset)
+    try {
+      if (existing) {
+        await webhookScheduleService.upsert({ id: existing.id, enabled: !existing.enabled } as Partial<WebhookSchedule>)
+      } else {
+        // global custom event 에서 기본 템플릿 가져와서 새 schedule 생성
+        const { data: evt } = await supabase.from('webhook_custom_events')
+          .select('label, template, variable_aliases, enabled')
+          .eq('code', card.code)
+          .maybeSingle()
+        const e = evt as { label?: string; template?: string; variable_aliases?: Record<string, string>; enabled?: boolean } | null
+        if (!e?.template?.trim()) {
+          toast.error(`기본 템플릿이 비어있습니다. 어드민 → 웹훅 → "${card.label} (기본)" 탭에서 먼저 작성하세요.`)
+          return
+        }
+        await webhookScheduleService.upsert({
+          scope, scope_id: scopeId,
+          label: e.label || card.label,
+          trigger_type: 'time_offset',
+          offset_minutes: card.offset,
+          request_template: e.template,
+          enabled: true,
+          sort_order: 0,
+          variable_aliases: e.variable_aliases ?? {},
+        } as Partial<WebhookSchedule>)
+      }
+      fetchSchedules()
+    } catch {
+      toast.error('상태 변경 실패')
+    }
+  }
+
   const performSave = async (aliases: Record<string, string>, slotFills: Record<string, string>) => {
     if (!editing) return
     try {
@@ -579,17 +664,29 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
           </>
         ) : (
           <div className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded p-3 space-y-1">
-            <div>
-              <i className="ti ti-info-circle text-blue-600 mr-1" />
-              <strong>기본 웹훅 설정</strong>의 구매 알림톡 템플릿이 사용됩니다.
-              {globalConfig?.purchase_template?.trim()
-                ? <span className="ml-1 text-blue-700">(기본 템플릿 등록됨)</span>
-                : <span className="ml-1 text-amber-700">— 단, 현재 기본 템플릿이 비어 있어 발송되지 않습니다.</span>}
-            </div>
-            <div className="text-[11px] text-gray-500">
-              이 {scope === 'course' ? '강의' : '전자책'}만 다르게 발송하려면 토글을 켜고 전용 템플릿을 작성하세요.
-              {' '}<Link to="/admin/webhook" className="underline text-blue-700 font-bold">기본 웹훅 설정 →</Link>
-            </div>
+            {(() => {
+              const typeLabel = courseType === 'free' ? '무료 구매' : courseType === 'premium' ? '유료 구매' : '구매'
+              const hasDefault = !!(defaultPurchaseEvent?.template?.trim()) && defaultPurchaseEvent.enabled !== false
+              return (
+                <>
+                  <div>
+                    <i className="ti ti-info-circle text-blue-600 mr-1" />
+                    <strong>기본 웹훅 설정 → "{typeLabel} (기본)"</strong> 탭의 템플릿이 사용됩니다.
+                    {hasDefault
+                      ? <span className="ml-1 text-blue-700">(기본 템플릿 등록됨)</span>
+                      : !defaultPurchaseEvent
+                        ? <span className="ml-1 text-amber-700">— 이벤트 정의가 없어 발송되지 않습니다.</span>
+                        : !defaultPurchaseEvent.enabled
+                          ? <span className="ml-1 text-amber-700">— 이벤트가 비활성 상태입니다.</span>
+                          : <span className="ml-1 text-amber-700">— 단, 현재 기본 템플릿이 비어 있어 발송되지 않습니다.</span>}
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    이 {scope === 'course' ? '강의' : '전자책'}만 다르게 발송하려면 토글을 켜고 전용 템플릿을 작성하세요.
+                    {' '}<Link to="/admin/webhook" className="underline text-blue-700 font-bold">기본 웹훅 설정 →</Link>
+                  </div>
+                </>
+              )
+            })()}
             {scopedConfig?.id && (
               <div className="text-[11px] text-gray-400 mt-1">
                 이전에 작성한 전용 템플릿은 보존되어 있어요. 다시 토글 ON 하면 살아납니다.
@@ -599,24 +696,115 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
         )}
       </div>
 
-      {/* 예약 알림톡 */}
+      {/* 기본 알림톡 카드 (D-7/D-3/D-1/D-0) — 강의에만 표시 */}
+      {scope === 'course' && (
+        <div className="grid grid-cols-2 max-md:grid-cols-1 gap-3">
+          {DEFAULT_SCHEDULE_CARDS.map((card) => {
+            const sched = schedules.find((s) => s.trigger_type === 'time_offset' && s.offset_minutes === card.offset)
+            const enabled = !!sched && sched.enabled !== false
+            const hasTemplate = !!sched?.request_template?.trim()
+            return (
+              <div key={card.code} className="bg-white rounded-xl shadow-sm p-4">
+                <div className="flex items-center justify-between mb-2 gap-2">
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-bold text-gray-900">{card.label} 알림톡</h3>
+                    <p className="text-[11px] text-gray-500 mt-0.5">강의 일정 기준 자동 발송</p>
+                  </div>
+                  <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
+                    <span className="text-[11px] text-gray-500">{enabled ? 'ON' : 'OFF'}</span>
+                    <button type="button"
+                      onClick={() => handleToggleDefaultCard(card)}
+                      className={`w-9 h-5 rounded-full relative transition-colors cursor-pointer border-none ${enabled ? 'bg-[#2ED573]' : 'bg-gray-300'}`}>
+                      <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform shadow ${enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                  </label>
+                </div>
+                {sched ? (
+                  <>
+                    <pre className="text-[11px] text-gray-600 bg-gray-50 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all max-h-24">{hasTemplate ? sched.request_template : '(템플릿 없음 — 편집에서 작성)'}</pre>
+                    <div className="flex items-center gap-1 mt-2">
+                      <button onClick={() => setEditing(sched)} className="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1 border-none cursor-pointer">
+                        <i className="ti ti-pencil" /> 편집
+                      </button>
+                      <button onClick={() => handleViewRuns(sched.id)} className="text-xs text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded px-2 py-1 border-none cursor-pointer">
+                        <i className="ti ti-list" /> 큐 ({openRunsFor === sched.id ? '닫기' : '보기'})
+                      </button>
+                      <button onClick={() => handleDelete(sched.id)} className="text-xs text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded px-2 py-1 border-none cursor-pointer ml-auto">
+                        <i className="ti ti-trash" />
+                      </button>
+                    </div>
+                    {openRunsFor === sched.id && (
+                      <div className="mt-3 border-t border-gray-100 pt-3">
+                        <p className="text-[11px] font-bold text-gray-700 mb-2">최근 발송 큐 ({runs.length}건)</p>
+                        {loadingRuns ? (
+                          <p className="text-[11px] text-gray-400">불러오는 중...</p>
+                        ) : runs.length === 0 ? (
+                          <p className="text-[11px] text-gray-400">큐 적재 건이 없습니다. 사용자가 구매하면 자동 생성됩니다.</p>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-[10px]">
+                              <thead className="bg-gray-50">
+                                <tr>
+                                  <th className="px-1 py-1 text-left">발송 예정</th>
+                                  <th className="px-1 py-1 text-left">사용자</th>
+                                  <th className="px-1 py-1 text-left">상태</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                {runs.map((r) => (
+                                  <tr key={r.id}>
+                                    <td className="px-1 py-1 text-gray-600">{new Date(r.fire_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                                    <td className="px-1 py-1">{r.user_name}</td>
+                                    <td className="px-1 py-1">
+                                      <span className={`px-1 py-0.5 rounded text-[9px] font-medium ${
+                                        r.status === 'success' ? 'bg-emerald-100 text-emerald-700'
+                                          : r.status === 'failed' ? 'bg-red-100 text-red-700'
+                                          : r.status === 'cancelled' ? 'bg-gray-100 text-gray-500'
+                                          : r.status === 'skipped' ? 'bg-yellow-100 text-yellow-700'
+                                          : 'bg-blue-100 text-blue-700'
+                                      }`}>{r.status}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-[11px] text-gray-500 bg-gray-50 rounded p-2">
+                    아직 이 강의에 적용되지 않았습니다. 토글 ON 시 어드민 → 웹훅 → "{card.label} (기본)" 탭의 템플릿이 적용됩니다.
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* 예약 알림톡 (정원 도달 / 수동 / 사용자 추가) — 기본 카드(D-N)는 위에서 표시했으니 제외 */}
+      {(() => {
+        const others = schedules.filter((s) => s.trigger_type !== 'time_offset' || !DEFAULT_OFFSETS.has(s.offset_minutes))
+        return (
       <div className="bg-white rounded-xl shadow-sm p-4">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <h3 className="text-sm font-bold text-gray-900">예약 알림톡 (D-3, 정원 도달 등)</h3>
-            <p className="text-xs text-gray-500 mt-0.5">{scope === 'course' ? '강의' : '전자책'} 일정·정원·수동 트리거에 따라 자동 발송됩니다.</p>
+            <h3 className="text-sm font-bold text-gray-900">추가 예약 알림톡 (정원 도달, 수동, 사용자 정의)</h3>
+            <p className="text-xs text-gray-500 mt-0.5">위 D-7/D-3/D-1/당일 외에 직접 추가하는 알림톡.</p>
           </div>
-          <button onClick={() => setEditing({ label: '', offset_minutes: -4320, request_template: '', enabled: true })}
+          <button onClick={() => setEditing({ label: '', offset_minutes: -60, request_template: '', enabled: true })}
             className="bg-[#2ED573] text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none hover:bg-[#25B866]">
             <i className="ti ti-plus mr-1" />추가
           </button>
         </div>
 
-        {schedules.length === 0 ? (
-          <p className="text-xs text-gray-400 text-center py-6">등록된 예약 알림톡이 없습니다.</p>
+        {others.length === 0 ? (
+          <p className="text-xs text-gray-400 text-center py-6">추가 예약 알림톡이 없습니다.</p>
         ) : (
           <div className="space-y-2">
-            {schedules.map((s) => (
+            {others.map((s) => (
               <div key={s.id} className="border border-gray-200 rounded-lg p-3">
                 <div className="flex items-center gap-3 flex-wrap">
                   <button
@@ -705,6 +893,8 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
           </div>
         )}
       </div>
+        )
+      })()}
 
       {/* 편집 모달 */}
       {editing && (
