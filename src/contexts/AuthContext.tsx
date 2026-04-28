@@ -98,7 +98,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const lastUpdate = sessionStorage.getItem('lastActiveUpdate')
             if (!lastUpdate || Date.now() - Number(lastUpdate) > 300000) {
               sessionStorage.setItem('lastActiveUpdate', String(Date.now()))
-              supabase.from('profiles').update({ last_active_at: new Date().toISOString() } as never).eq('id', newSession.user.id).then(() => {})
+              supabase
+                .from('profiles')
+                .update({ last_active_at: new Date().toISOString() } as never)
+                .eq('id', newSession.user.id)
+                .then(({ error }) => {
+                  if (error) console.warn('[Auth] last_active_at 갱신 실패:', error.message)
+                })
             }
 
             if (event === 'SIGNED_IN') {
@@ -118,9 +124,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   if (content) utmUpdate.utm_content = content
                   if (term) utmUpdate.utm_term = term
                   if (referrer) utmUpdate.signup_referrer = referrer
-                  supabase.from('profiles').update(utmUpdate as never).eq('id', newSession.user.id).then(() => {
-                    fetchProfile(newSession.user.id)
-                  })
+                  supabase
+                    .from('profiles')
+                    .update(utmUpdate as never)
+                    .eq('id', newSession.user.id)
+                    .then(({ error }) => {
+                      if (error) {
+                        console.warn('[Auth] UTM 갱신 실패:', error.message)
+                        return
+                      }
+                      fetchProfile(newSession.user.id)
+                    })
                 }
               }
 

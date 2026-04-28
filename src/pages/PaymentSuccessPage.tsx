@@ -24,46 +24,49 @@ export default function PaymentSuccessPage() {
       return
     }
 
-    confirmPayment(paymentKey, orderId, Number(amount))
-  }, [searchParams, authLoading])
-
-  const confirmPayment = async (paymentKey: string, orderId: string, amount: number) => {
-    try {
-      // 세션 갱신 시도
-      const { data: { session } } = await supabase.auth.refreshSession()
-      if (!session) {
-        // 갱신 실패 시 기존 세션이라도 확인
-        const { data: { session: existing } } = await supabase.auth.getSession()
-        if (!existing) {
-          setStatus('error')
-          setMessage('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
-          return
+    let mounted = true
+    const confirmPayment = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.refreshSession()
+        if (!session) {
+          const { data: { session: existing } } = await supabase.auth.getSession()
+          if (!existing) {
+            if (!mounted) return
+            setStatus('error')
+            setMessage('로그인 세션이 만료되었습니다. 다시 로그인해주세요.')
+            return
+          }
         }
+
+        const response = await supabase.functions.invoke('confirm-payment', {
+          body: { paymentKey, orderId, amount: Number(amount) },
+        })
+        if (!mounted) return
+
+        const data = response.data
+        const error = response.error
+
+        if (error) {
+          const errBody = typeof data === 'object' && data?.error ? data.error : error.message
+          throw new Error(errBody || '결제 승인 요청에 실패했습니다.')
+        }
+        if (data?.error) throw new Error(data.error)
+
+        setOrderTitle(data?.title || '상품')
+        setIsCharge(data?.type === 'charge')
+        setStatus('success')
+        setMessage(data?.type === 'charge' ? '포인트가 충전되었습니다.' : '결제가 완료되었습니다.')
+        refreshProfile()
+      } catch (err) {
+        if (!mounted) return
+        setStatus('error')
+        setMessage(err instanceof Error ? err.message : '결제 승인에 실패했습니다.')
       }
-
-      const response = await supabase.functions.invoke('confirm-payment', {
-        body: { paymentKey, orderId, amount },
-      })
-
-      const data = response.data
-      const error = response.error
-
-      if (error) {
-        const errBody = typeof data === 'object' && data?.error ? data.error : error.message
-        throw new Error(errBody || '결제 승인 요청에 실패했습니다.')
-      }
-      if (data?.error) throw new Error(data.error)
-
-      setOrderTitle(data?.title || '상품')
-      setIsCharge(data?.type === 'charge')
-      setStatus('success')
-      setMessage(data?.type === 'charge' ? '포인트가 충전되었습니다.' : '결제가 완료되었습니다.')
-      refreshProfile()
-    } catch (err) {
-      setStatus('error')
-      setMessage(err instanceof Error ? err.message : '결제 승인에 실패했습니다.')
     }
-  }
+
+    confirmPayment()
+    return () => { mounted = false }
+  }, [searchParams, authLoading, refreshProfile])
 
   return (
     <section className="w-full bg-white min-h-[60vh] flex items-center justify-center py-20">

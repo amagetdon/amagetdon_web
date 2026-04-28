@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { toLocalDateStr, toLocalMonthStr } from '../../lib/dateUtils'
 import AdminLayout from '../../components/admin/AdminLayout'
+import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
 
 const UMAMI_SHARE_URL = 'https://umami-ama.vercel.app/share/LuxmmqXDx2i6kFBo'
 const UMAMI_DASHBOARD_URL = 'https://umami-ama.vercel.app/websites'
@@ -75,6 +76,7 @@ export default function AdminDashboard() {
   const [umamiOpen, setUmamiOpen] = useState(() => localStorage.getItem('admin_umami_open') === '1')
 
   useEffect(() => { fetchAll() }, [])
+  useVisibilityRefresh(() => { fetchAll() })
 
   async function fetchAll() {
     try {
