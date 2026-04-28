@@ -7,6 +7,14 @@ import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 
+// 모바일 브라우저(특히 iOS Safari)는 canvas 한 변 4096px / 총 16M 픽셀 제한.
+// 보수적으로 4096 / 16777216 으로 클램프.
+const MAX_CANVAS_DIM = 4096
+const MAX_CANVAS_AREA = 16_777_216
+
+const isMobile = () =>
+  typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
+
 interface EbookInfo {
   id: number
   title: string
@@ -28,8 +36,10 @@ function EbookReaderPage() {
   const [error, setError] = useState<string | null>(null)
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(1)
-  const [scale, setScale] = useState(1.2)
+  const [scale, setScale] = useState(1)
+  const [fitMode, setFitMode] = useState<'width' | 'manual'>('width')
   const [rendering, setRendering] = useState(false)
+  const [containerWidth, setContainerWidth] = useState(0)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pdfRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null)
@@ -102,7 +112,7 @@ function EbookReaderPage() {
     fetchData()
   }, [user, id])
 
-  // PDF 로드
+  // PDF 로드 — 모바일에서는 stream + range 활성화로 큰 파일도 빠르게 시작
   useEffect(() => {
     if (!ebook?.file_url) return
 
@@ -110,14 +120,18 @@ function EbookReaderPage() {
       try {
         const pdf = await pdfjsLib.getDocument({
           url: ebook.file_url!,
-          disableAutoFetch: true,
-          disableStream: true,
+          // stream/range 비활성화 시 모바일 셀룰러 환경에서 timeout 발생 — 켜둠
+          disableAutoFetch: false,
+          disableStream: false,
+          // 모바일 메모리 보호 — fontFace 사용으로 캔버스 메모리 절감
+          useSystemFonts: true,
         }).promise
         pdfRef.current = pdf
         setNumPages(pdf.numPages)
         setCurrentPage(1)
-      } catch {
-        setError('PDF 파일을 불러올 수 없습니다.')
+      } catch (e) {
+        console.error('[EbookReader] PDF 로드 실패:', e)
+        setError('PDF 파일을 불러올 수 없습니다. 네트워크 상태를 확인하거나 잠시 후 다시 시도해 주세요.')
       }
     }
 
@@ -129,7 +143,26 @@ function EbookReaderPage() {
     }
   }, [ebook?.file_url])
 
-  // 페이지 렌더링
+  // 컨테이너 폭 추적 (반응형 fit-to-width)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const updateWidth = () => {
+      // padding 16px(좌우) 제외
+      const w = Math.max(0, el.clientWidth - 32)
+      setContainerWidth(w)
+    }
+    updateWidth()
+    const ro = new ResizeObserver(updateWidth)
+    ro.observe(el)
+    window.addEventListener('orientationchange', updateWidth)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('orientationchange', updateWidth)
+    }
+  }, [])
+
+  // 페이지 렌더링 — 캔버스 크기 안전 클램프 + DPR 캡
   const renderPage = useCallback(async (pageNum: number) => {
     const pdf = pdfRef.current
     const canvas = canvasRef.current
@@ -138,44 +171,80 @@ function EbookReaderPage() {
     setRendering(true)
     try {
       const page = await pdf.getPage(pageNum)
-      const viewport = page.getViewport({ scale })
-      const ctx = canvas.getContext('2d')!
-      const dpr = window.devicePixelRatio || 1
+      const baseViewport = page.getViewport({ scale: 1 })
 
-      canvas.width = viewport.width * dpr
-      canvas.height = viewport.height * dpr
-      canvas.style.width = `${viewport.width}px`
-      canvas.style.height = `${viewport.height}px`
+      // fit-to-width 모드: 컨테이너 폭에 맞춤 (모바일 기본)
+      let effectiveScale = scale
+      if (fitMode === 'width' && containerWidth > 0) {
+        effectiveScale = Math.min(3, containerWidth / baseViewport.width)
+      }
+
+      // DPR 캡 — 모바일은 2, 데스크톱은 2.5까지
+      const rawDpr = window.devicePixelRatio || 1
+      let dpr = Math.min(rawDpr, isMobile() ? 2 : 2.5)
+
+      let viewport = page.getViewport({ scale: effectiveScale })
+
+      // 캔버스 한 변 4096 / 총 16M 픽셀 제한 (특히 iOS) — scale·dpr 동시 클램프
+      const clampToLimits = () => {
+        const w = viewport.width * dpr
+        const h = viewport.height * dpr
+        const maxDim = Math.max(w, h)
+        if (maxDim > MAX_CANVAS_DIM) {
+          const r = MAX_CANVAS_DIM / maxDim
+          dpr *= r
+        }
+        const w2 = viewport.width * dpr
+        const h2 = viewport.height * dpr
+        if (w2 * h2 > MAX_CANVAS_AREA) {
+          const r = Math.sqrt(MAX_CANVAS_AREA / (w2 * h2))
+          dpr *= r
+        }
+      }
+      clampToLimits()
+
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        setError('캔버스 컨텍스트를 사용할 수 없습니다.')
+        return
+      }
+
+      canvas.width = Math.floor(viewport.width * dpr)
+      canvas.height = Math.floor(viewport.height * dpr)
+      canvas.style.width = `${Math.floor(viewport.width)}px`
+      canvas.style.height = `${Math.floor(viewport.height)}px`
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
       await page.render({ canvasContext: ctx, viewport, canvas } as never).promise
 
-      // 워터마크 그리기
+      // 워터마크 — 화면 한 페이지 분량만 (성능)
       if (watermarkText) {
         ctx.save()
-        ctx.globalAlpha = 0.03
-        ctx.font = '16px sans-serif'
+        ctx.globalAlpha = 0.05
+        ctx.font = '14px sans-serif'
         ctx.fillStyle = '#000'
         ctx.translate(viewport.width / 2, viewport.height / 2)
         ctx.rotate(-Math.PI / 6)
 
         const text = watermarkText
-        const lineHeight = 60
-        const colWidth = ctx.measureText(text).width + 80
-
-        for (let y = -viewport.height; y < viewport.height; y += lineHeight) {
-          for (let x = -viewport.width; x < viewport.width; x += colWidth) {
+        const colWidth = ctx.measureText(text).width + 100
+        const lineHeight = 80
+        const halfW = viewport.width
+        const halfH = viewport.height
+        for (let y = -halfH; y < halfH; y += lineHeight) {
+          for (let x = -halfW; x < halfW; x += colWidth) {
             ctx.fillText(text, x, y)
           }
         }
         ctx.restore()
       }
-    } catch {
-      // 렌더링 실패 무시
+    } catch (e) {
+      console.error('[EbookReader] 페이지 렌더 실패:', e)
+      setError('페이지를 표시하는 중 오류가 발생했습니다. 페이지를 새로고침해 주세요.')
     } finally {
       setRendering(false)
     }
-  }, [scale, watermarkText])
+  }, [scale, fitMode, containerWidth, watermarkText])
 
   useEffect(() => {
     if (numPages > 0) renderPage(currentPage)
@@ -280,17 +349,36 @@ function EbookReaderPage() {
           </div>
 
           {/* 줌 */}
-          <div className="flex items-center gap-1 max-sm:hidden">
+          <div className="flex items-center gap-1">
             <button
-              onClick={() => setScale((s) => Math.max(0.5, s - 0.2))}
+              onClick={() => {
+                setFitMode('manual')
+                setScale((s) => Math.max(0.5, s - 0.2))
+              }}
               className="w-7 h-7 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 border-none cursor-pointer transition-colors"
+              aria-label="축소"
             >
               <i className="ti ti-minus text-xs" />
             </button>
-            <span className="text-gray-400 text-xs min-w-[40px] text-center">{Math.round(scale * 100)}%</span>
             <button
-              onClick={() => setScale((s) => Math.min(3, s + 0.2))}
+              onClick={() => {
+                setFitMode('width')
+                setScale(1)
+              }}
+              className={`px-2 h-7 flex items-center justify-center rounded text-xs border-none cursor-pointer transition-colors max-sm:hidden ${
+                fitMode === 'width' ? 'bg-[#2ED573] text-black' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              }`}
+              aria-label="너비 맞춤"
+            >
+              맞춤
+            </button>
+            <button
+              onClick={() => {
+                setFitMode('manual')
+                setScale((s) => Math.min(3, s + 0.2))
+              }}
               className="w-7 h-7 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 border-none cursor-pointer transition-colors"
+              aria-label="확대"
             >
               <i className="ti ti-plus text-xs" />
             </button>
@@ -312,17 +400,17 @@ function EbookReaderPage() {
       {/* PDF 캔버스 */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto flex justify-center py-4 bg-gray-900"
+        className="flex-1 overflow-auto flex justify-center px-4 py-4 bg-gray-900"
         onDragStart={(e) => e.preventDefault()}
       >
         <div className="relative">
           <canvas
             ref={canvasRef}
-            className="max-w-full"
-            style={{ pointerEvents: 'none' }}
+            className="max-w-full block"
+            style={{ pointerEvents: 'none', touchAction: 'pan-y pinch-zoom' }}
           />
           {rendering && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50">
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 pointer-events-none">
               <div className="w-8 h-8 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
             </div>
           )}
