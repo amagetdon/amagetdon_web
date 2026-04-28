@@ -241,6 +241,70 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
   useEffect(() => { fetchConfigs() }, [fetchConfigs])
   useEffect(() => { fetchScopeInfo() }, [fetchScopeInfo])
 
+  // 강의/전자책이 처음 webhook 페이지를 열었을 때 global default 템플릿(course_d7/d3/d1/d0)을
+  // 이 scope 의 webhook_schedules 로 자동 시드. 한 번만 실행되도록 default_webhooks_seeded 플래그로 가드.
+  useEffect(() => {
+    if (!scopeId) return
+    let cancelled = false
+    const seedDefaults = async () => {
+      try {
+        const table = scope === 'course' ? 'courses' : 'ebooks'
+        const { data: row } = await supabase.from(table).select('default_webhooks_seeded').eq('id', scopeId).maybeSingle()
+        if (cancelled) return
+        if ((row as { default_webhooks_seeded?: boolean } | null)?.default_webhooks_seeded) return
+
+        // 강의에만 적용 (전자책은 아직 일정 기준 알림톡이 없음)
+        if (scope !== 'course') {
+          await supabase.from(table).update({ default_webhooks_seeded: true } as never).eq('id', scopeId)
+          return
+        }
+
+        const DEFAULT_CODES: Array<{ code: string; offset: number; label: string }> = [
+          { code: 'course_d7', offset: -10080, label: '강의 7일 전' },
+          { code: 'course_d3', offset: -4320, label: '강의 3일 전' },
+          { code: 'course_d1', offset: -1440, label: '강의 1일 전' },
+          { code: 'course_d0', offset: 0, label: '강의 당일' },
+        ]
+        const { data: events } = await supabase.from('webhook_custom_events')
+          .select('code, label, template, variable_aliases, enabled')
+          .in('code', DEFAULT_CODES.map((d) => d.code))
+        const map = new Map<string, { template: string; aliases: Record<string, string>; enabled: boolean; label: string }>()
+        for (const e of (events ?? []) as Array<{ code: string; label: string; template: string; variable_aliases: Record<string, string> | null; enabled: boolean }>) {
+          map.set(e.code, { template: e.template, aliases: e.variable_aliases ?? {}, enabled: e.enabled, label: e.label })
+        }
+
+        const rows: Array<Record<string, unknown>> = []
+        for (const d of DEFAULT_CODES) {
+          const evt = map.get(d.code)
+          if (!evt || !evt.template?.trim()) continue
+          rows.push({
+            scope,
+            scope_id: scopeId,
+            label: evt.label || d.label,
+            trigger_type: 'time_offset',
+            offset_minutes: d.offset,
+            request_template: evt.template,
+            enabled: evt.enabled !== false,
+            sort_order: 0,
+            variable_aliases: evt.aliases,
+          })
+        }
+        if (rows.length > 0) {
+          await supabase.from('webhook_schedules').insert(rows as never)
+        }
+        await supabase.from(table).update({ default_webhooks_seeded: true } as never).eq('id', scopeId)
+        if (!cancelled && rows.length > 0) {
+          await fetchSchedules()
+          toast.success(`기본 템플릿 ${rows.length}개를 이 강의에 적용했습니다.`)
+        }
+      } catch (err) {
+        console.warn('[WebhookScheduleEditor] default seed 실패:', err)
+      }
+    }
+    seedDefaults()
+    return () => { cancelled = true }
+  }, [scope, scopeId, fetchSchedules])
+
   // purchase alias 저장 상태 (모달 확인 후 실제 저장에 쓰임)
   const [purchaseAliasConfirm, setPurchaseAliasConfirm] = useState<{
     unknownVars: string[]
@@ -363,6 +427,15 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     }
   }
 
+  const handleToggleEnabled = async (s: WebhookSchedule) => {
+    try {
+      await webhookScheduleService.upsert({ id: s.id, enabled: !s.enabled } as Partial<WebhookSchedule>)
+      fetchSchedules()
+    } catch {
+      toast.error('상태 변경 실패')
+    }
+  }
+
   const performSave = async (aliases: Record<string, string>, slotFills: Record<string, string>) => {
     if (!editing) return
     try {
@@ -475,7 +548,7 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
             <p className="text-xs text-gray-500 mt-0.5">사용자가 이 {scope === 'course' ? '강의' : '전자책'}을 구매하는 즉시 발송됩니다.</p>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
-            <span className="text-xs text-gray-500">{overrideEnabled ? `이 ${scope === 'course' ? '강의' : '전자책'} 전용 (기본값)` : '발송 안 함'}</span>
+            <span className="text-xs text-gray-500">{overrideEnabled ? `이 ${scope === 'course' ? '강의' : '전자책'} 전용 (기본값)` : '기본 웹훅 설정 사용'}</span>
             <button type="button"
               onClick={() => setOverrideEnabled((v) => !v)}
               className={`w-10 h-5 rounded-full relative transition-colors cursor-pointer border-none ${overrideEnabled ? 'bg-[#2ED573]' : 'bg-gray-300'}`}>
@@ -505,12 +578,18 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
             </div>
           </>
         ) : (
-          <div className="text-xs text-gray-500 bg-amber-50 border border-amber-100 rounded p-3 space-y-1">
+          <div className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded p-3 space-y-1">
             <div>
-              <i className="ti ti-alert-triangle text-amber-600 mr-1" />
-              이 {scope === 'course' ? '강의' : '전자책'}은 <strong>구매 즉시 알림톡을 발송하지 않습니다</strong>.
+              <i className="ti ti-info-circle text-blue-600 mr-1" />
+              <strong>기본 웹훅 설정</strong>의 구매 알림톡 템플릿이 사용됩니다.
+              {globalConfig?.purchase_template?.trim()
+                ? <span className="ml-1 text-blue-700">(기본 템플릿 등록됨)</span>
+                : <span className="ml-1 text-amber-700">— 단, 현재 기본 템플릿이 비어 있어 발송되지 않습니다.</span>}
             </div>
-            <div className="text-[11px] text-gray-500">구매자에게 알림톡을 발송하려면 토글을 켜고 전용 템플릿을 작성하세요.</div>
+            <div className="text-[11px] text-gray-500">
+              이 {scope === 'course' ? '강의' : '전자책'}만 다르게 발송하려면 토글을 켜고 전용 템플릿을 작성하세요.
+              {' '}<Link to="/admin/webhook" className="underline text-blue-700 font-bold">기본 웹훅 설정 →</Link>
+            </div>
             {scopedConfig?.id && (
               <button onClick={handleSavePurchaseTemplate} disabled={savingPurchase}
                 className="mt-2 text-[11px] text-red-600 hover:text-red-800 bg-transparent border-none cursor-pointer underline">
@@ -541,9 +620,14 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
             {schedules.map((s) => (
               <div key={s.id} className="border border-gray-200 rounded-lg p-3">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${s.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                    {s.enabled ? '활성' : '비활성'}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleEnabled(s)}
+                    title={s.enabled ? '활성 (클릭으로 OFF)' : '비활성 (클릭으로 ON)'}
+                    className={`w-9 h-5 rounded-full relative transition-colors cursor-pointer border-none ${s.enabled ? 'bg-[#2ED573]' : 'bg-gray-300'}`}
+                  >
+                    <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 transition-transform shadow ${s.enabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                  </button>
                   <span className="text-sm font-bold text-gray-900">{s.label}</span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
                     s.trigger_type === 'time_offset' ? 'bg-blue-100 text-blue-700'

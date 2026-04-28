@@ -139,9 +139,20 @@ export default function AdminWebhook() {
   const [loading, setLoading] = useState(true)
   const [headerKey, setHeaderKey] = useState('')
   const [headerValue, setHeaderValue] = useState('')
-  type TabId = 'signup' | 'coupon_issued' | 'coupon_expiring_d3' | 'coupon_expiring_d1' | 'coupon_expired' | 'point_charge'
+  type TabId =
+    | 'signup'
+    | 'purchase_premium' | 'purchase_free'
+    | 'course_d7' | 'course_d3' | 'course_d1' | 'course_d0'
+    | 'coupon_issued' | 'coupon_expiring_d3' | 'coupon_expiring_d1' | 'coupon_expired'
+    | 'point_charge'
   const TABS: Array<{ id: TabId; label: string; isCustom: boolean }> = [
     { id: 'signup', label: '회원가입', isCustom: false },
+    { id: 'purchase_premium', label: '유료 구매 (공용 기본)', isCustom: true },
+    { id: 'purchase_free', label: '무료 구매 (공용 기본)', isCustom: true },
+    { id: 'course_d7', label: '강의 7일 전 (공용 기본)', isCustom: true },
+    { id: 'course_d3', label: '강의 3일 전 (공용 기본)', isCustom: true },
+    { id: 'course_d1', label: '강의 1일 전 (공용 기본)', isCustom: true },
+    { id: 'course_d0', label: '강의 당일 (공용 기본)', isCustom: true },
     { id: 'coupon_issued', label: '쿠폰 발급 (공용 기본)', isCustom: true },
     { id: 'coupon_expiring_d3', label: '쿠폰 D-3', isCustom: true },
     { id: 'coupon_expiring_d1', label: '쿠폰 D-1', isCustom: true },
