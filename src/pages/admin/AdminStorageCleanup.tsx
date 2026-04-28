@@ -196,17 +196,21 @@ export default function AdminStorageCleanup() {
                         />
                       </td>
                       <td className="px-3 py-2">
-                        {isImage ? (
-                          <img src={o.publicUrl} alt="" className="w-16 h-10 object-cover rounded border border-gray-200 bg-gray-100" />
-                        ) : (
-                          <div className="w-16 h-10 rounded border border-gray-200 bg-gray-100 flex items-center justify-center text-[10px] text-gray-400">
-                            {o.path.split('.').pop()?.toUpperCase() ?? 'file'}
-                          </div>
-                        )}
+                        <a href={o.publicUrl} target="_blank" rel="noopener noreferrer" title="새 탭에서 열기" onClick={(e) => e.stopPropagation()}>
+                          {isImage ? (
+                            <img src={o.publicUrl} alt="" className="w-16 h-10 object-cover rounded border border-gray-200 bg-gray-100" />
+                          ) : (
+                            <div className="w-16 h-10 rounded border border-gray-200 bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500 hover:border-[#2ED573] hover:text-[#2ED573] transition-colors">
+                              {o.path.split('.').pop()?.toUpperCase() ?? 'file'}
+                            </div>
+                          )}
+                        </a>
                       </td>
                       <td className="px-3 py-2">
-                        <code className="text-xs font-mono text-gray-900">{o.bucket}/</code>
-                        <code className="text-xs font-mono text-gray-500 break-all">{o.path}</code>
+                        <a href={o.publicUrl} target="_blank" rel="noopener noreferrer" className="no-underline hover:underline" onClick={(e) => e.stopPropagation()}>
+                          <code className="text-xs font-mono text-gray-900">{o.bucket}/</code>
+                          <code className="text-xs font-mono text-gray-500 break-all">{o.path}</code>
+                        </a>
                       </td>
                       <td className="px-3 py-2 text-right text-xs text-gray-500 whitespace-nowrap">{formatBytes(o.size)}</td>
                       <td className="px-3 py-2 text-right text-xs text-gray-400 whitespace-nowrap">
