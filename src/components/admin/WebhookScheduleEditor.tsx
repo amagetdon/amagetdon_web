@@ -547,7 +547,7 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
             <p className="text-xs text-gray-500 mt-0.5">사용자가 이 {scope === 'course' ? '강의' : '전자책'}을 구매하는 즉시 발송됩니다.</p>
           </div>
           <label className="flex items-center gap-2 cursor-pointer">
-            <span className="text-xs text-gray-500">{overrideEnabled ? `이 ${scope === 'course' ? '강의' : '전자책'} 전용 (기본값)` : '기본 웹훅 설정 사용'}</span>
+            <span className="text-xs text-gray-500">{overrideEnabled ? `이 ${scope === 'course' ? '강의' : '전자책'} 전용` : '기본 웹훅 설정 사용 (기본값)'}</span>
             <button type="button"
               onClick={handleToggleOverride}
               disabled={savingPurchase}
@@ -763,7 +763,7 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
 
               {(editing.trigger_type ?? 'time_offset') === 'time_offset' && (
                 <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">발송 시점 (강의 시작 기준 분)</label>
+                  <label className="text-xs font-bold text-gray-700 block mb-1">발송 시점</label>
                   <div className="flex flex-wrap gap-1 mb-2">
                     {COMMON_PRESETS.map((p) => (
                       <button key={p.minutes} type="button" onClick={() => setEditing({ ...editing, offset_minutes: p.minutes })}
@@ -772,13 +772,53 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
                       </button>
                     ))}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input type="number" value={editing.offset_minutes ?? 0}
-                      onChange={(e) => setEditing({ ...editing, offset_minutes: Number(e.target.value) })}
-                      className="w-32 border border-gray-200 rounded px-2 py-1 text-sm outline-none focus:border-[#2ED573]" />
-                    <span className="text-xs text-gray-500">분 (음수: 강의 전 / 양수: 강의 후 / 0: 강의 시작 시)</span>
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">현재: {offsetLabel(Number(editing.offset_minutes ?? 0))}</p>
+                  {(() => {
+                    const cur = Number(editing.offset_minutes ?? 0)
+                    const direction: 'before' | 'start' | 'after' = cur < 0 ? 'before' : cur > 0 ? 'after' : 'start'
+                    const absMin = Math.abs(cur)
+                    const unit: 'minute' | 'hour' | 'day' = absMin > 0 && absMin % 1440 === 0 ? 'day' : absMin % 60 === 0 && absMin > 0 ? 'hour' : 'minute'
+                    const amount = unit === 'day' ? absMin / 1440 : unit === 'hour' ? absMin / 60 : absMin
+                    const apply = (amt: number, u: 'minute' | 'hour' | 'day', dir: 'before' | 'start' | 'after') => {
+                      if (dir === 'start') return setEditing({ ...editing, offset_minutes: 0 })
+                      const mins = u === 'day' ? amt * 1440 : u === 'hour' ? amt * 60 : amt
+                      setEditing({ ...editing, offset_minutes: dir === 'before' ? -Math.abs(mins) : Math.abs(mins) })
+                    }
+                    return (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                          value={direction}
+                          onChange={(e) => apply(amount || 0, unit, e.target.value as 'before' | 'start' | 'after')}
+                          className="border border-gray-200 rounded px-2 py-1 text-sm outline-none focus:border-[#2ED573] bg-white"
+                        >
+                          <option value="before">강의 전</option>
+                          <option value="start">강의 시작 시</option>
+                          <option value="after">강의 후</option>
+                        </select>
+                        {direction !== 'start' && (
+                          <>
+                            <input
+                              type="number"
+                              min={0}
+                              value={amount || ''}
+                              placeholder="0"
+                              onChange={(e) => apply(Number(e.target.value || 0), unit, direction)}
+                              className="w-20 border border-gray-200 rounded px-2 py-1 text-sm outline-none focus:border-[#2ED573] text-right"
+                            />
+                            <select
+                              value={unit}
+                              onChange={(e) => apply(amount || 0, e.target.value as 'minute' | 'hour' | 'day', direction)}
+                              className="border border-gray-200 rounded px-2 py-1 text-sm outline-none focus:border-[#2ED573] bg-white"
+                            >
+                              <option value="minute">분</option>
+                              <option value="hour">시간</option>
+                              <option value="day">일</option>
+                            </select>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })()}
+                  <p className="text-[10px] text-gray-400 mt-1">현재: <strong>{offsetLabel(Number(editing.offset_minutes ?? 0))}</strong> ({Number(editing.offset_minutes ?? 0)}분)</p>
                 </div>
               )}
 
