@@ -436,7 +436,7 @@ function CourseDetailPage() {
               href={course.after_purchase_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-4 bg-[#FAE100] text-[#3C1E1E] font-bold text-center rounded-xl mt-2 cursor-pointer no-underline flex items-center justify-center gap-1.5 hover:brightness-95 transition-all"
+              className="w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-2 cursor-pointer no-underline flex items-center justify-center gap-1.5 hover:bg-[#25B866] transition-colors"
             >
               <i className="ti ti-message-circle text-base" />
               채팅방 이동하기
