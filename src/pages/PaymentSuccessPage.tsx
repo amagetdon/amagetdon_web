@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import AfterPurchaseLinkModal from '../components/AfterPurchaseLinkModal'
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams()
@@ -60,8 +61,7 @@ export default function PaymentSuccessPage() {
         const link = (data?.after_purchase_url as string | null | undefined) ?? null
         if (link) {
           setAfterPurchaseUrl(link)
-          // 결제 PG 리디렉션 직후라 팝업이 차단될 수 있음. 차단되면 아래 안내 버튼으로 대체.
-          window.open(link, '_blank', 'noopener,noreferrer')
+          // 카운트다운 모달이 자동으로 새 창 시도 — 차단되면 모달 안의 '지금 열기' 또는 페이지 하단 버튼으로 대체.
         }
         refreshProfile()
       } catch (err) {
@@ -138,6 +138,15 @@ export default function PaymentSuccessPage() {
           </>
         )}
       </div>
+
+      {/* 안내 링크 카운트다운 모달 (결제 성공 직후만 노출) */}
+      {status === 'success' && !isCharge && (
+        <AfterPurchaseLinkModal
+          url={afterPurchaseUrl}
+          onClose={() => setAfterPurchaseUrl(null)}
+          itemLabel="강의/전자책"
+        />
+      )}
     </section>
   )
 }

@@ -14,6 +14,7 @@ import { webhookService } from '../services/webhookService'
 import { webhookScheduleService } from '../services/webhookScheduleService'
 import { landingCategoryService } from '../services/landingCategoryService'
 import GuestSignupModal from '../components/GuestSignupModal'
+import AfterPurchaseLinkModal from '../components/AfterPurchaseLinkModal'
 import CouponSelector from '../components/CouponSelector'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
@@ -52,6 +53,8 @@ function CourseDetailPage() {
   const [guestModalOpen, setGuestModalOpen] = useState(false)
   // 비회원 가입 직후 user/profile state 가 업데이트되면 자동으로 구매 플로우 진행
   const [pendingAutoPurchase, setPendingAutoPurchase] = useState(false)
+  // 구매 직후 안내 링크 (오픈채팅방 등) 카운트다운 모달
+  const [afterPurchaseLink, setAfterPurchaseLink] = useState<string | null>(null)
 
   useEffect(() => {
     if (!fromSlug) { setGuestPurchaseAllowed(false); return }
@@ -251,7 +254,7 @@ function CourseDetailPage() {
       toast.success('강의가 등록되었습니다!')
       setOwned(true)
       if (course.after_purchase_url) {
-        window.open(course.after_purchase_url, '_blank', 'noopener,noreferrer')
+        setAfterPurchaseLink(course.after_purchase_url)
       }
       await refreshProfile()
     } catch (err) {
@@ -299,7 +302,7 @@ function CourseDetailPage() {
       setConfirmOpen(false)
       setSelectedCoupon(null)
       if (course.after_purchase_url) {
-        window.open(course.after_purchase_url, '_blank', 'noopener,noreferrer')
+        setAfterPurchaseLink(course.after_purchase_url)
       }
       await refreshProfile()
     } catch (err) {
@@ -758,6 +761,13 @@ function CourseDetailPage() {
           setPendingAutoPurchase(true)
           refreshProfile()
         }}
+      />
+
+      {/* 구매 직후 안내 링크 카운트다운 모달 */}
+      <AfterPurchaseLinkModal
+        url={afterPurchaseLink}
+        onClose={() => setAfterPurchaseLink(null)}
+        itemLabel="강의"
       />
     </>
   )
