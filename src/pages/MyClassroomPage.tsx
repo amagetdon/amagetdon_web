@@ -410,21 +410,18 @@ function MyClassroomPage() {
 
       <div className="max-w-[800px] mx-auto px-6">
         {profile?.provider === 'guest' && !guestBannerDismissed && (
-          <div className="mt-8 mb-4 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-6">
-            <div className="flex items-start gap-3 mb-4">
-              <span className="text-2xl shrink-0">✨</span>
-              <div>
-                <p className="text-base font-bold text-emerald-900">고객님! 현재 비회원으로 이용 중이에요 :)</p>
-                <p className="text-sm text-emerald-700 mt-2 leading-relaxed">
-                  지금 회원가입하고<br />
-                  더 편리한 서비스와 다양한 혜택을 경험해보세요! 😊
-                </p>
+          <div className="mt-6 mb-3 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3 max-sm:flex-col max-sm:items-stretch">
+            <div className="flex items-start gap-2 flex-1 min-w-0">
+              <span className="text-base shrink-0 leading-tight">✨</span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-emerald-900">고객님, 현재 비회원으로 이용 중이에요 :)</p>
+                <p className="text-[11px] text-emerald-700 mt-0.5">회원가입하고 더 편한 서비스와 혜택을 받아보세요 😊</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5 shrink-0 max-sm:w-full">
               <button
                 onClick={() => navigate('/mypage')}
-                className="flex-1 bg-[#2ED573] text-white text-sm font-bold py-2.5 rounded-lg cursor-pointer border-none hover:bg-[#25B866] transition-colors"
+                className="bg-[#2ED573] text-white text-xs font-bold px-3 py-1.5 rounded-md cursor-pointer border-none hover:bg-[#25B866] transition-colors max-sm:flex-1"
               >
                 회원가입하기
               </button>
@@ -433,9 +430,9 @@ function MyClassroomPage() {
                   setGuestBannerDismissed(true)
                   sessionStorage.setItem('guest_banner_dismissed', '1')
                 }}
-                className="flex-1 bg-white border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+                className="bg-white border border-gray-200 text-gray-500 text-xs font-medium px-3 py-1.5 rounded-md cursor-pointer hover:bg-gray-50 transition-colors max-sm:flex-1"
               >
-                나중에 할게요
+                나중에
               </button>
             </div>
           </div>
