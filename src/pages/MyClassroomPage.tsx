@@ -66,6 +66,10 @@ function MyClassroomPage() {
   const navigate = useNavigate()
   const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string } | null>(null)
   const { user, profile } = useAuth()
+  const [guestBannerDismissed, setGuestBannerDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    return sessionStorage.getItem('guest_banner_dismissed') === '1'
+  })
   const [coursePurchases, setCoursePurchases] = useState<CoursePurchase[]>([])
   const [ebookPurchases, setEbookPurchases] = useState<EbookPurchase[]>([])
   const [loading, setLoading] = useState(true)
@@ -405,15 +409,34 @@ function MyClassroomPage() {
       <div className="bg-black h-[200px] w-full" />
 
       <div className="max-w-[800px] mx-auto px-6">
-        {profile?.provider === 'guest' && (
-          <div className="mt-8 mb-4 bg-emerald-50 border border-emerald-200 rounded-xl p-5 flex items-start gap-3">
-            <i className="ti ti-user-check text-emerald-500 text-xl shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-emerald-800">비회원으로 가입되셨습니다</p>
-              <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
-                현재는 <strong>이메일 링크로만</strong> 로그인 가능합니다. <a href="/mypage" className="underline font-bold text-emerald-800">마이페이지</a>에서 <strong>주소·생년월일·성별 + 비밀번호</strong>까지 입력하고 저장하시면
-                정규 회원으로 자동 전환되어 비밀번호로 직접 로그인할 수 있습니다.
-              </p>
+        {profile?.provider === 'guest' && !guestBannerDismissed && (
+          <div className="mt-8 mb-4 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200 rounded-2xl p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <span className="text-2xl shrink-0">✨</span>
+              <div>
+                <p className="text-base font-bold text-emerald-900">고객님! 현재 비회원으로 이용 중이에요 :)</p>
+                <p className="text-sm text-emerald-700 mt-2 leading-relaxed">
+                  지금 회원가입하고<br />
+                  더 편리한 서비스와 다양한 혜택을 경험해보세요! 😊
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigate('/mypage')}
+                className="flex-1 bg-[#2ED573] text-white text-sm font-bold py-2.5 rounded-lg cursor-pointer border-none hover:bg-[#25B866] transition-colors"
+              >
+                회원가입하기
+              </button>
+              <button
+                onClick={() => {
+                  setGuestBannerDismissed(true)
+                  sessionStorage.setItem('guest_banner_dismissed', '1')
+                }}
+                className="flex-1 bg-white border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                나중에 할게요
+              </button>
             </div>
           </div>
         )}
