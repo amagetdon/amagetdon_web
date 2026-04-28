@@ -43,8 +43,9 @@ function applyTransform(url: string, opts: TransformOptions): string {
   if (opts.height) params.set('height', String(opts.height))
   params.set('quality', String(opts.quality ?? 82))
   params.set('format', opts.format ?? 'webp')
-  // resize 는 width+height 둘 다 있을 때만 의미가 있어 — 한쪽만 있으면 추가하지 않음
-  if (opts.resize && opts.width && opts.height) params.set('resize', opts.resize)
+  // resize=contain 기본 적용 — Supabase 가 width 만 줬을 때 비율 유지 안 하고 center-crop 하던 문제 회피.
+  // (1919x1066 원본이 width=800 만 줬을 때 799x1066 으로 잘려 나오는 버그)
+  params.set('resize', opts.resize ?? 'contain')
   return `${transformedBase}?${params.toString()}`
 }
 
