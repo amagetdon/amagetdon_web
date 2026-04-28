@@ -187,6 +187,97 @@ export const webhookScheduleService = {
     return { inserted: rows.length, recipients: userIds.length }
   },
 
+  // 기존 구매자에게도 schedule 적용 — schedule 등록 후 'D-N' 알림톡을 받아야 할 사용자에게 큐 backfill.
+  // time_offset 트리거 전용. 이미 적재된(user_id, schedule_id, course_schedule_id) 조합은 skip.
+  async backfillForExistingPurchasers(scheduleId: number): Promise<{ inserted: number; skipped: number; recipients: number }> {
+    const { data: sched } = await supabase.from('webhook_schedules').select('*').eq('id', scheduleId).maybeSingle()
+    if (!sched) return { inserted: 0, skipped: 0, recipients: 0 }
+    const s = sched as WebhookSchedule
+    if (s.trigger_type !== 'time_offset') return { inserted: 0, skipped: 0, recipients: 0 }
+
+    // 강의 일정
+    let courseSchedules: Array<{ id: number; scheduled_at: string }> = []
+    if (s.scope === 'course') {
+      const { data } = await supabase.from('schedules').select('id, scheduled_at').eq('course_id', s.scope_id)
+      courseSchedules = (data as Array<{ id: number; scheduled_at: string }> | null) ?? []
+    }
+
+    // 구매자
+    const colName = s.scope === 'course' ? 'course_id' : 'ebook_id'
+    const { data: purchases } = await supabase.from('purchases').select('user_id').eq(colName, s.scope_id)
+    const userIds = Array.from(new Set(((purchases as Array<{ user_id: string }> | null) ?? []).map((p) => p.user_id).filter(Boolean)))
+    if (userIds.length === 0) return { inserted: 0, skipped: 0, recipients: 0 }
+
+    // 프로필
+    const { data: profiles } = await supabase.from('profiles').select('id, name, phone, email').in('id', userIds)
+    const profileMap = new Map<string, { name?: string | null; phone?: string | null; email?: string | null }>(
+      ((profiles as Array<{ id: string; name?: string | null; phone?: string | null; email?: string | null }> | null) ?? []).map((p) => [p.id, p]),
+    )
+
+    // 강의 제목
+    let courseTitle = ''
+    if (s.scope === 'course') {
+      const { data: c } = await supabase.from('courses').select('title').eq('id', s.scope_id).maybeSingle()
+      courseTitle = (c as { title?: string } | null)?.title ?? ''
+    }
+
+    // 이미 이 schedule 로 적재된 (user_id, course_schedule_id) 조합 — 중복 방지
+    const { data: existingRuns } = await supabase
+      .from('webhook_schedule_runs')
+      .select('user_id, course_schedule_id')
+      .eq('webhook_schedule_id', s.id)
+    const existingSet = new Set(
+      ((existingRuns as Array<{ user_id: string; course_schedule_id: number | null }> | null) ?? [])
+        .map((r) => `${r.user_id}:${r.course_schedule_id ?? 'null'}`),
+    )
+
+    const now = Date.now()
+    const rows: Record<string, unknown>[] = []
+    let skipped = 0
+    for (const userId of userIds) {
+      const profile = profileMap.get(userId)
+      if (s.scope === 'course' && courseSchedules.length > 0) {
+        for (const cs of courseSchedules) {
+          const key = `${userId}:${cs.id}`
+          if (existingSet.has(key)) { skipped++; continue }
+          const fireAt = new Date(new Date(cs.scheduled_at).getTime() + s.offset_minutes * 60_000)
+          if (fireAt.getTime() < now) { skipped++; continue }
+          rows.push({
+            webhook_schedule_id: s.id,
+            course_schedule_id: cs.id,
+            user_id: userId,
+            user_name: profile?.name ?? null,
+            user_phone: profile?.phone ?? null,
+            user_email: profile?.email ?? null,
+            course_title: courseTitle,
+            course_scheduled_at: cs.scheduled_at,
+            fire_at: fireAt.toISOString(),
+          })
+        }
+      } else {
+        // 강의 일정 없음 → 즉시
+        const key = `${userId}:null`
+        if (existingSet.has(key)) { skipped++; continue }
+        rows.push({
+          webhook_schedule_id: s.id,
+          course_schedule_id: null,
+          user_id: userId,
+          user_name: profile?.name ?? null,
+          user_phone: profile?.phone ?? null,
+          user_email: profile?.email ?? null,
+          course_title: courseTitle,
+          course_scheduled_at: null,
+          fire_at: new Date(now).toISOString(),
+        })
+      }
+    }
+
+    if (rows.length === 0) return { inserted: 0, skipped, recipients: userIds.length }
+    const { error } = await supabase.from('webhook_schedule_runs').insert(rows as never)
+    if (error) { console.error('backfill insert failed', error); return { inserted: 0, skipped, recipients: userIds.length } }
+    return { inserted: rows.length, skipped, recipients: userIds.length }
+  },
+
   // 정원 도달 시 자동 트리거 (구매 직후 호출)
   async triggerEnrollmentFullIfReached(scope: 'course' | 'ebook', scopeId: number, currentCount: number, maxCount: number | null): Promise<number> {
     if (!maxCount || currentCount < maxCount) return 0

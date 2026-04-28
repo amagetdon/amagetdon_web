@@ -287,44 +287,39 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     return () => { cancelled = true }
   }, [scope, scopeId])
 
-  // 강의/전자책이 처음 webhook 페이지를 열었을 때 global default 템플릿(course_d7/d3/d1/d0)을
-  // 이 scope 의 webhook_schedules 로 자동 시드. 한 번만 실행되도록 default_webhooks_seeded 플래그로 가드.
+  // 페이지 열 때마다 — 이 강의에 default schedule(D-7/D-3/D-1/D-0) 중 누락된 게 있고
+  // 글로벌 템플릿이 비어있지 않으면 자동으로 추가. (이전엔 한 번만 실행해서 글로벌 템플릿 작성 전이면 영영 안 만들어졌음)
   useEffect(() => {
-    if (!scopeId) return
+    if (!scopeId || scope !== 'course') return
     let cancelled = false
     const seedDefaults = async () => {
       try {
-        const table = scope === 'course' ? 'courses' : 'ebooks'
-        const { data: row } = await supabase.from(table).select('default_webhooks_seeded').eq('id', scopeId).maybeSingle()
-        if (cancelled) return
-        if ((row as { default_webhooks_seeded?: boolean } | null)?.default_webhooks_seeded) return
-
-        // 강의에만 적용 (전자책은 아직 일정 기준 알림톡이 없음)
-        if (scope !== 'course') {
-          await supabase.from(table).update({ default_webhooks_seeded: true } as never).eq('id', scopeId)
-          return
-        }
-
-        const DEFAULT_CODES: Array<{ code: string; offset: number; label: string }> = [
-          { code: 'course_d7', offset: -10080, label: '강의 7일 전' },
-          { code: 'course_d3', offset: -4320, label: '강의 3일 전' },
-          { code: 'course_d1', offset: -1440, label: '강의 1일 전' },
-          { code: 'course_d0', offset: 0, label: '강의 당일' },
-        ]
         const { data: events } = await supabase.from('webhook_custom_events')
           .select('code, label, template, variable_aliases, enabled')
-          .in('code', DEFAULT_CODES.map((d) => d.code))
+          .in('code', DEFAULT_SCHEDULE_CARDS.map((c) => c.code))
         const map = new Map<string, { template: string; aliases: Record<string, string>; enabled: boolean; label: string }>()
         for (const e of (events ?? []) as Array<{ code: string; label: string; template: string; variable_aliases: Record<string, string> | null; enabled: boolean }>) {
           map.set(e.code, { template: e.template, aliases: e.variable_aliases ?? {}, enabled: e.enabled, label: e.label })
         }
 
+        // 현재 schedule 목록 조회 (state 보다 최신을 보장하기 위해 직접 fetch)
+        const { data: existing } = await supabase.from('webhook_schedules')
+          .select('id, offset_minutes, trigger_type')
+          .eq('scope', 'course')
+          .eq('scope_id', scopeId)
+        const existingOffsets = new Set(
+          (existing as Array<{ offset_minutes: number; trigger_type: string }> | null ?? [])
+            .filter((s) => s.trigger_type === 'time_offset')
+            .map((s) => s.offset_minutes),
+        )
+
         const rows: Array<Record<string, unknown>> = []
-        for (const d of DEFAULT_CODES) {
+        for (const d of DEFAULT_SCHEDULE_CARDS) {
+          if (existingOffsets.has(d.offset)) continue // 이미 있으면 skip
           const evt = map.get(d.code)
-          if (!evt || !evt.template?.trim()) continue
+          if (!evt || !evt.template?.trim()) continue // 글로벌 템플릿 없으면 아직 시드 안 함 (다음 페이지 진입에서 재시도)
           rows.push({
-            scope,
+            scope: 'course',
             scope_id: scopeId,
             label: evt.label || d.label,
             trigger_type: 'time_offset',
@@ -337,11 +332,10 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
         }
         if (rows.length > 0) {
           await supabase.from('webhook_schedules').insert(rows as never)
-        }
-        await supabase.from(table).update({ default_webhooks_seeded: true } as never).eq('id', scopeId)
-        if (!cancelled && rows.length > 0) {
-          await fetchSchedules()
-          toast.success(`기본 템플릿 ${rows.length}개를 이 강의에 적용했습니다.`)
+          if (!cancelled) {
+            await fetchSchedules()
+            toast.success(`기본 템플릿 ${rows.length}개를 이 강의에 적용했습니다.`)
+          }
         }
       } catch (err) {
         console.warn('[WebhookScheduleEditor] default seed 실패:', err)
@@ -483,6 +477,18 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
       fetchSchedules()
     } catch {
       toast.error('상태 변경 실패')
+    }
+  }
+
+  // 기존 구매자에게 backfill — 이미 강의를 산 사용자에게도 schedule 적용
+  const handleBackfillExisting = async (scheduleId: number) => {
+    if (!confirm('이미 이 강의를 구매한 사용자에게도 이 알림톡을 큐 적재합니다. 진행할까요?')) return
+    try {
+      const r = await webhookScheduleService.backfillForExistingPurchasers(scheduleId)
+      toast.success(`구매자 ${r.recipients}명 중 ${r.inserted}건 큐 적재됨 (skip ${r.skipped}건)`)
+      fetchSchedules()
+    } catch {
+      toast.error('적용 실패')
     }
   }
 
@@ -722,12 +728,15 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
                 {sched ? (
                   <>
                     <pre className="text-[11px] text-gray-600 bg-gray-50 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all max-h-24">{hasTemplate ? sched.request_template : '(템플릿 없음 — 편집에서 작성)'}</pre>
-                    <div className="flex items-center gap-1 mt-2">
+                    <div className="flex items-center gap-1 mt-2 flex-wrap">
                       <button onClick={() => setEditing(sched)} className="text-xs text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1 border-none cursor-pointer">
                         <i className="ti ti-pencil" /> 편집
                       </button>
                       <button onClick={() => handleViewRuns(sched.id)} className="text-xs text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 rounded px-2 py-1 border-none cursor-pointer">
                         <i className="ti ti-list" /> 큐 ({openRunsFor === sched.id ? '닫기' : '보기'})
+                      </button>
+                      <button onClick={() => handleBackfillExisting(sched.id)} title="이미 구매한 사용자에게도 큐 적재" className="text-xs text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 rounded px-2 py-1 border-none cursor-pointer">
+                        <i className="ti ti-refresh" /> 기존 구매자 적용
                       </button>
                       <button onClick={() => handleDelete(sched.id)} className="text-xs text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded px-2 py-1 border-none cursor-pointer ml-auto">
                         <i className="ti ti-trash" />
