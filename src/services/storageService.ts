@@ -1,8 +1,10 @@
 import imageCompression from 'browser-image-compression'
 import { supabase } from '../lib/supabase'
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB (압축 전 원본 한도)
+const MAX_FILE_SIZE = 150 * 1024 * 1024 // 150MB (원본 한도). 분할 상세 이미지 등 대용량 케이스 대응.
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 50MB
+// 50MB 이상 이미지는 압축 시도 자체가 브라우저 메모리/시간을 크게 잡아먹으므로 raw 업로드 강제.
+const COMPRESS_SIZE_CAP = 50 * 1024 * 1024
 const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
@@ -26,12 +28,12 @@ const COMPRESS_OPTIONS = {
   maxSizeMB: 4,
 }
 
-// GIF 는 애니메이션이 깨질 수 있어 압축 스킵
-const SHOULD_COMPRESS = (file: File) => file.type !== 'image/gif'
+// GIF (애니메이션 깨짐) 와 50MB 초과 (브라우저 부하) 파일은 압축 스킵.
+const SHOULD_COMPRESS = (file: File) => file.type !== 'image/gif' && file.size <= COMPRESS_SIZE_CAP
 
 function validateImage(file: File): void {
   if (file.size > MAX_FILE_SIZE) {
-    throw new Error('이미지 크기는 10MB 이하만 업로드할 수 있습니다.')
+    throw new Error('이미지 크기는 150MB 이하만 업로드할 수 있습니다.')
   }
 
   if (!ALLOWED_MIME_TYPES.includes(file.type as (typeof ALLOWED_MIME_TYPES)[number])) {
