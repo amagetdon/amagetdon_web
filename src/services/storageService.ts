@@ -1,5 +1,46 @@
 import imageCompression from 'browser-image-compression'
+import * as tus from 'tus-js-client'
 import { supabase } from '../lib/supabase'
+
+// Supabase Storage 의 single-shot REST upload 는 ~6MB 가 권장 한계.
+// 그보다 큰 파일은 TUS resumable upload 로 청크 분할해서 보내야 한다.
+const TUS_THRESHOLD = 6 * 1024 * 1024
+const TUS_CHUNK_SIZE = 6 * 1024 * 1024
+
+async function uploadFileResumable(bucket: string, path: string, file: File): Promise<string> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('인증 세션이 없어 업로드할 수 없습니다. 다시 로그인해 주세요.')
+
+  // supabase-js 가 노출하는 internal URL 을 직접 못 가져오므로 env 에서 빼오는 대신
+  // session 의 token 만 사용하고 storage URL 은 supabase 클라이언트에서 동일하게 추출.
+  const supabaseUrl = (supabase as unknown as { supabaseUrl: string }).supabaseUrl
+  const endpoint = `${supabaseUrl}/storage/v1/upload/resumable`
+
+  return new Promise<string>((resolve, reject) => {
+    const upload = new tus.Upload(file, {
+      endpoint,
+      retryDelays: [0, 3000, 5000, 10000, 20000],
+      headers: {
+        authorization: `Bearer ${session.access_token}`,
+        'x-upsert': 'true',
+      },
+      uploadDataDuringCreation: true,
+      removeFingerprintOnSuccess: true,
+      metadata: {
+        bucketName: bucket,
+        objectName: path,
+        contentType: file.type || 'application/octet-stream',
+        cacheControl: '3600',
+      },
+      chunkSize: TUS_CHUNK_SIZE,
+      onError: (err) => {
+        reject(new Error(`TUS 업로드 실패: ${err.message}`))
+      },
+      onSuccess: () => resolve(path),
+    })
+    upload.start()
+  })
+}
 
 const MAX_FILE_SIZE = 150 * 1024 * 1024 // 150MB (원본 한도). 분할 상세 이미지 등 대용량 케이스 대응.
 const MAX_VIDEO_SIZE = 50 * 1024 * 1024 // 50MB
@@ -71,6 +112,11 @@ function generateUniqueName(fileName: string): string {
 
 export const storageService = {
   async uploadFile(bucket: string, path: string, file: File) {
+    // 6MB 초과 파일은 single-shot 으로 보내면 storage gateway 에서 400 으로 거부.
+    // resumable (TUS) 로 분할 업로드.
+    if (file.size > TUS_THRESHOLD) {
+      return uploadFileResumable(bucket, path, file)
+    }
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(path, file, {
