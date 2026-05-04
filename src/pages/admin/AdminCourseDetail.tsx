@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
+import MultiImageUploader from '../../components/admin/MultiImageUploader'
 import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
 import RichTextEditor from '../../components/admin/RichTextEditor'
@@ -249,7 +250,13 @@ export default function AdminCourseDetail() {
     try {
       const data = await courseService.getById(courseId)
       setCourse(data)
-      setEditing(data as unknown as Record<string, unknown>)
+      const existingUrls = (data as unknown as { landing_image_urls?: string[] | null }).landing_image_urls
+      const normalizedUrls: string[] = Array.isArray(existingUrls) && existingUrls.length > 0
+        ? existingUrls.filter((u): u is string => !!u)
+        : data.landing_image_url
+          ? [data.landing_image_url]
+          : []
+      setEditing({ ...(data as unknown as Record<string, unknown>), landing_image_urls: normalizedUrls })
       setCurriculumItems(
         (data.curriculum_items ?? []).map((item) => ({
           id: item.id,
@@ -281,6 +288,7 @@ export default function AdminCourseDetail() {
         reviews_enabled: true,
         landing_category_ids: [],
         related_course_ids: [],
+        landing_image_urls: [],
         strengths: [],
         features: [],
         seo: {},
@@ -353,7 +361,8 @@ export default function AdminCourseDetail() {
         original_price: editing.original_price ?? null,
         sale_price: editing.sale_price ?? null,
         thumbnail_url: editing.thumbnail_url ?? null,
-        landing_image_url: editing.landing_image_url ?? null,
+        landing_image_url: ((editing.landing_image_urls as string[]) ?? [])[0] ?? null,
+        landing_image_urls: (editing.landing_image_urls as string[]) ?? [],
         video_url: editing.video_url ?? null,
         enrollment_start: editing.enrollment_start ?? null,
         enrollment_deadline: editing.enrollment_deadline ?? null,
@@ -666,12 +675,19 @@ export default function AdminCourseDetail() {
               <div className="w-[260px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">썸네일 이미지</label>
                 <ImageUploader bucket="courses" path={`${courseId ?? 'new'}/thumb-${Date.now()}`}
-                  currentUrl={editing.thumbnail_url as string} onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })} className="h-[140px]" />
+                  currentUrl={editing.thumbnail_url as string} onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })} className="h-[140px]" compress={false} />
+                <p className="text-xs text-gray-400 mt-1">원본 그대로 업로드됩니다 (자동 리사이징 없음).</p>
               </div>
-              <div className="w-[260px] max-sm:w-full">
-                <label className="text-sm font-bold block mb-1">랜딩 이미지</label>
-                <ImageUploader bucket="courses" path={`${courseId ?? 'new'}/landing-${Date.now()}`}
-                  currentUrl={editing.landing_image_url as string} onUpload={(url) => setEditing({ ...editing, landing_image_url: url })} className="h-[140px]" />
+              <div className="w-full">
+                <label className="text-sm font-bold block mb-1">상세페이지 이미지 (분할 업로드)</label>
+                <MultiImageUploader
+                  bucket="courses"
+                  pathPrefix={`${courseId ?? 'new'}/landing`}
+                  values={(editing.landing_image_urls as string[]) || []}
+                  onChange={(urls) => setEditing({ ...editing, landing_image_urls: urls })}
+                  compress={false}
+                  helperText="여러 장을 선택하면 한 번에 업로드됩니다. 위→아래 순서로 강의 상세 페이지에 표시됩니다. 원본 그대로 업로드됩니다 (자동 리사이징 없음)."
+                />
               </div>
               <div className="w-full">
                 <VideoUrlInput
@@ -829,7 +845,7 @@ export default function AdminCourseDetail() {
                         <label className="text-sm font-bold block mb-1">og:image</label>
                         <p className="text-xs text-gray-400 mb-1">권장 크기: 1200 × 627</p>
                         <ImageUploader bucket="courses" path={`${courseId ?? 'new'}/seo-og-${Date.now()}`}
-                          currentUrl={seo.ogImage || ''} onUpload={(url) => updateSeo({ ogImage: url })} className="h-[140px]" />
+                          currentUrl={seo.ogImage || ''} onUpload={(url) => updateSeo({ ogImage: url })} className="h-[140px]" compress={false} />
                       </div>
                       <div><label className="text-sm font-bold block mb-1">twitter:title</label>
                         <input value={seo.twitterTitle || ''} onChange={(e) => updateSeo({ twitterTitle: e.target.value })}
@@ -841,7 +857,7 @@ export default function AdminCourseDetail() {
                         <label className="text-sm font-bold block mb-1">twitter:image</label>
                         <p className="text-xs text-gray-400 mb-1">권장 크기: 1200 × 627</p>
                         <ImageUploader bucket="courses" path={`${courseId ?? 'new'}/seo-tw-${Date.now()}`}
-                          currentUrl={seo.twitterImage || ''} onUpload={(url) => updateSeo({ twitterImage: url })} className="h-[140px]" />
+                          currentUrl={seo.twitterImage || ''} onUpload={(url) => updateSeo({ twitterImage: url })} className="h-[140px]" compress={false} />
                       </div>
                     </>
                   )

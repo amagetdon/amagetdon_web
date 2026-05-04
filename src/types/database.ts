@@ -160,6 +160,7 @@ export interface Course {
   thumbnail_url: string | null
   video_url: string | null
   landing_image_url: string | null
+  landing_image_urls: string[] | null
   original_price: number | null
   sale_price: number | null
   course_type: 'free' | 'premium'
@@ -251,6 +252,7 @@ export interface Ebook {
   title: string
   thumbnail_url: string | null
   landing_image_url: string | null
+  landing_image_urls: string[] | null
   file_url: string | null
   original_price: number | null
   sale_price: number | null

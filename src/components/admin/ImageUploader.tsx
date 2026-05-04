@@ -10,9 +10,10 @@ interface ImageUploaderProps {
   className?: string
   accept?: 'image' | 'video' | 'both'
   objectFit?: 'cover' | 'contain'
+  compress?: boolean
 }
 
-export default function ImageUploader({ bucket, path, currentUrl, onUpload, className = '', accept = 'image', objectFit = 'cover' }: ImageUploaderProps) {
+export default function ImageUploader({ bucket, path, currentUrl, onUpload, className = '', accept = 'image', objectFit = 'cover', compress = true }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(currentUrl || null)
   const [isVideo, setIsVideo] = useState(false)
@@ -44,7 +45,7 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
       setUploading(true)
       const url = fileIsVideo
         ? await storageService.uploadVideo(bucket, path, file)
-        : await storageService.uploadImage(bucket, path, file)
+        : await storageService.uploadImage(bucket, path, file, { compress })
       onUpload(url)
     } catch (err) {
       setPreview(currentUrl || null)

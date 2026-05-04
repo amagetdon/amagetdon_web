@@ -478,13 +478,25 @@ function CourseDetailPage() {
               {course.video_url && (
                 <VideoEmbed url={course.video_url} className="w-full" />
               )}
-              <div className={`bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center overflow-hidden ${course.video_url ? 'mt-6' : ''}`}>
-                {course.landing_image_url ? (
-                  <img src={course.landing_image_url} alt={course.title} className="w-full" />
-                ) : (
-                  <span className="text-sm text-gray-400">숏랜딩 및 상세페이지 jpg 가로 800px</span>
-                )}
-              </div>
+              {(() => {
+                const urls = (course.landing_image_urls && course.landing_image_urls.length > 0)
+                  ? course.landing_image_urls
+                  : (course.landing_image_url ? [course.landing_image_url] : [])
+                if (urls.length === 0) {
+                  return (
+                    <div className={`bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center overflow-hidden ${course.video_url ? 'mt-6' : ''}`}>
+                      <span className="text-sm text-gray-400">숏랜딩 및 상세페이지 jpg 가로 800px</span>
+                    </div>
+                  )
+                }
+                return (
+                  <div className={`bg-gray-100 rounded-xl overflow-hidden ${course.video_url ? 'mt-6' : ''}`}>
+                    {urls.map((url, idx) => (
+                      <img key={`${url}-${idx}`} src={url} alt={`${course.title} 상세 ${idx + 1}`} className="w-full block" />
+                    ))}
+                  </div>
+                )
+              })()}
 
               {course.description && course.description.trim() && (
                 <div className="mt-6 bg-white border border-gray-200 rounded-xl p-6">

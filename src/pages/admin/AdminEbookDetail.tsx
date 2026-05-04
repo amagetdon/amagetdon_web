@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
+import MultiImageUploader from '../../components/admin/MultiImageUploader'
 import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
 import WebhookScheduleEditor from '../../components/admin/WebhookScheduleEditor'
 import { ebookService } from '../../services/ebookService'
@@ -87,7 +88,13 @@ export default function AdminEbookDetail() {
     try {
       const data = await ebookService.getById(ebookId)
       setEbook(data)
-      setEditing(data as unknown as Record<string, unknown>)
+      const existingUrls = (data as unknown as { landing_image_urls?: string[] | null }).landing_image_urls
+      const normalizedUrls: string[] = Array.isArray(existingUrls) && existingUrls.length > 0
+        ? existingUrls.filter((u): u is string => !!u)
+        : data.landing_image_url
+          ? [data.landing_image_url]
+          : []
+      setEditing({ ...(data as unknown as Record<string, unknown>), landing_image_urls: normalizedUrls })
     } catch {
       toast.error('전자책을 불러오는데 실패했습니다.')
       navigate('/admin/ebooks')
@@ -113,6 +120,7 @@ export default function AdminEbookDetail() {
         seo: {},
         reward_points: 0,
         related_ebook_ids: [],
+        landing_image_urls: [],
         refund_policy: '',
       })
       refundPolicyTemplateService.getDefault()
@@ -250,7 +258,8 @@ export default function AdminEbookDetail() {
         original_price: editing.original_price ?? null,
         sale_price: editing.sale_price ?? null,
         thumbnail_url: editing.thumbnail_url ?? null,
-        landing_image_url: editing.landing_image_url ?? null,
+        landing_image_url: ((editing.landing_image_urls as string[]) ?? [])[0] ?? null,
+        landing_image_urls: (editing.landing_image_urls as string[]) ?? [],
         file_url: editing.file_url ?? null,
         open_date: editing.open_date ?? null,
         close_date: editing.close_date ?? null,
@@ -470,12 +479,19 @@ export default function AdminEbookDetail() {
               <div className="w-[260px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">표지 이미지</label>
                 <ImageUploader bucket="ebooks" path={`${ebookId ?? 'new'}/thumb-${Date.now()}`}
-                  currentUrl={editing.thumbnail_url as string} onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })} className="h-[140px]" />
+                  currentUrl={editing.thumbnail_url as string} onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })} className="h-[140px]" compress={false} />
+                <p className="text-xs text-gray-400 mt-1">원본 그대로 업로드됩니다 (자동 리사이징 없음).</p>
               </div>
-              <div className="w-[260px] max-sm:w-full">
-                <label className="text-sm font-bold block mb-1">랜딩 이미지</label>
-                <ImageUploader bucket="ebooks" path={`${ebookId ?? 'new'}/landing-${Date.now()}`}
-                  currentUrl={editing.landing_image_url as string} onUpload={(url) => setEditing({ ...editing, landing_image_url: url })} className="h-[140px]" />
+              <div className="w-full">
+                <label className="text-sm font-bold block mb-1">상세페이지 이미지 (분할 업로드)</label>
+                <MultiImageUploader
+                  bucket="ebooks"
+                  pathPrefix={`${ebookId ?? 'new'}/landing`}
+                  values={(editing.landing_image_urls as string[]) || []}
+                  onChange={(urls) => setEditing({ ...editing, landing_image_urls: urls })}
+                  compress={false}
+                  helperText="여러 장을 선택하면 한 번에 업로드됩니다. 위→아래 순서로 전자책 상세 페이지에 표시됩니다. 원본 그대로 업로드됩니다 (자동 리사이징 없음)."
+                />
               </div>
               <div className="w-full">
                 <label className="text-sm font-bold block mb-1">PDF 파일</label>
@@ -658,7 +674,7 @@ export default function AdminEbookDetail() {
                         <label className="text-sm font-bold block mb-1">og:image</label>
                         <p className="text-xs text-gray-400 mb-1">권장 크기: 1200 × 627</p>
                         <ImageUploader bucket="ebooks" path={`${ebookId ?? 'new'}/seo-og-${Date.now()}`}
-                          currentUrl={seo.ogImage || ''} onUpload={(url) => updateSeo({ ogImage: url })} className="h-[140px]" />
+                          currentUrl={seo.ogImage || ''} onUpload={(url) => updateSeo({ ogImage: url })} className="h-[140px]" compress={false} />
                       </div>
                       <div><label className="text-sm font-bold block mb-1">twitter:title</label>
                         <input value={seo.twitterTitle || ''} onChange={(e) => updateSeo({ twitterTitle: e.target.value })}
@@ -670,7 +686,7 @@ export default function AdminEbookDetail() {
                         <label className="text-sm font-bold block mb-1">twitter:image</label>
                         <p className="text-xs text-gray-400 mb-1">권장 크기: 1200 × 627</p>
                         <ImageUploader bucket="ebooks" path={`${ebookId ?? 'new'}/seo-tw-${Date.now()}`}
-                          currentUrl={seo.twitterImage || ''} onUpload={(url) => updateSeo({ twitterImage: url })} className="h-[140px]" />
+                          currentUrl={seo.twitterImage || ''} onUpload={(url) => updateSeo({ twitterImage: url })} className="h-[140px]" compress={false} />
                       </div>
                     </>
                   )

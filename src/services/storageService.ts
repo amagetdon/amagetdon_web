@@ -91,18 +91,19 @@ export const storageService = {
     if (error) throw error
   },
 
-  async uploadImage(bucket: string, basePath: string, file: File): Promise<string> {
+  async uploadImage(bucket: string, basePath: string, file: File, options?: { compress?: boolean }): Promise<string> {
     validateImage(file)
 
-    const compressed = await compressImage(file)
-    const fileName = generateUniqueName(compressed.name)
+    const compress = options?.compress !== false
+    const prepared = compress ? await compressImage(file) : file
+    const fileName = generateUniqueName(prepared.name)
     const uploadPath = `${basePath}/${fileName}`
     const maxRetries = 2
     let lastError: unknown
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
-        const resultPath = await this.uploadFile(bucket, uploadPath, compressed)
+        const resultPath = await this.uploadFile(bucket, uploadPath, prepared)
         return this.getPublicUrl(bucket, resultPath)
       } catch (err) {
         lastError = err

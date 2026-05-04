@@ -360,11 +360,19 @@ function EbookDetailPage() {
                   <span className="text-sm text-gray-400">전자책 표지 이미지</span>
                 )}
               </div>
-              {ebook.landing_image_url && (
-                <div className="bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center mt-6 overflow-hidden">
-                  <img src={ebook.landing_image_url} alt={ebook.title} className="w-full" />
-                </div>
-              )}
+              {(() => {
+                const urls = (ebook.landing_image_urls && ebook.landing_image_urls.length > 0)
+                  ? ebook.landing_image_urls
+                  : (ebook.landing_image_url ? [ebook.landing_image_url] : [])
+                if (urls.length === 0) return null
+                return (
+                  <div className="bg-gray-100 rounded-xl overflow-hidden mt-6">
+                    {urls.map((url, idx) => (
+                      <img key={`${url}-${idx}`} src={url} alt={`${ebook.title} 상세 ${idx + 1}`} className="w-full block" />
+                    ))}
+                  </div>
+                )
+              })()}
 
               {(ebook.strengths && ebook.strengths.length > 0) || (ebook.features && ebook.features.length > 0) ? (
                 <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-6 mt-6">
