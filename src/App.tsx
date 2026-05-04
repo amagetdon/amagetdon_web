@@ -60,6 +60,7 @@ const AdminWebhook = lazy(() => import('./pages/admin/AdminWebhook'))
 const AdminCrmLeads = lazy(() => import('./pages/admin/AdminCrmLeads'))
 const AdminPages = lazy(() => import('./pages/admin/AdminPages'))
 const AdminStorageCleanup = lazy(() => import('./pages/admin/AdminStorageCleanup'))
+const AdminPerformance = lazy(() => import('./pages/admin/AdminPerformance'))
 const AdminCourseDetail = lazy(() => import('./pages/admin/AdminCourseDetail'))
 const AdminEbookDetail = lazy(() => import('./pages/admin/AdminEbookDetail'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
@@ -191,6 +192,7 @@ function App() {
                 <Route path="/admin/revenue-analytics" element={<AdminRoute><AdminRevenueAnalytics /></AdminRoute>} />
                 <Route path="/admin/pages" element={<AdminRoute><AdminPages /></AdminRoute>} />
                 <Route path="/admin/storage-cleanup" element={<AdminRoute><AdminStorageCleanup /></AdminRoute>} />
+                <Route path="/admin/performance" element={<AdminRoute><AdminPerformance /></AdminRoute>} />
               </Routes>
             </Suspense>
           </main>
