@@ -32,16 +32,6 @@ Deno.serve(async (req: Request) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
-    const r2AccountId = Deno.env.get('R2_ACCOUNT_ID')
-    const r2Bucket = Deno.env.get('R2_BUCKET')
-    const r2Endpoint = Deno.env.get('R2_ENDPOINT')
-    const r2AccessKey = Deno.env.get('R2_ACCESS_KEY_ID')
-    const r2SecretKey = Deno.env.get('R2_SECRET_ACCESS_KEY')
-    const r2PublicBase = Deno.env.get('R2_PUBLIC_BASE_URL') // 옵션
-    if (!r2AccountId || !r2Bucket || !r2Endpoint || !r2AccessKey || !r2SecretKey) {
-      return json({ error: 'R2 환경변수가 설정되지 않았습니다.' }, 500)
-    }
-
     // 인증
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'Authorization header missing' }, 401)
@@ -53,6 +43,24 @@ Deno.serve(async (req: Request) => {
       if (error || !userRes.user) return json({ error: 'invalid auth' }, 401)
       const { data: prof } = await userClient.from('profiles').select('role').eq('id', userRes.user.id).maybeSingle()
       if ((prof as { role?: string } | null)?.role !== 'admin') return json({ error: 'admin only' }, 403)
+    }
+
+    // R2 credentials — DB(external_storage_config) 우선, 없으면 환경변수 fallback
+    const adminClient = createClient(supabaseUrl, serviceKey)
+    const { data: cfg } = await adminClient
+      .from('external_storage_config')
+      .select('*')
+      .eq('id', 'r2')
+      .maybeSingle()
+    const cfgRow = (cfg ?? {}) as Record<string, string | boolean | null>
+    const r2AccountId = (cfgRow.account_id as string) || Deno.env.get('R2_ACCOUNT_ID') || ''
+    const r2Bucket = (cfgRow.bucket as string) || Deno.env.get('R2_BUCKET') || ''
+    const r2Endpoint = (cfgRow.endpoint as string) || Deno.env.get('R2_ENDPOINT') || ''
+    const r2AccessKey = (cfgRow.access_key_id as string) || Deno.env.get('R2_ACCESS_KEY_ID') || ''
+    const r2SecretKey = (cfgRow.secret_access_key as string) || Deno.env.get('R2_SECRET_ACCESS_KEY') || ''
+    const r2PublicBase = (cfgRow.public_base_url as string) || Deno.env.get('R2_PUBLIC_BASE_URL') || ''
+    if (!r2AccountId || !r2Bucket || !r2Endpoint || !r2AccessKey || !r2SecretKey) {
+      return json({ error: 'R2 설정이 비어있습니다. 관리자 → 사이트 설정 에서 R2 정보를 입력해 주세요.' }, 500)
     }
 
     const body = await req.json().catch(() => ({})) as { logicalBucket?: string; path?: string; contentType?: string }
@@ -98,6 +106,8 @@ Deno.serve(async (req: Request) => {
     const publicUrl = r2PublicBase
       ? `${r2PublicBase.replace(/\/+$/, '')}/${encodeURIComponent(key).replace(/%2F/g, '/')}`
       : null
+
+    void r2AccountId // 현재 sign 에 직접 안 쓰지만 향후 API endpoint 식별용으로 보관
 
     return json({
       uploadUrl,

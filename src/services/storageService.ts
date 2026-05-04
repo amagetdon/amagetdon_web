@@ -2,9 +2,37 @@ import imageCompression from 'browser-image-compression'
 import * as tus from 'tus-js-client'
 import { supabase } from '../lib/supabase'
 
-// R2 모드 — VITE_R2_ENABLED 가 true 면 신규 업로드를 Cloudflare R2 로 보낸다.
-// 기존에 이미 Supabase Storage 에 올라간 파일들은 URL 이 그대로 살아있으므로 무중단.
-const R2_ENABLED = import.meta.env.VITE_R2_ENABLED === 'true'
+// R2 모드 — DB(external_storage_config) 의 enabled 가 true 면 신규 업로드를 Cloudflare R2 로 보낸다.
+// 한 번 조회 후 메모리 캐싱. admin 이 설정 저장 후 invalidate 또는 새로고침 시 다시 반영.
+let cachedR2Config: { enabled: boolean; publicBaseUrl: string | null } | null = null
+let r2ConfigPromise: Promise<{ enabled: boolean; publicBaseUrl: string | null }> | null = null
+
+async function getR2Config(): Promise<{ enabled: boolean; publicBaseUrl: string | null }> {
+  if (cachedR2Config) return cachedR2Config
+  if (r2ConfigPromise) return r2ConfigPromise
+  r2ConfigPromise = (async () => {
+    try {
+      const { data } = await supabase.rpc('get_storage_config_public')
+      const row = (data ?? {}) as { enabled?: boolean; public_base_url?: string | null }
+      cachedR2Config = {
+        enabled: !!row.enabled,
+        publicBaseUrl: row.public_base_url ?? null,
+      }
+      return cachedR2Config
+    } catch {
+      cachedR2Config = { enabled: false, publicBaseUrl: null }
+      return cachedR2Config
+    } finally {
+      r2ConfigPromise = null
+    }
+  })()
+  return r2ConfigPromise
+}
+
+export function invalidateR2ConfigCache() {
+  cachedR2Config = null
+  r2ConfigPromise = null
+}
 
 // Supabase Storage 의 single-shot REST upload 는 ~6MB 가 권장 한계.
 // 그보다 큰 파일은 TUS resumable upload 로 청크 분할해서 보내야 한다.
@@ -142,9 +170,10 @@ function generateUniqueName(fileName: string): string {
 
 export const storageService = {
   async uploadFile(bucket: string, path: string, file: File) {
+    const r2 = await getR2Config()
     // R2 모드: bucket 안 prefix 로 매핑된 R2 key 에 PUT, public URL 그대로 반환.
     // 호출부 호환을 위해 'path' 를 그대로 반환 (Supabase storage 의 path 와 동일 의미).
-    if (R2_ENABLED) {
+    if (r2.enabled) {
       await uploadToR2(bucket, path, file)
       return path
     }
@@ -167,9 +196,10 @@ export const storageService = {
 
   // R2 모드일 때 호출부에서 public URL 을 직접 받고 싶을 때 사용 (PDF 업로드 등).
   // 기존 흐름 (uploadFile + getPublicUrl) 호환성 유지.
-  getPublicUrlFor(bucket: string, path: string) {
-    if (R2_ENABLED) {
-      const base = (import.meta.env.VITE_R2_PUBLIC_BASE_URL as string | undefined)?.replace(/\/+$/, '') || ''
+  async getPublicUrlFor(bucket: string, path: string): Promise<string> {
+    const r2 = await getR2Config()
+    if (r2.enabled) {
+      const base = r2.publicBaseUrl?.replace(/\/+$/, '') || ''
       if (!base) return ''
       return `${base}/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`
     }
@@ -194,8 +224,9 @@ export const storageService = {
     const fileName = generateUniqueName(prepared.name)
     const uploadPath = `${basePath}/${fileName}`
 
+    const r2 = await getR2Config()
     // R2 모드: presigned URL 로 직접 업로드 → public URL 반환
-    if (R2_ENABLED) {
+    if (r2.enabled) {
       return uploadToR2(bucket, uploadPath, prepared)
     }
 
@@ -221,7 +252,8 @@ export const storageService = {
     const fileName = generateUniqueName(file.name)
     const uploadPath = `${basePath}/${fileName}`
 
-    if (R2_ENABLED) {
+    const r2 = await getR2Config()
+    if (r2.enabled) {
       return uploadToR2(bucket, uploadPath, file)
     }
 

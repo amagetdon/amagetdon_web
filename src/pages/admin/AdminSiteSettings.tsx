@@ -10,9 +10,10 @@ import RichTextEditor from '../../components/admin/RichTextEditor'
 import { bannerService } from '../../services/bannerService'
 import { supabase } from '../../lib/supabase'
 import { invalidateSeoSettings } from '../../hooks/useSeoSettings'
+import { invalidateR2ConfigCache } from '../../services/storageService'
 import type { Banner } from '../../types'
 
-type SectionTab = 'general' | 'legal' | 'seo'
+type SectionTab = 'general' | 'legal' | 'seo' | 'storage'
 
 interface SeoSettingsForm {
   title: string
@@ -116,16 +117,38 @@ export default function AdminSiteSettings() {
   const [seoSettings, setSeoSettings] = useState<SeoSettingsForm>(defaultSeoSettings)
   const [seoSaving, setSeoSaving] = useState(false)
 
+  // 외부 스토리지 (R2)
+  const [r2Enabled, setR2Enabled] = useState(false)
+  const [r2PublicBaseUrl, setR2PublicBaseUrl] = useState('')
+  const [r2AccountId, setR2AccountId] = useState('')
+  const [r2Bucket, setR2Bucket] = useState('')
+  const [r2Endpoint, setR2Endpoint] = useState('')
+  const [r2AccessKeyId, setR2AccessKeyId] = useState('')
+  const [r2SecretAccessKey, setR2SecretAccessKey] = useState('')
+  const [r2Saving, setR2Saving] = useState(false)
+  const [r2ShowSecret, setR2ShowSecret] = useState(false)
+
   const [loading, setLoading] = useState(true)
 
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [linkData, settingsData] = await withTimeout(Promise.all([
+      const [linkData, settingsData, r2Data] = await withTimeout(Promise.all([
         bannerService.getAllByPage('bottom_links'),
         supabase.from('site_settings').select('*'),
+        supabase.from('external_storage_config').select('*').eq('id', 'r2').maybeSingle(),
       ]))
       setBottomLinks(linkData)
+      if (r2Data.data) {
+        const r = r2Data.data as Record<string, string | boolean | null>
+        setR2Enabled(!!r.enabled)
+        setR2PublicBaseUrl((r.public_base_url as string) || '')
+        setR2AccountId((r.account_id as string) || '')
+        setR2Bucket((r.bucket as string) || '')
+        setR2Endpoint((r.endpoint as string) || '')
+        setR2AccessKeyId((r.access_key_id as string) || '')
+        setR2SecretAccessKey((r.secret_access_key as string) || '')
+      }
       if (settingsData.data) {
         for (const s of settingsData.data as { key: string; value: Record<string, string> }[]) {
           if (s.key === 'kakao_link') { setKakaoLink(s.value?.url || ''); if (s.value?.target) setKakaoLinkTarget(s.value.target as '_blank' | '_self') }
@@ -201,6 +224,44 @@ export default function AdminSiteSettings() {
       toast.error('저장에 실패했습니다.')
     } finally {
       setLegalSaving(false)
+    }
+  }
+
+  // ── 외부 스토리지 (R2) 저장 ──
+  const handleR2Save = async () => {
+    // 활성화하면서 비어있으면 막음. 비활성화 저장은 비어있어도 OK.
+    if (r2Enabled) {
+      if (!r2AccountId.trim()) { toast.error('Account ID 를 입력해 주세요.'); return }
+      if (!r2Bucket.trim()) { toast.error('Bucket 이름을 입력해 주세요.'); return }
+      if (!r2Endpoint.trim()) { toast.error('Endpoint URL 을 입력해 주세요.'); return }
+      if (!r2AccessKeyId.trim()) { toast.error('Access Key ID 를 입력해 주세요.'); return }
+      if (!r2SecretAccessKey.trim()) { toast.error('Secret Access Key 를 입력해 주세요.'); return }
+      if (!r2PublicBaseUrl.trim()) { toast.error('Public Base URL 을 입력해 주세요. (사용자 페이지에서 이미지 표시용)'); return }
+    }
+    try {
+      setR2Saving(true)
+      const { error } = await supabase
+        .from('external_storage_config')
+        .upsert({
+          id: 'r2',
+          provider: 'r2',
+          enabled: r2Enabled,
+          public_base_url: r2PublicBaseUrl.trim() || null,
+          account_id: r2AccountId.trim() || null,
+          bucket: r2Bucket.trim() || null,
+          endpoint: r2Endpoint.trim() || null,
+          access_key_id: r2AccessKeyId.trim() || null,
+          secret_access_key: r2SecretAccessKey.trim() || null,
+          updated_at: new Date().toISOString(),
+        } as never, { onConflict: 'id' })
+      if (error) throw error
+      invalidateR2ConfigCache()
+      toast.success('외부 스토리지 설정이 저장되었습니다.')
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '저장에 실패했습니다.'
+      toast.error(msg)
+    } finally {
+      setR2Saving(false)
     }
   }
 
@@ -291,6 +352,14 @@ export default function AdminSiteSettings() {
           }`}
         >
           SEO 설정
+        </button>
+        <button
+          onClick={() => setTab('storage')}
+          className={`px-5 py-2 rounded-lg text-sm font-medium border-none cursor-pointer transition-all ${
+            tab === 'storage' ? 'bg-[#2ED573] text-white' : 'bg-transparent text-gray-500 hover:bg-gray-100'
+          }`}
+        >
+          외부 스토리지
         </button>
       </div>
 
@@ -882,6 +951,110 @@ export default function AdminSiteSettings() {
               className="bg-[#2ED573] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50 flex items-center gap-2"
             >
               <i className="ti ti-check text-sm" /> {seoSaving ? '저장 중...' : 'SEO 설정 저장'}
+            </button>
+          </div>
+        </div>
+      ) : tab === 'storage' ? (
+        /* ── 외부 스토리지 (R2) ── */
+        <div className="bg-white rounded-xl shadow-sm p-6 max-w-3xl">
+          <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+            <h2 className="text-lg font-bold text-gray-900">Cloudflare R2</h2>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <span className={`text-xs font-bold ${r2Enabled ? 'text-emerald-600' : 'text-gray-400'}`}>{r2Enabled ? '사용 중' : '비활성'}</span>
+              <input
+                type="checkbox"
+                checked={r2Enabled}
+                onChange={(e) => setR2Enabled(e.target.checked)}
+                className="accent-[#2ED573] w-4 h-4"
+              />
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 mb-5 leading-relaxed">
+            활성화하면 신규 업로드 (이미지·PDF) 가 Cloudflare R2 로 직접 저장되고, Supabase Storage egress 비용이 발생하지 않습니다.<br />
+            기존에 Supabase 에 이미 올라간 파일은 그대로 동작합니다 (혼용 가능).
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-bold block mb-1">Account ID</label>
+              <input
+                type="text"
+                value={r2AccountId}
+                onChange={(e) => setR2AccountId(e.target.value)}
+                placeholder="32자리 hex (Cloudflare R2 → API Tokens 페이지에 표시)"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">Bucket 이름</label>
+              <input
+                type="text"
+                value={r2Bucket}
+                onChange={(e) => setR2Bucket(e.target.value)}
+                placeholder="예: amagetdon-media"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">S3 Endpoint URL</label>
+              <input
+                type="text"
+                value={r2Endpoint}
+                onChange={(e) => setR2Endpoint(e.target.value)}
+                placeholder="https://<account_id>.r2.cloudflarestorage.com"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">Access Key ID</label>
+              <input
+                type="text"
+                value={r2AccessKeyId}
+                onChange={(e) => setR2AccessKeyId(e.target.value)}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">Secret Access Key</label>
+              <div className="flex gap-2">
+                <input
+                  type={r2ShowSecret ? 'text' : 'password'}
+                  value={r2SecretAccessKey}
+                  onChange={(e) => setR2SecretAccessKey(e.target.value)}
+                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setR2ShowSecret(!r2ShowSecret)}
+                  className="px-3 py-2.5 rounded-lg text-xs font-medium border border-gray-200 bg-white text-gray-600 cursor-pointer hover:border-gray-400"
+                >
+                  {r2ShowSecret ? '숨기기' : '표시'}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-bold block mb-1">Public Base URL</label>
+              <input
+                type="text"
+                value={r2PublicBaseUrl}
+                onChange={(e) => setR2PublicBaseUrl(e.target.value)}
+                placeholder="https://pub-xxxxxxxxxxxxxxxx.r2.dev  또는  https://cdn.<도메인>"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-mono outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+              />
+              <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                R2 버킷 → Settings → Public Access → Allow Access 활성화 후 표시되는 주소.
+                사용자 페이지에서 이미지를 가져오는 데 사용됩니다.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-5 mt-5 border-t border-gray-100">
+            <button
+              onClick={handleR2Save}
+              disabled={r2Saving}
+              className="bg-[#2ED573] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50 flex items-center gap-2"
+            >
+              <i className="ti ti-check text-sm" /> {r2Saving ? '저장 중...' : '외부 스토리지 설정 저장'}
             </button>
           </div>
         </div>

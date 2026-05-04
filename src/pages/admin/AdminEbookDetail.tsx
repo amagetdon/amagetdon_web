@@ -234,7 +234,7 @@ export default function AdminEbookDetail() {
       const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
       const uploadPath = `${target}/${fileName}`
       const resultPath = await storageService.uploadFile('ebooks', uploadPath, file)
-      const publicUrl = storageService.getPublicUrlFor('ebooks', resultPath)
+      const publicUrl = await storageService.getPublicUrlFor('ebooks', resultPath)
       setEditing({ ...editing, file_url: publicUrl })
       toast.success('PDF 파일이 업로드되었습니다.')
     } catch {
