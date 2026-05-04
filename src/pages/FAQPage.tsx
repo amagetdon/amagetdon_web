@@ -3,6 +3,9 @@ import { useFaqs } from '../hooks/useFaqs'
 import { supabase } from '../lib/supabase'
 import Pagination from '../components/Pagination'
 import VideoEmbed from '../components/VideoEmbed'
+import EventBanner from '../components/EventBanner'
+import { useStaleRefreshKey } from '../hooks/useVisibilityRefresh'
+import type { Banner } from '../types'
 import { useExternalServices } from '../hooks/useExternalServices'
 import { textToHtml } from '../utils/richText'
 
@@ -20,6 +23,8 @@ function FAQPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [siteKakaoLink, setSiteKakaoLink] = useState('')
   const [kakaoLinkTarget, setKakaoLinkTarget] = useState<'_blank' | '_self'>('_blank')
+  const [eventBanners, setEventBanners] = useState<Banner[]>([])
+  const refreshKey = useStaleRefreshKey()
   const externalServices = useExternalServices()
 
   const kakaoLink = useMemo(() => {
@@ -42,6 +47,15 @@ function FAQPage() {
   }, [])
 
   useEffect(() => {
+    Promise.resolve(supabase.from('banners').select('*').eq('page_key', 'faq_event').eq('is_published', true).order('sort_order'))
+      .then((eventRes) => {
+        setEventBanners((eventRes.data ?? []) as Banner[])
+      }).catch(() => {
+        setEventBanners([])
+      })
+  }, [refreshKey])
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery)
       setCurrentPage(1)
@@ -59,6 +73,7 @@ function FAQPage() {
 
   return (
     <>
+      {eventBanners.length > 0 && <EventBanner banners={eventBanners} pageKey="faq_event" />}
       <section className="w-full bg-white py-16 max-sm:py-10">
         <div className="max-w-[800px] mx-auto px-5">
           <h2 className="text-2xl font-bold text-center text-gray-900">자주 묻는 질문 Q&A</h2>

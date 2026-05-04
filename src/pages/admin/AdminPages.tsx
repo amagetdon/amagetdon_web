@@ -32,7 +32,7 @@ const emptyForm: EditingForm = {
 }
 
 type PageTab = 'landing' | 'academy' | 'hero' | 'results'
-type BannerSubTab = 'hero' | 'reviews' | 'results'
+type BannerSubTab = 'hero' | 'reviews' | 'results' | 'faq'
 
 const PAGE_TABS: { key: PageTab; label: string }[] = [
   { key: 'landing', label: '랜딩 페이지' },
@@ -58,7 +58,7 @@ export default function AdminPages() {
 
   // 배너
   const [bannerSubTab, setBannerSubTab] = useState<BannerSubTab>('hero')
-  const [allBanners, setAllBanners] = useState<Record<string, Banner[]>>({ hero: [], reviews: [], results: [], reviews_event: [], results_event: [] })
+  const [allBanners, setAllBanners] = useState<Record<string, Banner[]>>({ hero: [], reviews: [], results: [], faq: [], reviews_event: [], results_event: [], faq_event: [] })
   const [bannerEditing, setBannerEditing] = useState<Record<string, unknown> | null>(null)
   const [bannerSaving, setBannerSaving] = useState(false)
   const [bannerDeleteTarget, setBannerDeleteTarget] = useState<number | null>(null)
@@ -71,8 +71,10 @@ export default function AdminPages() {
     hero: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     reviews: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     results: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
+    faq: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     reviews_event: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     results_event: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
+    faq_event: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
   })
   const [bannerSettingSaving, setBannerSettingSaving] = useState(false)
 
@@ -89,14 +91,16 @@ export default function AdminPages() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [data, promoRes, heroBanners, reviewsBanners, resultsBanners, reviewsEvent, resultsEvent, resultData, settingsData, academyRes] = await Promise.all([
+      const [data, promoRes, heroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, resultData, settingsData, academyRes] = await Promise.all([
         landingCategoryService.getAll(),
         supabase.from('site_settings').select('value').eq('key', 'promo_video').maybeSingle(),
         bannerService.getAllByPage('hero'),
         bannerService.getAllByPage('reviews'),
         bannerService.getAllByPage('results'),
+        bannerService.getAllByPage('faq'),
         bannerService.getAllByPage('reviews_event'),
         bannerService.getAllByPage('results_event'),
+        bannerService.getAllByPage('faq_event'),
         resultService.getAll({ perPage: 50 }),
         supabase.from('site_settings').select('*').eq('key', 'banner_settings').maybeSingle(),
         supabase.from('site_settings').select('value').eq('key', 'academy_settings').maybeSingle(),
@@ -106,7 +110,7 @@ export default function AdminPages() {
       setPromoVideoUrl(promoValue?.url || '')
       const academyValue = (academyRes.data as { value?: { closedVisualEffect?: boolean } } | null)?.value
       setClosedVisualEffect(academyValue?.closedVisualEffect !== false)
-      setAllBanners({ hero: heroBanners, reviews: reviewsBanners, results: resultsBanners, reviews_event: reviewsEvent, results_event: resultsEvent })
+      setAllBanners({ hero: heroBanners, reviews: reviewsBanners, results: resultsBanners, faq: faqBanners, reviews_event: reviewsEvent, results_event: resultsEvent, faq_event: faqEvent })
       setResults(resultData.data)
       const settingsValue = (settingsData.data as { value?: Record<string, { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }> } | null)?.value
       if (settingsValue) {
@@ -122,8 +126,10 @@ export default function AdminPages() {
           hero: normalize(settingsValue.hero),
           reviews: normalize(settingsValue.reviews),
           results: normalize(settingsValue.results),
+          faq: normalize(settingsValue.faq),
           reviews_event: normalize(settingsValue.reviews_event),
           results_event: normalize(settingsValue.results_event),
+          faq_event: normalize(settingsValue.faq_event),
         }))
       }
     } catch {
@@ -422,7 +428,7 @@ export default function AdminPages() {
       ) : tab === 'hero' ? (
         <>
           <div className="flex gap-2 mb-4">
-            {([['hero', '메인 히어로'], ['reviews', '수강 후기'], ['results', '수강 성과']] as const).map(([key, label]) => (
+            {([['hero', '메인 히어로'], ['reviews', '수강 후기'], ['results', '수강 성과'], ['faq', 'FAQ']] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setBannerSubTab(key)}
