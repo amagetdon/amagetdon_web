@@ -93,13 +93,28 @@ function StatCard({ label, value, sub, tone = 'default' }: { label: string; valu
   )
 }
 
+interface DiskMount {
+  mountpoint: string
+  fstype?: string
+  total_bytes: number
+  used_bytes: number
+  used_pct: number
+}
+
 interface InfraMetrics {
   status: 'ok' | 'unsupported'
   reason?: string
   fetched_at?: string
   cpu?: { used_pct: number | null; approximation?: boolean }
   memory?: { used_pct: number | null; used_bytes: number | null; total_bytes: number | null }
-  disk?: { used_pct: number | null; used_bytes: number | null; total_bytes: number | null }
+  disk?: {
+    used_pct: number | null
+    used_bytes: number | null
+    total_bytes: number | null
+    mountpoint?: string | null
+    fstype?: string | null
+    all_mounts?: DiskMount[]
+  }
 }
 
 export default function AdminPerformance() {
@@ -243,12 +258,41 @@ export default function AdminPerformance() {
                   />
                 )}
                 {infra.disk && infra.disk.used_pct != null && infra.disk.total_bytes && (
-                  <UsageBar
-                    label="Disk"
-                    current={infra.disk.used_bytes ?? 0}
-                    max={infra.disk.total_bytes}
-                    formatter={formatBytes}
-                  />
+                  <div>
+                    <UsageBar
+                      label={`Disk${infra.disk.mountpoint ? ` (${infra.disk.mountpoint})` : ''}`}
+                      current={infra.disk.used_bytes ?? 0}
+                      max={infra.disk.total_bytes}
+                      formatter={formatBytes}
+                    />
+                    {infra.disk.all_mounts && infra.disk.all_mounts.length > 1 && (
+                      <details className="mt-2">
+                        <summary className="text-[11px] text-gray-400 cursor-pointer hover:text-gray-600">
+                          모든 마운트 보기 ({infra.disk.all_mounts.length}개)
+                        </summary>
+                        <table className="w-full text-xs mt-2 border-t border-gray-100">
+                          <thead>
+                            <tr className="text-gray-400">
+                              <th className="px-2 py-1.5 text-left font-medium">mount</th>
+                              <th className="px-2 py-1.5 text-right font-medium">used</th>
+                              <th className="px-2 py-1.5 text-right font-medium">total</th>
+                              <th className="px-2 py-1.5 text-right font-medium">%</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {infra.disk.all_mounts.map((m) => (
+                              <tr key={m.mountpoint} className={m.mountpoint === infra.disk?.mountpoint ? 'bg-emerald-50' : ''}>
+                                <td className="px-2 py-1 font-mono text-gray-700">{m.mountpoint}</td>
+                                <td className="px-2 py-1 text-right text-gray-600">{formatBytes(m.used_bytes)}</td>
+                                <td className="px-2 py-1 text-right text-gray-600">{formatBytes(m.total_bytes)}</td>
+                                <td className="px-2 py-1 text-right text-gray-900 font-bold">{m.used_pct.toFixed(1)}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </details>
+                    )}
+                  </div>
                 )}
                 {infra.cpu?.used_pct == null && infra.memory?.used_pct == null && infra.disk?.used_pct == null && (
                   <p className="text-xs text-gray-400">메트릭이 비어있습니다. Supabase 에서 export 가 활성화되었는지 확인해주세요.</p>

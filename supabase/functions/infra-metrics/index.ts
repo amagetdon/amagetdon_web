@@ -135,15 +135,57 @@ Deno.serve(async (req: Request) => {
     const memUsed = (memTotal != null && memAvailable != null) ? memTotal - memAvailable : null
     const memPct = (memUsed != null && memTotal && memTotal > 0) ? (memUsed / memTotal) * 100 : null
 
-    // 디스크 — / 또는 /var/lib/postgresql 마운트 우선
-    const diskFilter = (labels: Record<string, string>) => {
-      const m = labels.mountpoint || ''
-      return m === '/' || m.includes('postgres')
+    // 디스크 — Supabase 콘솔의 "Disk %" 와 일치시키려면 DB 데이터 볼륨을 봐야 한다.
+    // 후보 mountpoint 우선순위: postgres data → /data → / (root fallback).
+    // 디버그 / 검증을 위해 모든 disk mount 도 함께 반환.
+    type MountInfo = { mountpoint: string; total_bytes: number; used_bytes: number; used_pct: number; fstype?: string }
+    const lines = text.split('\n')
+    const sizeMap = new Map<string, { total: number; fstype: string }>()
+    const availMap = new Map<string, number>()
+    for (const raw of lines) {
+      const line = raw.trim()
+      if (!line || line.startsWith('#')) continue
+      const m = line.match(/^(node_filesystem_size_bytes|node_filesystem_avail_bytes)\{([^}]*)\}\s+([\d.eE+-]+)/)
+      if (!m) continue
+      const labels: Record<string, string> = {}
+      const re = /([a-zA-Z_][a-zA-Z0-9_]*)="([^"]*)"/g
+      let lm
+      while ((lm = re.exec(m[2])) !== null) labels[lm[1]] = lm[2]
+      const mount = labels.mountpoint
+      const fstype = labels.fstype || ''
+      // 의사파일시스템 / overlayfs / docker 임시 마운트 등 무시
+      if (!mount) continue
+      if (['tmpfs', 'devtmpfs', 'overlay', 'overlay2', 'proc', 'sysfs', 'cgroup', 'devpts', 'squashfs', 'aufs'].includes(fstype)) continue
+      const val = Number(m[3])
+      if (!Number.isFinite(val)) continue
+      if (m[1] === 'node_filesystem_size_bytes') sizeMap.set(mount, { total: val, fstype })
+      else availMap.set(mount, val)
     }
-    const diskTotal = parseMetric(text, 'node_filesystem_size_bytes', diskFilter)
-    const diskAvail = parseMetric(text, 'node_filesystem_avail_bytes', diskFilter)
-    const diskUsed = (diskTotal != null && diskAvail != null) ? diskTotal - diskAvail : null
-    const diskPct = (diskUsed != null && diskTotal && diskTotal > 0) ? (diskUsed / diskTotal) * 100 : null
+    const allMounts: MountInfo[] = []
+    for (const [mountpoint, { total, fstype }] of sizeMap) {
+      const avail = availMap.get(mountpoint)
+      if (avail == null || total <= 0) continue
+      const used = total - avail
+      allMounts.push({
+        mountpoint,
+        total_bytes: total,
+        used_bytes: used,
+        used_pct: (used / total) * 100,
+        fstype,
+      })
+    }
+    const pickPrimary = (mounts: MountInfo[]): MountInfo | null => {
+      if (mounts.length === 0) return null
+      const dataMount = mounts.find((m) => /postgres/.test(m.mountpoint))
+        || mounts.find((m) => m.mountpoint === '/data')
+        || mounts.find((m) => m.mountpoint.startsWith('/var/lib'))
+      if (dataMount) return dataMount
+      return mounts.find((m) => m.mountpoint === '/') ?? mounts[0]
+    }
+    const primary = pickPrimary(allMounts)
+    const diskTotal = primary?.total_bytes ?? null
+    const diskUsed = primary?.used_bytes ?? null
+    const diskPct = primary?.used_pct ?? null
 
     // CPU 보강: idle 비율로 사용률 계산 (counter 라 한 번의 호출로는 부정확하지만 누적 비율의 근사치)
     const cpuIdleSum = sumMetric(text, 'node_cpu_seconds_total', (l) => l.mode === 'idle')
@@ -168,6 +210,9 @@ Deno.serve(async (req: Request) => {
         used_pct: diskPct,
         used_bytes: diskUsed,
         total_bytes: diskTotal,
+        mountpoint: primary?.mountpoint ?? null,
+        fstype: primary?.fstype ?? null,
+        all_mounts: allMounts.sort((a, b) => b.total_bytes - a.total_bytes),
       },
     })
   } catch (err) {
