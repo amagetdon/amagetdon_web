@@ -2,10 +2,40 @@ import imageCompression from 'browser-image-compression'
 import * as tus from 'tus-js-client'
 import { supabase } from '../lib/supabase'
 
+// R2 모드 — VITE_R2_ENABLED 가 true 면 신규 업로드를 Cloudflare R2 로 보낸다.
+// 기존에 이미 Supabase Storage 에 올라간 파일들은 URL 이 그대로 살아있으므로 무중단.
+const R2_ENABLED = import.meta.env.VITE_R2_ENABLED === 'true'
+
 // Supabase Storage 의 single-shot REST upload 는 ~6MB 가 권장 한계.
 // 그보다 큰 파일은 TUS resumable upload 로 청크 분할해서 보내야 한다.
 const TUS_THRESHOLD = 6 * 1024 * 1024
 const TUS_CHUNK_SIZE = 6 * 1024 * 1024
+
+// Cloudflare R2 — 클라이언트가 edge function 으로부터 presigned PUT URL 을 받아서
+// 직접 R2 에 PUT 한다. 데이터가 한 번만 흐르고 Supabase egress 비용도 안 든다.
+// 반환값은 사용자 페이지에서 그대로 src 로 쓸 수 있는 public URL.
+async function uploadToR2(logicalBucket: string, path: string, file: File): Promise<string> {
+  const { data, error } = await supabase.functions.invoke('r2-presign', {
+    body: { logicalBucket, path, contentType: file.type || 'application/octet-stream' },
+  })
+  if (error) throw new Error(`R2 presign 실패: ${error.message}`)
+  const { uploadUrl, publicUrl, hasPublicBase } = data as { uploadUrl: string; publicUrl: string | null; hasPublicBase: boolean }
+  if (!uploadUrl) throw new Error('R2 presign 응답에 uploadUrl 누락')
+
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    body: file,
+    headers: { 'Content-Type': file.type || 'application/octet-stream' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`R2 업로드 실패 (${res.status}) ${text.slice(0, 200)}`)
+  }
+  if (!hasPublicBase || !publicUrl) {
+    throw new Error('R2 PUBLIC URL 이 설정되지 않았습니다. R2 버킷의 Public Access 를 활성화하고 R2_PUBLIC_BASE_URL 을 등록해 주세요.')
+  }
+  return publicUrl
+}
 
 async function uploadFileResumable(bucket: string, path: string, file: File): Promise<string> {
   const { data: { session } } = await supabase.auth.getSession()
@@ -112,6 +142,12 @@ function generateUniqueName(fileName: string): string {
 
 export const storageService = {
   async uploadFile(bucket: string, path: string, file: File) {
+    // R2 모드: bucket 안 prefix 로 매핑된 R2 key 에 PUT, public URL 그대로 반환.
+    // 호출부 호환을 위해 'path' 를 그대로 반환 (Supabase storage 의 path 와 동일 의미).
+    if (R2_ENABLED) {
+      await uploadToR2(bucket, path, file)
+      return path
+    }
     // 6MB 초과 파일은 single-shot 으로 보내면 storage gateway 에서 400 으로 거부.
     // resumable (TUS) 로 분할 업로드.
     if (file.size > TUS_THRESHOLD) {
@@ -127,6 +163,17 @@ export const storageService = {
       throw new Error(`Storage 업로드 실패 [${error.message}] statusCode: ${(error as unknown as Record<string, unknown>).statusCode}`)
     }
     return data.path
+  },
+
+  // R2 모드일 때 호출부에서 public URL 을 직접 받고 싶을 때 사용 (PDF 업로드 등).
+  // 기존 흐름 (uploadFile + getPublicUrl) 호환성 유지.
+  getPublicUrlFor(bucket: string, path: string) {
+    if (R2_ENABLED) {
+      const base = (import.meta.env.VITE_R2_PUBLIC_BASE_URL as string | undefined)?.replace(/\/+$/, '') || ''
+      if (!base) return ''
+      return `${base}/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`
+    }
+    return this.getPublicUrl(bucket, path)
   },
 
   getPublicUrl(bucket: string, path: string) {
@@ -146,9 +193,14 @@ export const storageService = {
     const prepared = compress ? await compressImage(file) : file
     const fileName = generateUniqueName(prepared.name)
     const uploadPath = `${basePath}/${fileName}`
+
+    // R2 모드: presigned URL 로 직접 업로드 → public URL 반환
+    if (R2_ENABLED) {
+      return uploadToR2(bucket, uploadPath, prepared)
+    }
+
     const maxRetries = 2
     let lastError: unknown
-
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const resultPath = await this.uploadFile(bucket, uploadPath, prepared)
@@ -160,7 +212,6 @@ export const storageService = {
         }
       }
     }
-
     throw lastError
   },
 
@@ -169,9 +220,13 @@ export const storageService = {
 
     const fileName = generateUniqueName(file.name)
     const uploadPath = `${basePath}/${fileName}`
+
+    if (R2_ENABLED) {
+      return uploadToR2(bucket, uploadPath, file)
+    }
+
     const maxRetries = 2
     let lastError: unknown
-
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const resultPath = await this.uploadFile(bucket, uploadPath, file)
@@ -183,7 +238,6 @@ export const storageService = {
         }
       }
     }
-
     throw lastError
   },
 }

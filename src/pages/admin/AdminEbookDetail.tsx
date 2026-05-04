@@ -223,8 +223,8 @@ export default function AdminEbookDetail() {
       toast.error('PDF 파일만 업로드할 수 있습니다.')
       return
     }
-    if (file.size > 50 * 1024 * 1024) {
-      toast.error('파일 크기는 50MB 이하만 업로드할 수 있습니다.')
+    if (file.size > 200 * 1024 * 1024) {
+      toast.error('PDF 파일 크기는 200MB 이하만 업로드할 수 있습니다.')
       return
     }
     try {
@@ -234,7 +234,7 @@ export default function AdminEbookDetail() {
       const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
       const uploadPath = `${target}/${fileName}`
       const resultPath = await storageService.uploadFile('ebooks', uploadPath, file)
-      const publicUrl = storageService.getPublicUrl('ebooks', resultPath)
+      const publicUrl = storageService.getPublicUrlFor('ebooks', resultPath)
       setEditing({ ...editing, file_url: publicUrl })
       toast.success('PDF 파일이 업로드되었습니다.')
     } catch {
