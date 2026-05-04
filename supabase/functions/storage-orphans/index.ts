@@ -55,11 +55,19 @@ async function listAllFiles(supabase: ReturnType<typeof createClient>, bucket: s
 }
 
 // DB 에서 storage 를 참조하는 모든 URL 수집
+//
+// 한 번이라도 select 에 실패하면 reference 집합이 불완전해져서 멀쩡한 파일이 orphan 으로 잡힐 수 있다.
+// 따라서 (a) 실제 스키마에 존재하는 컬럼만 조회하고, (b) 필수 테이블 쿼리가 실패하면 throw 해서
+// 스캔 자체를 중단시킨다.
 async function collectReferencedUrls(supabase: ReturnType<typeof createClient>): Promise<Set<string>> {
   const refs = new Set<string>()
 
   const addJson = (val: unknown) => {
-    if (!val) return
+    if (val == null) return
+    if (Array.isArray(val)) {
+      for (const v of val) addJson(v)
+      return
+    }
     const s = typeof val === 'string' ? val : JSON.stringify(val)
     // /storage/v1/object/public/<bucket>/<path>  또는 /storage/v1/render/image/public/<bucket>/<path>
     const re = /\/storage\/v1\/(?:object|render\/image)\/public\/([^/\s"]+)\/([^"\s?#]+)/g
@@ -69,76 +77,81 @@ async function collectReferencedUrls(supabase: ReturnType<typeof createClient>):
     }
   }
 
-  // courses: thumbnail, landing, video, seo (json)
-  {
-    const { data } = await supabase.from('courses').select('thumbnail_url, landing_image_url, video_url, seo')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.thumbnail_url); addJson(r.landing_image_url); addJson(r.video_url); addJson(r.seo)
+  // 필수 테이블: 실패 시 throw — 잘못된 reference 집합으로 잘못된 파일을 지우는 사고를 막음.
+  const required = async (
+    table: string,
+    columns: string,
+    extract: (r: Record<string, unknown>) => void,
+  ) => {
+    const { data, error } = await supabase.from(table).select(columns)
+    if (error) {
+      throw new Error(`[storage-orphans] ${table} reference 수집 실패: ${error.message} — 스캔 중단`)
     }
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) extract(r)
   }
+
+  // 선택 테이블: 미존재(테이블 자체가 없는 환경) 만 무시하고, 그 외 에러는 throw.
+  const optional = async (
+    table: string,
+    columns: string,
+    extract: (r: Record<string, unknown>) => void,
+  ) => {
+    const { data, error } = await supabase.from(table).select(columns)
+    if (error) {
+      // PostgREST 에러 코드 — "PGRST205": Could not find the table — 테이블 없음만 무시
+      const msg = error.message || ''
+      const code = (error as { code?: string }).code || ''
+      const isMissingTable = code === 'PGRST205' || /could not find the table/i.test(msg) || /relation .* does not exist/i.test(msg)
+      if (isMissingTable) return
+      throw new Error(`[storage-orphans] ${table} reference 수집 실패: ${msg} — 스캔 중단`)
+    }
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) extract(r)
+  }
+
+  // courses
+  await required('courses', 'thumbnail_url, landing_image_url, landing_image_urls, video_url, seo', (r) => {
+    addJson(r.thumbnail_url); addJson(r.landing_image_url); addJson(r.landing_image_urls); addJson(r.video_url); addJson(r.seo)
+  })
   // ebooks
-  {
-    const { data } = await supabase.from('ebooks').select('thumbnail_url, landing_image_url, file_url, seo')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.thumbnail_url); addJson(r.landing_image_url); addJson(r.file_url); addJson(r.seo)
-    }
-  }
-  // instructors
-  {
-    const { data } = await supabase.from('instructors').select('profile_image_url, hero_portrait_url')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.profile_image_url); addJson(r.hero_portrait_url)
-    }
-  }
-  // hero_banners
-  try {
-    const { data } = await supabase.from('hero_banners').select('image_url, poster_url')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.image_url); addJson(r.poster_url)
-    }
-  } catch { /* 테이블 없을 수 있음 */ }
-  // event_banners
-  try {
-    const { data } = await supabase.from('event_banners').select('image_url')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.image_url)
-    }
-  } catch { /* 테이블 없을 수 있음 */ }
-  // coupons
-  try {
-    const { data } = await supabase.from('coupons').select('banner_image_url')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.banner_image_url)
-    }
-  } catch { /* 무시 */ }
-  // achievements
-  try {
-    const { data } = await supabase.from('achievements').select('image_url')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.image_url)
-    }
-  } catch { /* 무시 */ }
-  // review_results
-  try {
-    const { data } = await supabase.from('review_results').select('thumbnail_url')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.thumbnail_url)
-    }
-  } catch { /* 무시 */ }
-  // landing_categories seo
-  try {
-    const { data } = await supabase.from('landing_categories').select('seo')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.seo)
-    }
-  } catch { /* 무시 */ }
-  // site_settings (key/value json) - SEO/branding/footer 등
-  try {
-    const { data } = await supabase.from('site_settings').select('value')
-    for (const r of (data ?? []) as Array<Record<string, unknown>>) {
-      addJson(r.value)
-    }
-  } catch { /* 무시 */ }
+  await required('ebooks', 'thumbnail_url, landing_image_url, landing_image_urls, file_url, seo', (r) => {
+    addJson(r.thumbnail_url); addJson(r.landing_image_url); addJson(r.landing_image_urls); addJson(r.file_url); addJson(r.seo)
+  })
+  // instructors — 실제 컬럼: image_url, thumbnail_url, hero_portrait_url
+  await required('instructors', 'image_url, thumbnail_url, hero_portrait_url', (r) => {
+    addJson(r.image_url); addJson(r.thumbnail_url); addJson(r.hero_portrait_url)
+  })
+  // banners — 단일 테이블, page_key 로 home/results/reviews 등 구분
+  await required('banners', 'image_url, video_url', (r) => {
+    addJson(r.image_url); addJson(r.video_url)
+  })
+  // results — 후기/성과 사례 (구 review_results 가 아님)
+  await required('results', 'image_url, video_url', (r) => {
+    addJson(r.image_url); addJson(r.video_url)
+  })
+  // faqs — 첨부 파일/영상
+  await required('faqs', 'video_url, file_url', (r) => {
+    addJson(r.video_url); addJson(r.file_url)
+  })
+  // curriculum_items — 영상 (외부 URL 위주이지만 storage 일 수도 있음)
+  await required('curriculum_items', 'video_url', (r) => {
+    addJson(r.video_url)
+  })
+  // coupons — 배너 이미지
+  await required('coupons', 'banner_image_url', (r) => {
+    addJson(r.banner_image_url)
+  })
+  // achievements — 이미지
+  await required('achievements', 'image_url', (r) => {
+    addJson(r.image_url)
+  })
+  // landing_categories — SEO json
+  await required('landing_categories', 'seo', (r) => {
+    addJson(r.seo)
+  })
+  // site_settings — 모든 value json (SEO/branding/footer 등)
+  await optional('site_settings', 'value', (r) => {
+    addJson(r.value)
+  })
 
   return refs
 }
