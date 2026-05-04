@@ -93,8 +93,18 @@ function StatCard({ label, value, sub, tone = 'default' }: { label: string; valu
   )
 }
 
+interface InfraMetrics {
+  status: 'ok' | 'unsupported'
+  reason?: string
+  fetched_at?: string
+  cpu?: { used_pct: number | null; approximation?: boolean }
+  memory?: { used_pct: number | null; used_bytes: number | null; total_bytes: number | null }
+  disk?: { used_pct: number | null; used_bytes: number | null; total_bytes: number | null }
+}
+
 export default function AdminPerformance() {
   const [metrics, setMetrics] = useState<Metrics | null>(null)
+  const [infra, setInfra] = useState<InfraMetrics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -102,9 +112,14 @@ export default function AdminPerformance() {
     try {
       setLoading(true)
       setError(null)
-      const { data, error } = await supabase.rpc('admin_performance_metrics')
-      if (error) throw error
-      setMetrics(data as Metrics)
+      const [rpcRes, infraRes] = await Promise.all([
+        supabase.rpc('admin_performance_metrics'),
+        supabase.functions.invoke('infra-metrics').catch((err) => ({ data: null, error: err })),
+      ])
+      if (rpcRes.error) throw rpcRes.error
+      setMetrics(rpcRes.data as Metrics)
+      if (infraRes.data) setInfra(infraRes.data as InfraMetrics)
+      else if (infraRes.error) setInfra({ status: 'unsupported', reason: '인프라 메트릭 호출 실패' })
     } catch (err) {
       const msg = err instanceof Error ? err.message : '성능 지표를 불러오지 못했습니다.'
       setError(msg)
@@ -199,6 +214,52 @@ export default function AdminPerformance() {
               sub="높을수록 좋음 (목표 99%+)"
               tone={cacheTone}
             />
+          </div>
+
+          {/* 인프라 메트릭 (CPU / RAM / Disk) */}
+          <div className="bg-white rounded-xl shadow-sm p-5 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h2 className="text-base font-bold text-gray-900">인프라 사용률</h2>
+              <span className="text-[11px] text-gray-400">
+                {infra?.status === 'ok' && infra.fetched_at ? new Date(infra.fetched_at).toLocaleString('ko-KR') : 'Supabase Prometheus endpoint'}
+              </span>
+            </div>
+            {infra?.status === 'ok' ? (
+              <div className="space-y-3">
+                {infra.cpu && infra.cpu.used_pct != null && (
+                  <UsageBar
+                    label={`CPU${infra.cpu.approximation ? ' (누적 평균 근사)' : ''}`}
+                    current={infra.cpu.used_pct}
+                    max={100}
+                    formatter={(n) => `${n.toFixed(1)}%`}
+                  />
+                )}
+                {infra.memory && infra.memory.used_pct != null && infra.memory.total_bytes && (
+                  <UsageBar
+                    label="RAM"
+                    current={infra.memory.used_bytes ?? 0}
+                    max={infra.memory.total_bytes}
+                    formatter={formatBytes}
+                  />
+                )}
+                {infra.disk && infra.disk.used_pct != null && infra.disk.total_bytes && (
+                  <UsageBar
+                    label="Disk"
+                    current={infra.disk.used_bytes ?? 0}
+                    max={infra.disk.total_bytes}
+                    formatter={formatBytes}
+                  />
+                )}
+                {infra.cpu?.used_pct == null && infra.memory?.used_pct == null && infra.disk?.used_pct == null && (
+                  <p className="text-xs text-gray-400">메트릭이 비어있습니다. Supabase 에서 export 가 활성화되었는지 확인해주세요.</p>
+                )}
+              </div>
+            ) : (
+              <div className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <i className="ti ti-alert-triangle mr-1.5" />
+                인프라 메트릭(CPU/RAM/Disk) 을 가져오지 못했습니다. {infra?.reason || 'Pro 플랜에서만 활성화됩니다.'} 우상단 "Supabase 콘솔" 링크로 확인하세요.
+              </div>
+            )}
           </div>
 
           {/* 사용량 / 한도 */}
@@ -353,8 +414,10 @@ export default function AdminPerformance() {
           </div>
 
           <div className="text-xs text-gray-400 leading-relaxed">
-            <p>* CPU / RAM / 디스크 % 는 Postgres 안에서 직접 가져올 수 없습니다. 우상단 "Supabase 콘솔" 링크로 확인하세요.</p>
             <p>* 한도 기준은 Pro 플랜 기본값 (DB 8GB / Storage 100GB) 입니다. 다른 플랜이면 실제 한도와 다를 수 있어요.</p>
+            {infra?.status !== 'ok' && (
+              <p>* CPU / RAM / 디스크 % 는 Supabase Prometheus endpoint 가 활성화돼야 표시됩니다 (Pro 플랜).</p>
+            )}
           </div>
         </div>
       )}
