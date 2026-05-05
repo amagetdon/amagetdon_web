@@ -47,8 +47,11 @@ export default function AdminStorageCleanup() {
   const [progress, setProgress] = useState<{ current: number; total: number; bucket: string } | null>(null)
 
   const itemKey = (it: OrphanItem) => `${it.source}:${it.bucket}/${it.path}`
-  const bucketLabel = (it: OrphanItem | { source: 'supabase' | 'r2'; bucket: string }) =>
-    it.source === 'r2' ? `r2:${it.bucket}` : it.bucket
+  // OrphanItem (bucket 필드) 또는 BucketSpec (name 필드) 둘 다 라벨링 지원.
+  const bucketLabel = (it: { source: 'supabase' | 'r2'; bucket?: string; name?: string }) => {
+    const id = it.bucket ?? it.name ?? ''
+    return it.source === 'r2' ? `r2:${id}` : id
+  }
 
   const handleScan = async () => {
     setLoading(true)
