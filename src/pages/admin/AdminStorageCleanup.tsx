@@ -5,6 +5,7 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { supabase } from '../../lib/supabase'
 
 interface OrphanItem {
+  source: 'supabase' | 'r2'
   bucket: string
   path: string
   size: number
@@ -21,9 +22,12 @@ interface ListResponse {
   orphans: OrphanItem[]
 }
 
+interface BucketSpec { source: 'supabase' | 'r2'; name: string }
+
 interface BucketsResponse {
   status: string
-  buckets: string[]
+  buckets: BucketSpec[]
+  r2_enabled: boolean
 }
 
 const formatBytes = (bytes: number): string => {
@@ -42,14 +46,16 @@ export default function AdminStorageCleanup() {
   const [bucketFilter, setBucketFilter] = useState<string>('')
   const [progress, setProgress] = useState<{ current: number; total: number; bucket: string } | null>(null)
 
-  const itemKey = (it: OrphanItem) => `${it.bucket}/${it.path}`
+  const itemKey = (it: OrphanItem) => `${it.source}:${it.bucket}/${it.path}`
+  const bucketLabel = (it: OrphanItem | { source: 'supabase' | 'r2'; bucket: string }) =>
+    it.source === 'r2' ? `r2:${it.bucket}` : it.bucket
 
   const handleScan = async () => {
     setLoading(true)
     setSelected(new Set())
     setData(null)
     try {
-      // 1) 검사 대상 버킷 목록 가져오기
+      // 1) 검사 대상 버킷 목록 가져오기 (source 별)
       const { data: bucketsRes, error: bErr } = await supabase.functions.invoke('storage-orphans', { body: { action: 'buckets' } })
       if (bErr) throw bErr
       const buckets = (bucketsRes as BucketsResponse).buckets ?? []
@@ -61,9 +67,11 @@ export default function AdminStorageCleanup() {
       let referenced = 0
       let totalBytes = 0
       for (let i = 0; i < buckets.length; i++) {
-        const bucket = buckets[i]
-        setProgress({ current: i, total: buckets.length, bucket })
-        const { data: r, error } = await supabase.functions.invoke('storage-orphans', { body: { action: 'list', bucket } })
+        const b = buckets[i]
+        setProgress({ current: i, total: buckets.length, bucket: bucketLabel(b) })
+        const { data: r, error } = await supabase.functions.invoke('storage-orphans', {
+          body: { action: 'list', source: b.source, bucket: b.name },
+        })
         if (error) throw error
         const result = r as ListResponse
         allOrphans.push(...result.orphans)
@@ -95,7 +103,7 @@ export default function AdminStorageCleanup() {
     try {
       const items = data.orphans
         .filter((o) => selected.has(itemKey(o)))
-        .map((o) => ({ bucket: o.bucket, path: o.path }))
+        .map((o) => ({ source: o.source, bucket: o.bucket, path: o.path }))
       const { data: res, error } = await supabase.functions.invoke('storage-orphans', { body: { action: 'delete', items } })
       if (error) throw error
       const totalDeleted = ((res as { results?: Array<{ deleted: number }> })?.results ?? [])
@@ -117,8 +125,8 @@ export default function AdminStorageCleanup() {
     }
   }
 
-  const buckets = data ? Array.from(new Set(data.orphans.map((o) => o.bucket))).sort() : []
-  const filtered = data ? (bucketFilter ? data.orphans.filter((o) => o.bucket === bucketFilter) : data.orphans) : []
+  const buckets = data ? Array.from(new Set(data.orphans.map((o) => bucketLabel(o)))).sort() : []
+  const filtered = data ? (bucketFilter ? data.orphans.filter((o) => bucketLabel(o) === bucketFilter) : data.orphans) : []
 
   const toggleAll = () => {
     if (selected.size === filtered.length) {
@@ -148,6 +156,9 @@ export default function AdminStorageCleanup() {
         <p className="text-sm text-gray-500 mt-1">
           DB 어디에서도 참조되지 않는 storage 파일(orphan)을 찾아서 삭제할 수 있습니다.
           업로드 후 교체된 옛날 썸네일, 삭제된 강의/전자책의 잔여 파일 등이 대상입니다.
+          <br />
+          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 mr-1">SB</span> Supabase Storage,
+          <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 mr-1 ml-1">R2</span> Cloudflare R2 (외부 스토리지 활성 시) 모두 스캔합니다.
         </p>
       </div>
 
@@ -203,7 +214,7 @@ export default function AdminStorageCleanup() {
               >
                 <option value="">전체 버킷 ({data.orphan_count})</option>
                 {buckets.map((b) => (
-                  <option key={b} value={b}>{b} ({data.orphans.filter((o) => o.bucket === b).length})</option>
+                  <option key={b} value={b}>{b} ({data.orphans.filter((o) => bucketLabel(o) === b).length})</option>
                 ))}
               </select>
               <button
@@ -264,7 +275,12 @@ export default function AdminStorageCleanup() {
                         </a>
                       </td>
                       <td className="px-3 py-2">
-                        <a href={o.publicUrl} target="_blank" rel="noopener noreferrer" className="no-underline hover:underline" onClick={(e) => e.stopPropagation()}>
+                        <a href={o.publicUrl || '#'} target="_blank" rel="noopener noreferrer" className="no-underline hover:underline" onClick={(e) => { if (!o.publicUrl) e.preventDefault(); e.stopPropagation() }}>
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold mr-1.5 ${
+                            o.source === 'r2' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                          }`}>
+                            {o.source === 'r2' ? 'R2' : 'SB'}
+                          </span>
                           <code className="text-xs font-mono text-gray-900">{o.bucket}/</code>
                           <code className="text-xs font-mono text-gray-500 break-all">{o.path}</code>
                         </a>
