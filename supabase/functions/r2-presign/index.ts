@@ -77,7 +77,7 @@ Deno.serve(async (req: Request) => {
 
     // R2 안의 실제 key = "<logical>/<path>"
     const key = `${logical}/${inputPath}`
-    const expiresIn = 600 // 10분
+    const expiresIn = 3600 // 1시간 (대용량 업로드 여유)
 
     const r2 = new AwsClient({
       accessKeyId: r2AccessKey,
@@ -86,21 +86,19 @@ Deno.serve(async (req: Request) => {
       region: 'auto',
     })
 
-    // presigned PUT URL — aws4fetch 의 sign 메서드를 query string 모드로 사용
+    // presigned PUT URL — query string 모드 (SigV4).
+    // X-Amz-Expires 는 query 파라미터로만 추가. 헤더로 넣으면 SignedHeaders 에 잘못 포함되어 R2 가 거부함.
+    // SignedHeaders 는 host 만 (PUT 시 클라이언트가 Content-Type 보내도 R2 가 무시).
     const objectUrl = `${r2Endpoint}/${r2Bucket}/${encodeURIComponent(key).replace(/%2F/g, '/')}`
-    const signed = await r2.sign(
-      new Request(objectUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': contentType },
-      }),
-      {
-        aws: { signQuery: true, allHeaders: true },
-        // X-Amz-Expires
-        headers: { 'x-amz-expires': String(expiresIn) },
-      } as unknown as RequestInit,
-    )
-    // signed.url 에 X-Amz-Signature 등이 포함됨
+    const signUrl = new URL(objectUrl)
+    signUrl.searchParams.set('X-Amz-Expires', String(expiresIn))
+    const signed = await r2.sign(signUrl.toString(), {
+      method: 'PUT',
+      aws: { signQuery: true },
+    })
     const uploadUrl = signed.url
+
+    void contentType // R2 가 Content-Type 을 자동 감지/저장하므로 서명에는 미포함
 
     // 사용자 페이지에서 GET 할 때 쓸 public URL
     const publicUrl = r2PublicBase

@@ -50,10 +50,12 @@ async function uploadToR2(logicalBucket: string, path: string, file: File): Prom
   const { uploadUrl, publicUrl, hasPublicBase } = data as { uploadUrl: string; publicUrl: string | null; hasPublicBase: boolean }
   if (!uploadUrl) throw new Error('R2 presign 응답에 uploadUrl 누락')
 
+  // PUT body 는 File 자체. 명시적 Content-Type 헤더는 넣지 않는다 — presigned URL 의
+  // SignedHeaders 가 host 만 포함하므로, 추가 헤더 보내봐야 R2 는 무시한다. fetch 가 자동으로
+  // Content-Type 을 추론해서 보내지만 서명과 무관해 안전하게 통과.
   const res = await fetch(uploadUrl, {
     method: 'PUT',
     body: file,
-    headers: { 'Content-Type': file.type || 'application/octet-stream' },
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
