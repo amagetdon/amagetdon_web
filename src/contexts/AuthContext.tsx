@@ -89,7 +89,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const oauthProvider = newSession.user.app_metadata?.provider
               if (prof && oauthProvider && oauthProvider !== 'email') {
                 try {
-                  const updated = await profileService.applyOAuthMetadata(newSession.user, prof)
+                  // 카카오는 Supabase 가 gender/age_range/phone_number 등을 user_metadata 로 노출하지 않으므로
+                  // provider_token 으로 카카오 API 를 직접 호출해 보강. provider_token 은 첫 SIGNED_IN 에서만 제공됨.
+                  let extraKakao: Record<string, unknown> | undefined
+                  if (oauthProvider === 'kakao' && newSession.provider_token) {
+                    try {
+                      const res = await fetch('https://kapi.kakao.com/v2/user/me', {
+                        headers: { Authorization: `Bearer ${newSession.provider_token}` },
+                      })
+                      if (res.ok) {
+                        const json = await res.json() as { kakao_account?: Record<string, unknown> }
+                        extraKakao = json.kakao_account
+                      }
+                    } catch { /* 카카오 API 호출 실패 시 보강 없이 진행 */ }
+                  }
+                  const updated = await profileService.applyOAuthMetadata(newSession.user, prof, extraKakao)
                   if (updated) {
                     const refreshed = await fetchProfile(newSession.user.id)
                     if (refreshed) prof = refreshed

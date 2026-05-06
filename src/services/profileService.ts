@@ -28,6 +28,20 @@ function combineBirthDate(birthyear?: string | null, birthday?: string | null): 
   return `${y}-${m}-${d}`
 }
 
+// 카카오 age_range ("20~29" / "30~34" / "70~") 의 평균 연령을 기준으로 출생연도 추정 → "YYYY-01-01"
+// 실제 생년월일이 아닌 추정치이므로 이후 사용자가 마이페이지/온보딩에서 수정 가능.
+function estimateBirthDateFromAgeRange(range?: string | null): string | null {
+  if (!range) return null
+  const m = String(range).match(/^(\d+)\s*~\s*(\d+)?$/)
+  if (!m) return null
+  const min = Number(m[1])
+  const max = m[2] ? Number(m[2]) : min + 9
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null
+  const avg = Math.floor((min + max) / 2)
+  const year = new Date().getFullYear() - avg
+  return `${year}-01-01`
+}
+
 function normalizeGender(raw: unknown): 'male' | 'female' | null {
   const g = typeof raw === 'string' ? raw.toLowerCase() : ''
   if (g === 'male' || g === 'm') return 'male'
@@ -52,6 +66,7 @@ interface OAuthMetaShape {
   nickname?: string
   email?: string
   gender?: string
+  age_range?: string
   birthday?: string
   birthyear?: string
   phone?: string
@@ -104,11 +119,12 @@ export const profileService = {
     if (error) throw error
   },
 
-  // OAuth(카카오/구글) 가입자의 user_metadata 에서 받아온 정보를 프로필의 빈 필드만 채워 넣는다.
-  // 호출 결과 새로 채워진 필드가 있으면 true 를 반환 (호출자는 fetchProfile 로 새로 고침)
-  async applyOAuthMetadata(user: User, current: Profile | null): Promise<boolean> {
+  // OAuth(카카오/구글) 가입자의 user_metadata + (선택) 외부에서 보강한 kakao_account 를 사용해
+  // 프로필의 빈 필드만 채워 넣는다. 호출 결과 새로 채워진 필드가 있으면 true 를 반환.
+  async applyOAuthMetadata(user: User, current: Profile | null, extraKakaoAccount?: Record<string, unknown>): Promise<boolean> {
     const md = (user.user_metadata || {}) as OAuthMetaShape
-    const acc = md.kakao_account || {}
+    // user_metadata.kakao_account (대부분 비어있음) + 외부에서 fetch 한 kakao_account 병합
+    const acc = { ...(md.kakao_account || {}), ...(extraKakaoAccount as KakaoAccountShape || {}) } as KakaoAccountShape
 
     const candidate: { name?: string; gender?: 'male' | 'female' | null; phone?: string; birth_date?: string; provider?: string } = {}
 
@@ -125,7 +141,12 @@ export const profileService = {
       if (phone) candidate.phone = phone
     }
     if (!current?.birth_date) {
-      const birth = combineBirthDate(md.birthyear || acc.birthyear, md.birthday || acc.birthday)
+      // 1순위: 정확한 birthyear + birthday 조합
+      let birth = combineBirthDate(md.birthyear || acc.birthyear, md.birthday || acc.birthday)
+      // 2순위: age_range 기반 추정 (평균 나이 → YYYY-01-01)
+      if (!birth) {
+        birth = estimateBirthDateFromAgeRange(md.age_range || acc.age_range)
+      }
       if (birth) candidate.birth_date = birth
     }
     if (!current?.provider) {

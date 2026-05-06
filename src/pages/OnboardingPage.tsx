@@ -75,14 +75,14 @@ function OnboardingPage() {
   }, [initialForm])
 
   const steps = useMemo<StepDef[]>(() => {
-    const list: StepDef[] = [
-      { key: 'name', title: '성함을 알려주세요 :)' },
-      { key: 'gender', title: '성별을 선택해주세요 :)' },
-      { key: 'phone', title: '연락 가능한 휴대폰 번호를 입력해주세요 :)' },
-      { key: 'birth', title: '생년월일을 입력해주세요 :)' },
-      { key: 'address', title: '주소를 알려주세요 :)', description: '선택 입력 — 강의자료 발송에 활용됩니다.', optional: true },
-    ]
-    // 비회원(guest) 만 정규 승격을 위해 비밀번호 단계 추가
+    // 프로필에 이미 있는 항목은 묻지 않음 — 빈 필드만 단계로 추가.
+    const list: StepDef[] = []
+    if (!profile?.name) list.push({ key: 'name', title: '성함을 알려주세요 :)' })
+    if (!profile?.gender) list.push({ key: 'gender', title: '성별을 선택해주세요 :)' })
+    if (!profile?.phone) list.push({ key: 'phone', title: '연락 가능한 휴대폰 번호를 입력해주세요 :)' })
+    if (!profile?.birth_date) list.push({ key: 'birth', title: '생년월일을 입력해주세요 :)' })
+    if (!profile?.address) list.push({ key: 'address', title: '주소를 알려주세요 :)', description: '선택 입력 — 강의자료 발송에 활용됩니다.', optional: true })
+    // 비회원(guest) 만 정규 승격을 위해 비밀번호 단계 추가 (이미 있어도 변경 가능하도록 항상 노출)
     if (isGuest) {
       list.push({
         key: 'password',
@@ -91,7 +91,7 @@ function OnboardingPage() {
       })
     }
     return list
-  }, [isGuest])
+  }, [profile, isGuest])
 
   const [stepIndex, setStepIndex] = useState(0)
   const [direction, setDirection] = useState<'forward' | 'backward'>('forward')
@@ -103,6 +103,11 @@ function OnboardingPage() {
 
   const total = steps.length
   const current = steps[stepIndex]
+
+  // steps 길이가 줄어들면 stepIndex 가 범위를 벗어날 수 있어 마지막 단계로 클램프
+  useEffect(() => {
+    if (total > 0 && stepIndex >= total) setStepIndex(total - 1)
+  }, [stepIndex, total])
 
   useEffect(() => {
     setError('')
