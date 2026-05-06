@@ -23,6 +23,7 @@ interface CurriculumRow {
   label: string
   description: string | null
   video_url: string | null
+  is_redirect: boolean
   sort_order: number
 }
 
@@ -264,6 +265,7 @@ export default function AdminCourseDetail() {
           label: item.label,
           description: item.description,
           video_url: item.video_url,
+          is_redirect: !!(item as { is_redirect?: boolean }).is_redirect,
           sort_order: item.sort_order,
         }))
       )
@@ -404,11 +406,13 @@ export default function AdminCourseDetail() {
   }
 
   const addCurriculumItem = () => {
-    setCurriculumItems([...curriculumItems, { week: null, label: '', description: null, video_url: null, sort_order: curriculumItems.length + 1 }])
+    setCurriculumItems([...curriculumItems, { week: null, label: '', description: null, video_url: null, is_redirect: false, sort_order: curriculumItems.length + 1 }])
   }
 
   const updateCurriculumItem = (index: number, field: keyof CurriculumRow, value: unknown) => {
-    setCurriculumItems(curriculumItems.map((item, i) => i === index ? { ...item, [field]: value } : item))
+    // 같은 사용자 액션에서 여러 필드를 연속 업데이트하는 경우(예: URL 붙여넣기 + is_redirect 자동 토글)
+    // 두 번째 호출이 첫 번째 업데이트를 덮지 않도록 함수형 업데이트 사용.
+    setCurriculumItems((prev) => prev.map((item, i) => i === index ? { ...item, [field]: value } : item))
   }
 
   const removeCurriculumItem = (index: number) => {
@@ -429,6 +433,7 @@ export default function AdminCourseDetail() {
           label: item.label.trim(),
           description: item.description?.trim() || null,
           video_url: item.video_url || null,
+          is_redirect: !!item.is_redirect,
           sort_order: idx + 1,
         }))
         const { error } = await supabase.from('curriculum_items').insert(items as never)
@@ -933,7 +938,9 @@ export default function AdminCourseDetail() {
                       <VideoUrlInput
                         value={item.video_url}
                         onChange={(url) => updateCurriculumItem(idx, 'video_url', url)}
-                        label="영상 URL"
+                        label={item.is_redirect ? '외부 링크 URL' : '영상 URL'}
+                        isRedirect={item.is_redirect}
+                        onIsRedirectChange={(next) => updateCurriculumItem(idx, 'is_redirect', next)}
                       />
                     </div>
                   </div>

@@ -229,6 +229,7 @@ export interface CurriculumItem {
   label: string
   description: string | null
   video_url: string | null
+  is_redirect: boolean
   sort_order: number
   created_at: string
 }

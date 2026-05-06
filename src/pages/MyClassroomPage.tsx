@@ -15,6 +15,7 @@ interface CurriculumItem {
   label: string
   description: string | null
   video_url: string | null
+  is_redirect: boolean | null
 }
 
 interface CoursePurchase {
@@ -321,30 +322,37 @@ function MyClassroomPage() {
                       {item.week ? `[${item.week}주차] ` : ''}{item.label}
                     </p>
                     {item.description && (
-                      <p className="text-xs text-gray-400 mt-0.5 line-clamp-2">{item.description}</p>
+                      <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line break-words">{item.description}</p>
                     )}
                   </div>
 
-                  <button
-                    onClick={() => {
-                      if (expired) { toast.error('수강 기간이 만료되었습니다.'); return }
-                      if (!item.video_url) return
-                      setPlayingVideo({ url: item.video_url, title: item.label })
-                      if (user) {
-                        progressService.markWatched(user.id, course.id, item.id).catch(() => {})
-                      }
-                    }}
-                    disabled={!item.video_url}
-                    className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
-                      !item.video_url ? 'opacity-30 cursor-not-allowed' : expired ? 'opacity-50 hover:border-gray-400' : 'hover:border-[#2ED573]'
-                    }`}
-                  >
-                    {expired ? (
-                      <i className="ti ti-lock text-gray-400" />
-                    ) : (
-                      <i className={`ti ti-player-play ${item.video_url ? 'text-[#2ED573]' : 'text-gray-400'}`} />
-                    )}
-                  </button>
+                  {item.video_url && (
+                    <button
+                      onClick={() => {
+                        if (expired) { toast.error('수강 기간이 만료되었습니다.'); return }
+                        if (item.is_redirect) {
+                          window.open(item.video_url!, '_blank', 'noopener,noreferrer')
+                        } else {
+                          setPlayingVideo({ url: item.video_url!, title: item.label })
+                        }
+                        if (user) {
+                          progressService.markWatched(user.id, course.id, item.id).catch(() => {})
+                        }
+                      }}
+                      className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
+                        expired ? 'opacity-50 hover:border-gray-400' : 'hover:border-[#2ED573]'
+                      }`}
+                      aria-label={item.is_redirect ? '외부 링크 열기' : '영상 재생'}
+                    >
+                      {expired ? (
+                        <i className="ti ti-lock text-gray-400" />
+                      ) : item.is_redirect ? (
+                        <i className="ti ti-external-link text-[#2ED573]" />
+                      ) : (
+                        <i className="ti ti-player-play text-[#2ED573]" />
+                      )}
+                    </button>
+                  )}
                 </div>
               )
             })}
