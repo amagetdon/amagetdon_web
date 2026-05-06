@@ -30,6 +30,7 @@ const SignUpPage = lazy(() => import('./pages/SignUpPage'))
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
 const MyPage = lazy(() => import('./pages/MyPage'))
 const MyClassroomPage = lazy(() => import('./pages/MyClassroomPage'))
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
 const EbookDetailPage = lazy(() => import('./pages/EbookDetailPage'))
 const EbookReaderPage = lazy(() => import('./pages/EbookReaderPage'))
 const EbooksFreePage = lazy(() => import('./pages/EbooksFreePage'))
@@ -166,6 +167,7 @@ function App() {
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
                 <Route path="/mypage" element={<ProtectedRoute><MyPage /></ProtectedRoute>} />
                 <Route path="/my-classroom" element={<ProtectedRoute><MyClassroomPage /></ProtectedRoute>} />
+                <Route path="/onboarding" element={<OnboardingPage />} />
                 <Route path="/my-ebooks/:id/read" element={<ProtectedRoute><EbookReaderPage /></ProtectedRoute>} />
                 <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
                 <Route path="/admin/instructors" element={<AdminRoute><AdminInstructors /></AdminRoute>} />

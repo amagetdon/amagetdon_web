@@ -3,6 +3,7 @@ import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import type { Profile } from '../types'
 import { webhookService } from '../services/webhookService'
+import { profileService } from '../services/profileService'
 
 interface AuthContextType {
   user: User | null
@@ -81,7 +82,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(newSession?.user ?? null)
 
         if (newSession?.user) {
-          fetchProfile(newSession.user.id).then((prof) => {
+          fetchProfile(newSession.user.id).then(async (initialProf) => {
+            // OAuth(카카오/구글) 로그인 시 user_metadata 에서 프로필 빈 필드 자동 채우기 — 이후 isIncomplete 판단에 반영되도록 먼저 await
+            let prof = initialProf
+            if (event === 'SIGNED_IN') {
+              const oauthProvider = newSession.user.app_metadata?.provider
+              if (prof && oauthProvider && oauthProvider !== 'email') {
+                try {
+                  const updated = await profileService.applyOAuthMetadata(newSession.user, prof)
+                  if (updated) {
+                    const refreshed = await fetchProfile(newSession.user.id)
+                    if (refreshed) prof = refreshed
+                  }
+                } catch { /* OAuth 메타 매핑 실패는 무시 */ }
+              }
+            }
+
             // Umami 유저 식별
             try {
               if (prof && typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).umami) {
@@ -141,8 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const flag = sessionStorage.getItem('pendingSignIn')
               if (flag) {
                 sessionStorage.removeItem('pendingSignIn')
-                const isIncomplete = !prof?.phone || !prof?.address
+                const isIncomplete = !prof?.phone || !prof?.name || !prof?.gender || !prof?.birth_date
                 if (isIncomplete) {
+                  // /mypage 에서 다시 /onboarding 으로 보냄
                   window.location.replace('/mypage')
                 }
               }

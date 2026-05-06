@@ -10,7 +10,7 @@ function LoginPage() {
   const externalServices = useExternalServices()
   const kakaoLoginEnabled = !!externalServices.KAKAO_LOGIN?.enabled
   const location = useLocation()
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/mypage'
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -73,17 +73,21 @@ function LoginPage() {
       sessionStorage.setItem('pendingSignIn', '1')
       const { user } = await authService.signIn(email, password, captchaToken)
 
-      // 프로필 정보가 비어있으면 마이페이지로, 아니면 홈으로
-      if (from !== '/mypage' && from !== '/') {
-        navigate(from, { replace: true })
-      } else if (user) {
+      // 프로필 정보가 비어있으면 마이페이지로(거기서 다시 온보딩으로 자동 이동), 아니면 원래 가려던 곳/홈으로
+      if (user) {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('name, phone, address')
+          .select('name, phone, gender, birth_date')
           .eq('id', user.id)
-          .single<{ name: string | null; phone: string | null; address: string | null }>()
-        const isIncomplete = !profile?.name || !profile?.phone || !profile?.address
-        navigate(isIncomplete ? '/mypage' : '/', { replace: true })
+          .single<{ name: string | null; phone: string | null; gender: string | null; birth_date: string | null }>()
+        const isIncomplete = !profile?.name || !profile?.phone || !profile?.gender || !profile?.birth_date
+        if (isIncomplete) {
+          navigate('/mypage', { replace: true })
+        } else if (from !== '/') {
+          navigate(from, { replace: true })
+        } else {
+          navigate('/', { replace: true })
+        }
       } else {
         navigate('/', { replace: true })
       }
@@ -164,7 +168,6 @@ function LoginPage() {
 
   return (
     <>
-      <div className="bg-black h-[200px] w-full" />
       <div className="max-w-[440px] mx-auto px-6 py-16">
         <h1 className="text-2xl font-bold text-center mb-8">로그인</h1>
 

@@ -79,58 +79,43 @@ Deno.serve(async (req: Request) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
 
-    // 인증 확인 (test_mode인 경우 admin만 허용)
+    // 인증 — 일반 호출은 인증 없이 통과 (이벤트 발생 시점이 세션 유무와 무관할 수 있음).
+    // test_mode 만 admin / service_role 만 호출 가능하도록 제한.
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: 'Unauthorized: Authorization header missing' }), {
-        status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-    const token = authHeader.replace('Bearer ', '')
+    const token = authHeader ? authHeader.replace('Bearer ', '') : ''
 
-    // Service role 토큰이거나 admin 사용자 통과
+    let isServiceRole = !!token && token === serviceKey
     let user: { id: string } | null = null
-    let isServiceRole = token === serviceKey
-    if (!isServiceRole) {
-      // legacy service_role JWT 대응 — auth/v1/admin/users 호출로 service_role 여부 판정
-      try {
-        const probeRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'apikey': token },
-        })
-        if (probeRes.ok) isServiceRole = true
-      } catch { /* ignore */ }
-    }
-    if (!isServiceRole) {
-      // 사용자 JWT 검증
-      try {
-        const userClient = createClient(supabaseUrl, anonKey)
-        const { data, error } = await userClient.auth.getUser(token)
-        if (error || !data.user) {
-          return new Response(JSON.stringify({ error: 'Invalid auth: ' + (error?.message ?? 'no user') }), {
-            status: 401,
+
+    if (test_mode) {
+      if (!isServiceRole) {
+        // legacy service_role JWT 대응 — auth/v1/admin/users 호출로 service_role 여부 판정
+        try {
+          const probeRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1`, {
+            headers: { 'Authorization': `Bearer ${token}`, 'apikey': token },
+          })
+          if (probeRes.ok) isServiceRole = true
+        } catch { /* ignore */ }
+      }
+      if (!isServiceRole) {
+        // 사용자 JWT 검증 후 admin 인지 확인
+        try {
+          const userClient = createClient(supabaseUrl, anonKey)
+          const { data, error } = await userClient.auth.getUser(token)
+          if (error || !data.user) {
+            return new Response(JSON.stringify({ error: 'Test mode requires admin login' }), {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
+          }
+          user = data.user
+        } catch (authErr) {
+          return new Response(JSON.stringify({ error: 'Auth error: ' + (authErr instanceof Error ? authErr.message : String(authErr)) }), {
+            status: 403,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           })
         }
-        user = data.user
-      } catch (authErr) {
-        return new Response(JSON.stringify({ error: 'Auth error: ' + (authErr instanceof Error ? authErr.message : String(authErr)) }), {
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-    }
 
-    if (test_mode) {
-      if (!user && !isServiceRole) {
-        return new Response(JSON.stringify({ error: 'Test mode requires admin login' }), {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
-      // service_role이면 admin 체크 skip (cron/관리자 도구). 그 외엔 profiles.role='admin' 확인
-      if (user) {
-        // 본인 JWT로 자기 profile 조회 (RLS로 본인은 read 가능). env serviceKey가 불일치해도 동작.
         const userClient2 = createClient(supabaseUrl, anonKey, {
           global: { headers: { Authorization: `Bearer ${token}` } },
         })

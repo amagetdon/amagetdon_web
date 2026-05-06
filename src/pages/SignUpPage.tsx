@@ -1,10 +1,11 @@
-import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { webhookService } from '../services/webhookService'
 import { supabase } from '../lib/supabase'
-import { useExternalServices } from '../hooks/useExternalServices'
+import { useAuth } from '../contexts/AuthContext'
 import Turnstile from '../components/Turnstile'
+import TypeformQuestion, { TYPEFORM_SCALE_IN } from '../components/auth/TypeformQuestion'
 
 declare global {
   interface Window {
@@ -14,6 +15,23 @@ declare global {
       }) => { open: () => void }
     }
   }
+}
+
+type StepKey =
+  | 'email'
+  | 'password'
+  | 'name'
+  | 'gender'
+  | 'phone'
+  | 'birth'
+  | 'address'
+  | 'submit'
+
+interface StepDef {
+  key: StepKey
+  title: string
+  description?: string
+  optional?: boolean
 }
 
 interface SignUpForm {
@@ -33,23 +51,26 @@ interface SignUpForm {
   birthDay: string
 }
 
-interface FormErrors {
-  name?: string
-  email?: string
-  password?: string
-  passwordConfirm?: string
-  gender?: string
-  phone?: string
-  address?: string
-  birth?: string
-}
+const PASSWORD_REGEX = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,18}$/
+
+const STEPS: StepDef[] = [
+  { key: 'email', title: '이메일 주소를 알려주세요 :)', description: '로그인 ID 로 사용되며, 인증 메일이 발송됩니다.' },
+  { key: 'password', title: '비밀번호를 설정해주세요 :)', description: '8~18자 영문/숫자/특수문자를 조합해주세요.' },
+  { key: 'name', title: '성함을 알려주세요 :)' },
+  { key: 'gender', title: '성별을 선택해주세요 :)' },
+  { key: 'phone', title: '연락 가능한 휴대폰 번호를 입력해주세요 :)' },
+  { key: 'birth', title: '생년월일을 입력해주세요 :)' },
+  { key: 'address', title: '주소를 알려주세요 :)', description: '선택 입력 — 강의자료 발송에 활용됩니다.', optional: true },
+  { key: 'submit', title: '거의 다 왔어요! 마지막으로 확인해주세요 :)', description: '약관에 동의하고 가입을 완료해주세요.' },
+]
 
 function SignUpPage() {
   const navigate = useNavigate()
-  const externalServices = useExternalServices()
-  const kakaoLoginEnabled = !!externalServices.KAKAO_LOGIN?.enabled
+  const { user, loading: authLoading } = useAuth()
   const [searchParams] = useSearchParams()
+
   useEffect(() => { webhookService.markLandingEntry() }, [])
+
   const utmParams = useMemo(() => ({
     utm_source: searchParams.get('utm_source') || sessionStorage.getItem('utm_source') || undefined,
     utm_medium: searchParams.get('utm_medium') || sessionStorage.getItem('utm_medium') || undefined,
@@ -58,6 +79,7 @@ function SignUpPage() {
     utm_term: searchParams.get('utm_term') || sessionStorage.getItem('utm_term') || undefined,
     signup_referrer: sessionStorage.getItem('signup_referrer') || undefined,
   }), [searchParams])
+
   const [form, setForm] = useState<SignUpForm>({
     name: '',
     email: '',
@@ -74,95 +96,104 @@ function SignUpPage() {
     birthMonth: '',
     birthDay: '',
   })
-  const [errors, setErrors] = useState<FormErrors>({})
-  const [serverError, setServerError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [agreeTerms, setAgreeTerms] = useState(false)
+  const [stepIndex, setStepIndex] = useState(0)
+  const [direction, setDirection] = useState<'forward' | 'backward'>('forward')
+  const [animKey, setAnimKey] = useState(0)
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [checkingEmail, setCheckingEmail] = useState(false)
   const [success, setSuccess] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
+  const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null)
+
+  // 이미 로그인된 사용자는 회원가입 불필요
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/', { replace: true })
+    }
+  }, [authLoading, user, navigate])
+
+  const total = STEPS.length
+  const current = STEPS[stepIndex]
+
+  useEffect(() => {
+    setError('')
+    setAnimKey((k) => k + 1)
+    const t = window.setTimeout(() => {
+      inputRef.current?.focus()
+    }, 60)
+    return () => window.clearTimeout(t)
+  }, [stepIndex])
 
   const handleChange = (field: keyof SignUpForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
-    setErrors((prev) => ({ ...prev, [field]: undefined }))
+    setError('')
   }
 
-  const years = Array.from({ length: 80 }, (_, i) => 2006 - i)
-  const months = Array.from({ length: 12 }, (_, i) => i + 1)
-  const days = Array.from({ length: 31 }, (_, i) => i + 1)
-
-  const validate = useCallback((): boolean => {
-    const newErrors: FormErrors = {}
-
-    if (!form.name.trim()) newErrors.name = '이름을 입력해주세요.'
-
-    if (!form.email.trim()) {
-      newErrors.email = '이메일을 입력해주세요.'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      newErrors.email = '올바른 이메일 형식이 아닙니다.'
-    }
-
-    const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{8,18}$/
-    if (!form.password) {
-      newErrors.password = '비밀번호를 입력해주세요.'
-    } else if (!passwordRegex.test(form.password)) {
-      newErrors.password = '8~18자의 영문/숫자/특수문자를 함께 입력해주세요.'
-    }
-
-    if (form.password !== form.passwordConfirm) {
-      newErrors.passwordConfirm = '비밀번호가 일치하지 않습니다.'
-    }
-
-    if (!form.gender) {
-      newErrors.gender = '성별을 선택해주세요.'
-    }
-
-    if (!form.phone2 || !form.phone3) {
-      newErrors.phone = '휴대폰 번호를 입력해주세요.'
-    } else {
-      const phoneRegex = /^\d{3,4}$/
-      if (!phoneRegex.test(form.phone2) || !phoneRegex.test(form.phone3)) {
-        newErrors.phone = '올바른 휴대폰 번호를 입력해주세요.'
+  const validateStep = useCallback((): string | null => {
+    switch (current.key) {
+      case 'email':
+        if (!form.email.trim()) return '이메일을 입력해주세요.'
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) return '올바른 이메일 형식이 아닙니다.'
+        return null
+      case 'password':
+        if (!form.password) return '비밀번호를 입력해주세요.'
+        if (!PASSWORD_REGEX.test(form.password)) return '8~18자의 영문/숫자/특수문자를 함께 입력해주세요.'
+        if (form.password !== form.passwordConfirm) return '비밀번호가 일치하지 않습니다.'
+        return null
+      case 'name':
+        if (!form.name.trim()) return '이름을 입력해주세요.'
+        return null
+      case 'gender':
+        if (!form.gender) return '성별을 선택해주세요.'
+        return null
+      case 'phone': {
+        if (!form.phone2 || !form.phone3) return '휴대폰 번호를 입력해주세요.'
+        const phoneRegex = /^\d{3,4}$/
+        if (!phoneRegex.test(form.phone2) || !phoneRegex.test(form.phone3)) return '올바른 휴대폰 번호를 입력해주세요.'
+        return null
       }
+      case 'birth':
+        if (!form.birthYear || !form.birthMonth || !form.birthDay) return '생년월일을 모두 선택해주세요.'
+        return null
+      case 'address':
+        if ((form.zonecode || form.address) && !form.addressDetail.trim()) {
+          return '상세주소를 입력해주세요. (또는 건너뛰기)'
+        }
+        return null
+      case 'submit':
+        if (!agreeTerms) return '이용약관 및 개인정보 처리방침에 동의해주세요.'
+        if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !captchaToken) {
+          return '잠시만 기다려주세요. 봇 방지 확인이 진행 중입니다.'
+        }
+        return null
+      default:
+        return null
     }
+  }, [current.key, form, agreeTerms, captchaToken])
 
-    if (!form.address) {
-      newErrors.address = '주소를 검색해주세요.'
-    }
-
-    if (!form.birthYear || !form.birthMonth || !form.birthDay) {
-      newErrors.birth = '생년월일을 선택해주세요.'
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }, [form])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setServerError('')
-
-    if (!validate()) return
-
-    const phone = form.phone2 ? `${form.phone1}-${form.phone2}-${form.phone3}` : undefined
-    const birthDate = form.birthYear && form.birthMonth && form.birthDay
-      ? `${form.birthYear}-${form.birthMonth.padStart(2, '0')}-${form.birthDay.padStart(2, '0')}`
-      : undefined
-
-    if (import.meta.env.VITE_TURNSTILE_SITE_KEY && !captchaToken) {
-      setServerError('잠시만 기다려주세요. 봇 방지 확인이 진행 중입니다.')
-      return
-    }
-
+  const submitSignUp = useCallback(async () => {
+    setSubmitting(true)
+    setError('')
     try {
-      setLoading(true)
-      await authService.signUp(form.email, form.password, {
-        name: form.name,
+      const phone = form.phone2 ? `${form.phone1}-${form.phone2}-${form.phone3}` : undefined
+      const birthDate = form.birthYear && form.birthMonth && form.birthDay
+        ? `${form.birthYear}-${form.birthMonth.padStart(2, '0')}-${form.birthDay.padStart(2, '0')}`
+        : undefined
+      const addressCombined = form.zonecode || form.address
+        ? `${form.zonecode}|${form.address}|${form.addressDetail}`
+        : undefined
+
+      await authService.signUp(form.email.trim(), form.password, {
+        name: form.name.trim(),
         gender: form.gender || undefined,
         phone,
-        address: form.address ? `${form.zonecode}|${form.address}|${form.addressDetail}` : undefined,
+        address: addressCombined,
         birth_date: birthDate,
         ...utmParams,
       }, captchaToken)
-      setSuccess(true)
+
       // 트리거가 UTM을 안 넣으므로 직접 업데이트
       const { data: { user: newUser } } = await supabase.auth.getUser()
       if (newUser) {
@@ -177,356 +208,434 @@ function SignUpPage() {
           supabase.from('profiles').update(utmUpdate as never).eq('id', newUser.id).then(() => {})
         }
       }
-      // 웹훅 전송 (비동기, 실패해도 무시)
+
+      // 웹훅 전송 (실패해도 무시)
       webhookService.fireSignup({
         userId: newUser?.id || null,
-        name: form.name,
-        email: form.email,
+        name: form.name.trim(),
+        email: form.email.trim(),
         phone,
         gender: form.gender || null,
-        address: form.address ? `${form.zonecode}|${form.address}|${form.addressDetail}` : null,
+        address: addressCombined || null,
         birth_date: birthDate || null,
         ...utmParams,
       }, webhookService.captureContext()).catch(() => {})
+
+      setSuccess(true)
     } catch (err) {
-      if (err instanceof Error) {
-        if (err.message.includes('already registered')) {
-          setServerError('이미 가입된 이메일입니다.')
-        } else if (err.message.includes('Email not confirmed')) {
-          setServerError('이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.')
-        } else if (err.message.includes('password')) {
-          setServerError('비밀번호는 6자 이상이어야 합니다.')
-        } else if (err.message.includes('Too many requests')) {
-          setServerError('너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.')
-        } else {
-          setServerError(err.message)
-        }
+      const msg = err instanceof Error ? err.message : '가입에 실패했습니다.'
+      if (msg.includes('already registered')) {
+        setError('이미 가입된 이메일입니다.')
+      } else if (msg.includes('Email not confirmed')) {
+        setError('이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.')
+      } else if (msg.includes('password')) {
+        setError('비밀번호는 6자 이상이어야 합니다.')
+      } else if (msg.includes('Too many requests')) {
+        setError('너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.')
+      } else {
+        setError(msg)
       }
     } finally {
-      setLoading(false)
+      setSubmitting(false)
+    }
+  }, [form, utmParams, captchaToken])
+
+  const goNext = useCallback(async (opts: { skip?: boolean } = {}) => {
+    if (submitting) return
+    if (!opts.skip) {
+      const err = validateStep()
+      if (err) {
+        setError(err)
+        return
+      }
+    }
+
+    // 이메일 단계에서는 중복 가입 여부를 먼저 확인 — 마지막에 가서야 실패하지 않도록
+    if (current.key === 'email' && !opts.skip) {
+      try {
+        setCheckingEmail(true)
+        const exists = await authService.checkEmailExists(form.email.trim())
+        if (exists) {
+          setError('이미 가입된 이메일입니다. 로그인 페이지에서 로그인해주세요.')
+          return
+        }
+      } finally {
+        setCheckingEmail(false)
+      }
+    }
+
+    if (stepIndex >= total - 1) {
+      await submitSignUp()
+      return
+    }
+    setDirection('forward')
+    setStepIndex((i) => i + 1)
+  }, [stepIndex, total, validateStep, submitting, submitSignUp, current.key, form.email])
+
+  const goPrev = useCallback(() => {
+    if (stepIndex === 0 || submitting) return
+    setError('')
+    setDirection('backward')
+    setStepIndex((i) => i - 1)
+  }, [stepIndex, submitting])
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      goNext()
     }
   }
 
-  const handleOAuth = async (provider: 'google' | 'kakao') => {
-    try {
-      await authService.signInWithOAuth(provider)
-    } catch (err) {
-      if (err instanceof Error) setServerError(err.message)
+  const openPostcode = () => {
+    if (!window.daum?.Postcode) {
+      setError('우편번호 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+      return
     }
+    new window.daum.Postcode({
+      oncomplete: (data) => {
+        setForm((prev) => ({
+          ...prev,
+          zonecode: data.zonecode,
+          address: data.roadAddress || data.jibunAddress,
+        }))
+        setError('')
+      },
+    }).open()
   }
+
+  const years = useMemo(() => Array.from({ length: 80 }, (_, i) => 2006 - i), [])
+  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => i + 1), [])
+  const days = useMemo(() => Array.from({ length: 31 }, (_, i) => i + 1), [])
 
   if (success) {
     return (
-      <>
-        <div className="bg-black h-[200px] w-full" />
-        <div className="max-w-[440px] mx-auto px-6 py-16 text-center">
-          <div className="w-16 h-16 bg-[#2ED573] rounded-full flex items-center justify-center mx-auto mb-6">
-            <i className="ti ti-check text-white text-3xl" />
+      <div className="max-w-[440px] mx-auto px-6 py-16 text-center">
+          <div className={`w-16 h-16 bg-[#2ED573] rounded-full flex items-center justify-center mx-auto mb-6 ${TYPEFORM_SCALE_IN}`}>
+            <i className="ti ti-mail-check text-white text-3xl" />
           </div>
-          <h1 className="text-2xl font-bold mb-4">회원가입 완료</h1>
+          <h1 className="text-2xl font-bold mb-4">회원가입 신청 완료</h1>
           <p className="text-sm font-medium text-gray-900 mb-2">{form.email}</p>
           <p className="text-gray-500 mb-4">
             가입하신 이메일로 인증 메일이 발송되었습니다.<br />
             이메일 인증을 완료하신 후 로그인해주세요.
           </p>
-          <p className="text-xs text-gray-400 mb-8">
-            메일이 오지 않는 경우 스팸함을 확인해주세요.
-          </p>
-          <button
-            onClick={() => navigate('/login')}
-            className="bg-[#2ED573] text-white font-bold px-8 py-3 rounded-lg cursor-pointer"
-          >
-            로그인 하러가기
-          </button>
+          <p className="text-xs text-gray-400 mb-8">메일이 오지 않는 경우 스팸함을 확인해주세요.</p>
+          <div className="flex flex-col gap-2 max-w-[280px] mx-auto">
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="bg-[#2ED573] text-white font-bold px-8 py-3 rounded-lg cursor-pointer border-none hover:bg-[#25B866] transition-colors"
+            >
+              로그인 하러가기
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="bg-transparent text-gray-500 text-sm py-2 cursor-pointer border-none hover:text-gray-800"
+            >
+              홈으로
+            </button>
+          </div>
         </div>
-      </>
     )
   }
 
-  return (
-    <>
-      <div className="bg-black h-[200px] w-full" />
-      <div className="max-w-[520px] mx-auto px-6 py-16">
-        <h1 className="text-2xl font-bold text-center mb-8">회원가입</h1>
+  // 마지막 단계 — 약관 + 캡차
+  const isSubmitStep = current.key === 'submit'
+  const bottomSlot = isSubmitStep ? (
+    <div className="space-y-4 max-w-[480px]">
+      <Turnstile
+        onVerify={setCaptchaToken}
+        onExpire={() => setCaptchaToken('')}
+        className="flex"
+      />
+    </div>
+  ) : null
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {/* 이름 */}
-          <div>
-            <label className="text-sm font-bold block mb-1">이름 *</label>
+  return (
+    <TypeformQuestion
+      stepIndex={stepIndex}
+      totalSteps={total}
+      title={current.title}
+      description={current.description}
+      optional={current.optional}
+      direction={direction}
+      animKey={animKey}
+      error={error}
+      submitting={submitting || checkingEmail}
+      isLast={stepIndex === total - 1}
+      submitLabel="가입하기"
+      onNext={() => goNext()}
+      onPrev={goPrev}
+      onSkip={current.optional ? () => goNext({ skip: true }) : undefined}
+      bottomSlot={bottomSlot}
+    >
+      {current.key === 'email' && (
+        <div>
+          <input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            type="email"
+            value={form.email}
+            onChange={(e) => handleChange('email', e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="email@example.com"
+            autoComplete="email"
+            disabled={checkingEmail}
+            className="w-full text-2xl max-md:text-lg py-3 border-b-2 border-gray-200 focus:border-[#2ED573] outline-none transition-colors placeholder:text-gray-300 disabled:bg-gray-50/50"
+          />
+          {checkingEmail && (
+            <p className="mt-3 text-sm text-[#2ED573] flex items-center gap-2 animate-pulse">
+              <span className="w-3.5 h-3.5 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
+              이메일 중복 확인 중...
+            </p>
+          )}
+        </div>
+      )}
+
+      {current.key === 'password' && (
+        <div className="space-y-4 max-w-[480px]">
+          <input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            type="password"
+            value={form.password}
+            onChange={(e) => handleChange('password', e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="비밀번호"
+            autoComplete="new-password"
+            className="w-full border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-lg outline-none transition-colors placeholder:text-gray-300"
+          />
+          {form.password && (() => {
+            const pw = form.password
+            const checks = [
+              { label: '8~18자', ok: pw.length >= 8 && pw.length <= 18 },
+              { label: '영문', ok: /[a-zA-Z]/.test(pw) },
+              { label: '숫자', ok: /\d/.test(pw) },
+              { label: '특수문자', ok: /[!@#$%^&*]/.test(pw) },
+            ]
+            return (
+              <div className="text-xs flex flex-wrap gap-x-3 gap-y-1">
+                {checks.map((c) => (
+                  <span key={c.label} className={`inline-flex items-center gap-0.5 ${c.ok ? 'text-[#2ED573]' : 'text-gray-400'}`}>
+                    <i className={`ti ${c.ok ? 'ti-check' : 'ti-x'}`} />
+                    {c.label}
+                  </span>
+                ))}
+              </div>
+            )
+          })()}
+          <input
+            type="password"
+            value={form.passwordConfirm}
+            onChange={(e) => handleChange('passwordConfirm', e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="비밀번호 확인"
+            autoComplete="new-password"
+            className="w-full border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-lg outline-none transition-colors placeholder:text-gray-300"
+          />
+          {form.passwordConfirm && (
+            <p className={`text-xs ${form.password === form.passwordConfirm ? 'text-[#2ED573]' : 'text-red-500'}`}>
+              <i className={`ti ${form.password === form.passwordConfirm ? 'ti-check' : 'ti-x'} mr-0.5`} />
+              {form.password === form.passwordConfirm ? '비밀번호가 일치합니다.' : '비밀번호가 일치하지 않습니다.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {current.key === 'name' && (
+        <input
+          ref={inputRef as React.RefObject<HTMLInputElement>}
+          type="text"
+          value={form.name}
+          onChange={(e) => handleChange('name', e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="이름을 입력해주세요."
+          className="w-full text-2xl max-md:text-lg py-3 border-b-2 border-gray-200 focus:border-[#2ED573] outline-none transition-colors placeholder:text-gray-300"
+        />
+      )}
+
+      {current.key === 'gender' && (
+        <div>
+          <input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            type="text"
+            value=""
+            onChange={() => { /* readonly capture */ }}
+            onKeyDown={(e) => {
+              const key = e.key.toLowerCase()
+              // 영문 m/f, 한글 자모 ㅡ/ㄹ, 그리고 IME 무관한 e.code 모두 매핑
+              if (key === 'm' || key === 'ㅡ' || e.code === 'KeyM') { e.preventDefault(); handleChange('gender', 'male') }
+              else if (key === 'f' || key === 'ㄹ' || e.code === 'KeyF') { e.preventDefault(); handleChange('gender', 'female') }
+              else if (e.key === 'Enter') { e.preventDefault(); goNext() }
+            }}
+            aria-label="성별 선택 — M 또는 F 키를 누르세요"
+            className="sr-only"
+          />
+          <div className="flex flex-wrap gap-3">
+            {(['male', 'female'] as const).map((g) => {
+              const active = form.gender === g
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => handleChange('gender', g)}
+                  className={`flex items-center gap-3 px-5 py-4 rounded-xl border-2 text-base font-medium cursor-pointer transition-all min-w-[180px] ${
+                    active
+                      ? 'border-[#2ED573] bg-[#2ED573]/5 text-gray-900'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-400'
+                  }`}
+                >
+                  <span className={`w-6 h-6 rounded-md inline-flex items-center justify-center text-xs font-bold ${active ? 'bg-[#2ED573] text-white' : 'bg-gray-100 text-gray-500'}`}>
+                    {g === 'male' ? 'M' : 'F'}
+                  </span>
+                  <span>{g === 'male' ? '남성' : '여성'}</span>
+                </button>
+              )
+            })}
+          </div>
+          <p className="text-xs text-gray-400 mt-3">
+            <span className="px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 font-mono text-[10px] mr-1">M</span>
+            <span className="px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 font-mono text-[10px] mr-1">F</span>
+            키로도 선택할 수 있어요.
+          </p>
+        </div>
+      )}
+
+      {current.key === 'phone' && (
+        <div className="flex items-center gap-2 max-w-[420px]">
+          <input
+            type="text"
+            value={form.phone1}
+            onChange={(e) => handleChange('phone1', e.target.value.replace(/\D/g, '').slice(0, 3))}
+            maxLength={3}
+            className="w-[90px] border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-xl text-center outline-none transition-colors"
+          />
+          <span className="text-gray-300">-</span>
+          <input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            type="text"
+            inputMode="numeric"
+            value={form.phone2}
+            onChange={(e) => handleChange('phone2', e.target.value.replace(/\D/g, '').slice(0, 4))}
+            onKeyDown={handleKeyDown}
+            maxLength={4}
+            placeholder="0000"
+            className="flex-1 border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-xl text-center outline-none transition-colors placeholder:text-gray-300"
+          />
+          <span className="text-gray-300">-</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={form.phone3}
+            onChange={(e) => handleChange('phone3', e.target.value.replace(/\D/g, '').slice(0, 4))}
+            onKeyDown={handleKeyDown}
+            maxLength={4}
+            placeholder="0000"
+            className="flex-1 border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-xl text-center outline-none transition-colors placeholder:text-gray-300"
+          />
+        </div>
+      )}
+
+      {current.key === 'birth' && (
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            ref={inputRef as React.RefObject<HTMLSelectElement>}
+            value={form.birthYear}
+            onChange={(e) => handleChange('birthYear', e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="border-2 border-gray-200 focus:border-[#2ED573] rounded-lg px-4 py-3 text-base outline-none cursor-pointer"
+          >
+            <option value="">년도</option>
+            {years.map((y) => (<option key={y} value={y}>{y}년</option>))}
+          </select>
+          <select
+            value={form.birthMonth}
+            onChange={(e) => handleChange('birthMonth', e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="border-2 border-gray-200 focus:border-[#2ED573] rounded-lg px-4 py-3 text-base outline-none cursor-pointer"
+          >
+            <option value="">월</option>
+            {months.map((m) => (<option key={m} value={m}>{m}월</option>))}
+          </select>
+          <select
+            value={form.birthDay}
+            onChange={(e) => handleChange('birthDay', e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="border-2 border-gray-200 focus:border-[#2ED573] rounded-lg px-4 py-3 text-base outline-none cursor-pointer"
+          >
+            <option value="">일</option>
+            {days.map((d) => (<option key={d} value={d}>{d}일</option>))}
+          </select>
+        </div>
+      )}
+
+      {current.key === 'address' && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
             <input
               type="text"
-              value={form.name}
-              onChange={(e) => handleChange('name', e.target.value)}
-              placeholder="이름을 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
+              value={form.zonecode}
+              readOnly
+              placeholder="우편번호"
+              className="border-b-2 border-gray-200 py-3 text-base outline-none bg-transparent w-[140px] text-gray-700"
             />
-            {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name}</p>}
+            <button
+              type="button"
+              onClick={openPostcode}
+              className="bg-gray-900 text-white text-sm font-bold px-4 py-3 rounded-lg cursor-pointer border-none whitespace-nowrap hover:bg-gray-800 transition-colors"
+            >
+              <i className="ti ti-search mr-1" />
+              우편번호 검색
+            </button>
           </div>
+          <input
+            type="text"
+            value={form.address}
+            readOnly
+            placeholder="도로명/지번 주소"
+            className="w-full border-b-2 border-gray-200 py-3 text-base outline-none bg-transparent text-gray-700"
+          />
+          <input
+            ref={inputRef as React.RefObject<HTMLInputElement>}
+            type="text"
+            value={form.addressDetail}
+            onChange={(e) => handleChange('addressDetail', e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="상세주소 (동/호수 등)"
+            className="w-full border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-base outline-none transition-colors placeholder:text-gray-300"
+          />
+        </div>
+      )}
 
-          {/* 이메일 */}
-          <div>
-            <label className="text-sm font-bold block mb-1">이메일 *</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => handleChange('email', e.target.value)}
-              placeholder="이메일 주소를 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
-            />
-            {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email}</p>}
-          </div>
-
-          {/* 비밀번호 */}
-          <div>
-            <label className="text-sm font-bold block mb-1">비밀번호 *</label>
-            <input
-              type="password"
-              value={form.password}
-              onChange={(e) => handleChange('password', e.target.value)}
-              placeholder="8~18자 영문/숫자/특수문자"
-              autoComplete="new-password"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
-            />
-            {errors.password ? (
-              <p className="text-xs text-red-500 mt-1">{errors.password}</p>
-            ) : (() => {
-              const pw = form.password
-              if (!pw) {
-                return <p className="text-xs mt-1 text-gray-400">8~18자의 영문/숫자/특수문자를 함께 입력해주세요.</p>
-              }
-              const checks = [
-                { label: '8~18자', ok: pw.length >= 8 && pw.length <= 18 },
-                { label: '영문', ok: /[a-zA-Z]/.test(pw) },
-                { label: '숫자', ok: /\d/.test(pw) },
-                { label: '특수문자', ok: /[!@#$%^&*]/.test(pw) },
-              ]
-              return (
-                <div className="text-xs mt-1 flex flex-wrap gap-x-3 gap-y-0.5">
-                  {checks.map((c) => (
-                    <span key={c.label} className={`inline-flex items-center gap-0.5 ${c.ok ? 'text-[#2ED573]' : 'text-gray-400'}`}>
-                      <i className={`ti ${c.ok ? 'ti-check' : 'ti-x'}`} />
-                      {c.label}
-                    </span>
-                  ))}
-                </div>
-              )
-            })()}
-          </div>
-
-          {/* 비밀번호 확인 */}
-          <div>
-            <label className="text-sm font-bold block mb-1">비밀번호 확인 *</label>
-            <input
-              type="password"
-              value={form.passwordConfirm}
-              onChange={(e) => handleChange('passwordConfirm', e.target.value)}
-              placeholder="비밀번호를 다시 입력해주세요."
-              autoComplete="new-password"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
-            />
-            {errors.passwordConfirm ? (
-              <p className="text-xs text-red-500 mt-1">{errors.passwordConfirm}</p>
-            ) : form.passwordConfirm && (
-              <p className={`text-xs mt-1 ${form.password === form.passwordConfirm ? 'text-[#2ED573]' : 'text-red-500'}`}>
-                <i className={`ti ${form.password === form.passwordConfirm ? 'ti-check' : 'ti-x'} mr-0.5`} />
-                {form.password === form.passwordConfirm ? '비밀번호가 일치합니다.' : '비밀번호가 일치하지 않습니다.'}
-              </p>
+      {current.key === 'submit' && (
+        <div className="space-y-4 max-w-[520px]">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 space-y-1.5">
+            <div className="flex justify-between"><span className="text-gray-500">이메일</span><span className="font-medium">{form.email}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">이름</span><span className="font-medium">{form.name}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">성별</span><span className="font-medium">{form.gender === 'male' ? '남성' : form.gender === 'female' ? '여성' : '-'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">휴대폰</span><span className="font-medium">{form.phone2 ? `${form.phone1}-${form.phone2}-${form.phone3}` : '-'}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">생년월일</span><span className="font-medium">{form.birthYear ? `${form.birthYear}.${form.birthMonth}.${form.birthDay}` : '-'}</span></div>
+            {(form.zonecode || form.address) && (
+              <div className="flex justify-between gap-3"><span className="text-gray-500 shrink-0">주소</span><span className="font-medium text-right">[{form.zonecode}] {form.address} {form.addressDetail}</span></div>
             )}
           </div>
 
-          {/* 성별 */}
-          <div>
-            <label className="text-sm font-bold block mb-2">성별 *</label>
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="gender"
-                  checked={form.gender === 'male'}
-                  onChange={() => handleChange('gender', 'male')}
-                  className="accent-[#2ED573]"
-                />
-                <span className="text-sm">남성</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="gender"
-                  checked={form.gender === 'female'}
-                  onChange={() => handleChange('gender', 'female')}
-                  className="accent-[#2ED573]"
-                />
-                <span className="text-sm">여성</span>
-              </label>
-            </div>
-            {errors.gender && <p className="text-xs text-red-500 mt-1">{errors.gender}</p>}
-          </div>
-
-          {/* 휴대폰 번호 */}
-          <div>
-            <label className="text-sm font-bold block mb-1">휴대폰 번호 *</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={form.phone1}
-                onChange={(e) => handleChange('phone1', e.target.value)}
-                maxLength={3}
-                className="w-[80px] border border-gray-300 rounded-lg px-3 py-3 text-sm text-center outline-none focus:border-[#2ED573]"
-              />
-              <span className="text-gray-400">-</span>
-              <input
-                type="text"
-                value={form.phone2}
-                onChange={(e) => handleChange('phone2', e.target.value.replace(/\D/g, ''))}
-                maxLength={4}
-                className="w-[80px] border border-gray-300 rounded-lg px-3 py-3 text-sm text-center outline-none focus:border-[#2ED573]"
-              />
-              <span className="text-gray-400">-</span>
-              <input
-                type="text"
-                value={form.phone3}
-                onChange={(e) => handleChange('phone3', e.target.value.replace(/\D/g, ''))}
-                maxLength={4}
-                className="w-[80px] border border-gray-300 rounded-lg px-3 py-3 text-sm text-center outline-none focus:border-[#2ED573]"
-              />
-            </div>
-            {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone}</p>}
-          </div>
-
-          {/* 주소 */}
-          <div>
-            <label className="text-sm font-bold block mb-1">주소 *</label>
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                type="text"
-                value={form.zonecode}
-                readOnly
-                placeholder="우편번호"
-                className="border border-gray-300 rounded-lg px-4 py-3 text-sm w-[120px] outline-none bg-gray-50 text-gray-500"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  new window.daum.Postcode({
-                    oncomplete: (data) => {
-                      setForm((prev) => ({
-                        ...prev,
-                        zonecode: data.zonecode,
-                        address: data.roadAddress || data.jibunAddress,
-                      }))
-                    },
-                  }).open()
-                }}
-                className="bg-gray-800 text-white text-sm px-4 py-3 rounded-lg cursor-pointer border-none whitespace-nowrap"
-              >
-                우편번호 검색
-              </button>
-            </div>
+          <label className="flex items-start gap-2 cursor-pointer text-sm py-1">
             <input
-              type="text"
-              value={form.address}
-              readOnly
-              placeholder="도로명 주소"
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none bg-gray-50 text-gray-500 mb-2"
+              type="checkbox"
+              checked={agreeTerms}
+              onChange={(e) => { setAgreeTerms(e.target.checked); setError('') }}
+              className="accent-[#2ED573] mt-0.5"
             />
-            <input
-              type="text"
-              value={form.addressDetail}
-              onChange={(e) => handleChange('addressDetail', e.target.value)}
-              placeholder="상세주소를 입력해주세요."
-              className="w-full border border-gray-300 rounded-lg px-4 py-3 text-sm outline-none focus:border-[#2ED573] transition-colors"
-            />
-            {errors.address && <p className="text-xs text-red-500 mt-1">{errors.address}</p>}
-          </div>
-
-          {/* 생년월일 */}
-          <div>
-            <label className="text-sm font-bold block mb-1">생년월일 *</label>
-            <div className="flex items-center gap-2">
-              <select
-                value={form.birthYear}
-                onChange={(e) => handleChange('birthYear', e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-3 text-sm outline-none focus:border-[#2ED573]"
-              >
-                <option value="">년도</option>
-                {years.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-              <select
-                value={form.birthMonth}
-                onChange={(e) => handleChange('birthMonth', e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-3 text-sm outline-none focus:border-[#2ED573]"
-              >
-                <option value="">월</option>
-                {months.map((m) => <option key={m} value={m}>{m}</option>)}
-              </select>
-              <select
-                value={form.birthDay}
-                onChange={(e) => handleChange('birthDay', e.target.value)}
-                className="border border-gray-300 rounded-lg px-3 py-3 text-sm outline-none focus:border-[#2ED573]"
-              >
-                <option value="">일</option>
-                {days.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
-            {errors.birth && <p className="text-xs text-red-500 mt-1">{errors.birth}</p>}
-          </div>
-
-          {serverError && (
-            <p className="text-red-500 text-sm">{serverError}</p>
-          )}
-
-          <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} className="flex justify-center" />
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#2ED573] text-white font-bold py-3 rounded-lg cursor-pointer disabled:opacity-50 mt-2"
-          >
-            {loading ? '가입 중...' : '회원가입'}
-          </button>
-        </form>
-
-        <div className="mt-6 flex flex-col gap-3">
-          <div className="flex items-center gap-3 text-gray-400 text-xs">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span>또는</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
-
-          {kakaoLoginEnabled && (
-            <button
-              onClick={() => handleOAuth('kakao')}
-              className="w-full bg-[#FEE500] text-[#391B1B] font-bold py-3 rounded-lg cursor-pointer flex items-center justify-center gap-2"
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-                <path d="M9 1C4.58 1 1 3.79 1 7.21c0 2.17 1.45 4.08 3.64 5.18l-.93 3.44c-.08.3.26.54.52.37l4.11-2.72c.22.01.44.03.66.03 4.42 0 8-2.79 8-6.21S13.42 1 9 1z" fill="#391B1B"/>
-              </svg>
-              카카오로 가입
-            </button>
-          )}
-
-          <button
-            onClick={() => handleOAuth('google')}
-            className="w-full bg-white border border-gray-300 text-gray-700 font-bold py-3 rounded-lg cursor-pointer flex items-center justify-center gap-2"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18">
-              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
-              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
-              <path d="M3.964 10.71A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
-              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
-            </svg>
-            Google로 가입
-          </button>
+            <span className="text-gray-700">
+              <Link to="/terms" target="_blank" className="text-[#2ED573] underline">서비스 이용약관</Link>
+              {' 및 '}
+              <Link to="/privacy" target="_blank" className="text-[#2ED573] underline">개인정보 처리방침</Link>
+              에 동의합니다.
+            </span>
+          </label>
         </div>
-
-        <div className="mt-8 text-center text-sm text-gray-500">
-          이미 회원이신가요?{' '}
-          <Link to="/login" className="text-[#2ED573] font-bold no-underline">
-            로그인
-          </Link>
-        </div>
-      </div>
-    </>
+      )}
+    </TypeformQuestion>
   )
 }
 

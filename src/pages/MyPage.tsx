@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../contexts/AuthContext'
 import { profileService } from '../services/profileService'
@@ -45,7 +46,18 @@ interface FormErrors {
 }
 
 function MyPage() {
+  const navigate = useNavigate()
   const { user, profile, refreshProfile } = useAuth()
+
+  // 필수정보(이름/성별/휴대폰/생년월일) 중 하나라도 비어있으면 타입폼 온보딩으로 자동 이동.
+  // 비회원(guest) 도 포함 — /mypage 에 도착했을 때 정규 회원 전환을 유도.
+  useEffect(() => {
+    if (!profile) return
+    const isIncomplete = !profile.name || !profile.gender || !profile.phone || !profile.birth_date
+    if (isIncomplete) {
+      navigate('/onboarding', { replace: true })
+    }
+  }, [profile, navigate])
   const [form, setForm] = useState<FormData>({
     name: '',
     gender: '',
@@ -114,10 +126,10 @@ function MyPage() {
       newErrors.gender = '성별을 선택해주세요.'
     }
 
-    if (!form.zonecode || !form.address) {
-      newErrors.address = '주소를 입력해주세요.'
-    } else if (!form.addressDetail.trim()) {
-      newErrors.address = '상세주소를 입력해주세요.'
+    if (form.zonecode || form.address) {
+      if (!form.addressDetail.trim()) {
+        newErrors.address = '상세주소를 입력해주세요.'
+      }
     }
 
     const phoneRegex = /^\d{3,4}$/
@@ -176,7 +188,7 @@ function MyPage() {
       // 비회원 가입 시 비밀번호가 없으므로, 모든 필수 정보 + 비밀번호 설정 시 승격
       let promoted = false
       if (profile?.provider === 'guest') {
-        const allFilled = !!form.name && !!phone && !!birthDate && !!form.gender && !!form.address
+        const allFilled = !!form.name && !!phone && !!birthDate && !!form.gender
         const passwordSet = !!form.password
         if (allFilled && passwordSet) {
           try {
@@ -273,7 +285,6 @@ function MyPage() {
   const days = Array.from({ length: 31 }, (_, i) => i + 1)
 
   const displayName = profile?.name || user?.email?.split('@')[0] || ''
-  const isIncomplete = !profile?.phone || !profile?.address || !profile?.name || !profile?.gender || !profile?.birth_date
   const isSocialLogin = user?.app_metadata?.provider && user.app_metadata.provider !== 'email'
 
   return (
@@ -287,18 +298,9 @@ function MyPage() {
             <div>
               <p className="text-sm font-bold text-emerald-800">비회원으로 가입되셨습니다</p>
               <p className="text-xs text-emerald-700 mt-1 leading-relaxed">
-                현재는 <strong>이메일 링크로만</strong> 로그인 가능합니다. 아래에서 <strong>주소·생년월일·성별 + 비밀번호</strong>까지 입력하고 저장하시면
+                현재는 <strong>이메일 링크로만</strong> 로그인 가능합니다. <strong>생년월일·성별 + 비밀번호</strong>까지 입력하시면
                 정규 회원으로 자동 전환되어 비밀번호로 직접 로그인할 수 있습니다.
               </p>
-            </div>
-          </div>
-        )}
-        {isIncomplete && profile?.provider !== 'guest' && (
-          <div className="mt-8 mb-4 bg-yellow-50 border border-yellow-200 rounded-xl p-5 flex items-start gap-3">
-            <i className="ti ti-alert-triangle text-yellow-500 text-xl shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-bold text-yellow-800">회원정보를 입력해주세요</p>
-              <p className="text-xs text-yellow-600 mt-1">서비스 이용을 위해 아래 필수 정보를 모두 입력해주세요. 정보 입력이 완료되어야 강의 수강, 전자책 열람 등 모든 기능을 이용할 수 있습니다.</p>
             </div>
           </div>
         )}
@@ -378,7 +380,7 @@ function MyPage() {
 
           {/* 주소 */}
           <div className="flex items-start gap-8 py-4 border-b max-sm:flex-col max-sm:items-start max-sm:gap-2">
-            <label className="w-[100px] font-bold text-sm shrink-0 pt-1">주소<span className="text-[#2ED573] ml-0.5">*</span></label>
+            <label className="w-[100px] font-bold text-sm shrink-0 pt-1">주소<span className="text-gray-400 ml-1 text-[11px] font-medium">(선택)</span></label>
             <div className="flex-1 max-sm:w-full">
               <div className="flex items-center gap-2 mb-2">
                 <input

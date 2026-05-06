@@ -38,11 +38,24 @@ export const authService = {
   },
 
   async signInWithOAuth(provider: Provider) {
+    // 카카오는 콘솔 동의항목으로 등록한 모든 항목을 한 번에 요청.
+    // (Business 승인이 필요한 name, phone_number, birthyear 도 포함 — 미승인 항목은 자동 무시되거나 동의창에 노출되지 않음)
+    const kakaoScopes = [
+      'account_email',
+      'profile_nickname',
+      'profile_image',
+      'name',
+      'gender',
+      'age_range',
+      'birthday',
+      'birthyear',
+      'phone_number',
+    ].join(' ')
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
         redirectTo: `${window.location.origin}/`,
-        scopes: provider === 'kakao' ? 'account_email gender age_range' : undefined,
+        scopes: provider === 'kakao' ? kakaoScopes : undefined,
       },
     })
     if (error) throw error
@@ -138,6 +151,21 @@ export const authService = {
     }
 
     return signInData
+  },
+
+  // 회원가입 1단계 — 이메일 중복 여부 확인 (edge function)
+  // 네트워크/함수 오류 시에는 false 반환하여 가입 흐름을 막지 않는다 (최종 signUp 단계에서 한 번 더 검증).
+  async checkEmailExists(email: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('check-email-exists', {
+        body: { email },
+      })
+      if (error) return false
+      const payload = (data ?? {}) as { exists?: boolean }
+      return !!payload.exists
+    } catch {
+      return false
+    }
   },
 
   // 이메일 매직 링크 로그인 — 비회원 구매로 만들어진 계정의 비밀번호 없이 로그인

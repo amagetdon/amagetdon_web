@@ -185,7 +185,7 @@ function CourseDetailPage() {
 
     // 게스트(간편가입) 유저는 추가 프로필 입력 스킵 — 이름/전화/이메일만으로 구매 가능
     const isGuest = profile?.provider === 'guest'
-    if (!isGuest && profile && (!profile.phone || !profile.address || !profile.name || !profile.gender || !profile.birth_date)) {
+    if (!isGuest && profile && (!profile.phone || !profile.name || !profile.gender || !profile.birth_date)) {
       toast.error('회원정보를 먼저 입력해주세요.')
       navigate('/mypage')
       return
