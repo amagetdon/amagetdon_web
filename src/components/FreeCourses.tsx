@@ -18,7 +18,7 @@ function FreeCourses({ courses: propCourses, loading: propLoading }: { courses?:
     courseService.getAllPublic('free').then(setSelfCourses).catch(() => {}).finally(() => setSelfLoading(false))
   }, [propCourses])
   return (
-    <section className="w-full bg-white py-14 max-sm:py-10">
+    <section className="w-full bg-white pt-14 pb-[84px] max-sm:pt-10 max-sm:pb-[60px]">
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="flex items-center justify-between mb-6 gap-4">
           <h2 className="text-2xl font-bold text-gray-900 min-w-0">무료 강의</h2>
@@ -41,7 +41,7 @@ function FreeCourses({ courses: propCourses, loading: propLoading }: { courses?:
           </div>
         ) : (
           <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">
-            {courses.map((course) => {
+            {courses.slice(0, 6).map((course) => {
               const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
               return (
                 <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">

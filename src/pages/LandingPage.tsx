@@ -36,6 +36,7 @@ function LandingPage() {
           .eq('is_published', true)
           .or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`)
           .order('sort_order')
+          .order('created_at', { ascending: false })
         if (!cancelled) setCourses((data as CourseWithInstructor[]) ?? [])
       })
       .catch(() => { if (!cancelled) setNotFound(true) })

@@ -44,7 +44,7 @@ function PremiumCourses({ courses: propCourses, loading: propLoading }: { course
           </div>
         ) : (
           <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">
-            {courses.map((course) => {
+            {courses.slice(0, 6).map((course) => {
               const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
               return (
                 <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">

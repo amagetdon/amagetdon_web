@@ -41,7 +41,7 @@ function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: Ebo
           </div>
         ) : (
           <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
-            {ebooks.map((book) => {
+            {ebooks.slice(0, 5).map((book) => {
               const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
               return (
                 <Link key={book.id} to={`/ebook/${book.id}`} className="no-underline group">

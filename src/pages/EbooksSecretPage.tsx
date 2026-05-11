@@ -1,11 +1,18 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import Pagination from '../components/Pagination'
 import { useEbooks } from '../hooks/useEbooks'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
 
+const PER_PAGE = 10
+
 function EbooksSecretPage() {
   const { ebooks, loading } = useEbooks({ isFree: false })
   const { closedVisualEffect } = useAcademySettings()
+  const [currentPage, setCurrentPage] = useState(1)
+  const totalPages = Math.max(1, Math.ceil(ebooks.length / PER_PAGE))
+  const pagedEbooks = ebooks.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE)
 
   return (
     <>
@@ -36,35 +43,40 @@ function EbooksSecretPage() {
           ) : ebooks.length === 0 ? (
             <p className="text-sm text-gray-500 py-16 text-center">등록된 시크릿 북이 없습니다.</p>
           ) : (
-            <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
-              {ebooks.map((book) => {
-                const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
-                return (
-                  <Link key={book.id} to={`/ebook/${book.id}`} className="cursor-pointer group no-underline">
-                    <div className={`bg-gray-800 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
-                      {book.thumbnail_url ? (
-                        <img src={book.thumbnail_url} alt={book.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <span className="text-sm text-gray-500">썸네일</span>
+            <>
+              <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
+                {pagedEbooks.map((book) => {
+                  const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
+                  return (
+                    <Link key={book.id} to={`/ebook/${book.id}`} className="cursor-pointer group no-underline">
+                      <div className={`bg-gray-800 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+                        {book.thumbnail_url ? (
+                          <img src={book.thumbnail_url} alt={book.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                          <span className="text-sm text-gray-500">썸네일</span>
+                        )}
+                      </div>
+                      <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-2 ${closed ? 'text-gray-500' : 'text-white'}`}>
+                        <span className={closed ? 'line-through' : ''}>{book.title}</span>
+                        {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                      </p>
+                      {book.original_price && (
+                        <p className="text-xs text-gray-500 line-through">{book.original_price.toLocaleString()}원</p>
                       )}
-                    </div>
-                    <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-2 ${closed ? 'text-gray-500' : 'text-white'}`}>
-                      <span className={closed ? 'line-through' : ''}>{book.title}</span>
-                      {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
-                    </p>
-                    {book.original_price && (
-                      <p className="text-xs text-gray-500 line-through">{book.original_price.toLocaleString()}원</p>
-                    )}
-                    <p className={`text-base font-bold ${closed ? 'text-gray-500' : 'text-white'}`}>
-                      {book.sale_price ? `${book.sale_price.toLocaleString()}원` : '무료'}
-                    </p>
-                    {book.is_hot && (
-                      <span className="inline-block mt-1 px-2 py-0.5 bg-[#2ED573] text-white text-xs font-bold rounded">HOT</span>
-                    )}
-                  </Link>
-                )
-              })}
-            </div>
+                      <p className={`text-base font-bold ${closed ? 'text-gray-500' : 'text-white'}`}>
+                        {book.sale_price ? `${book.sale_price.toLocaleString()}원` : '무료'}
+                      </p>
+                      {book.is_hot && (
+                        <span className="inline-block mt-1 px-2 py-0.5 bg-[#2ED573] text-white text-xs font-bold rounded">HOT</span>
+                      )}
+                    </Link>
+                  )
+                })}
+              </div>
+              {totalPages > 1 && (
+                <Pagination current={currentPage} total={totalPages} onPageChange={setCurrentPage} />
+              )}
+            </>
           )}
         </div>
       </section>
