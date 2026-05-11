@@ -78,6 +78,15 @@ body {
   animation: hourglassStream 2.8s ease-in-out infinite;
 }
 
+/* 신청자 목록 자동 롤링 (위로) */
+@keyframes applicantsRoll {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+.animate-applicants-roll {
+  animation: applicantsRoll 25s linear infinite;
+}
+
 /* Marquee animation */
 @keyframes marquee {
   0% {

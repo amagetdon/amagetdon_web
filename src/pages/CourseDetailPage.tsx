@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, useMemo, Fragment } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useCourse } from '../hooks/useCourses'
@@ -57,6 +57,30 @@ function CourseDetailPage() {
   const [afterPurchaseLink, setAfterPurchaseLink] = useState<string | null>(null)
   // 지금 N명 신청 중 — 세션스토리지 캐싱 + 새로고침시 변동폭 적용
   const [applicantCount, setApplicantCount] = useState<number | null>(null)
+  const [applicantsModalOpen, setApplicantsModalOpen] = useState(false)
+
+  // 가짜 신청자 목록 — courseId 시드 기반 deterministic
+  const fakeApplicants = useMemo(() => {
+    if (!course) return []
+    const surnames = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '임', '한', '오', '서', '신', '권', '황', '안', '송', '류', '전', '홍', '고', '문', '양', '손', '배', '백', '허', '유', '남']
+    const domains = ['naver.com', 'gmail.com', 'kakao.com']
+    const formats: ('phone' | 'email')[] = ['phone', 'email']
+    let s = (course.id * 9301 + 49297) >>> 0
+    const next = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296 }
+    const items: { display: string; sub: string; timeAgo: string }[] = []
+    for (let i = 0; i < 30; i++) {
+      const surname = surnames[Math.floor(next() * surnames.length)]
+      const fmt = formats[Math.floor(next() * formats.length)]
+      const display = `${surname}**`
+      const sub = fmt === 'phone'
+        ? `010-****-${String(Math.floor(next() * 10000)).padStart(4, '0')}`
+        : `${String.fromCharCode(97 + Math.floor(next() * 26))}****@${domains[Math.floor(next() * domains.length)]}`
+      const minutes = Math.floor(next() * 58) + 1
+      const timeAgo = minutes < 60 ? `${minutes}분 전` : `${Math.floor(minutes / 60)}시간 전`
+      items.push({ display, sub, timeAgo })
+    }
+    return items
+  }, [course])
 
   useEffect(() => {
     if (!course) { setApplicantCount(null); return }
@@ -635,7 +659,10 @@ function CourseDetailPage() {
 
                 {renderActionButton()}
                 {applicantCount != null && !owned && (
-                  <div className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-3 flex items-center justify-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setApplicantsModalOpen(true)}
+                    className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-3 flex items-center justify-center gap-1.5 cursor-pointer border-none hover:bg-gray-800 transition-colors">
                     지금
                     <span className="inline-block bg-white text-[#2ED573] rounded-md px-2 py-0.5">
                       {applicantCount.toLocaleString()}명
@@ -681,7 +708,7 @@ function CourseDetailPage() {
                         strokeLinecap="round"
                       />
                     </svg>
-                  </div>
+                  </button>
                 )}
               </div>
             </div>
@@ -859,6 +886,70 @@ function CourseDetailPage() {
                         {purchasing ? '처리 중...' : `${finalPrice.toLocaleString()}P 구매하기`}
                       </button>
                     )}
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* 신청자 목록 모달 — 클릭시 마스킹된 신청자 자동 롤링 */}
+      <Transition appear show={applicantsModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setApplicantsModalOpen(false)}>
+          <Transition.Child as={Fragment}
+            enter="ease-out duration-200" enterFrom="opacity-0" enterTo="opacity-100"
+            leave="ease-in duration-150" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <div className="fixed inset-0 bg-black/50" />
+          </Transition.Child>
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4">
+              <Transition.Child as={Fragment}
+                enter="ease-out duration-200" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100"
+                leave="ease-in duration-150" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                <Dialog.Panel className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative">
+                  <button
+                    type="button"
+                    onClick={() => setApplicantsModalOpen(false)}
+                    className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-transparent border-none cursor-pointer text-gray-400 hover:text-gray-600"
+                    aria-label="닫기"
+                  >
+                    <i className="ti ti-x text-xl" />
+                  </button>
+
+                  <Dialog.Title className="text-lg font-bold text-gray-900 flex items-center gap-1.5">
+                    <i className="ti ti-users-group text-[#2ED573]" />
+                    실시간 신청자
+                    {applicantCount != null && <span className="text-[#2ED573]">{applicantCount.toLocaleString()}명</span>}
+                  </Dialog.Title>
+                  <p className="text-xs text-gray-500 mt-1">개인정보 보호를 위해 일부 정보가 마스킹 처리되었습니다</p>
+
+                  <div
+                    className="relative h-[320px] overflow-hidden mt-4 -mx-6"
+                    style={{
+                      maskImage: 'linear-gradient(to bottom, transparent 0, black 20px, black calc(100% - 20px), transparent 100%)',
+                      WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 20px, black calc(100% - 20px), transparent 100%)',
+                    }}
+                  >
+                    <div className="animate-applicants-roll">
+                      {[...fakeApplicants, ...fakeApplicants].map((item, i) => (
+                        <div key={i} className="flex items-center justify-between px-6 py-2.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
+                              <i className="ti ti-user text-base" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{item.display}</p>
+                              <p className="text-xs text-gray-400 truncate">{item.sub}</p>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0 ml-2">
+                            <p className="text-xs text-[#2ED573] font-medium">신청 완료</p>
+                            <p className="text-[10px] text-gray-400 mt-0.5">{item.timeAgo}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </Dialog.Panel>
               </Transition.Child>
