@@ -658,7 +658,7 @@ function CourseDetailPage() {
                 )}
 
                 {renderActionButton()}
-                {applicantCount != null && !owned && (
+                {applicantCount != null && !isExpired && course.is_on_sale !== false && (
                   <button
                     type="button"
                     onClick={() => setApplicantsModalOpen(true)}
