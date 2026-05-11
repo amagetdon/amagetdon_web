@@ -678,7 +678,7 @@ export default function AdminCourseDetail() {
                     <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">매일 증가량 (오픈일 기준)</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">최소~최대 사이 랜덤값으로 첫 표시. 새로고침시 [변동 최소, 변동 최대] 사이 정수만큼 가감(예: -1~2 → -1/0/+1/+2 중 랜덤). 시간이 지나면 오픈일(없으면 등록일)로부터 (매일 증가량 × 경과 일수)만큼 범위가 위로 이동합니다. 비우면 미표시.</p>
+                <p className="text-xs text-gray-400 mt-1">최소~최대 사이 랜덤 표시, 새로고침마다 변동폭(±)만큼 가감. 매일 오픈일 기준 (증가량 × 경과 일수)만큼 위로 시프트. 비우면 미표시.</p>
               </div>
               <div className="flex gap-3 max-sm:w-full max-sm:flex-col">
                 <div className="w-[220px] max-sm:w-full">

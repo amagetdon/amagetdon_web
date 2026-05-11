@@ -641,6 +641,46 @@ function CourseDetailPage() {
                       {applicantCount.toLocaleString()}명
                     </span>
                     신청 중
+                    <svg
+                      className="hourglass w-[18px] h-[18px] ml-px translate-y-px overflow-visible"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      {/* 상하 막대 */}
+                      <path d="M5 2h14" />
+                      <path d="M5 22h14" />
+                      {/* 위 챔버 외곽 */}
+                      <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
+                      {/* 아래 챔버 외곽 */}
+                      <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" />
+                      {/* 모래 — 위 (점점 줄어듦) */}
+                      <path
+                        className="hourglass-sand-top"
+                        d="M7.6 2.6 H16.4 L12 11.6 Z"
+                        fill="#ffffff"
+                        stroke="none"
+                      />
+                      {/* 모래 — 아래 (점점 차오름) */}
+                      <path
+                        className="hourglass-sand-bottom"
+                        d="M7.6 21.4 H16.4 L12 12.4 Z"
+                        fill="#ffffff"
+                        stroke="none"
+                      />
+                      {/* 떨어지는 모래 줄기 */}
+                      <line
+                        className="hourglass-stream"
+                        x1="12" y1="12" x2="12" y2="17"
+                        stroke="#ffffff"
+                        strokeWidth="1"
+                        strokeLinecap="round"
+                      />
+                    </svg>
                   </div>
                 )}
               </div>

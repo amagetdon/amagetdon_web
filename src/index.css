@@ -41,6 +41,43 @@ body {
   100% { transform: scale(1); opacity: 1; }
 }
 
+/* Hourglass loading — 모래 떨어지고 뒤집히고 반복 (옛날 윈도우 모래시계 커서 느낌) */
+@keyframes hourglassFlip {
+  0%, 75% { transform: rotate(0deg); }
+  88%, 100% { transform: rotate(180deg); }
+}
+@keyframes hourglassDrain {
+  0% { transform: scaleY(1); }
+  75%, 100% { transform: scaleY(0); }
+}
+@keyframes hourglassFill {
+  0% { transform: scaleY(0); }
+  75%, 100% { transform: scaleY(1); }
+}
+@keyframes hourglassStream {
+  0%, 3% { opacity: 0; }
+  6%, 70% { opacity: 1; }
+  75%, 100% { opacity: 0; }
+}
+
+.hourglass {
+  animation: hourglassFlip 2.8s ease-in-out infinite;
+  transform-origin: 50% 50%;
+}
+.hourglass-sand-top {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: hourglassDrain 2.8s linear infinite;
+}
+.hourglass-sand-bottom {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: hourglassFill 2.8s linear infinite;
+}
+.hourglass-stream {
+  animation: hourglassStream 2.8s ease-in-out infinite;
+}
+
 /* Marquee animation */
 @keyframes marquee {
   0% {
