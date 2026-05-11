@@ -650,10 +650,17 @@ export default function AdminCourseDetail() {
                     <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">신청자 최소 수</p>
                   </div>
                   <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
-                    <input type="number" min={0} value={(editing.applicants_max as number) ?? ''}
-                      onChange={(e) => setEditing({ ...editing, applicants_max: e.target.value === '' ? null : Number(e.target.value) })}
-                      placeholder="최대"
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                    {(() => {
+                      const minV = editing.applicants_min as number | null
+                      const maxV = editing.applicants_max as number | null
+                      const warn = minV != null && maxV != null && maxV - minV >= 10
+                      return (
+                        <input type="number" min={0} value={(editing.applicants_max as number) ?? ''}
+                          onChange={(e) => setEditing({ ...editing, applicants_max: e.target.value === '' ? null : Number(e.target.value) })}
+                          placeholder="최대"
+                          className={`w-full border rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${warn ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 bg-red-50' : 'border-gray-300 focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
+                      )
+                    })()}
                     <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">신청자 최대 수</p>
                   </div>
                   <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
@@ -679,6 +686,18 @@ export default function AdminCourseDetail() {
                   </div>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">최소~최대 사이 랜덤 표시, 새로고침마다 변동폭(±)만큼 가감. 매일 오픈일 기준 (증가량 × 경과 일수)만큼 위로 시프트. 비우면 미표시.</p>
+                {(() => {
+                  const minV = editing.applicants_min as number | null
+                  const maxV = editing.applicants_max as number | null
+                  if (minV == null || maxV == null) return null
+                  if (maxV - minV < 10) return null
+                  return (
+                    <p className="text-xs text-amber-600 mt-1 flex items-start gap-1">
+                      <i className="ti ti-alert-triangle mt-px shrink-0" />
+                      <span>신청자 수는 현재 매일 증가량으로 인해 순차적으로 자연스럽게 올라갑니다.<br />현재 최소/최대값 차이가 커 브라우저를 열고 닫을 때 값이 크게 튈 수 있으므로 두 값의 차이를 낮추시는걸 권장드립니다.</span>
+                    </p>
+                  )
+                })()}
               </div>
               <div className="flex gap-3 max-sm:w-full max-sm:flex-col">
                 <div className="w-[220px] max-sm:w-full">

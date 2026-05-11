@@ -90,15 +90,16 @@ function CourseDetailPage() {
       setApplicantCount(null); return
     }
     const dailyGrowth = Math.max(0, course.applicants_daily_growth ?? 0)
-    let daysElapsed = 0
+    let growth = 0
     if (dailyGrowth > 0) {
       const baseDateStr = course.enrollment_start || course.created_at
       const baseMs = baseDateStr ? new Date(baseDateStr).getTime() : NaN
       if (Number.isFinite(baseMs)) {
-        daysElapsed = Math.max(0, Math.floor((Date.now() - baseMs) / 86400000))
+        const hoursElapsed = Math.max(0, Math.floor((Date.now() - baseMs) / 3600000))
+        // 매일 증가량을 24시간으로 분할 → 시간 단위로 점진 증가
+        growth = Math.floor((hoursElapsed * dailyGrowth) / 24)
       }
     }
-    const growth = daysElapsed * dailyGrowth
     const min = baseMin + growth
     const max = baseMax + growth
     const key = `course-applicants-${course.id}`
