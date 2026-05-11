@@ -184,6 +184,11 @@ export interface Course {
   landing_category_id: number | null
   refund_policy: string | null
   after_purchase_url: string | null
+  applicants_min: number | null
+  applicants_max: number | null
+  applicants_refresh_min: number | null
+  applicants_refresh_max: number | null
+  applicants_daily_growth: number | null
   created_at: string
   updated_at: string
 }

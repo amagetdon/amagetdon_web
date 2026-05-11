@@ -55,6 +55,50 @@ function CourseDetailPage() {
   const [pendingAutoPurchase, setPendingAutoPurchase] = useState(false)
   // 구매 직후 안내 링크 (오픈채팅방 등) 카운트다운 모달
   const [afterPurchaseLink, setAfterPurchaseLink] = useState<string | null>(null)
+  // 지금 N명 신청 중 — 세션스토리지 캐싱 + 새로고침시 변동폭 적용
+  const [applicantCount, setApplicantCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    if (!course) { setApplicantCount(null); return }
+    const baseMin = course.applicants_min
+    const baseMax = course.applicants_max
+    if (baseMin == null || baseMax == null || baseMin < 0 || baseMax < 0 || baseMin > baseMax) {
+      setApplicantCount(null); return
+    }
+    const dailyGrowth = Math.max(0, course.applicants_daily_growth ?? 0)
+    let daysElapsed = 0
+    if (dailyGrowth > 0) {
+      const baseDateStr = course.enrollment_start || course.created_at
+      const baseMs = baseDateStr ? new Date(baseDateStr).getTime() : NaN
+      if (Number.isFinite(baseMs)) {
+        daysElapsed = Math.max(0, Math.floor((Date.now() - baseMs) / 86400000))
+      }
+    }
+    const growth = daysElapsed * dailyGrowth
+    const min = baseMin + growth
+    const max = baseMax + growth
+    const key = `course-applicants-${course.id}`
+    const stored = sessionStorage.getItem(key)
+    const randInt = (lo: number, hi: number) => Math.floor(Math.random() * (hi - lo + 1)) + lo
+    const clamp = (n: number) => Math.max(min, Math.min(max, n))
+    let next: number
+    const prev = stored == null ? NaN : Number(stored)
+    if (!Number.isFinite(prev)) {
+      next = randInt(min, max)
+    } else if (prev < min) {
+      // 하루가 지나 범위가 위로 이동한 경우 — 새 범위 하단 근처로 끌어올림
+      next = randInt(min, Math.min(max, min + Math.max(1, Math.ceil((max - min) / 4))))
+    } else {
+      const rMinRaw = course.applicants_refresh_min ?? -1
+      const rMaxRaw = course.applicants_refresh_max ?? 2
+      const rMin = Math.min(rMinRaw, rMaxRaw)
+      const rMax = Math.max(rMinRaw, rMaxRaw)
+      const delta = randInt(rMin, rMax)
+      next = clamp(prev + delta)
+    }
+    sessionStorage.setItem(key, String(next))
+    setApplicantCount(next)
+  }, [course])
 
   useEffect(() => {
     if (!fromSlug) { setGuestPurchaseAllowed(false); return }
@@ -590,6 +634,15 @@ function CourseDetailPage() {
                 )}
 
                 {renderActionButton()}
+                {applicantCount != null && !owned && (
+                  <div className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-3 flex items-center justify-center gap-1.5">
+                    지금
+                    <span className="inline-block bg-white text-[#2ED573] rounded-md px-2 py-0.5">
+                      {applicantCount.toLocaleString()}명
+                    </span>
+                    신청 중
+                  </div>
+                )}
               </div>
             </div>
           </div>

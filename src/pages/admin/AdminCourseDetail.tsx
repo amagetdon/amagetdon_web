@@ -297,6 +297,11 @@ export default function AdminCourseDetail() {
         reward_points: 0,
         refund_policy: '',
         duration_days: 40,
+        applicants_min: null,
+        applicants_max: null,
+        applicants_refresh_min: -1,
+        applicants_refresh_max: 2,
+        applicants_daily_growth: null,
       })
       refundPolicyTemplateService.getDefault()
         .then((tpl) => {
@@ -387,6 +392,11 @@ export default function AdminCourseDetail() {
         refund_policy: ((editing.refund_policy as string) || '').trim() || null,
         after_purchase_url: ((editing.after_purchase_url as string) || '').trim() || null,
         duration_days: editing.duration_days ?? 40,
+        applicants_min: editing.applicants_min ?? null,
+        applicants_max: editing.applicants_max ?? null,
+        applicants_refresh_min: editing.applicants_refresh_min ?? null,
+        applicants_refresh_max: editing.applicants_refresh_max ?? null,
+        applicants_daily_growth: editing.applicants_daily_growth ?? null,
       }
       if (isNew) {
         const created = await courseService.create(courseData as never) as { id: number }
@@ -628,6 +638,47 @@ export default function AdminCourseDetail() {
                   placeholder="40"
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                 <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">마감일시 이후 N일간 다시보기 가능</p>
+              </div>
+              <div className="w-full">
+                <label className="text-sm font-bold block mb-1">신청자 수 표시 (지금 N명 신청 중)</label>
+                <div className="flex flex-wrap gap-3">
+                  <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
+                    <input type="number" min={0} value={(editing.applicants_min as number) ?? ''}
+                      onChange={(e) => setEditing({ ...editing, applicants_min: e.target.value === '' ? null : Number(e.target.value) })}
+                      placeholder="최소"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">신청자 최소 수</p>
+                  </div>
+                  <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
+                    <input type="number" min={0} value={(editing.applicants_max as number) ?? ''}
+                      onChange={(e) => setEditing({ ...editing, applicants_max: e.target.value === '' ? null : Number(e.target.value) })}
+                      placeholder="최대"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">신청자 최대 수</p>
+                  </div>
+                  <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
+                    <input type="number" value={(editing.applicants_refresh_min as number) ?? ''}
+                      onChange={(e) => setEditing({ ...editing, applicants_refresh_min: e.target.value === '' ? null : Number(e.target.value) })}
+                      placeholder="-1"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">새로고침 변동 최소 (음수 가능)</p>
+                  </div>
+                  <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
+                    <input type="number" value={(editing.applicants_refresh_max as number) ?? ''}
+                      onChange={(e) => setEditing({ ...editing, applicants_refresh_max: e.target.value === '' ? null : Number(e.target.value) })}
+                      placeholder="2"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">새로고침 변동 최대</p>
+                  </div>
+                  <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
+                    <input type="number" min={0} value={(editing.applicants_daily_growth as number) ?? ''}
+                      onChange={(e) => setEditing({ ...editing, applicants_daily_growth: e.target.value === '' ? null : Number(e.target.value) })}
+                      placeholder="매일 증가"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">매일 증가량 (오픈일 기준)</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">최소~최대 사이 랜덤값으로 첫 표시. 새로고침시 [변동 최소, 변동 최대] 사이 정수만큼 가감(예: -1~2 → -1/0/+1/+2 중 랜덤). 시간이 지나면 오픈일(없으면 등록일)로부터 (매일 증가량 × 경과 일수)만큼 범위가 위로 이동합니다. 비우면 미표시.</p>
               </div>
               <div className="flex gap-3 max-sm:w-full max-sm:flex-col">
                 <div className="w-[220px] max-sm:w-full">
