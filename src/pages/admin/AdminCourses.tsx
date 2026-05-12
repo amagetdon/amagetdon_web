@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
+import { useSessionState, useScrollRestore } from '../../hooks/useListStatePersistence'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { courseService } from '../../services/courseService'
@@ -21,7 +23,9 @@ export default function AdminCourses() {
   const [stats, setStats] = useState<Record<number, CourseStats>>({})
   const [loading, setLoading] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
-  const [search, setSearch] = useState('')
+  const [duplicateTarget, setDuplicateTarget] = useState<number | null>(null)
+  const [duplicating, setDuplicating] = useState(false)
+  const [search, setSearch] = useSessionState('admin:courses:search', '')
 
   const fetchData = async () => {
     try {
@@ -65,11 +69,28 @@ export default function AdminCourses() {
     } catch { toast.error('삭제에 실패했습니다.') }
   }
 
+  const handleDuplicate = async (isPublished: boolean) => {
+    if (!duplicateTarget || duplicating) return
+    try {
+      setDuplicating(true)
+      await courseService.duplicate(duplicateTarget, { isPublished })
+      toast.success(isPublished ? '강의가 공개 상태로 복사되었습니다.' : '강의가 비공개 상태로 복사되었습니다.')
+      setDuplicateTarget(null)
+      await fetchData()
+    } catch {
+      toast.error('복사에 실패했습니다.')
+    } finally {
+      setDuplicating(false)
+    }
+  }
+
   type SortKey = 'title' | 'instructor' | 'type' | 'price' | 'created' | 'enrollments' | 'reviews' | 'rating'
-  const [sortKey, setSortKey] = useState<SortKey>('created')
-  const [sortAsc, setSortAsc] = useState(false)
-  const [page, setPage] = useState(1)
+  const [sortKey, setSortKey] = useSessionState<SortKey>('admin:courses:sortKey', 'created')
+  const [sortAsc, setSortAsc] = useSessionState('admin:courses:sortAsc', false)
+  const [page, setPage] = useSessionState('admin:courses:page', 1)
   const PER_PAGE = 10
+
+  useScrollRestore('admin:courses:scroll', !loading)
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortAsc(!sortAsc)
@@ -98,6 +119,11 @@ export default function AdminCourses() {
 
   const totalPages = Math.ceil(sorted.length / PER_PAGE)
   const paged = sorted.slice((page - 1) * PER_PAGE, page * PER_PAGE)
+
+  // 데이터가 줄어들어 저장된 페이지가 범위를 벗어나면 1페이지로 보정.
+  useEffect(() => {
+    if (!loading && totalPages > 0 && page > totalPages) setPage(1)
+  }, [loading, totalPages, page, setPage])
 
   const SortHeader = ({ label, k, className = '' }: { label: string; k: SortKey; className?: string }) => (
     <th
@@ -204,6 +230,7 @@ export default function AdminCourses() {
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => navigate(`/admin/courses/${course.id}`)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
+                          <button onClick={() => setDuplicateTarget(course.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-[#2ED573] hover:bg-[#2ED573]/10 bg-transparent border-none cursor-pointer transition-colors" aria-label="복사" title="복사"><i className="ti ti-copy text-sm" /></button>
                           <button onClick={() => setDeleteTarget(course.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
                         </div>
                       </td>
@@ -240,6 +267,54 @@ export default function AdminCourses() {
 
       <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete}
         title="강의 삭제" message="이 강의를 삭제하시겠습니까? 관련 커리큘럼도 함께 삭제됩니다." />
+
+      <Dialog
+        open={!!duplicateTarget}
+        onClose={() => { if (!duplicating) setDuplicateTarget(null) }}
+        className="relative z-50"
+      >
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4 bg-[#2ED573]/10">
+              <i className="ti ti-copy text-xl text-[#2ED573]" />
+            </div>
+            <DialogTitle className="text-base font-bold text-gray-900">강의 복사</DialogTitle>
+            <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+              모든 정보와 커리큘럼이 동일하게 복제되며, 제목 뒤에 '(1)' 이 붙어 목록 하단에 생성됩니다.<br />
+              <span className="text-gray-700 font-medium">복제본을 어떻게 시작할까요?</span>
+            </p>
+            <div className="flex flex-col gap-2 mt-6">
+              <button
+                type="button"
+                onClick={() => handleDuplicate(false)}
+                disabled={duplicating}
+                className="w-full px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl cursor-pointer border-none hover:bg-gray-200 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <i className="ti ti-eye-off text-sm" />
+                비공개로 복사 (검토 후 직접 공개)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDuplicate(true)}
+                disabled={duplicating}
+                className="w-full px-4 py-2.5 text-sm font-medium text-white bg-[#2ED573] rounded-xl cursor-pointer border-none hover:bg-[#25B866] disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <i className="ti ti-eye text-sm" />
+                공개로 복사 (즉시 사이트 노출)
+              </button>
+              <button
+                type="button"
+                onClick={() => setDuplicateTarget(null)}
+                disabled={duplicating}
+                className="w-full px-4 py-2 text-xs text-gray-500 bg-transparent border-none cursor-pointer hover:text-gray-700 disabled:opacity-50"
+              >
+                {duplicating ? '복사 중...' : '취소'}
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
     </AdminLayout>
   )
 }

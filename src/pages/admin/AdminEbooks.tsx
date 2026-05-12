@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
+import { useSessionState, useScrollRestore } from '../../hooks/useListStatePersistence'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { ebookService } from '../../services/ebookService'
@@ -19,7 +20,9 @@ export default function AdminEbooks() {
   const [stats, setStats] = useState<Record<number, EbookStats>>({})
   const [loading, setLoading] = useState(true)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
-  const [search, setSearch] = useState('')
+  const [search, setSearch] = useSessionState('admin:ebooks:search', '')
+
+  useScrollRestore('admin:ebooks:scroll', !loading)
 
   const fetchData = async () => {
     try {

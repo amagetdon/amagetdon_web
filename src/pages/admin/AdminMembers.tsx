@@ -612,10 +612,21 @@ export default function AdminMembers() {
                             newRole: m.role === 'admin' ? 'user' : 'admin',
                           })
                         }}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-purple-500 hover:bg-purple-50 bg-transparent border-none cursor-pointer transition-colors mx-auto"
-                        aria-label="권한 변경"
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg bg-transparent border-none cursor-pointer transition-colors mx-auto ${
+                          m.role === 'admin'
+                            ? 'text-purple-500 hover:text-purple-600 hover:bg-purple-50'
+                            : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50'
+                        }`}
+                        aria-label={m.role === 'admin' ? '관리자 권한 회수' : '관리자 권한 부여'}
+                        title={m.role === 'admin' ? '관리자 (클릭 시 권한 회수)' : '관리자 권한 부여'}
                       >
-                        <i className="ti ti-shield text-sm" />
+                        {m.role === 'admin' ? (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd" className="w-4 h-4">
+                            <path d="M11.46 1.137a2 2 0 0 1 1.08 0l8 2.317a2 2 0 0 1 1.46 1.926v6.323a9 9 0 0 1-4.99 8.057l-3.575 1.79a2 2 0 0 1-1.79 0l-3.578-1.79a9 9 0 0 1-4.987-8.057V5.38a2 2 0 0 1 1.46-1.926zm4.247 7.156a1 1 0 0 0-1.414 0l-3.293 3.293-1.293-1.293-.094-.083a1 1 0 0 0-1.32 1.497l2 2 .094.083a1 1 0 0 0 1.32-.083l4-4 .083-.094a1 1 0 0 0-.083-1.32z" />
+                          </svg>
+                        ) : (
+                          <i className="ti ti-shield text-sm" />
+                        )}
                       </button>
                     </td>
                   </tr>

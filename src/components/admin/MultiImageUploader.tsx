@@ -20,6 +20,8 @@ export default function MultiImageUploader({
   helperText,
 }: MultiImageUploaderProps) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const replaceFileRef = useRef<HTMLInputElement>(null)
+  const replaceIdxRef = useRef<number | null>(null)
   const [uploading, setUploading] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   // url → 원본 파일명. 이번 세션에서 업로드한 이미지에 대해서만 채워진다. 새로고침/재진입 시 초기화.
@@ -57,6 +59,30 @@ export default function MultiImageUploader({
     onChange(next)
   }
 
+  const triggerReplace = (idx: number) => {
+    replaceIdxRef.current = idx
+    replaceFileRef.current?.click()
+  }
+
+  const handleReplaceFile = async (file: File | undefined) => {
+    const idx = replaceIdxRef.current
+    replaceIdxRef.current = null
+    if (!file || idx === null || idx < 0 || idx >= values.length) return
+    try {
+      setUploading(true)
+      const url = await storageService.uploadImage(bucket, pathPrefix, file, { compress })
+      setNameMap((prev) => ({ ...prev, [url]: file.name }))
+      const next = [...values]
+      next[idx] = url
+      onChange(next)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '업로드에 실패했습니다.'
+      toast.error(`${file.name}: ${message}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const move = (from: number, to: number) => {
     if (to < 0 || to >= values.length) return
     const next = [...values]
@@ -88,6 +114,16 @@ export default function MultiImageUploader({
         multiple
         onChange={(e) => {
           handleFiles(e.target.files)
+          e.target.value = ''
+        }}
+        className="hidden"
+      />
+      <input
+        ref={replaceFileRef}
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          handleReplaceFile(e.target.files?.[0])
           e.target.value = ''
         }}
         className="hidden"
@@ -135,6 +171,16 @@ export default function MultiImageUploader({
                   aria-label="아래로"
                 >
                   <i className="ti ti-chevron-down text-sm" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => triggerReplace(idx)}
+                  disabled={uploading}
+                  className="w-8 h-8 flex items-center justify-center rounded-md text-gray-500 hover:text-[#2ED573] hover:bg-[#2ED573]/10 bg-transparent border border-gray-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  aria-label="이미지 교체"
+                  title="이미지 교체"
+                >
+                  <i className="ti ti-replace text-sm" />
                 </button>
                 <button
                   type="button"
