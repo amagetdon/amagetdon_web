@@ -63,14 +63,25 @@ async function uploadToR2(logicalBucket: string, path: string, file: File): Prom
   // 401/403 등 인증 실패 시 한 번 강제 refresh 후 재시도. supabase-js 는 invoke 의 non-2xx 를
   // FunctionsHttpError 로만 포장해서 status 를 깔끔히 못 꺼낸다 — 메시지 패턴으로 판별한다.
   if (error && /non-2xx|401|403|invalid auth|jwt/i.test(error.message)) {
-    const refreshed = await supabase.auth.refreshSession()
-    if (refreshed.data.session) {
+    const refreshed = await supabase.auth.refreshSession().catch(() => null)
+    if (refreshed?.data?.session) {
       const retry = await invokePresign()
       data = retry.data
       error = retry.error
     }
   }
-  if (error) throw new Error(`R2 presign 실패: ${error.message}`)
+  if (error) {
+    // Edge Function 응답 본문을 꺼내 정확한 사유를 노출 — supabase-js 가 가려두는 부분.
+    let bodyMsg = ''
+    const ctx = (error as { context?: unknown }).context
+    if (ctx instanceof Response) {
+      try {
+        const parsed = await ctx.clone().json() as { error?: string }
+        bodyMsg = parsed?.error || ''
+      } catch { /* not JSON */ }
+    }
+    throw new Error(`R2 presign 실패: ${bodyMsg || error.message}`)
+  }
   const { uploadUrl, publicUrl, hasPublicBase } = data as { uploadUrl: string; publicUrl: string | null; hasPublicBase: boolean }
   if (!uploadUrl) throw new Error('R2 presign 응답에 uploadUrl 누락')
 

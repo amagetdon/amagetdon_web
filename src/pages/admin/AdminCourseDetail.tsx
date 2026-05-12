@@ -402,8 +402,9 @@ export default function AdminCourseDetail() {
       .limit(1)
       .maybeSingle()
     const row = { course_id: cid, scheduled_at: scheduledAt, title, instructor_id: instructorId }
-    if ((existing as { id?: number } | null)?.id) {
-      await supabase.from('schedules').update(row as never).eq('id', (existing as { id: number }).id)
+    const existingId = (existing as { id?: number } | null)?.id
+    if (existingId) {
+      await supabase.from('schedules').update(row as never).eq('id', existingId)
     } else {
       await supabase.from('schedules').insert(row as never)
     }

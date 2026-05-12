@@ -325,7 +325,14 @@ Deno.serve(async (req: Request) => {
       if (schedIso) {
         if (!p.scheduled_at) p.scheduled_at = schedIso
         const f = fmtKst(schedIso)
-        for (const k of ['강의날짜', '수업날짜', '예정일', 'SCHEDULED_DATE', 'scheduled_date']) setIfEmpty(k, f.date)
+        // 한글 '강의날짜' 변수는 운영자가 카카오 템플릿에서 보통 시간까지 함께 표시하길 원하므로 datetime 으로.
+        // 영문/대문자 *_DATE 는 명명 의미를 살려 date 만 유지.
+        for (const k of ['강의날짜', '수업날짜', '예정일']) {
+          // 클라이언트 buildDataDict 가 이미 date 만 넣어 보낸 경우에도 datetime 으로 덮어쓰기 위해 비교 조건을 datetime 기준으로 둠.
+          const cur = p[k]
+          if (cur === undefined || cur === null || cur === '' || cur === f.date) p[k] = f.datetime
+        }
+        for (const k of ['SCHEDULED_DATE', 'scheduled_date']) setIfEmpty(k, f.date)
         for (const k of ['강의시간', '수업시간', '예정시간', 'SCHEDULED_TIME', 'scheduled_time']) setIfEmpty(k, f.time)
         for (const k of ['강의일시', '수업일시', '예정일시', '일시', 'SCHEDULED_DATETIME', 'scheduled_datetime']) setIfEmpty(k, f.datetime)
       }
@@ -418,6 +425,23 @@ Deno.serve(async (req: Request) => {
         outBody = obj
       } else {
         outBody = resolved
+      }
+    }
+
+    // 정규 탭 템플릿에서 `variables.강의핵심내용1=""` 처럼 빈 값으로 둔 슬롯을 강의 변수/payload 에서 자동 보강.
+    // 운영자가 강의별 변수 패널에서 입력해 둔 값을 카카오 변수명에 자동 매핑하기 위함.
+    if (typeof outBody === 'object' && outBody !== null) {
+      const obj = outBody as Record<string, unknown>
+      const p = payload as Payload
+      for (const [k, v] of Object.entries(obj)) {
+        if (typeof v !== 'string' || v !== '') continue
+        // `variables.X` 형식이면 X 키, 그 외 단순 키도 그대로 검사
+        const m = k.match(/^variables\.(.+)$/)
+        const innerKey = m ? m[1].trim() : k
+        const pv = p[innerKey]
+        if (pv !== undefined && pv !== null && pv !== '') {
+          obj[k] = typeof pv === 'string' ? pv : String(pv)
+        }
       }
     }
 

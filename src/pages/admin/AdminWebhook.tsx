@@ -247,36 +247,6 @@ export default function AdminWebhook() {
     ]).finally(() => setLoading(false))
   }, [])
 
-  const handleTestCustom = async (ce: CustomEvent) => {
-    if (!config.url) { toast.error('수신 URL이 설정되지 않았습니다.'); return }
-    try {
-      const fakePayload = {
-        ITEM1: '테스트유저', ITEM2: '010-1234-5678', ITEM2_NOH: '01012345678',
-        TITLE: ce.label,
-        DATE: new Date().toLocaleDateString('ko-KR'),
-        TIME: new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        name: '테스트유저', user_name: '테스트유저', phone: '010-1234-5678', user_phone: '010-1234-5678',
-        email: 'test@example.com', user_email: 'test@example.com',
-        coupon_name: '[테스트] 쿠폰 10,000원 할인', coupon_value: 10000, expires_at: '2026-12-31',
-        point_amount: 10000, point_balance: 50000,
-      }
-      const { data } = await supabase.functions.invoke('webhook-send', {
-        body: {
-          event: 'custom',
-          custom_event_code: ce.code,
-          custom_template_override: ce.template,
-          payload: fakePayload,
-          test_mode: true,
-        },
-      })
-      const result = data as { status?: string; response_status?: number; error_message?: string; response_body?: string }
-      if (result.status === 'success') toast.success(`전송 성공 (HTTP ${result.response_status ?? '?'})`)
-      else toast.error(`전송 실패: ${result.error_message || result.response_body || '알 수 없음'}`, { duration: 6000 })
-    } catch (err) {
-      toast.error(`Edge Function 호출 실패: ${err instanceof Error ? err.message : ''}`)
-    }
-  }
-
   const handleTest = async (tab: TabId) => {
     if (!config.url) { toast.error('수신 URL을 입력해주세요.'); return }
     const phone = (testPhone || '').replace(/[^\d]/g, '')
