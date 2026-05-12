@@ -39,13 +39,37 @@ export function invalidateR2ConfigCache() {
 const TUS_THRESHOLD = 6 * 1024 * 1024
 const TUS_CHUNK_SIZE = 6 * 1024 * 1024
 
+// access_token 이 곧 만료되면 미리 한 번 갱신해서 stale token 으로 invoke 가 401 맞는 케이스 방지.
+// autoRefreshToken 이 켜져 있어도 백그라운드 탭/절전 복귀 직후엔 refresh 큐가 안 돌아 stale 토큰이 그대로 나간다.
+async function ensureFreshToken(marginSeconds = 60): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session || !session.expires_at) return
+  const now = Math.floor(Date.now() / 1000)
+  if (session.expires_at - now < marginSeconds) {
+    await supabase.auth.refreshSession()
+  }
+}
+
 // Cloudflare R2 — 클라이언트가 edge function 으로부터 presigned PUT URL 을 받아서
 // 직접 R2 에 PUT 한다. 데이터가 한 번만 흐르고 Supabase egress 비용도 안 든다.
 // 반환값은 사용자 페이지에서 그대로 src 로 쓸 수 있는 public URL.
 async function uploadToR2(logicalBucket: string, path: string, file: File): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('r2-presign', {
+  await ensureFreshToken()
+  const invokePresign = () => supabase.functions.invoke('r2-presign', {
     body: { logicalBucket, path, contentType: file.type || 'application/octet-stream' },
   })
+
+  let { data, error } = await invokePresign()
+  // 401/403 등 인증 실패 시 한 번 강제 refresh 후 재시도. supabase-js 는 invoke 의 non-2xx 를
+  // FunctionsHttpError 로만 포장해서 status 를 깔끔히 못 꺼낸다 — 메시지 패턴으로 판별한다.
+  if (error && /non-2xx|401|403|invalid auth|jwt/i.test(error.message)) {
+    const refreshed = await supabase.auth.refreshSession()
+    if (refreshed.data.session) {
+      const retry = await invokePresign()
+      data = retry.data
+      error = retry.error
+    }
+  }
   if (error) throw new Error(`R2 presign 실패: ${error.message}`)
   const { uploadUrl, publicUrl, hasPublicBase } = data as { uploadUrl: string; publicUrl: string | null; hasPublicBase: boolean }
   if (!uploadUrl) throw new Error('R2 presign 응답에 uploadUrl 누락')
