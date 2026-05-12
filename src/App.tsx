@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useRef } from 'react'
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider } from './contexts/AuthContext'
 import Header from './components/Header'
@@ -111,6 +111,17 @@ function UtmCapture() {
   return null
 }
 
+// 라우트 변경 시 스크롤 최상단으로. 뒤로/앞으로(POP) 는 브라우저가 위치 복원하도록 둠.
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  const navType = useNavigationType()
+  useEffect(() => {
+    if (navType === 'POP') return
+    window.scrollTo(0, 0)
+  }, [pathname, navType])
+  return null
+}
+
 function DynamicMeta() {
   const biz = useBusinessInfo()
   useEffect(() => {
@@ -130,6 +141,7 @@ function App() {
       <AuthProvider>
         <div className="w-full font-sans bg-white min-h-screen flex flex-col">
           <LoadingBar />
+          <ScrollToTop />
           <UtmCapture />
           <DynamicMeta />
           <SeoHead />
