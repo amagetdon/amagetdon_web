@@ -27,9 +27,29 @@ import { useAcademySettings } from '../hooks/useAcademySettings'
 function CourseDetailPage() {
   const { id } = useParams()
   const courseId = id ? Number(id) : null
-  const { course, loading } = useCourse(courseId)
+  const { course: serverCourse, loading } = useCourse(courseId)
   const [searchParams] = useSearchParams()
   const isClosed = searchParams.get('closed') === 'true'
+  const isPreview = searchParams.get('preview') === '1'
+
+  // 어드민의 "미리보기" 버튼이 localStorage 에 넣어둔 편집 중 데이터.
+  // 서버 course 위에 spread overlay 해서 저장하지 않은 변경사항을 화면에 반영한다.
+  const previewOverrides = useMemo(() => {
+    if (!isPreview || !courseId) return null
+    try {
+      const raw = localStorage.getItem(`preview_course_${courseId}`)
+      if (!raw) return null
+      return JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }, [isPreview, courseId])
+
+  const course = useMemo(() => {
+    if (!serverCourse) return serverCourse
+    if (!previewOverrides) return serverCourse
+    return { ...serverCourse, ...previewOverrides } as typeof serverCourse
+  }, [serverCourse, previewOverrides])
   useEffect(() => { webhookService.markLandingEntry() }, [])
   const navigate = useNavigate()
   const { user, profile, refreshProfile, isAdmin } = useAuth()
@@ -528,6 +548,12 @@ function CourseDetailPage() {
 
   return (
     <>
+      {isPreview && previewOverrides && (
+        <div className="sticky top-0 z-50 w-full bg-[#2ED573] text-white py-2 px-4 text-center text-sm font-bold shadow">
+          <i className="ti ti-eye mr-1" />
+          미리보기 모드 — 저장하지 않은 편집 상태입니다. 실제 화면과 다를 수 있어요.
+        </div>
+      )}
       <SeoHead override={{
         title: course.seo?.title || course.title,
         description: course.seo?.description || undefined,

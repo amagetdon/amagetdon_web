@@ -1,5 +1,5 @@
-import { useState, useEffect, Fragment } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo, Fragment } from 'react'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
@@ -22,9 +22,29 @@ function EbookDetailPage() {
   const navigate = useNavigate()
   const { user, profile, refreshProfile } = useAuth()
   const { closedVisualEffect } = useAcademySettings()
+  const [searchParams] = useSearchParams()
+  const isPreview = searchParams.get('preview') === '1'
   useEffect(() => { webhookService.markLandingEntry() }, [])
 
-  const [ebook, setEbook] = useState<EbookWithInstructor | null>(null)
+  // 어드민의 "미리보기" 버튼이 localStorage 에 넣어둔 편집 중 데이터 — 서버 ebook 위에 overlay.
+  const previewOverrides = useMemo(() => {
+    if (!isPreview || !ebookId) return null
+    try {
+      const raw = localStorage.getItem(`preview_ebook_${ebookId}`)
+      if (!raw) return null
+      return JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }, [isPreview, ebookId])
+
+  const [serverEbook, setServerEbook] = useState<EbookWithInstructor | null>(null)
+  const ebook = useMemo(() => {
+    if (!serverEbook) return serverEbook
+    if (!previewOverrides) return serverEbook
+    return { ...serverEbook, ...previewOverrides } as EbookWithInstructor
+  }, [serverEbook, previewOverrides])
+  const setEbook = setServerEbook
   const [loading, setLoading] = useState(true)
   const [owned, setOwned] = useState(false)
   const [ownershipLoading, setOwnershipLoading] = useState(true)
@@ -336,6 +356,12 @@ function EbookDetailPage() {
 
   return (
     <>
+      {isPreview && previewOverrides && (
+        <div className="sticky top-0 z-50 w-full bg-[#2ED573] text-white py-2 px-4 text-center text-sm font-bold shadow">
+          <i className="ti ti-eye mr-1" />
+          미리보기 모드 — 저장하지 않은 편집 상태입니다. 실제 화면과 다를 수 있어요.
+        </div>
+      )}
       <SeoHead override={{
         title: ebook.seo?.title || ebook.title,
         description: ebook.seo?.description || undefined,

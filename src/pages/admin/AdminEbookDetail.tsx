@@ -695,13 +695,36 @@ export default function AdminEbookDetail() {
             </div>
 
             <div className="flex items-center justify-between gap-3 mt-6 pt-5 border-t border-gray-100">
-              <button
-                onClick={handleInfoSave}
-                disabled={saving}
-                className="bg-[#2ED573] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50"
-              >
-                {saving ? '저장 중...' : isNew ? '전자책 등록' : '기본 정보 저장'}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleInfoSave}
+                  disabled={saving}
+                  className="bg-[#2ED573] text-white px-6 py-2.5 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50"
+                >
+                  {saving ? '저장 중...' : isNew ? '전자책 등록' : '기본 정보 저장'}
+                </button>
+                {!isNew && ebookId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!editing) return
+                      const instructor = instructors.find((i) => i.id === editing.instructor_id) ?? null
+                      try {
+                        localStorage.setItem(`preview_ebook_${ebookId}`, JSON.stringify({ ...editing, instructor }))
+                      } catch {
+                        toast.error('미리보기 데이터를 저장하지 못했습니다.')
+                        return
+                      }
+                      window.open(`/ebook/${ebookId}?preview=1`, '_blank', 'noopener,noreferrer')
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 rounded-lg text-sm font-medium cursor-pointer hover:border-[#2ED573] hover:text-[#2ED573] transition-colors"
+                    title="저장하지 않은 편집 상태로 새 탭에서 상품 페이지를 엽니다"
+                  >
+                    <i className="ti ti-external-link text-sm" />
+                    미리보기
+                  </button>
+                )}
+              </div>
               {!isNew && ebookId && (
                 <button
                   onClick={() => setDeleteTarget(ebookId)}
