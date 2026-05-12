@@ -44,7 +44,7 @@ function CouponBanner() {
   if (coupons.length === 0) return null
 
   return (
-    <section className="w-full py-10 max-sm:py-6">
+    <section className="w-full pt-10 pb-20 max-sm:pt-6 max-sm:pb-12">
       <style>{`
         .coupon-ticket {
         }
