@@ -3,6 +3,7 @@ import { useHomeData } from '../hooks/useHomeData'
 import FreeEbooks from '../components/FreeEbooks'
 import ScheduleCalendar from '../components/ScheduleCalendar'
 import FreeCourses from '../components/FreeCourses'
+import PremiumCourses from '../components/PremiumCourses'
 import RealResults from '../components/RealResults'
 import InstructorSection from '../components/InstructorSection'
 import BottomLinks from '../components/BottomLinks'
@@ -19,6 +20,7 @@ function HomePage() {
       <FreeEbooks ebooks={data.freeEbooks} loading={loading} />
       <CouponBanner />
       <ScheduleCalendar schedules={data.schedules} />
+      <PremiumCourses courses={data.premiumCourses} loading={loading} />
       <FreeCourses courses={data.freeCourses} loading={loading} />
       <RealResults results={data.results} reviews={data.reviews} loading={loading} />
       <InstructorSection instructors={data.instructors} loading={loading} />

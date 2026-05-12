@@ -15,6 +15,7 @@ interface HomeData {
   heroBanners: Banner[]
   freeEbooks: EbookWithInstructor[]
   freeCourses: CourseWithInstructor[]
+  premiumCourses: CourseWithInstructor[]
   instructors: Instructor[]
   results: Result[]
   reviews: ReviewWithCourse[]
@@ -26,6 +27,7 @@ const EMPTY: HomeData = {
   heroBanners: [],
   freeEbooks: [],
   freeCourses: [],
+  premiumCourses: [],
   instructors: [],
   results: [],
   reviews: [],
@@ -41,6 +43,7 @@ async function fetchHomeData(year: number, month: number): Promise<HomeData> {
     supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order').then((r) => r),
     supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
     supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
+    supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'premium').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
     supabase.from('instructors').select('*').eq('is_published', true).order('sort_order').then((r) => r),
     supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(4).then((r) => r),
     supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).gte('rating', 4).order('created_at', { ascending: false }).limit(10).then((r) => r),
@@ -51,12 +54,13 @@ async function fetchHomeData(year: number, month: number): Promise<HomeData> {
   const results = await Promise.allSettled(queries.map((q) => withTimeout(q, 15000)))
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const getData = (r: PromiseSettledResult<any>) => (r.status === 'fulfilled' ? (r.value.data ?? []) : [])
-  const [hero, ebooks, courses, instructors, resultData, reviews, schedules, bottomLinks] = results
+  const [hero, ebooks, courses, premiumCoursesRes, instructors, resultData, reviews, schedules, bottomLinks] = results
 
   return {
     heroBanners: getData(hero) as Banner[],
     freeEbooks: getData(ebooks) as EbookWithInstructor[],
     freeCourses: getData(courses) as CourseWithInstructor[],
+    premiumCourses: getData(premiumCoursesRes) as CourseWithInstructor[],
     instructors: getData(instructors) as Instructor[],
     results: getData(resultData) as Result[],
     reviews: getData(reviews) as ReviewWithCourse[],
