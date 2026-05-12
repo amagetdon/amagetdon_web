@@ -393,16 +393,21 @@ export default function AdminMembers() {
   const handleRoleChange = async () => {
     if (!roleTarget) return
     try {
-      const { error } = await supabase
+      // update 가 RLS 로 막혀 0행을 반환해도 error 가 없으므로, select 로 결과를 직접 확인.
+      const { data, error } = await supabase
         .from('profiles')
         .update({ role: roleTarget.newRole } as never)
         .eq('id', roleTarget.id)
+        .select('id, role')
       if (error) throw error
+      if (!data || data.length === 0) {
+        throw new Error('업데이트된 행이 없습니다. profiles RLS 정책이 admin update 를 허용하는지 확인해 주세요.')
+      }
       toast.success(`${roleTarget.name || '회원'}의 권한이 ${roleTarget.newRole === 'admin' ? '관리자' : '일반회원'}으로 변경되었습니다.`)
       setRoleTarget(null)
       await fetchData()
-    } catch {
-      toast.error('권한 변경에 실패했습니다.')
+    } catch (err) {
+      toast.error(`권한 변경 실패: ${err instanceof Error ? err.message : String(err)}`)
     }
   }
 
@@ -1128,6 +1133,9 @@ export default function AdminMembers() {
         onConfirm={handleRoleChange}
         title="권한 변경"
         message={roleTarget ? `${roleTarget.name}의 권한을 ${roleTarget.newRole === 'admin' ? '관리자' : '일반회원'}으로 변경하시겠습니까?` : ''}
+        confirmText="변경"
+        confirmColor="green"
+        icon="ti-shield"
       />
     </AdminLayout>
   )

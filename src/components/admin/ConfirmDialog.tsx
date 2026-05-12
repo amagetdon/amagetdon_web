@@ -9,6 +9,8 @@ interface ConfirmDialogProps {
   message?: string
   confirmText?: string
   confirmColor?: 'red' | 'green'
+  // 아이콘 override (예: 'ti-shield'). 미지정 시 confirmColor 에 맞춰 ti-trash / ti-check.
+  icon?: string
   loading?: boolean
 }
 
@@ -20,8 +22,10 @@ export default function ConfirmDialog({
   message = '정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
   confirmText = '삭제',
   confirmColor = 'red',
+  icon,
   loading = false,
 }: ConfirmDialogProps) {
+  const iconClass = icon || (confirmColor === 'red' ? 'ti-trash' : 'ti-check')
   return (
     <Transition show={isOpen} as={Fragment}>
       <Dialog onClose={onClose} className="relative z-50">
@@ -51,7 +55,7 @@ export default function ConfirmDialog({
               <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
                 confirmColor === 'red' ? 'bg-red-50' : 'bg-[#2ED573]/10'
               }`}>
-                <i className={`ti ${confirmColor === 'red' ? 'ti-trash text-red-500' : 'ti-check text-[#2ED573]'} text-xl`} />
+                <i className={`ti ${iconClass} text-xl ${confirmColor === 'red' ? 'text-red-500' : 'text-[#2ED573]'}`} />
               </div>
               <DialogTitle className="text-base font-bold text-gray-900">{title}</DialogTitle>
               <p className="text-sm text-gray-500 mt-2 leading-relaxed">{message}</p>
