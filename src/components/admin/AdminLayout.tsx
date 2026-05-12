@@ -1,28 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import { supabase } from '../../lib/supabase'
-
-// 어드민 페이지에 머무는 동안 access_token 이 만료되어 다음 업로드/저장이 401 로 끊기는 걸 방지.
-// 5분마다 + 탭이 다시 보일 때마다 만료 임박(5분 이내) 이면 미리 refresh 한다.
-// "임박할 때만" 부르는 게 핵심 — 매번 강제 refresh 면 멀티탭/공유 계정 환경에서 refresh_token
-// 회전 충돌이 늘어나 오히려 강제 로그아웃이 잦아진다.
-const TOKEN_CHECK_INTERVAL_MS = 5 * 60 * 1000
-const TOKEN_REFRESH_MARGIN_S = 5 * 60
-
-async function refreshIfExpiringSoon() {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session || !session.expires_at) return
-  const now = Math.floor(Date.now() / 1000)
-  if (session.expires_at - now < TOKEN_REFRESH_MARGIN_S) {
-    try {
-      await supabase.auth.refreshSession()
-    } catch {
-      // refresh_token 이 회전 충돌로 거부됐을 수 있다. 여기서 강제 로그아웃 처리하지 않고
-      // 다음 API 호출 시 storageService 의 401 재시도 로직이 한 번 더 갱신을 시도하게 둔다.
-    }
-  }
-}
 
 const NAV_GROUPS = [
   {
@@ -87,19 +65,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const location = useLocation()
   const { profile } = useAuth()
   const [mobileOpen, setMobileOpen] = useState(false)
-
-  useEffect(() => {
-    void refreshIfExpiringSoon()
-    const timer = setInterval(() => { void refreshIfExpiringSoon() }, TOKEN_CHECK_INTERVAL_MS)
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') void refreshIfExpiringSoon()
-    }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => {
-      clearInterval(timer)
-      document.removeEventListener('visibilitychange', onVisible)
-    }
-  }, [])
 
   const sidebar = (
     <>
