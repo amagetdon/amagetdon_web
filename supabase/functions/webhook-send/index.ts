@@ -282,6 +282,8 @@ Deno.serve(async (req: Request) => {
 
     // scope='course' 인 경우 강의별로 미리 정의된 변수(courses.webhook_variables)·강사 정보·강의일시를 payload 에 머지.
     // 호출자가 같은 키를 이미 채워 보냈으면 그쪽이 우선 — 자동 주입은 빈 슬롯만 채운다.
+    // 단, courseWebhookVars 는 outBody 단계에서 강의별 변수 '우선 적용' 에도 사용되므로 분기 밖 상위 스코프에 둔다.
+    let courseWebhookVars: Record<string, unknown> = {}
     if (scope === 'course' && scope_id != null) {
       const { data: courseRow } = await supabase
         .from('courses')
@@ -296,6 +298,7 @@ Deno.serve(async (req: Request) => {
         webhook_variables?: Record<string, unknown>
         instructor?: { name?: string; title?: string; image_url?: string; thumbnail_url?: string } | null
       } | null
+      courseWebhookVars = (cr?.webhook_variables ?? {}) as Record<string, unknown>
       const p = payload as Payload
       const setIfEmpty = (k: string, v: string | undefined | null) => {
         if (!v) return
@@ -352,8 +355,7 @@ Deno.serve(async (req: Request) => {
         setIfEmpty('enrollment_deadline_datetime', enrDl.datetime)
       }
       // 4) 강의별 사용자 정의 변수
-      const courseVars = (cr?.webhook_variables ?? {}) as Record<string, unknown>
-      for (const [k, v] of Object.entries(courseVars)) {
+      for (const [k, v] of Object.entries(courseWebhookVars)) {
         if (p[k] === undefined || p[k] === '' || p[k] === null) p[k] = v as string
       }
     }
@@ -436,14 +438,36 @@ Deno.serve(async (req: Request) => {
     if (typeof outBody === 'object' && outBody !== null) {
       const obj = outBody as Record<string, unknown>
       const p = payload as Payload
+      // 보조 함수: outBody 의 키에서 `variables.` 접두 + `{`/`}` 양 끝 정규화 후 후보 키 목록 반환
+      const keyCandidates = (k: string): string[] => {
+        const m = k.match(/^variables\.(.+)$/)
+        const rawKey = m ? m[1].trim() : k
+        const cleanKey = rawKey.replace(/^[{[]+|[}\]]+$/g, '').trim()
+        return Array.from(new Set([rawKey, cleanKey].filter(Boolean)))
+      }
+
+      // (1) 빈 값 슬롯 자동 보강
       for (const [k, v] of Object.entries(obj)) {
         if (typeof v !== 'string' || v !== '') continue
-        // `variables.X` 형식이면 X 키, 그 외 단순 키도 그대로 검사
-        const m = k.match(/^variables\.(.+)$/)
-        const innerKey = m ? m[1].trim() : k
-        const pv = p[innerKey]
-        if (pv !== undefined && pv !== null && pv !== '') {
-          obj[k] = typeof pv === 'string' ? pv : String(pv)
+        for (const candidate of keyCandidates(k)) {
+          const pv = p[candidate]
+          if (pv !== undefined && pv !== null && pv !== '') {
+            obj[k] = typeof pv === 'string' ? pv : String(pv)
+            break
+          }
+        }
+      }
+
+      // (2) 강의 변수(courses.webhook_variables) 우선 적용:
+      //     운영자가 강의별로 등록해둔 키는 정규 탭 템플릿의 default(`{#open_chat_url#}` 등) 보다 우선시한다.
+      //     같은 키가 outBody 의 자리(variables.X 또는 variables.{X) 와 매칭되면 값 그대로 덮어쓴다.
+      for (const [vk, vv] of Object.entries(courseWebhookVars)) {
+        if (vv == null || vv === '') continue
+        const value = typeof vv === 'string' ? vv : String(vv)
+        for (const ok of Object.keys(obj)) {
+          if (keyCandidates(ok).includes(vk)) {
+            obj[ok] = value
+          }
         }
       }
     }
