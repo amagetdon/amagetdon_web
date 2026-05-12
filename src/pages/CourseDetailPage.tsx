@@ -408,6 +408,8 @@ function CourseDetailPage() {
         userPhone: profile.phone || '',
         userEmail: profile.email || '',
         title: course.title,
+        scope: 'course',
+        scopeId: course.id,
       }).catch(() => {})
       webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile.name || '', userPhone: profile.phone || '', userEmail: profile.email || '', scope: 'course', scopeId: course.id, courseTitle: course.title }).catch(() => {})
       // 정원 도달 시 enrollment_full 자동 트리거

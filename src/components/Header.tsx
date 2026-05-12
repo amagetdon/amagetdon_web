@@ -4,12 +4,14 @@ import { useAuth } from '../contexts/AuthContext'
 import { authService } from '../services/authService'
 import { useBusinessInfo } from '../hooks/useBusinessInfo'
 import { usePublishedLandingCategories } from '../hooks/useLandingCategories'
+import { useNavVisibility, type NavVisibility } from '../hooks/useNavVisibility'
 function Header() {
   const biz = useBusinessInfo()
   const location = useLocation()
   const navigate = useNavigate()
   const { user, profile, isAdmin } = useAuth()
   const { categories: landingCategories } = usePublishedLandingCategories()
+  const navVisibility = useNavVisibility()
   const currentPath = location.pathname
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -24,17 +26,17 @@ function Header() {
     }
   }
 
-  const baseNavItems = [
-    { label: '아마겟돈', path: '/' },
-    { label: '아카데미', path: '/academy' },
-    { label: '강사소개', path: '/instructors' },
-    { label: '수강 후기', path: '/reviews' },
-    { label: '수강 성과', path: '/results' },
-    { label: 'FAQ', path: '/faq' },
+  const baseNavItems: Array<{ label: string; path: string; key: keyof NavVisibility }> = [
+    { label: '아마겟돈', path: '/', key: 'home' },
+    { label: '아카데미', path: '/academy', key: 'academy' },
+    { label: '강사소개', path: '/instructors', key: 'instructors' },
+    { label: '수강 후기', path: '/reviews', key: 'reviews' },
+    { label: '수강 성과', path: '/results', key: 'results' },
+    { label: 'FAQ', path: '/faq', key: 'faq' },
   ]
 
   const navItems = [
-    ...baseNavItems,
+    ...baseNavItems.filter((item) => navVisibility[item.key] !== false),
     ...landingCategories.map((c) => ({ label: c.name, path: `/landing/${c.slug}` })),
   ]
 

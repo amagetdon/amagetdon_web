@@ -13,6 +13,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { AwsClient } from 'https://esm.sh/aws4fetch@1.0.20'
 import { corsHeaders } from '../_shared/cors.ts'
+import { verifyToken } from '../_shared/auth.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -246,10 +247,10 @@ Deno.serve(async (req: Request) => {
       } catch { /* ignore */ }
     }
     if (!isServiceRole) {
-      const userClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: `Bearer ${token}` } } })
-      const { data: userRes, error } = await userClient.auth.getUser(token)
-      if (error || !userRes.user) return json({ error: 'invalid auth' }, 401)
-      const { data: prof } = await userClient.from('profiles').select('role').eq('id', userRes.user.id).maybeSingle()
+      const verified = await verifyToken(token, supabaseUrl, anonKey, serviceKey)
+      if (!verified) return json({ error: 'invalid auth' }, 401)
+      const adminClient = createClient(supabaseUrl, serviceKey)
+      const { data: prof } = await adminClient.from('profiles').select('role').eq('id', verified.user!.id).maybeSingle()
       if ((prof as { role?: string } | null)?.role !== 'admin') return json({ error: 'admin only' }, 403)
     }
 

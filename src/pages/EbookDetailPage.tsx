@@ -256,6 +256,8 @@ function EbookDetailPage() {
         userPhone: profile.phone || '',
         userEmail: profile.email || '',
         title: ebook.title,
+        scope: 'ebook',
+        scopeId: ebook.id,
       }).catch(() => {})
       webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile.name || '', userPhone: profile.phone || '', userEmail: profile.email || '', scope: 'ebook', scopeId: ebook.id, courseTitle: ebook.title }).catch(() => {})
       toast.success('전자책을 구매했습니다!')

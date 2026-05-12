@@ -10,6 +10,7 @@ import { bannerService } from '../../services/bannerService'
 import { resultService } from '../../services/resultService'
 import { supabase } from '../../lib/supabase'
 import { invalidateAcademySettings } from '../../hooks/useAcademySettings'
+import { invalidateNavVisibility, DEFAULT_NAV_VISIBILITY, type NavVisibility } from '../../hooks/useNavVisibility'
 import type { LandingCategory, LandingCategorySeo, Banner, Result } from '../../types'
 
 interface EditingForm {
@@ -31,7 +32,7 @@ const emptyForm: EditingForm = {
   seo: {},
 }
 
-type PageTab = 'landing' | 'academy' | 'hero' | 'results'
+type PageTab = 'landing' | 'academy' | 'hero' | 'results' | 'visibility'
 type BannerSubTab = 'hero' | 'reviews' | 'results' | 'faq'
 
 const PAGE_TABS: { key: PageTab; label: string }[] = [
@@ -39,6 +40,16 @@ const PAGE_TABS: { key: PageTab; label: string }[] = [
   { key: 'academy', label: '아카데미' },
   { key: 'hero', label: '히어로 배너' },
   { key: 'results', label: '리얼 성과' },
+  { key: 'visibility', label: '메뉴 노출' },
+]
+
+const NAV_VISIBILITY_ITEMS: Array<{ key: keyof NavVisibility; label: string; path: string }> = [
+  { key: 'home', label: '아마겟돈', path: '/' },
+  { key: 'academy', label: '아카데미', path: '/academy' },
+  { key: 'instructors', label: '강사소개', path: '/instructors' },
+  { key: 'reviews', label: '수강 후기', path: '/reviews' },
+  { key: 'results', label: '수강 성과', path: '/results' },
+  { key: 'faq', label: 'FAQ', path: '/faq' },
 ]
 
 export default function AdminPages() {
@@ -89,12 +100,16 @@ export default function AdminPages() {
 
   const [search, setSearch] = useState('')
 
+  // 메뉴 노출 토글
+  const [navVisibility, setNavVisibility] = useState<NavVisibility>(DEFAULT_NAV_VISIBILITY)
+  const [navVisibilitySaving, setNavVisibilitySaving] = useState(false)
+
   const filteredResults = results.filter((r) => r.author_name.includes(search) || r.title.includes(search))
 
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [data, promoRes, heroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, resultData, settingsData, academyRes] = await Promise.all([
+      const [data, promoRes, heroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, resultData, settingsData, academyRes, navRes] = await Promise.all([
         landingCategoryService.getAll(),
         supabase.from('site_settings').select('value').eq('key', 'promo_video').maybeSingle(),
         bannerService.getAllByPage('hero'),
@@ -107,12 +122,15 @@ export default function AdminPages() {
         resultService.getAll({ perPage: 50 }),
         supabase.from('site_settings').select('*').eq('key', 'banner_settings').maybeSingle(),
         supabase.from('site_settings').select('value').eq('key', 'academy_settings').maybeSingle(),
+        supabase.from('site_settings').select('value').eq('key', 'nav_visibility').maybeSingle(),
       ])
       setCategories(data)
       const promoValue = (promoRes.data as { value?: { url?: string } } | null)?.value
       setPromoVideoUrl(promoValue?.url || '')
       const academyValue = (academyRes.data as { value?: { closedVisualEffect?: boolean } } | null)?.value
       setClosedVisualEffect(academyValue?.closedVisualEffect !== false)
+      const navValue = (navRes.data as { value?: Partial<NavVisibility> } | null)?.value ?? {}
+      setNavVisibility({ ...DEFAULT_NAV_VISIBILITY, ...navValue })
       setAllBanners({ hero: heroBanners, reviews: reviewsBanners, results: resultsBanners, faq: faqBanners, reviews_event: reviewsEvent, results_event: resultsEvent, faq_event: faqEvent })
       setResults(resultData.data)
       const settingsValue = (settingsData.data as { value?: Record<string, { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }> } | null)?.value
@@ -143,6 +161,22 @@ export default function AdminPages() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  const handleNavVisibilitySave = async () => {
+    try {
+      setNavVisibilitySaving(true)
+      await supabase.from('site_settings').upsert(
+        { key: 'nav_visibility', value: navVisibility } as never,
+        { onConflict: 'key' },
+      )
+      invalidateNavVisibility()
+      toast.success('메뉴 노출 설정이 저장되었습니다.')
+    } catch {
+      toast.error('저장에 실패했습니다.')
+    } finally {
+      setNavVisibilitySaving(false)
+    }
+  }
 
   const handleAcademySave = async () => {
     try {
@@ -867,6 +901,52 @@ export default function AdminPages() {
             </table>
           </div>
         </>
+      ) : tab === 'visibility' ? (
+        <div className="bg-white rounded-xl shadow-sm p-6 max-w-2xl">
+          <div className="mb-4">
+            <h2 className="text-base font-bold text-gray-900">상단 메뉴 노출</h2>
+            <p className="text-xs text-gray-400 mt-1">끄면 메인 헤더 네비게이션과 모바일 메뉴에서 해당 메뉴가 사라집니다. (페이지 자체는 URL 직접 접근 시 그대로 열림)</p>
+          </div>
+
+          <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+            {NAV_VISIBILITY_ITEMS.map((item) => {
+              const on = navVisibility[item.key] !== false
+              return (
+                <div key={item.key} className="flex items-center justify-between px-4 py-3 hover:bg-gray-50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="text-sm font-medium text-gray-900">{item.label}</span>
+                    <code className="text-[11px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded font-mono">{item.path}</code>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={on}
+                    onClick={() => setNavVisibility({ ...navVisibility, [item.key]: !on })}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors border-none cursor-pointer shrink-0 ${
+                      on ? 'bg-[#2ED573]' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${
+                        on ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleNavVisibilitySave}
+              disabled={navVisibilitySaving}
+              className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 disabled:opacity-50"
+            >
+              {navVisibilitySaving ? '저장 중...' : '저장'}
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {/* 랜딩 편집 모달 */}

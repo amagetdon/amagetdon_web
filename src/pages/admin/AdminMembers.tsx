@@ -28,6 +28,11 @@ export default function AdminMembers() {
   const [viewing, setViewing] = useState<MemberWithPurchases | null>(null)
   const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null }[]>([])
   const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; newRole: 'user' | 'admin' } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; email: string } | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  const [addSaving, setAddSaving] = useState(false)
+  const [addForm, setAddForm] = useState({ name: '', email: '', phone: '', password: '' })
   const [pointLogs, setPointLogs] = useState<PointLog[]>([])
   const [pointForm, setPointForm] = useState({ amount: '', memo: '', type: 'charge' as 'charge' | 'deduct' })
   const [pointSubmitting, setPointSubmitting] = useState(false)
@@ -390,6 +395,88 @@ export default function AdminMembers() {
     }
   }
 
+  const generatePassword = () => {
+    // 사람이 옮겨 적기 좋게 헷갈리는 문자(0/O, 1/l/I) 제외 12자.
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+    let p = ''
+    for (let i = 0; i < 12; i++) p += chars[Math.floor(Math.random() * chars.length)]
+    return p
+  }
+
+  const handleAddMember = async () => {
+    if (addSaving) return
+    const phoneDigits = addForm.phone.replace(/\D/g, '')
+    const normalizedPhone = phoneDigits.length === 11
+      ? `${phoneDigits.slice(0, 3)}-${phoneDigits.slice(3, 7)}-${phoneDigits.slice(7)}`
+      : phoneDigits.length === 10
+        ? `${phoneDigits.slice(0, 3)}-${phoneDigits.slice(3, 6)}-${phoneDigits.slice(6)}`
+        : addForm.phone.trim()
+    try {
+      setAddSaving(true)
+      const { data, error } = await supabase.functions.invoke('admin-create-member', {
+        body: {
+          name: addForm.name.trim(),
+          email: addForm.email.trim().toLowerCase(),
+          phone: normalizedPhone || undefined,
+          password: addForm.password,
+        },
+      })
+      if (error) {
+        let bodyMsg = ''
+        const ctx = (error as { context?: unknown }).context
+        if (ctx instanceof Response) {
+          try {
+            const parsed = await ctx.clone().json() as { error?: string }
+            bodyMsg = parsed?.error || ''
+          } catch { /* not JSON */ }
+        }
+        throw new Error(bodyMsg || error.message)
+      }
+      const payload = (data ?? {}) as { error?: string; email?: string }
+      if (payload.error) throw new Error(payload.error)
+      toast.success(`${addForm.name} 회원이 추가되었습니다.`)
+      setAddOpen(false)
+      setAddForm({ name: '', email: '', phone: '', password: '' })
+      await fetchData()
+    } catch (err) {
+      toast.error(`회원 추가 실패: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setAddSaving(false)
+    }
+  }
+
+  const handleDeleteMember = async () => {
+    if (!deleteTarget || deleting) return
+    try {
+      setDeleting(true)
+      const { data, error } = await supabase.functions.invoke('delete-member', {
+        body: { user_id: deleteTarget.id },
+      })
+      if (error) {
+        // Edge Function 의 응답 본문에서 사유 추출 — supabase-js 가 가려두는 부분.
+        let bodyMsg = ''
+        const ctx = (error as { context?: unknown }).context
+        if (ctx instanceof Response) {
+          try {
+            const parsed = await ctx.clone().json() as { error?: string }
+            bodyMsg = parsed?.error || ''
+          } catch { /* not JSON */ }
+        }
+        throw new Error(bodyMsg || error.message)
+      }
+      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error)
+      toast.success(`${deleteTarget.name || '회원'}이(가) 탈퇴 처리되었습니다.`)
+      setDeleteTarget(null)
+      // 회원 상세 모달이 열려있던 상태라면 닫기
+      setViewing((cur) => (cur?.id === deleteTarget.id ? null : cur))
+      await fetchData()
+    } catch (err) {
+      toast.error(`탈퇴 처리 실패: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   const handleRoleChange = async () => {
     if (!roleTarget) return
     try {
@@ -513,22 +600,33 @@ export default function AdminMembers() {
             className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
           />
         </div>
-        <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
-          {(['all', 'email', 'kakao', 'google', 'guest'] as const).map((t) => {
-            const label = { all: '전체', email: '이메일', kakao: '카카오', google: '구글', guest: '비회원' }[t]
-            const active = memberTab === t
-            return (
-              <button
-                key={t}
-                onClick={() => setMemberTab(t)}
-                className={`px-3 py-1.5 rounded-md text-xs font-semibold border-none cursor-pointer transition-colors ${
-                  active ? 'bg-[#2ED573] text-white' : 'bg-transparent text-gray-600 hover:bg-gray-100'
-                }`}
-              >
-                {label} <span className={`ml-1 text-[10px] ${active ? 'text-white/80' : 'text-gray-400'}`}>{tabCounts[t]}</span>
-              </button>
-            )
-          })}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
+            {(['all', 'email', 'kakao', 'google', 'guest'] as const).map((t) => {
+              const label = { all: '전체', email: '이메일', kakao: '카카오', google: '구글', guest: '비회원' }[t]
+              const active = memberTab === t
+              return (
+                <button
+                  key={t}
+                  onClick={() => setMemberTab(t)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-semibold border-none cursor-pointer transition-colors ${
+                    active ? 'bg-[#2ED573] text-white' : 'bg-transparent text-gray-600 hover:bg-gray-100'
+                  }`}
+                >
+                  {label} <span className={`ml-1 text-[10px] ${active ? 'text-white/80' : 'text-gray-400'}`}>{tabCounts[t]}</span>
+                </button>
+              )
+            })}
+          </div>
+          <button
+            onClick={() => {
+              setAddForm({ name: '', email: '', phone: '', password: generatePassword() })
+              setAddOpen(true)
+            }}
+            className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"
+          >
+            <i className="ti ti-user-plus text-sm" /> 회원 추가
+          </button>
         </div>
       </div>
 
@@ -603,31 +701,41 @@ export default function AdminMembers() {
                     <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{formatDate(m.created_at)}</td>
                     <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{m.last_active_at ? formatDate(m.last_active_at) : '-'}</td>
                     <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setRoleTarget({
-                            id: m.id,
-                            name: m.name || '회원',
-                            newRole: m.role === 'admin' ? 'user' : 'admin',
-                          })
-                        }}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg bg-transparent border-none cursor-pointer transition-colors mx-auto ${
-                          m.role === 'admin'
-                            ? 'text-purple-500 hover:text-purple-600 hover:bg-purple-50'
-                            : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50'
-                        }`}
-                        aria-label={m.role === 'admin' ? '관리자 권한 회수' : '관리자 권한 부여'}
-                        title={m.role === 'admin' ? '관리자 (클릭 시 권한 회수)' : '관리자 권한 부여'}
-                      >
-                        {m.role === 'admin' ? (
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd" className="w-4 h-4">
-                            <path d="M11.46 1.137a2 2 0 0 1 1.08 0l8 2.317a2 2 0 0 1 1.46 1.926v6.323a9 9 0 0 1-4.99 8.057l-3.575 1.79a2 2 0 0 1-1.79 0l-3.578-1.79a9 9 0 0 1-4.987-8.057V5.38a2 2 0 0 1 1.46-1.926zm4.247 7.156a1 1 0 0 0-1.414 0l-3.293 3.293-1.293-1.293-.094-.083a1 1 0 0 0-1.32 1.497l2 2 .094.083a1 1 0 0 0 1.32-.083l4-4 .083-.094a1 1 0 0 0-.083-1.32z" />
-                          </svg>
-                        ) : (
-                          <i className="ti ti-shield text-sm" />
-                        )}
-                      </button>
+                      <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => {
+                            setRoleTarget({
+                              id: m.id,
+                              name: m.name || '회원',
+                              newRole: m.role === 'admin' ? 'user' : 'admin',
+                            })
+                          }}
+                          className={`w-8 h-8 flex items-center justify-center rounded-lg bg-transparent border-none cursor-pointer transition-colors ${
+                            m.role === 'admin'
+                              ? 'text-purple-500 hover:text-purple-600 hover:bg-purple-50'
+                              : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50'
+                          }`}
+                          aria-label={m.role === 'admin' ? '관리자 권한 회수' : '관리자 권한 부여'}
+                          title={m.role === 'admin' ? '관리자 (클릭 시 권한 회수)' : '관리자 권한 부여'}
+                        >
+                          {m.role === 'admin' ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" fillRule="evenodd" className="w-4 h-4">
+                              <path d="M11.46 1.137a2 2 0 0 1 1.08 0l8 2.317a2 2 0 0 1 1.46 1.926v6.323a9 9 0 0 1-4.99 8.057l-3.575 1.79a2 2 0 0 1-1.79 0l-3.578-1.79a9 9 0 0 1-4.987-8.057V5.38a2 2 0 0 1 1.46-1.926zm4.247 7.156a1 1 0 0 0-1.414 0l-3.293 3.293-1.293-1.293-.094-.083a1 1 0 0 0-1.32 1.497l2 2 .094.083a1 1 0 0 0 1.32-.083l4-4 .083-.094a1 1 0 0 0-.083-1.32z" />
+                            </svg>
+                          ) : (
+                            <i className="ti ti-shield text-sm" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setDeleteTarget({ id: m.id, name: m.name || '회원', email: m.email || '' })}
+                          disabled={m.id === user?.id}
+                          className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                          aria-label="회원 탈퇴"
+                          title={m.id === user?.id ? '본인 계정은 여기서 탈퇴할 수 없습니다.' : '회원 탈퇴'}
+                        >
+                          <i className="ti ti-user-x text-sm" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1147,6 +1255,131 @@ export default function AdminMembers() {
         confirmText="변경"
         confirmColor="green"
         icon="ti-shield"
+      />
+
+      {/* 회원 추가 모달 */}
+      <Dialog open={addOpen} onClose={() => { if (!addSaving) setAddOpen(false) }} className="relative z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-[#2ED573]/10">
+                <i className="ti ti-user-plus text-xl text-[#2ED573]" />
+              </div>
+              <div>
+                <DialogTitle className="text-base font-bold text-gray-900">회원 추가</DialogTitle>
+                <p className="text-xs text-gray-500 mt-0.5">이메일 인증 없이 즉시 가입 처리됩니다.</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">이름 *</label>
+                <input
+                  type="text"
+                  value={addForm.name}
+                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
+                  placeholder="홍길동"
+                  disabled={addSaving}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">이메일 *</label>
+                <input
+                  type="email"
+                  value={addForm.email}
+                  onChange={(e) => setAddForm({ ...addForm, email: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
+                  placeholder="user@example.com"
+                  autoComplete="off"
+                  disabled={addSaving}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">전화번호</label>
+                <input
+                  type="tel"
+                  value={addForm.phone}
+                  onChange={(e) => setAddForm({ ...addForm, phone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
+                  placeholder="010-0000-0000"
+                  disabled={addSaving}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">비밀번호 * <span className="text-gray-400 font-normal">(6자 이상)</span></label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={addForm.password}
+                    onChange={(e) => setAddForm({ ...addForm, password: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573] font-mono"
+                    autoComplete="off"
+                    disabled={addSaving}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setAddForm({ ...addForm, password: generatePassword() })}
+                    disabled={addSaving}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border-none cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                    title="새 비밀번호 자동 생성"
+                  >
+                    <i className="ti ti-refresh text-sm" /> 재생성
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(addForm.password).then(
+                        () => toast.success('비밀번호가 복사되었습니다.'),
+                        () => toast.error('복사에 실패했습니다.'),
+                      )
+                    }}
+                    disabled={addSaving || !addForm.password}
+                    className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium border-none cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                    title="클립보드에 복사"
+                  >
+                    <i className="ti ti-copy text-sm" /> 복사
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                type="button"
+                onClick={() => setAddOpen(false)}
+                disabled={addSaving}
+                className="flex-1 px-4 py-2.5 text-sm text-gray-600 bg-gray-100 rounded-xl cursor-pointer border-none hover:bg-gray-200 transition-colors disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleAddMember}
+                disabled={addSaving || !addForm.name.trim() || !addForm.email.trim() || addForm.password.length < 6}
+                className="flex-1 px-4 py-2.5 text-sm font-medium text-white bg-[#2ED573] hover:bg-[#25B866] rounded-xl cursor-pointer border-none disabled:opacity-50 transition-colors"
+              >
+                {addSaving ? '추가 중...' : '회원 추가'}
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* 회원 탈퇴 확인 */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => { if (!deleting) setDeleteTarget(null) }}
+        onConfirm={handleDeleteMember}
+        title="회원 탈퇴"
+        message={deleteTarget
+          ? `${deleteTarget.name}${deleteTarget.email ? ` (${deleteTarget.email})` : ''} 회원을 탈퇴 처리하시겠습니까? 계정과 함께 프로필·구매 내역·포인트·후기 등 연관 데이터가 영구 삭제되며 되돌릴 수 없습니다.`
+          : ''}
+        confirmText="탈퇴 처리"
+        confirmColor="red"
+        icon="ti-user-x"
+        loading={deleting}
       />
     </AdminLayout>
   )

@@ -2,6 +2,7 @@
 // D-3, D-1, D-day 도래한 쿠폰 claims에 대해 사용자에게 webhook 발사
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { verifyToken } from '../_shared/auth.ts'
 
 interface CouponClaimRow {
   id: number
@@ -59,16 +60,16 @@ Deno.serve(async (req: Request) => {
       })
     }
     const token = authHeader.replace('Bearer ', '')
-    if (token !== serviceKey) {
-      const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '')
-      const { data: { user } } = await userClient.auth.getUser(token)
-      if (!user) {
-        return new Response(JSON.stringify({ error: 'Invalid auth' }), {
-          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
-      }
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
+    const verified = await verifyToken(token, supabaseUrl, anonKey, serviceKey)
+    if (!verified) {
+      return new Response(JSON.stringify({ error: 'Invalid auth' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+    if (!verified.isServiceRole) {
       const adminCheck = createClient(supabaseUrl, serviceKey)
-      const { data: prof } = await adminCheck.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      const { data: prof } = await adminCheck.from('profiles').select('role').eq('id', verified.user!.id).maybeSingle()
       if ((prof as { role?: string } | null)?.role !== 'admin') {
         return new Response(JSON.stringify({ error: 'Admin only' }), {
           status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

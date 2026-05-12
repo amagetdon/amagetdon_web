@@ -9,7 +9,9 @@ import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
 import RichTextEditor from '../../components/admin/RichTextEditor'
 import WebhookScheduleEditor from '../../components/admin/WebhookScheduleEditor'
+import CourseWebhookVariablesEditor from '../../components/admin/CourseWebhookVariablesEditor'
 import { courseService } from '../../services/courseService'
+import { scheduleService } from '../../services/scheduleService'
 import { reviewService } from '../../services/reviewService'
 import { instructorService } from '../../services/instructorService'
 import { landingCategoryService } from '../../services/landingCategoryService'
@@ -331,6 +333,8 @@ export default function AdminCourseDetail() {
         applicants_refresh_min: -1,
         applicants_refresh_max: 2,
         applicants_daily_growth: null,
+        scheduled_at: null,
+        webhook_variables: {},
       })
       refundPolicyTemplateService.getDefault()
         .then((tpl) => {
@@ -384,10 +388,34 @@ export default function AdminCourseDetail() {
     else setEditing({ ...editing, course_type: type })
   }
 
+  // 강의일시(scheduled_at)를 schedules 테이블에도 1:1 동기화. 홈/캘린더·예약 알림톡이 기존처럼 동작하도록.
+  const syncCourseSchedule = async (cid: number, scheduledAt: string | null, title: string, instructorId: number | null) => {
+    if (!scheduledAt) {
+      await supabase.from('schedules').delete().eq('course_id', cid)
+      scheduleService.invalidate()
+      return
+    }
+    const { data: existing } = await supabase
+      .from('schedules')
+      .select('id')
+      .eq('course_id', cid)
+      .limit(1)
+      .maybeSingle()
+    const row = { course_id: cid, scheduled_at: scheduledAt, title, instructor_id: instructorId }
+    if ((existing as { id?: number } | null)?.id) {
+      await supabase.from('schedules').update(row as never).eq('id', (existing as { id: number }).id)
+    } else {
+      await supabase.from('schedules').insert(row as never)
+    }
+    // 홈 캘린더가 즉시 새 일시를 보여주도록 캐시 무효화
+    scheduleService.invalidate()
+  }
+
   const handleInfoSave = async () => {
     if (!editing) return
     const title = (editing.title as string)?.trim()
     if (!title) { toast.error('강의명은 필수입니다.'); return }
+    if (!editing.scheduled_at) { toast.error('강의일시는 필수입니다.'); return }
     try {
       setSaving(true)
       const courseData = {
@@ -402,6 +430,8 @@ export default function AdminCourseDetail() {
         video_url: editing.video_url ?? null,
         enrollment_start: editing.enrollment_start ?? null,
         enrollment_deadline: editing.enrollment_deadline ?? null,
+        scheduled_at: editing.scheduled_at ?? null,
+        webhook_variables: (editing.webhook_variables as Record<string, string>) ?? {},
         is_published: editing.is_published !== false,
         is_on_sale: editing.is_on_sale !== false,
         reviews_enabled: editing.reviews_enabled !== false,
@@ -429,12 +459,14 @@ export default function AdminCourseDetail() {
       }
       if (isNew) {
         const created = await courseService.create(courseData as never) as { id: number }
+        await syncCourseSchedule(created.id, courseData.scheduled_at as string | null, courseData.title, courseData.instructor_id as number | null)
         toast.success('새 강의가 등록되었습니다.')
         navigate(`/admin/courses/${created.id}`, { replace: true })
         return
       }
       if (!courseId) return
       await courseService.update(courseId, courseData)
+      await syncCourseSchedule(courseId, courseData.scheduled_at as string | null, courseData.title, courseData.instructor_id as number | null)
       toast.success('강의가 수정되었습니다.')
       await loadCourse()
     } catch (err) {
@@ -806,6 +838,13 @@ export default function AdminCourseDetail() {
                   onChange={(e) => setEditing({ ...editing, enrollment_deadline: e.target.value ? e.target.value + ':00+09:00' : null })}
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                 <p className="text-xs text-gray-400 mt-1">이후 구매 회원도 시청 불가</p>
+              </div>
+              <div className="w-[320px] max-sm:w-full">
+                <label className="text-sm font-bold block mb-1">강의일시 <span className="text-red-500">*</span></label>
+                <input type="datetime-local" value={toKstDatetimeLocal(editing.scheduled_at as string)}
+                  onChange={(e) => setEditing({ ...editing, scheduled_at: e.target.value ? e.target.value + ':00+09:00' : null })}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                <p className="text-xs text-gray-400 mt-1">홈/일정 캘린더 · 알림톡 변수에 사용</p>
               </div>
               <div className="w-full">
                 <label className="text-sm font-bold block mb-1">구매 후 안내 링크</label>
@@ -1418,7 +1457,15 @@ export default function AdminCourseDetail() {
         </div>
       ) : tab === 'webhooks' ? (
         courseId ? (
-          <WebhookScheduleEditor scope="course" scopeId={courseId} />
+          <div className="space-y-6">
+            <CourseWebhookVariablesEditor
+              value={(editing?.webhook_variables as Record<string, string>) ?? {}}
+              onChange={(next) => setEditing((prev) => (prev ? { ...prev, webhook_variables: next } : prev))}
+              onSave={handleInfoSave}
+              saving={saving}
+            />
+            <WebhookScheduleEditor scope="course" scopeId={courseId} />
+          </div>
         ) : (
           <p className="text-sm text-gray-400 text-center py-12">강의를 먼저 저장한 뒤 예약 알림톡을 설정할 수 있습니다.</p>
         )

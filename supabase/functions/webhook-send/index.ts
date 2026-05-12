@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { verifyToken } from '../_shared/auth.ts'
 
 interface WebhookConfigRow {
   id: number
@@ -98,28 +99,17 @@ Deno.serve(async (req: Request) => {
         } catch { /* ignore */ }
       }
       if (!isServiceRole) {
-        // 사용자 JWT 검증 후 admin 인지 확인
-        try {
-          const userClient = createClient(supabaseUrl, anonKey)
-          const { data, error } = await userClient.auth.getUser(token)
-          if (error || !data.user) {
-            return new Response(JSON.stringify({ error: 'Test mode requires admin login' }), {
-              status: 403,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            })
-          }
-          user = data.user
-        } catch (authErr) {
-          return new Response(JSON.stringify({ error: 'Auth error: ' + (authErr instanceof Error ? authErr.message : String(authErr)) }), {
+        const verified = await verifyToken(token, supabaseUrl, anonKey, serviceKey)
+        if (!verified) {
+          return new Response(JSON.stringify({ error: 'Test mode requires admin login' }), {
             status: 403,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           })
         }
+        user = { id: verified.user!.id }
 
-        const userClient2 = createClient(supabaseUrl, anonKey, {
-          global: { headers: { Authorization: `Bearer ${token}` } },
-        })
-        const { data: prof, error: profErr } = await userClient2.from('profiles').select('role').eq('id', user.id).maybeSingle()
+        const adminClient = createClient(supabaseUrl, serviceKey)
+        const { data: prof, error: profErr } = await adminClient.from('profiles').select('role').eq('id', user.id).maybeSingle()
         if (profErr) {
           return new Response(JSON.stringify({ error: `Profile check failed: ${profErr.message}` }), {
             status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -164,6 +154,8 @@ Deno.serve(async (req: Request) => {
     // 로그 row 베이스
     const logRow: Record<string, unknown> = {
       event_type: event,
+      // custom event 의 경우 어떤 코드인지도 같이 저장해야 재전송 시 동일한 템플릿을 다시 적용할 수 있다.
+      custom_event_code: event === 'custom' ? custom_event_code : null,
       config_id: config?.id ?? null,
       config_scope: config?.scope ?? null,
       config_scope_id: config?.scope_id ?? null,
@@ -283,6 +275,106 @@ Deno.serve(async (req: Request) => {
       aliases = (event === 'signup' ? cfgFull.signup_variable_aliases
         : event === 'purchase' ? cfgFull.purchase_variable_aliases
         : {}) ?? {}
+    }
+
+    // scope='course' 인 경우 강의별로 미리 정의된 변수(courses.webhook_variables)·강사 정보·강의일시를 payload 에 머지.
+    // 호출자가 같은 키를 이미 채워 보냈으면 그쪽이 우선 — 자동 주입은 빈 슬롯만 채운다.
+    if (scope === 'course' && scope_id != null) {
+      const { data: courseRow } = await supabase
+        .from('courses')
+        .select('title, scheduled_at, enrollment_start, enrollment_deadline, webhook_variables, instructor:instructors(name, title, image_url, thumbnail_url)')
+        .eq('id', scope_id)
+        .maybeSingle()
+      const cr = courseRow as {
+        title?: string
+        scheduled_at?: string | null
+        enrollment_start?: string | null
+        enrollment_deadline?: string | null
+        webhook_variables?: Record<string, unknown>
+        instructor?: { name?: string; title?: string; image_url?: string; thumbnail_url?: string } | null
+      } | null
+      const p = payload as Payload
+      const setIfEmpty = (k: string, v: string | undefined | null) => {
+        if (!v) return
+        if (p[k] === undefined || p[k] === '' || p[k] === null) p[k] = v
+      }
+      // 1) 강사 정보 자동 주입
+      const ins = cr?.instructor ?? null
+      if (ins) {
+        for (const k of ['강사명', 'instructor_name']) setIfEmpty(k, ins.name)
+        for (const k of ['강사직책', 'instructor_title']) setIfEmpty(k, ins.title)
+        for (const k of ['강사이미지', 'instructor_image']) setIfEmpty(k, ins.image_url || ins.thumbnail_url || '')
+      }
+      // 2) 강의 제목
+      if (cr?.title) {
+        for (const k of ['title', 'TITLE', '강의명', '강의제목', '상품명', '수업명', '모임명', '서비스명', '클래스명']) {
+          setIfEmpty(k, cr.title)
+        }
+      }
+      // 3) 강의일시 — payload 에 scheduled_at 가 없으면 강의 컬럼에서 가져와 한글/영문 시간 alias 채움.
+      // scheduled_at 없으면 enrollment_start → enrollment_deadline 폴백.
+      const fmtKst = (iso: string | null | undefined): { date: string; time: string; datetime: string } => {
+        if (!iso) return { date: '', time: '', datetime: '' }
+        const d = new Date(iso)
+        if (Number.isNaN(d.getTime())) return { date: '', time: '', datetime: '' }
+        const date = d.toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }).replace(/\. /g, '.').replace(/\.$/, '')
+        const time = d.toLocaleTimeString('ko-KR', { timeZone: 'Asia/Seoul', hour: '2-digit', minute: '2-digit', hour12: false })
+        return { date, time, datetime: `${date} ${time}` }
+      }
+      const schedIso = (p.scheduled_at as string | null | undefined) || cr?.scheduled_at || cr?.enrollment_start || cr?.enrollment_deadline || null
+      if (schedIso) {
+        if (!p.scheduled_at) p.scheduled_at = schedIso
+        const f = fmtKst(schedIso)
+        for (const k of ['강의날짜', '수업날짜', '예정일', 'SCHEDULED_DATE', 'scheduled_date']) setIfEmpty(k, f.date)
+        for (const k of ['강의시간', '수업시간', '예정시간', 'SCHEDULED_TIME', 'scheduled_time']) setIfEmpty(k, f.time)
+        for (const k of ['강의일시', '수업일시', '예정일시', '일시', 'SCHEDULED_DATETIME', 'scheduled_datetime']) setIfEmpty(k, f.datetime)
+      }
+      const enrStart = fmtKst(cr?.enrollment_start ?? null)
+      if (enrStart.datetime) {
+        setIfEmpty('오픈일시', enrStart.datetime); setIfEmpty('오픈날짜', enrStart.date); setIfEmpty('오픈시간', enrStart.time)
+        setIfEmpty('ENROLLMENT_START', enrStart.datetime); setIfEmpty('ENROLLMENT_START_DATE', enrStart.date); setIfEmpty('ENROLLMENT_START_TIME', enrStart.time)
+        setIfEmpty('enrollment_start_datetime', enrStart.datetime)
+      }
+      const enrDl = fmtKst(cr?.enrollment_deadline ?? null)
+      if (enrDl.datetime) {
+        setIfEmpty('마감일시', enrDl.datetime); setIfEmpty('마감일', enrDl.date); setIfEmpty('마감시간', enrDl.time)
+        setIfEmpty('ENROLLMENT_DEADLINE', enrDl.datetime); setIfEmpty('ENROLLMENT_DEADLINE_DATE', enrDl.date); setIfEmpty('ENROLLMENT_DEADLINE_TIME', enrDl.time)
+        setIfEmpty('enrollment_deadline_datetime', enrDl.datetime)
+      }
+      // 4) 강의별 사용자 정의 변수
+      const courseVars = (cr?.webhook_variables ?? {}) as Record<string, unknown>
+      for (const [k, v] of Object.entries(courseVars)) {
+        if (p[k] === undefined || p[k] === '' || p[k] === null) p[k] = v as string
+      }
+    }
+
+    // payload alias 정규화 — 어떤 클라이언트가 보냈든 영문/한글 표준 키들이 함께 채워지도록.
+    // 예: { name: '홍길동' } 만 와도 user_name/customer_name/이름/고객명 등이 자동 채워짐.
+    {
+      const p = payload as Payload
+      const pickStr = (...keys: string[]): string => {
+        for (const k of keys) {
+          const v = p[k]
+          if (typeof v === 'string' && v.trim()) return v
+        }
+        return ''
+      }
+      const n = pickStr('name', 'user_name', 'customer_name', '이름', '고객명', '회원명', '성함')
+      const ph = pickStr('phone', 'user_phone', '연락처', '전화번호', '핸드폰번호')
+      const em = pickStr('email', 'user_email', '이메일')
+      const tt = pickStr('title', 'TITLE', '강의명', '강의제목', '상품명', '수업명', '모임명', '모임', '서비스명', '클래스명')
+      const setIfEmpty = (k: string, v: string) => {
+        if (!v) return
+        if (p[k] === undefined || p[k] === '' || p[k] === null) p[k] = v
+      }
+      for (const k of ['name', 'user_name', 'customer_name', '이름', '고객명', '회원명', '성함']) setIfEmpty(k, n)
+      for (const k of ['phone', 'user_phone', '연락처', '전화번호', '핸드폰번호']) setIfEmpty(k, ph)
+      // ITEM1/ITEM2 alias 도 함께 (shoong 등 외부 서비스가 쓰는 표준 키)
+      setIfEmpty('ITEM1', n)
+      setIfEmpty('ITEM2', ph)
+      if (ph) setIfEmpty('ITEM2_NOH', ph.replace(/-/g, ''))
+      for (const k of ['email', 'user_email', '이메일']) setIfEmpty(k, em)
+      for (const k of ['title', 'TITLE', '강의명', '강의제목', '상품명', '수업명', '모임명', '모임', '서비스명', '클래스명']) setIfEmpty(k, tt)
     }
 
     // 사용자 정의 canonical 변수 주입 (open_chat_url 등)

@@ -169,7 +169,6 @@ export default function AdminWebhook() {
 
   // 커스텀 이벤트
   const [customEvents, setCustomEvents] = useState<CustomEvent[]>([])
-  const [customEditing, setCustomEditing] = useState<Partial<CustomEvent> | null>(null)
 
   // LLM 템플릿 분석 모달
   const [aliasConfirm, setAliasConfirm] = useState<{
@@ -247,45 +246,6 @@ export default function AdminWebhook() {
       fetchCronInfo(),
     ]).finally(() => setLoading(false))
   }, [])
-
-  const handleSaveCustom = async () => {
-    if (!customEditing) return
-    if (!customEditing.code?.trim()) { toast.error('이벤트 코드를 입력해주세요.'); return }
-    if (!customEditing.label?.trim()) { toast.error('이름을 입력해주세요.'); return }
-    if (!/^[a-z0-9_]+$/i.test(customEditing.code)) {
-      toast.error('코드는 영문/숫자/언더스코어만 사용 가능합니다.')
-      return
-    }
-    try {
-      await webhookService.upsertCustomEvent({
-        id: customEditing.id,
-        code: customEditing.code,
-        label: customEditing.label,
-        description: customEditing.description ?? '',
-        trigger_hint: customEditing.trigger_hint ?? '',
-        template: customEditing.template ?? '',
-        enabled: customEditing.enabled ?? true,
-        sort_order: customEditing.sort_order ?? 0,
-      })
-      toast.success('저장되었습니다.')
-      setCustomEditing(null)
-      fetchCustomEvents()
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : '저장 실패'
-      toast.error(msg.includes('duplicate') || msg.includes('unique') ? '이미 존재하는 코드입니다.' : '저장 실패')
-    }
-  }
-
-  const handleDeleteCustom = async (id: number, code: string) => {
-    if (!confirm(`커스텀 이벤트 "${code}"을 삭제하시겠습니까?`)) return
-    try {
-      await webhookService.deleteCustomEvent(id)
-      toast.success('삭제됨')
-      fetchCustomEvents()
-    } catch {
-      toast.error('삭제 실패')
-    }
-  }
 
   const handleTestCustom = async (ce: CustomEvent) => {
     if (!config.url) { toast.error('수신 URL이 설정되지 않았습니다.'); return }
@@ -389,8 +349,18 @@ export default function AdminWebhook() {
         },
       })
       if (error) {
-        toast.error(`테스트 실패: ${error.message}`)
-        setTestResult({ error_message: error.message })
+        // supabase-js 는 non-2xx 응답 본문을 error.context (Response) 에 담아둠 — 직접 파싱.
+        let bodyMsg = ''
+        const ctx = (error as { context?: unknown }).context
+        if (ctx instanceof Response) {
+          try {
+            const parsed = await ctx.clone().json() as { error?: string }
+            bodyMsg = parsed?.error || ''
+          } catch { /* not JSON */ }
+        }
+        const full = `${error.message}${bodyMsg ? ` — ${bodyMsg}` : ''}`
+        toast.error(`테스트 실패: ${full}`, { duration: 8000 })
+        setTestResult({ error_message: full })
         return
       }
       const result = data as { status?: string; response_status?: number; response_body?: string; request_url?: string; request_body?: string; error_message?: string; reason?: string }
@@ -937,121 +907,7 @@ SELECT cron.schedule(
           )}
         </div>
 
-        {/* 사용자 정의 커스텀 이벤트 */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <h2 className="text-sm font-bold text-gray-900">사용자 정의 커스텀 이벤트</h2>
-              <p className="text-xs text-gray-400 mt-0.5">위 정규 탭(회원가입·구매·쿠폰·포인트) 외에 자체 코드로 추가하는 알림톡 (예: 회원 등급 변경, 생일 축하 등)</p>
-            </div>
-            <button onClick={() => setCustomEditing({ code: '', label: '', description: '', trigger_hint: '', template: '', enabled: true, built_in: false, sort_order: 100 })}
-              className="bg-[#2ED573] text-white px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border-none hover:bg-[#25B866]">
-              <i className="ti ti-plus mr-1" />이벤트 추가
-            </button>
-          </div>
-
-          {customEvents.filter((c) => !c.built_in).length === 0 ? (
-            <p className="text-xs text-gray-400 text-center py-6">사용자 정의 이벤트가 없습니다. "이벤트 추가"로 만들고 코드 측에서 <code>fireCustomEvent('your_code', ...)</code> 호출.</p>
-          ) : (
-            <div className="space-y-2">
-              {customEvents.filter((c) => !c.built_in).map((ce) => (
-                <div key={ce.id} className="border border-gray-200 rounded-lg p-3">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${ce.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
-                      {ce.enabled ? '활성' : '비활성'}
-                    </span>
-                    {ce.built_in && <span className="text-[10px] px-2 py-0.5 rounded-full font-medium bg-blue-100 text-blue-700">시스템</span>}
-                    <span className="text-sm font-bold text-gray-900">{ce.label}</span>
-                    <code className="text-[11px] bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{ce.code}</code>
-                    {ce.trigger_hint && <span className="text-[11px] text-gray-400">{ce.trigger_hint}</span>}
-                    <div className="ml-auto flex items-center gap-1">
-                      <button onClick={() => handleTestCustom(ce)} disabled={!ce.template || !config.url}
-                        className="text-[11px] text-white bg-gray-900 hover:bg-gray-800 rounded px-2 py-1 border-none cursor-pointer disabled:opacity-50">
-                        <i className="ti ti-send" /> 테스트
-                      </button>
-                      <button onClick={() => setCustomEditing(ce)}
-                        className="text-[11px] text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 rounded px-2 py-1 border-none cursor-pointer">
-                        <i className="ti ti-pencil" /> 수정
-                      </button>
-                      {!ce.built_in && (
-                        <button onClick={() => ce.id && handleDeleteCustom(ce.id, ce.code)}
-                          className="text-[11px] text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 rounded px-2 py-1 border-none cursor-pointer">
-                          <i className="ti ti-trash" /> 삭제
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {ce.template && (
-                    <pre className="mt-2 text-[11px] text-gray-600 bg-gray-50 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">{ce.template}</pre>
-                  )}
-                  {!ce.template && <p className="mt-2 text-[11px] text-amber-600">⚠ 템플릿이 비어있어 발송되지 않습니다. 수정 버튼으로 템플릿을 입력해주세요.</p>}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
-
-      {/* 커스텀 이벤트 편집 모달 */}
-      {customEditing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-          onMouseDown={(e) => { if (e.target === e.currentTarget) setCustomEditing(null) }}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900">{customEditing.id ? '커스텀 이벤트 수정' : '커스텀 이벤트 추가'}</h3>
-              <button onClick={() => setCustomEditing(null)} className="text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer">
-                <i className="ti ti-x text-xl" />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">코드 (영문/숫자/_)</label>
-                  <input value={customEditing.code ?? ''}
-                    onChange={(e) => setCustomEditing({ ...customEditing, code: e.target.value })}
-                    placeholder="예: coupon_issued"
-                    disabled={customEditing.built_in}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] font-mono disabled:bg-gray-50 disabled:text-gray-400" />
-                  {customEditing.built_in && <p className="text-[10px] text-gray-400 mt-1">시스템 정의 코드는 변경 불가</p>}
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-700 block mb-1">표시명</label>
-                  <input value={customEditing.label ?? ''}
-                    onChange={(e) => setCustomEditing({ ...customEditing, label: e.target.value })}
-                    placeholder="예: 쿠폰 발급 완료"
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573]" />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">발사 위치 안내 (선택)</label>
-                <input value={customEditing.trigger_hint ?? ''}
-                  onChange={(e) => setCustomEditing({ ...customEditing, trigger_hint: e.target.value })}
-                  placeholder="예: 어드민 → 쿠폰 → 발급 시"
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573]" />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-gray-700 block mb-1">전달 파라미터 (shoong)</label>
-                <textarea value={customEditing.template ?? ''}
-                  onChange={(e) => setCustomEditing({ ...customEditing, template: e.target.value })}
-                  rows={6}
-                  placeholder={`예 (쿠폰 발급):\nsendType=at&phone={#user_phone#}&channelConfig.senderkey=YOUR_KEY&channelConfig.templatecode=coupon_issued&variables.이름={#user_name#}&variables.쿠폰명={#coupon_name#}`}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] font-mono resize-none" />
-                <p className="text-[10px] text-gray-400 mt-1">사용 가능 변수: <code>{`{#user_name#}`}</code> <code>{`{#user_phone#}`}</code> <code>{`{#user_email#}`}</code> <code>{`{#TITLE#}`}</code> 외 fireCustomEvent에 전달된 모든 payload 변수</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="checkbox" id="ce_enabled" checked={customEditing.enabled ?? true}
-                  onChange={(e) => setCustomEditing({ ...customEditing, enabled: e.target.checked })}
-                  className="accent-[#2ED573]" />
-                <label htmlFor="ce_enabled" className="text-sm text-gray-700 cursor-pointer">활성화</label>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2 mt-5">
-              <button onClick={() => setCustomEditing(null)} className="px-4 py-2 rounded-lg border border-gray-200 bg-white text-gray-600 text-sm cursor-pointer hover:bg-gray-50">취소</button>
-              <button onClick={handleSaveCustom} className="px-4 py-2 rounded-lg bg-[#2ED573] text-white text-sm font-bold cursor-pointer border-none hover:bg-[#25B866]">저장</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {aliasConfirm && (
         <TemplateAliasConfirmModal

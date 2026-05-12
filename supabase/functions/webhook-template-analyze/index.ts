@@ -2,6 +2,7 @@
 // OpenAI gpt-5.4-mini 사용 (저장 시점에 1회 호출, 발송 시 LLM 호출 없음)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { verifyToken } from '../_shared/auth.ts'
 
 // 하드코딩 딕셔너리가 이미 커버하는 변수들 (LLM 호출 불필요)
 // webhookService.buildDataDict + webhook-schedule-runner.data 와 동기화 필수
@@ -89,31 +90,15 @@ Deno.serve(async (req: Request) => {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
     const token = authHeader.replace('Bearer ', '')
-    let isServiceRole = token === serviceKey
-    if (!isServiceRole) {
-      try {
-        const probeRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1`, {
-          headers: { 'Authorization': `Bearer ${token}`, 'apikey': token },
-        })
-        if (probeRes.ok) isServiceRole = true
-      } catch { /* ignore */ }
+    const verified = await verifyToken(token, supabaseUrl, anonKey, serviceKey)
+    if (!verified) {
+      return new Response(JSON.stringify({ error: 'Invalid auth' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
     }
-    if (!isServiceRole) {
-      try {
-        const userClient = createClient(supabaseUrl, anonKey)
-        const { data: { user } } = await userClient.auth.getUser(token)
-        if (!user) {
-          return new Response(JSON.stringify({ error: 'Invalid auth' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
-        const admin = createClient(supabaseUrl, serviceKey)
-        const { data: prof } = await admin.from('profiles').select('role').eq('id', user.id).maybeSingle()
-        if ((prof as { role?: string } | null)?.role !== 'admin') {
-          return new Response(JSON.stringify({ error: 'Admin only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-        }
-      } catch (authErr) {
-        return new Response(JSON.stringify({ error: 'Auth error: ' + (authErr instanceof Error ? authErr.message : String(authErr)) }), {
-          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        })
+    if (!verified.isServiceRole) {
+      const admin = createClient(supabaseUrl, serviceKey)
+      const { data: prof } = await admin.from('profiles').select('role').eq('id', verified.user!.id).maybeSingle()
+      if ((prof as { role?: string } | null)?.role !== 'admin') {
+        return new Response(JSON.stringify({ error: 'Admin only' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
       }
     }
 

@@ -166,6 +166,10 @@ export interface Course {
   course_type: 'free' | 'premium'
   enrollment_start: string | null
   enrollment_deadline: string | null
+  // 강의 진행 일시. UI 에서 강의일시로 입력받고 schedules 테이블과 1:1 동기화된다.
+  scheduled_at: string | null
+  // 강의별 알림톡 템플릿 변수. webhook-send 가 payload 에 자동 주입.
+  webhook_variables: Record<string, string>
   duration_days: number
   is_published: boolean
   is_on_sale: boolean

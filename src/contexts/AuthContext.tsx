@@ -180,7 +180,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
               // OAuth 신규 가입자 webhook (이메일 가입은 SignUpPage에서 직접 fire)
               const provider = newSession.user.app_metadata?.provider
-              if (provider && provider !== 'email') {
+              // SignUpPage 가 막 발화한 webhook 과 race 로 중복 발화되는 것을 차단.
+              // webhook_logs count 조회는 SignUpPage 의 INSERT 가 끝나기 전이라 0 으로 보일 수 있다.
+              const recentlyFiredFor = sessionStorage.getItem('signup_webhook_fired_for')
+              if (recentlyFiredFor === newSession.user.id) {
+                sessionStorage.removeItem('signup_webhook_fired_for')
+              } else if (provider && provider !== 'email') {
                 supabase
                   .from('webhook_logs')
                   .select('id', { count: 'exact', head: true })

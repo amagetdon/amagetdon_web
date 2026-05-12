@@ -1,6 +1,7 @@
 // 도래한 webhook_schedule_runs 처리 — pg_cron이 매분 호출
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { verifyToken } from '../_shared/auth.ts'
 
 interface RunRow {
   id: number
@@ -71,33 +72,27 @@ Deno.serve(async (req: Request) => {
       })
     }
     const token = authHeader.replace('Bearer ', '')
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
     let isServiceRole = token === serviceKey
     if (!isServiceRole) {
-      // legacy JWT 대응 — JWT 페이로드에서 role 확인 (Supabase 서버가 서명 검증하는 REST 호출로 권한 판정)
+      // legacy JWT 대응 — service_role secret(sb_secret_xxx)이 env key 와 다른 포맷일 때 admin API 로 판정
       try {
-        const probeClient = createClient(supabaseUrl, token)
-        // auth.users는 service_role만 SELECT 가능 — 에러가 없으면 service_role 확정
         const probeRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1`, {
           headers: { 'Authorization': `Bearer ${token}`, 'apikey': token },
         })
         if (probeRes.ok) isServiceRole = true
-        void probeClient
-      } catch {
-        // ignore
-      }
+      } catch { /* ignore */ }
     }
     if (!isServiceRole) {
-      // 어드민 사용자라면 허용
-      const userClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY') ?? '')
-      const { data: { user } } = await userClient.auth.getUser(token)
-      if (!user) {
+      const verified = await verifyToken(token, supabaseUrl, anonKey, serviceKey)
+      if (!verified) {
         return new Response(JSON.stringify({ error: 'Invalid auth' }), {
           status: 401,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         })
       }
       const adminCheck = createClient(supabaseUrl, serviceKey)
-      const { data: prof } = await adminCheck.from('profiles').select('role').eq('id', user.id).maybeSingle()
+      const { data: prof } = await adminCheck.from('profiles').select('role').eq('id', verified.user!.id).maybeSingle()
       if ((prof as { role?: string } | null)?.role !== 'admin') {
         return new Response(JSON.stringify({ error: 'Admin only' }), {
           status: 403,

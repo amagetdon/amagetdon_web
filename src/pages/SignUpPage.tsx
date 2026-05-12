@@ -209,7 +209,9 @@ function SignUpPage() {
         }
       }
 
-      // 웹훅 전송 (실패해도 무시)
+      // 웹훅 전송 (실패해도 무시) — AuthContext 의 SIGNED_IN 핸들러가 같은 이벤트로
+      // 또 발화하지 않도록 sessionStorage 에 플래그를 먼저 set.
+      if (newUser?.id) sessionStorage.setItem('signup_webhook_fired_for', newUser.id)
       webhookService.fireSignup({
         userId: newUser?.id || null,
         name: form.name.trim(),

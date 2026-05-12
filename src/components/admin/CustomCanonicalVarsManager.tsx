@@ -102,11 +102,11 @@ export default function CustomCanonicalVarsManager() {
       <div className="mb-3">
         <h2 className="text-sm font-bold text-gray-900">
           <i className="ti ti-variable text-[#2ED573] mr-1" />
-          사용자 정의 변수 (canonical)
+          공용 변수
         </h2>
         <p className="text-xs text-gray-400 mt-0.5">
-          사이트 전역 고정값(오픈카톡 링크, 홈페이지 URL 등)을 등록하면 <code className="bg-gray-100 px-1 rounded text-[10px]">{`{#키#}`}</code>로 모든 템플릿에서 참조할 수 있습니다.
-          GPT-5.4-mini의 canonical 매핑 후보에도 자동 포함됩니다.
+          사이트 전역 고정값(오픈카톡 링크, 홈페이지 URL 등)을 등록하면 <code className="bg-gray-100 px-1 rounded text-[10px]">{`{#키#}`}</code>로 모든 알림톡 템플릿에서 자동으로 채워집니다.
+          강의별 예약 알림톡 탭에서도 같은 키로 참조할 수 있어요.
         </p>
       </div>
 

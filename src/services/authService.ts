@@ -62,8 +62,9 @@ export const authService = {
   },
 
   async signOut() {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+    // scope: 'local' — 이 브라우저 세션만 비움. global 은 서버에 전 디바이스 token revoke 까지
+    // 요청하는데 refresh token 이 이미 만료된 상태에선 403 으로 거절돼 콘솔이 더러워진다.
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => { /* localStorage 는 이미 비워짐 */ })
   },
 
   async getSession() {
@@ -139,6 +140,8 @@ export const authService = {
 
     // signup 웹훅/알림톡 발송 — 비회원도 CRM 기록 + 가입 안내 알림톡 받도록
     if (signInData?.user?.id) {
+      // AuthContext 의 SIGNED_IN 핸들러와 race 로 중복 발화되지 않도록 플래그 set
+      sessionStorage.setItem('signup_webhook_fired_for', signInData.user.id)
       const { webhookService } = await import('./webhookService')
       webhookService.fireSignup({
         userId: signInData.user.id,

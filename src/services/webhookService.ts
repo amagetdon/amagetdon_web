@@ -107,6 +107,11 @@ function buildDataDict(event: WebhookEvent, options: FireOptions, extras: Record
     phone,
     email,
     title,
+    // 영문 표준 alias (shoong 등 외부 알림톡 템플릿에서 자주 쓰는 이름)
+    user_name: name,
+    user_phone: phone,
+    user_email: email,
+    customer_name: name,
     // 별칭 (디비카트 스타일)
     TITLE: title,
     ITEM1: name,
@@ -662,6 +667,8 @@ export const webhookService = {
     const { data: result, error } = await supabase.functions.invoke('webhook-send', {
       body: {
         event: log.event_type,
+        // custom event 였다면 원본 발송과 같은 템플릿을 적용하기 위해 코드를 같이 보낸다.
+        custom_event_code: log.event_type === 'custom' ? ((log.custom_event_code as string | null | undefined) ?? null) : null,
         scope: (log.config_scope as string) || 'global',
         scope_id: (log.config_scope_id as number | null) ?? null,
         user_id: log.user_id,
