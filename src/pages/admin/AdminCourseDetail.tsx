@@ -1146,15 +1146,15 @@ export default function AdminCourseDetail() {
                         onChange={(e) => updateCurriculumItem(idx, 'description', e.target.value || null)}
                         className="flex-1 border border-gray-300 rounded-md px-2.5 py-2 text-sm outline-none focus:border-[#2ED573] resize-none min-h-[76px] max-sm:min-h-[60px]" />
                     </div>
-                    <div className="mt-2 space-y-1.5">
+                    <div className="mt-3 pt-3 border-t border-gray-200 space-y-1.5">
                       {item.video_urls.map((v, vIdx) => (
                         <div key={vIdx} className="flex items-center gap-1.5">
                           <input
                             type="text"
                             value={v.label ?? ''}
                             onChange={(e) => updateCurriculumVideo(idx, vIdx, { label: e.target.value || null })}
-                            placeholder="라벨 (선택)"
-                            className="w-32 shrink-0 border border-gray-300 rounded-md px-2 py-2 text-sm outline-none focus:border-[#2ED573]"
+                            placeholder="설명 (선택)"
+                            className="w-80 shrink-0 border border-gray-300 rounded-md px-2 py-2 text-sm outline-none focus:border-[#2ED573]"
                           />
                           <div className="flex-1 min-w-0">
                             <VideoUrlInput
