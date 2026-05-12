@@ -293,6 +293,32 @@ function CourseDetailPage() {
     setConfirmOpen(true)
   }
 
+  const handleAdminGrant = async () => {
+    if (!user || !course || !courseId) return
+    setPurchasing(true)
+    try {
+      await purchaseService.enrollFree(
+        user.id,
+        { courseId },
+        course.title,
+        course.enrollment_deadline ? (course.duration_days || null) : null,
+        course.enrollment_deadline || null,
+      )
+      // 관리자 테스트 등록이므로 구매 알림톡 / 예약 발송은 스킵.
+      toast.success('관리자 권한으로 강의가 등록되었습니다.')
+      setOwned(true)
+      if (course.after_purchase_url) {
+        setAfterPurchaseLink(course.after_purchase_url)
+      }
+      await refreshProfile()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '등록에 실패했습니다.'
+      toast.error(message)
+    } finally {
+      setPurchasing(false)
+    }
+  }
+
   // 비회원 가입이 완료되고 auth state 에 user 가 반영되면 자동으로 구매 진행
   useEffect(() => {
     if (!pendingAutoPurchase) return
@@ -685,6 +711,16 @@ function CourseDetailPage() {
                 )}
 
                 {renderActionButton()}
+                {isAdmin && !owned && (
+                  <button
+                    onClick={handleAdminGrant}
+                    disabled={purchasing}
+                    className="w-full py-3 mt-2 border-2 border-dashed border-purple-300 text-purple-600 bg-purple-50 font-bold text-center rounded-xl cursor-pointer hover:bg-purple-100 hover:border-purple-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                  >
+                    <i className="ti ti-shield text-base" />
+                    {purchasing ? '처리 중...' : '관리자 권한 구매'}
+                  </button>
+                )}
                 {applicantCount != null && !isExpired && course.is_on_sale !== false && (
                   <button
                     type="button"

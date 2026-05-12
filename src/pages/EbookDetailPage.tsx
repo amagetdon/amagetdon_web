@@ -20,7 +20,7 @@ function EbookDetailPage() {
   const { id } = useParams()
   const ebookId = id ? Number(id) : null
   const navigate = useNavigate()
-  const { user, profile, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile, isAdmin } = useAuth()
   const { closedVisualEffect } = useAcademySettings()
   const [searchParams] = useSearchParams()
   const isPreview = searchParams.get('preview') === '1'
@@ -197,6 +197,28 @@ function EbookDetailPage() {
         scopeId: ebook.id,
       }).catch(() => {})
       toast.success('전자책이 등록되었습니다!')
+      setOwned(true)
+      await refreshProfile()
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '등록에 실패했습니다.'
+      toast.error(message)
+    } finally {
+      setPurchasing(false)
+    }
+  }
+
+  const handleAdminGrant = async () => {
+    if (!user || !ebook || !ebookId) return
+    setPurchasing(true)
+    try {
+      await purchaseService.enrollFree(
+        user.id,
+        { ebookId },
+        ebook.title,
+        ebook.duration_days
+      )
+      // 관리자 테스트 등록이므로 구매 알림톡 발송은 스킵.
+      toast.success('관리자 권한으로 전자책이 등록되었습니다.')
       setOwned(true)
       await refreshProfile()
     } catch (err) {
@@ -484,6 +506,16 @@ function EbookDetailPage() {
                 </div>
 
                 {renderActionButton()}
+                {isAdmin && !owned && (
+                  <button
+                    onClick={handleAdminGrant}
+                    disabled={purchasing}
+                    className="w-full py-3 mt-2 border-2 border-dashed border-purple-300 text-purple-600 bg-purple-50 font-bold text-center rounded-xl cursor-pointer hover:bg-purple-100 hover:border-purple-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+                  >
+                    <i className="ti ti-shield text-base" />
+                    {purchasing ? '처리 중...' : '관리자 권한 구매'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
