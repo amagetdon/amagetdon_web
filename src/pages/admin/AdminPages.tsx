@@ -1027,8 +1027,15 @@ export default function AdminPages() {
                 <div className="col-span-2 max-sm:col-span-1">
                   <label className="text-sm font-bold block mb-1">동영상 URL</label>
                   <input value={(bannerEditing.video_url as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, video_url: e.target.value })}
-                    placeholder="https://youtu.be/... 또는 MP4/WebM 직접 링크"
+                    placeholder="https://vimeo.com/... 또는 https://youtu.be/... 또는 MP4/WebM 직접 링크"
                     className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                  <div className="mt-2 rounded-lg bg-[#2ED573]/10 border border-[#2ED573]/30 px-3 py-2 text-xs text-gray-700 flex items-start gap-2">
+                    <i className="ti ti-info-circle text-[#2ED573] text-sm mt-0.5 shrink-0" />
+                    <span>
+                      <strong className="font-bold text-gray-900">Vimeo 사용을 권장합니다.</strong>{' '}
+                      유튜브는 영상이 재생되기 전 빅 플레이 버튼이 잠깐 노출됩니다. Vimeo 는 깔끔한 배경 영상(background) 모드를 공식 지원해 컨트롤이 보이지 않습니다.
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-400 mt-1">유튜브, 비메오, MP4/WebM 링크를 지원합니다. 자동 반복 재생됩니다.</p>
                 </div>
                 <div className="col-span-2 max-sm:col-span-1">

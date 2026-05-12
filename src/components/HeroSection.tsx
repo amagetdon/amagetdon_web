@@ -9,9 +9,12 @@ function getEmbedUrl(url: string): { type: 'youtube' | 'raw'; src: string } | nu
   // youtu.be/ID or youtube.com/watch?v=ID or youtube.com/embed/ID
   const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/)
   if (ytMatch) return { type: 'youtube', src: `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&playlist=${ytMatch[1]}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1` }
-  // vimeo.com/ID
-  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/)
-  if (vimeoMatch) return { type: 'youtube', src: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1&muted=1&loop=1&background=1` }
+  // vimeo.com/ID 또는 vimeo.com/ID/HASH (unlisted 영상은 URL 에 hash 포함 — 누락 시 권한 거부로 썸네일만 표시됨)
+  const vimeoMatch = url.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/)
+  if (vimeoMatch) {
+    const hashParam = vimeoMatch[2] ? `h=${vimeoMatch[2]}&` : ''
+    return { type: 'youtube', src: `https://player.vimeo.com/video/${vimeoMatch[1]}?${hashParam}autoplay=1&muted=1&loop=1&background=1` }
+  }
   // direct mp4/webm
   return { type: 'raw', src: url }
 }
