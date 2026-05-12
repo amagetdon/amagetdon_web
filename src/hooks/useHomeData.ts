@@ -45,8 +45,8 @@ async function fetchHomeData(year: number, month: number): Promise<HomeData> {
     supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
     supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'premium').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
     supabase.from('instructors').select('*').eq('is_published', true).order('sort_order').then((r) => r),
-    supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(4).then((r) => r),
-    supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).gte('rating', 4).order('created_at', { ascending: false }).limit(10).then((r) => r),
+    supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(20).then((r) => r),
+    supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).gte('rating', 4).order('created_at', { ascending: false }).limit(30).then((r) => r),
     supabase.from('schedules').select('*, course:courses(id, title), instructor:instructors(id, name, image_url, thumbnail_url)').gte('scheduled_at', startDate).lte('scheduled_at', endDate).order('scheduled_at').then((r) => r),
     supabase.from('banners').select('*').eq('page_key', 'bottom_links').eq('is_published', true).order('sort_order').then((r) => r),
   ]

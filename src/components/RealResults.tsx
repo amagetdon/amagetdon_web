@@ -2,6 +2,8 @@ import { useState, Fragment } from 'react'
 import { Link } from 'react-router-dom'
 import VideoEmbed from './VideoEmbed'
 import { getVideoThumbnail } from '../utils/videoUrl'
+import { useSectionConfig } from '../hooks/useSectionSettings'
+import EditableSectionTitle from './admin/EditableSectionTitle'
 import type { Result, ReviewWithCourse } from '../types'
 
 function formatBoldText(text: string) {
@@ -110,10 +112,16 @@ function ResultCard({ card, idx, onPlayVideo }: { card: Result; idx: number; onP
 
 function RealResults({ results, reviews, loading }: { results: Result[]; reviews: ReviewWithCourse[]; loading: boolean }) {
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null)
+  const resultsCfg = useSectionConfig('real_results')
+  const reviewsCfg = useSectionConfig('reviews')
+  const resultsCount = resultsCfg.count ?? 4
+  const reviewsCount = reviewsCfg.count ?? 10
 
   if (loading) return null
 
-  const duplicatedReviews = [...reviews, ...reviews, ...reviews, ...reviews]
+  const visibleResults = results.slice(0, resultsCount)
+  const visibleReviews = reviews.slice(0, reviewsCount)
+  const duplicatedReviews = [...visibleReviews, ...visibleReviews, ...visibleReviews, ...visibleReviews]
 
   return (
     <section className="relative w-full bg-[#0a0a0a] py-20 max-sm:py-12 overflow-hidden">
@@ -124,13 +132,21 @@ function RealResults({ results, reviews, loading }: { results: Result[]; reviews
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="text-center mb-14">
           <p className="text-2xl max-sm:text-xl text-white font-medium mb-2">
-            아마겟돈 수강생들이 직접 만들어낸
+            {resultsCfg.subtitle ?? '아마겟돈 수강생들이 직접 만들어낸'}
           </p>
-          <h2 className="text-3xl max-sm:text-2xl text-white font-bold">리얼 성과 공개</h2>
+          <EditableSectionTitle
+            sectionKey="real_results"
+            config={resultsCfg}
+            className="text-3xl max-sm:text-2xl text-white font-bold"
+            theme="dark"
+            editableCount
+            editableSubtitle
+            maxCount={20}
+          />
         </div>
 
         <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-x-8 gap-y-10">
-          {results.map((card, idx) => (
+          {visibleResults.map((card, idx) => (
             <div key={card.id} className="flex flex-col items-center">
               <span className="inline-block bg-[#2ED573] text-black text-xs font-bold px-4 py-1.5 rounded-full mb-3">
                 {card.author_name}
@@ -168,11 +184,20 @@ function RealResults({ results, reviews, loading }: { results: Result[]; reviews
       )}
 
       {/* 수강생 후기 마키 */}
-      {reviews.length > 0 && (
+      {visibleReviews.length > 0 && (
         <div className="relative mt-24">
           <div className="text-center mb-10">
-            <h3 className="text-2xl font-bold text-white mb-2">실제 강의 수강생 후기</h3>
-            <p className="text-sm text-gray-400">조작된 후기는 절대 사용하지 않습니다.</p>
+            <EditableSectionTitle
+              sectionKey="reviews"
+              config={reviewsCfg}
+              as="h3"
+              className="text-2xl font-bold text-white mb-2"
+              theme="dark"
+              editableCount
+              editableSubtitle
+              maxCount={30}
+            />
+            <p className="text-sm text-gray-400">{reviewsCfg.subtitle ?? '조작된 후기는 절대 사용하지 않습니다.'}</p>
           </div>
 
           <div className="max-w-[1200px] mx-auto px-5 marquee-container">

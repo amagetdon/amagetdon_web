@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { imgUrl } from '../lib/image'
+import { useSectionConfig } from '../hooks/useSectionSettings'
+import EditableSectionTitle from './admin/EditableSectionTitle'
 import type { Instructor } from '../types'
 
 interface SlideStyle {
@@ -125,6 +127,7 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
 }
 
 function InstructorSection({ instructors: allInstructors, loading }: { instructors: Instructor[]; loading: boolean }) {
+  const instructorsCfg = useSectionConfig('instructors')
   // hero 카드가 켜진 강사만, hero_sort_order 순으로 정렬
   const instructors = useMemo(() => {
     return allInstructors
@@ -171,8 +174,8 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
         <section className="w-full bg-white py-16 max-sm:py-10">
           <div className="max-w-[1200px] mx-auto px-5">
             <div className="text-center mb-10">
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">아마겟돈 클래스 강사를 소개합니다.</h2>
-              <p className="text-sm text-gray-500">현장에서 이미 검증된 셀러와 전문가들로 구성된 최고의 강의진</p>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">{instructorsCfg.title}</h2>
+              <p className="text-sm text-gray-500">{instructorsCfg.subtitle ?? '현장에서 이미 검증된 셀러와 전문가들로 구성된 최고의 강의진'}</p>
             </div>
             <div className="animate-pulse bg-gray-200 rounded-2xl h-[400px]" />
           </div>
@@ -188,11 +191,14 @@ function InstructorSection({ instructors: allInstructors, loading }: { instructo
     <section className="w-full bg-white py-16 max-sm:py-10 overflow-hidden">
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="text-center mb-20 max-sm:mb-14">
-          <h2 className="text-3xl max-sm:text-2xl font-bold text-gray-900 mb-2.5">
-            아마겟돈 클래스 강사를 소개합니다.
-          </h2>
+          <EditableSectionTitle
+            sectionKey="instructors"
+            config={instructorsCfg}
+            className="text-3xl max-sm:text-2xl font-bold text-gray-900 mb-2.5"
+            editableSubtitle
+          />
           <p className="text-base max-sm:text-sm text-gray-500">
-            현장에서 이미 결과로 증명된 강사진입니다.
+            {instructorsCfg.subtitle ?? '현장에서 이미 결과로 증명된 강사진입니다.'}
           </p>
         </div>
 

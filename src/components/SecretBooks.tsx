@@ -2,17 +2,29 @@ import { Link } from 'react-router-dom'
 import { useEbooks } from '../hooks/useEbooks'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useSectionConfig } from '../hooks/useSectionSettings'
+import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
 
 function SecretBooks() {
   const { ebooks, loading } = useEbooks({ isFree: false })
   const { closedVisualEffect } = useAcademySettings()
+  const section = useSectionConfig('secret_books')
+  const count = section.count ?? 5
 
   return (
     <section className="w-full bg-black py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="flex items-center justify-between mb-2 gap-4">
-          <h2 className="text-2xl font-bold text-white min-w-0">시크릿 북</h2>
+          <EditableSectionTitle
+            sectionKey="secret_books"
+            config={section}
+            className="text-2xl font-bold text-white min-w-0"
+            theme="dark"
+            editableCount
+            editableSubtitle
+            maxCount={10}
+          />
           <Link
             to="/ebooks/secret"
             className="flex items-center gap-2 px-5 py-2 border border-gray-500 rounded-full text-sm text-gray-300 bg-transparent cursor-pointer hover:bg-white/5 no-underline whitespace-nowrap"
@@ -20,7 +32,7 @@ function SecretBooks() {
             전체 보기 <span className="text-lg">→</span>
           </Link>
         </div>
-        <p className="text-sm text-gray-400 mb-6">무료 전자책에서 더 깊게 배우고 싶다면?</p>
+        <p className="text-sm text-gray-400 mb-6">{section.subtitle ?? '무료 전자책에서 더 깊게 배우고 싶다면?'}</p>
         {loading ? (
           <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
             {[1, 2, 3].map((i) => (
@@ -33,7 +45,7 @@ function SecretBooks() {
           </div>
         ) : (
           <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
-            {ebooks.slice(0, 5).map((book) => {
+            {ebooks.slice(0, count).map((book) => {
               const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
               return (
                 <Link key={book.id} to={`/ebook/${book.id}`} className="cursor-pointer group no-underline">

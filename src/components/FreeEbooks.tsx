@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { ebookService } from '../services/ebookService'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useSectionConfig } from '../hooks/useSectionSettings'
+import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
 import type { EbookWithInstructor } from '../types'
 
@@ -12,6 +14,8 @@ function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: Ebo
   const ebooks = propEbooks ?? selfEbooks
   const loading = propLoading ?? selfLoading
   const { closedVisualEffect } = useAcademySettings()
+  const section = useSectionConfig('free_ebooks')
+  const count = section.count ?? 5
 
   useEffect(() => {
     if (propEbooks) return
@@ -21,7 +25,13 @@ function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: Ebo
     <section className="w-full bg-white py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="flex items-center justify-between mb-6 gap-4">
-          <h2 className="text-2xl font-bold text-gray-900 min-w-0">무료 전자책</h2>
+          <EditableSectionTitle
+            sectionKey="free_ebooks"
+            config={section}
+            className="text-2xl font-bold text-gray-900 min-w-0"
+            editableCount
+            maxCount={10}
+          />
           <Link
             to="/ebooks/free"
             className="flex items-center gap-2 px-5 py-2 border border-gray-300 rounded-full text-sm text-gray-600 bg-white cursor-pointer hover:bg-gray-50 no-underline whitespace-nowrap"
@@ -41,7 +51,7 @@ function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: Ebo
           </div>
         ) : (
           <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
-            {ebooks.slice(0, 5).map((book) => {
+            {ebooks.slice(0, count).map((book) => {
               const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
               return (
                 <Link key={book.id} to={`/ebook/${book.id}`} className="no-underline group">

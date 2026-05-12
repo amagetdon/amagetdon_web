@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { courseService } from '../services/courseService'
 import { isCourseClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useSectionConfig } from '../hooks/useSectionSettings'
+import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
 import type { CourseWithInstructor } from '../types'
 
@@ -12,6 +14,8 @@ function PremiumCourses({ courses: propCourses, loading: propLoading }: { course
   const courses = propCourses ?? selfCourses
   const loading = propLoading ?? selfLoading
   const { closedVisualEffect } = useAcademySettings()
+  const section = useSectionConfig('premium_courses')
+  const count = section.count ?? 6
 
   useEffect(() => {
     if (propCourses) return
@@ -24,7 +28,13 @@ function PremiumCourses({ courses: propCourses, loading: propLoading }: { course
     <section className="w-full bg-white py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="flex items-center justify-between mb-6 gap-4">
-          <h2 className="text-2xl font-bold text-gray-900 min-w-0">유료 강의</h2>
+          <EditableSectionTitle
+            sectionKey="premium_courses"
+            config={section}
+            className="text-2xl font-bold text-gray-900 min-w-0"
+            editableCount
+            maxCount={12}
+          />
           <Link
             to="/academy/premium"
             className="flex items-center gap-2 px-5 py-2 border border-gray-300 rounded-full text-sm text-gray-600 bg-white cursor-pointer no-underline hover:bg-gray-50 whitespace-nowrap"
@@ -34,7 +44,7 @@ function PremiumCourses({ courses: propCourses, loading: propLoading }: { course
         </div>
         {loading ? (
           <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
+            {Array.from({ length: count }, (_, i) => i + 1).map((i) => (
               <div key={i} className="animate-pulse">
                 <div className="bg-gray-200 rounded-xl aspect-video mb-3" />
                 <div className="bg-gray-200 h-4 rounded w-3/4 mb-2" />
@@ -44,7 +54,7 @@ function PremiumCourses({ courses: propCourses, loading: propLoading }: { course
           </div>
         ) : (
           <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">
-            {courses.slice(0, 6).map((course) => {
+            {courses.slice(0, count).map((course) => {
               const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
               return (
                 <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">
