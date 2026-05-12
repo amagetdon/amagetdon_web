@@ -63,6 +63,9 @@ export default function AdminPages() {
   const [bannerSaving, setBannerSaving] = useState(false)
   const [bannerDeleteTarget, setBannerDeleteTarget] = useState<number | null>(null)
   const [editingPageKey, setEditingPageKey] = useState<string>('hero')
+  // 업로드 경로의 stable suffix — 에디터를 열 때 1회 생성. Date.now() 를 path prop 에서 매 렌더 재계산하면
+  // 동일 세션에서 두 번 업로드 시 첫 파일이 영구 orphan 으로 남으므로 분리한다.
+  const [bannerUploadKey, setBannerUploadKey] = useState<string>('')
   const banners = allBanners[bannerSubTab]
   const eventKey = `${bannerSubTab}_event` as string
   const eventBanners = allBanners[eventKey] || []
@@ -580,7 +583,7 @@ export default function AdminPages() {
           <div className="flex items-center justify-between mb-4">
             <p className="text-sm text-gray-500">등록된 배너 {banners.length}개</p>
             <button
-              onClick={() => { setEditingPageKey(bannerSubTab); setBannerEditing({ title: '', subtitle: '', image_url: '', video_url: '', media_type: 'image', link_url: '', overlay_opacity: 30, sort_order: banners.length, is_published: true }) }}
+              onClick={() => { setEditingPageKey(bannerSubTab); setBannerUploadKey(`new-${Date.now()}`); setBannerEditing({ title: '', subtitle: '', image_url: '', video_url: '', media_type: 'image', link_url: '', overlay_opacity: 30, sort_order: banners.length, is_published: true }) }}
               className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"
             >
               <i className="ti ti-plus text-sm" /> 배너 추가
@@ -620,7 +623,7 @@ export default function AdminPages() {
                         {banner.subtitle && <p className="text-xs text-gray-500 truncate mt-0.5">{banner.subtitle}</p>}
                       </div>
                       <div className="flex items-center gap-1 ml-4">
-                        <button onClick={() => { setEditingPageKey(banner.page_key); setBannerEditing(banner as unknown as Record<string, unknown>) }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
+                        <button onClick={() => { setEditingPageKey(banner.page_key); setBannerUploadKey(String(banner.id)); setBannerEditing(banner as unknown as Record<string, unknown>) }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
                         <button onClick={() => setBannerDeleteTarget(banner.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
                       </div>
                     </div>
@@ -638,7 +641,7 @@ export default function AdminPages() {
                   <p className="text-xs text-gray-400 mt-0.5">배너 아래에 표시되는 이벤트/안내 이미지 ({eventBanners.length}개)</p>
                 </div>
                 <button
-                  onClick={() => { setEditingPageKey(eventKey); setBannerEditing({ title: '이벤트 안내', subtitle: '', image_url: '', link_url: '', overlay_opacity: 0, sort_order: eventBanners.length, is_published: true }) }}
+                  onClick={() => { setEditingPageKey(eventKey); setBannerUploadKey(`new-${Date.now()}`); setBannerEditing({ title: '이벤트 안내', subtitle: '', image_url: '', link_url: '', overlay_opacity: 0, sort_order: eventBanners.length, is_published: true }) }}
                   className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"
                 >
                   <i className="ti ti-plus text-sm" /> 이벤트 안내 추가
@@ -804,7 +807,7 @@ export default function AdminPages() {
                             <p className="text-sm font-bold text-gray-900 truncate">{banner.title || '이벤트 안내'}</p>
                           </div>
                           <div className="flex items-center gap-1 shrink-0 ml-3">
-                            <button onClick={() => { setEditingPageKey(banner.page_key); setBannerEditing(banner as unknown as Record<string, unknown>) }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
+                            <button onClick={() => { setEditingPageKey(banner.page_key); setBannerUploadKey(String(banner.id)); setBannerEditing(banner as unknown as Record<string, unknown>) }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
                             <button onClick={() => setBannerDeleteTarget(banner.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
                           </div>
                         </div>
@@ -1030,7 +1033,7 @@ export default function AdminPages() {
                 </div>
                 <div className="col-span-2 max-sm:col-span-1">
                   <label className="text-sm font-bold block mb-1">포스터 이미지 (선택)</label>
-                  <ImageUploader bucket="banners" path={`hero/${bannerEditing.id || 'new'}-poster-${Date.now()}`}
+                  <ImageUploader bucket="banners" path={`${editingPageKey}/${bannerUploadKey}-poster`}
                     currentUrl={bannerEditing.image_url as string} onUpload={(url) => setBannerEditing({ ...bannerEditing, image_url: url })} className="h-[120px]" />
                   <p className="text-xs text-gray-400 mt-1">동영상 로딩 중 표시될 이미지 (없으면 검정 배경)</p>
                 </div>
@@ -1038,7 +1041,7 @@ export default function AdminPages() {
             ) : (
               <div className="col-span-2 max-sm:col-span-1">
                 <label className="text-sm font-bold block mb-1">배경 이미지</label>
-                <ImageUploader bucket="banners" path={`hero/${bannerEditing.id || 'new'}-${Date.now()}`}
+                <ImageUploader bucket="banners" path={`${editingPageKey}/${bannerUploadKey}`}
                   currentUrl={bannerEditing.image_url as string} onUpload={(url) => setBannerEditing({ ...bannerEditing, image_url: url })} className="h-[160px]" />
               </div>
             )}
