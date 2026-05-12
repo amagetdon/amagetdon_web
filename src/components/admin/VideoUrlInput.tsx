@@ -9,9 +9,11 @@ interface VideoUrlInputProps {
   /** 외부 리다이렉트 링크 모드 여부 — undefined 면 토글 UI 자체를 숨김 (기존 호출자 호환) */
   isRedirect?: boolean
   onIsRedirectChange?: (next: boolean) => void
+  /** true 면 input·토글·메타 박스를 한 줄로 가로 배치 (커리큘럼처럼 카드가 좁을 때) */
+  compact?: boolean
 }
 
-export default function VideoUrlInput({ value, onChange, label, isRedirect, onIsRedirectChange }: VideoUrlInputProps) {
+export default function VideoUrlInput({ value, onChange, label, isRedirect, onIsRedirectChange, compact }: VideoUrlInputProps) {
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null)
   const showToggle = typeof isRedirect === 'boolean' && !!onIsRedirectChange
   const redirect = !!isRedirect
@@ -39,6 +41,67 @@ export default function VideoUrlInput({ value, onChange, label, isRedirect, onIs
   const handleClear = () => {
     onChange(null)
     setVideoInfo(null)
+  }
+
+  if (compact) {
+    const showRedirectBadge = redirect && !!value
+    const showVideoBadge = !redirect && videoInfo && (videoInfo.provider === 'youtube' || videoInfo.provider === 'vimeo')
+    const hasBadge = showRedirectBadge || showVideoBadge
+    return (
+      <div className="flex items-center gap-2 min-w-0 flex-wrap">
+        <div className="relative flex-1 min-w-[180px]">
+          <input
+            type="text"
+            value={value || ''}
+            onChange={handleChange}
+            placeholder={redirect ? 'https://example.com/...' : 'https://youtube.com/... 또는 https://vimeo.com/...'}
+            className={`w-full border border-gray-300 rounded-md px-2.5 py-2 text-sm outline-none focus:border-[#2ED573] ${
+              hasBadge ? 'pr-[110px]' : value ? 'pr-7' : 'pr-2.5'
+            }`}
+          />
+          {/* 배지 + X 버튼을 input 안쪽 우측에 묶어서 표시 — 토글 전환 시 토글 위치가 흔들리지 않게 함 */}
+          <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+            {showRedirectBadge && (
+              <span className="inline-flex items-center gap-1 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] font-medium text-gray-700">
+                <i className="ti ti-external-link text-xs text-gray-600" />
+                외부
+              </span>
+            )}
+            {showVideoBadge && (
+              <span className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-medium ${
+                videoInfo!.provider === 'youtube' ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
+              }`}>
+                <i className={`ti ${videoInfo!.provider === 'youtube' ? 'ti-brand-youtube' : 'ti-brand-vimeo'} text-xs`} />
+                {videoInfo!.provider === 'youtube' ? 'YouTube' : 'Vimeo'}
+              </span>
+            )}
+            {value && (
+              <button type="button" onClick={handleClear}
+                className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="URL 삭제">
+                <i className="ti ti-x text-sm" />
+              </button>
+            )}
+          </div>
+        </div>
+        {showToggle && (
+          <div className="inline-flex shrink-0 rounded-md bg-gray-100 p-0.5 text-xs">
+            <button type="button" onClick={() => onIsRedirectChange?.(false)}
+              className={`px-3 py-1.5 rounded font-medium border-none cursor-pointer flex items-center gap-1 transition-colors ${
+                redirect ? 'bg-transparent text-gray-500 hover:text-gray-800' : 'bg-white text-gray-900 shadow-sm'
+              }`}>
+              <i className="ti ti-player-play text-xs" /> 영상
+            </button>
+            <button type="button" onClick={() => onIsRedirectChange?.(true)}
+              className={`px-3 py-1.5 rounded font-medium border-none cursor-pointer flex items-center gap-1 transition-colors ${
+                redirect ? 'bg-white text-gray-900 shadow-sm' : 'bg-transparent text-gray-500 hover:text-gray-800'
+              }`}>
+              <i className="ti ti-external-link text-xs" /> 외부 링크
+            </button>
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (

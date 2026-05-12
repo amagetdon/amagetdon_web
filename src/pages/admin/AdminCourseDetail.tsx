@@ -78,6 +78,9 @@ export default function AdminCourseDetail() {
   // 커리큘럼 편집 상태
   const [curriculumItems, setCurriculumItems] = useState<CurriculumRow[]>([])
   const [curriculumSaving, setCurriculumSaving] = useState(false)
+  const [curriculumDragIndex, setCurriculumDragIndex] = useState<number | null>(null)
+  // 호버 중인 카드 인덱스와 마우스 Y 기준 위/아래 위치 — 인접 카드끼리 swap 과 끝자리 이동을 모두 지원.
+  const [curriculumDragOver, setCurriculumDragOver] = useState<{ idx: number; position: 'above' | 'below' } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -416,7 +419,9 @@ export default function AdminCourseDetail() {
   }
 
   const addCurriculumItem = () => {
-    setCurriculumItems([...curriculumItems, { week: null, label: '', description: null, video_url: null, is_redirect: false, sort_order: curriculumItems.length + 1 }])
+    // 같은 주차에 영상/URL 을 연속 추가할 때 매번 주차를 다시 입력하지 않도록 마지막 항목의 week 를 복사.
+    const lastWeek = curriculumItems.length > 0 ? curriculumItems[curriculumItems.length - 1].week : null
+    setCurriculumItems([...curriculumItems, { week: lastWeek, label: '', description: null, video_url: null, is_redirect: false, sort_order: curriculumItems.length + 1 }])
   }
 
   const updateCurriculumItem = (index: number, field: keyof CurriculumRow, value: unknown) => {
@@ -427,6 +432,16 @@ export default function AdminCourseDetail() {
 
   const removeCurriculumItem = (index: number) => {
     setCurriculumItems(curriculumItems.filter((_, i) => i !== index))
+  }
+
+  const moveCurriculumItem = (from: number, to: number) => {
+    setCurriculumItems((prev) => {
+      if (to < 0 || to >= prev.length || from === to) return prev
+      const next = [...prev]
+      const [item] = next.splice(from, 1)
+      next.splice(to, 0, item)
+      return next
+    })
   }
 
   const handleCurriculumSave = async () => {
@@ -1003,41 +1018,90 @@ export default function AdminCourseDetail() {
           ) : (
             <div className="space-y-3">
               {curriculumItems.map((item, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-xl p-3 bg-gray-50 relative">
-                  <button type="button" onClick={() => removeCurriculumItem(idx)}
-                    className="absolute top-2 right-2 w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors"
-                    aria-label="커리큘럼 항목 삭제">
-                    <i className="ti ti-x text-sm" />
-                  </button>
-                  <div className="grid grid-cols-[60px_1fr] max-sm:grid-cols-1 gap-2 pr-6">
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">주차</label>
-                      <input type="number" value={item.week ?? ''} placeholder="-"
-                        onChange={(e) => updateCurriculumItem(idx, 'week', e.target.value ? Number(e.target.value) : null)}
-                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#2ED573]" />
-                    </div>
-                    <div>
-                      <label className="text-xs text-gray-500 block mb-1">강의명</label>
-                      <input type="text" value={item.label} placeholder="강의 제목을 입력하세요"
-                        onChange={(e) => updateCurriculumItem(idx, 'label', e.target.value)}
-                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#2ED573]" />
-                    </div>
-                    <div className="col-span-full">
-                      <label className="text-xs text-gray-500 block mb-1">설명</label>
+                <div
+                  key={idx}
+                  onDragOver={(e) => {
+                    if (curriculumDragIndex === null || curriculumDragIndex === idx) return
+                    e.preventDefault()
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    const position: 'above' | 'below' = e.clientY > rect.top + rect.height / 2 ? 'below' : 'above'
+                    if (curriculumDragOver?.idx !== idx || curriculumDragOver?.position !== position) {
+                      setCurriculumDragOver({ idx, position })
+                    }
+                  }}
+                  onDrop={() => {
+                    if (curriculumDragIndex !== null && curriculumDragOver !== null) {
+                      const from = curriculumDragIndex
+                      // position='above' 면 호버 카드 앞 자리(idx), 'below' 면 호버 카드 다음 자리(idx+1) 에 삽입.
+                      // splice 동작상 from < target 인 경우 1 보정.
+                      let target = curriculumDragOver.position === 'above' ? curriculumDragOver.idx : curriculumDragOver.idx + 1
+                      if (from < target) target -= 1
+                      if (target !== from) moveCurriculumItem(from, target)
+                    }
+                    setCurriculumDragIndex(null)
+                    setCurriculumDragOver(null)
+                  }}
+                  className={`relative flex items-stretch gap-2 ${curriculumDragIndex === idx ? 'opacity-40' : ''}`}
+                >
+                  {curriculumDragIndex !== null && curriculumDragIndex !== idx && curriculumDragOver?.idx === idx && curriculumDragOver?.position === 'above' && (
+                    <div className="absolute -top-2 left-0 right-0 h-1 bg-[#2ED573] rounded-full z-10 shadow-[0_0_0_3px_rgba(46,213,115,0.25)] pointer-events-none" aria-hidden />
+                  )}
+                  {curriculumDragIndex !== null && curriculumDragIndex !== idx && curriculumDragOver?.idx === idx && curriculumDragOver?.position === 'below' && (
+                    <div className="absolute -bottom-2 left-0 right-0 h-1 bg-[#2ED573] rounded-full z-10 shadow-[0_0_0_3px_rgba(46,213,115,0.25)] pointer-events-none" aria-hidden />
+                  )}
+                  <div
+                    draggable
+                    onDragStart={() => setCurriculumDragIndex(idx)}
+                    onDragEnd={() => {
+                      setCurriculumDragIndex(null)
+                      setCurriculumDragOver(null)
+                    }}
+                    className="flex flex-col items-center justify-center px-1.5 text-gray-300 hover:text-gray-500 transition-colors cursor-grab active:cursor-grabbing select-none"
+                    title="드래그하여 순서 변경"
+                  >
+                    <i className="ti ti-grip-vertical text-base" />
+                    <span className="text-[10px] font-bold mt-0.5">{idx + 1}</span>
+                  </div>
+                  <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 flex-1 min-w-0">
+                    <div className="flex gap-2 max-sm:flex-col">
+                      <div className="w-[200px] max-sm:w-full flex flex-col gap-2">
+                        <input type="number" value={item.week ?? ''} placeholder="주차"
+                          onChange={(e) => updateCurriculumItem(idx, 'week', e.target.value ? Number(e.target.value) : null)}
+                          className="w-full border border-gray-300 rounded-md px-2.5 py-2 text-sm outline-none focus:border-[#2ED573]" />
+                        <input type="text" value={item.label} placeholder="강의 제목"
+                          onChange={(e) => updateCurriculumItem(idx, 'label', e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-2.5 py-2 text-sm outline-none focus:border-[#2ED573]" />
+                      </div>
                       <textarea value={item.description ?? ''} placeholder="강의 설명 (선택)"
                         onChange={(e) => updateCurriculumItem(idx, 'description', e.target.value || null)}
-                        rows={2}
-                        className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#2ED573] resize-none" />
+                        className="flex-1 border border-gray-300 rounded-md px-2.5 py-2 text-sm outline-none focus:border-[#2ED573] resize-none min-h-[76px] max-sm:min-h-[60px]" />
                     </div>
-                    <div className="col-span-full">
+                    <div className="mt-2">
                       <VideoUrlInput
                         value={item.video_url}
                         onChange={(url) => updateCurriculumItem(idx, 'video_url', url)}
-                        label={item.is_redirect ? '외부 링크 URL' : '영상 URL'}
                         isRedirect={item.is_redirect}
                         onIsRedirectChange={(next) => updateCurriculumItem(idx, 'is_redirect', next)}
+                        compact
                       />
                     </div>
+                  </div>
+                  <div className="flex flex-col gap-1 justify-center">
+                    <button type="button" onClick={() => moveCurriculumItem(idx, idx - 1)} disabled={idx === 0}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 bg-white border border-gray-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                      aria-label="위로 이동">
+                      <i className="ti ti-chevron-up text-sm" />
+                    </button>
+                    <button type="button" onClick={() => moveCurriculumItem(idx, idx + 1)} disabled={idx === curriculumItems.length - 1}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:bg-gray-100 bg-white border border-gray-200 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                      aria-label="아래로 이동">
+                      <i className="ti ti-chevron-down text-sm" />
+                    </button>
+                    <button type="button" onClick={() => removeCurriculumItem(idx)}
+                      className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 bg-white border border-gray-200 cursor-pointer transition-colors"
+                      aria-label="커리큘럼 항목 삭제">
+                      <i className="ti ti-x text-sm" />
+                    </button>
                   </div>
                 </div>
               ))}
