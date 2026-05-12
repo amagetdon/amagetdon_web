@@ -144,7 +144,7 @@ function InstructorDetailPage() {
                     </h3>
                     <p className="text-sm text-gray-500 mb-1">{ebook.instructor?.name}</p>
                     <div className="flex items-center gap-2">
-                      {ebook.original_price && (
+                      {!!ebook.original_price && ebook.original_price > 0 && !ebook.is_free && (
                         <span className="text-sm text-gray-400 line-through">{ebook.original_price.toLocaleString()}원</span>
                       )}
                       <span className={`text-sm font-bold ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
