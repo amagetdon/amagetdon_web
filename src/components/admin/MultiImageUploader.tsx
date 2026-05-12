@@ -22,6 +22,8 @@ export default function MultiImageUploader({
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [dragIndex, setDragIndex] = useState<number | null>(null)
+  // url → 원본 파일명. 이번 세션에서 업로드한 이미지에 대해서만 채워진다. 새로고침/재진입 시 초기화.
+  const [nameMap, setNameMap] = useState<Record<string, string>>({})
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -29,16 +31,19 @@ export default function MultiImageUploader({
     try {
       setUploading(true)
       const uploaded: string[] = []
+      const newNames: Record<string, string> = {}
       for (const file of list) {
         try {
           const url = await storageService.uploadImage(bucket, pathPrefix, file, { compress })
           uploaded.push(url)
+          newNames[url] = file.name
         } catch (err) {
           const message = err instanceof Error ? err.message : '업로드에 실패했습니다.'
           toast.error(`${file.name}: ${message}`)
         }
       }
       if (uploaded.length > 0) {
+        setNameMap((prev) => ({ ...prev, ...newNames }))
         onChange([...values, ...uploaded])
       }
     } finally {
@@ -107,6 +112,9 @@ export default function MultiImageUploader({
               <span className="w-8 text-center text-xs font-bold text-gray-600">{idx + 1}</span>
               <img src={url} alt={`상세 이미지 ${idx + 1}`} className="w-20 h-20 object-cover rounded-md bg-gray-100" />
               <div className="flex-1 min-w-0">
+                {nameMap[url] && (
+                  <p className="text-sm font-medium text-gray-800 truncate" title={nameMap[url]}>{nameMap[url]}</p>
+                )}
                 <p className="text-xs text-gray-500 truncate" title={url}>{url}</p>
               </div>
               <div className="flex items-center gap-1">
