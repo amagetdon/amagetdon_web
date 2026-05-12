@@ -669,8 +669,9 @@ export const webhookService = {
         event: log.event_type,
         // custom event 였다면 원본 발송과 같은 템플릿을 적용하기 위해 코드를 같이 보낸다.
         custom_event_code: log.event_type === 'custom' ? ((log.custom_event_code as string | null | undefined) ?? null) : null,
-        scope: (log.config_scope as string) || 'global',
-        scope_id: (log.config_scope_id as number | null) ?? null,
+        // 원본 발사 scope 우선 (강의별 자동 채우기 분기 진입), 없으면 config scope 폴백.
+        scope: (log.request_scope as string | null | undefined) || (log.config_scope as string) || 'global',
+        scope_id: (log.request_scope_id as number | null | undefined) ?? (log.config_scope_id as number | null) ?? null,
         user_id: log.user_id,
         related_type: log.related_type,
         related_id: log.related_id,

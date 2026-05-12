@@ -159,6 +159,9 @@ Deno.serve(async (req: Request) => {
       config_id: config?.id ?? null,
       config_scope: config?.scope ?? null,
       config_scope_id: config?.scope_id ?? null,
+      // 발사 시점의 원본 scope/scope_id — 재전송 시 강의별 자동 채우기(scheduled_at, instructor 등) 분기를 다시 진입시키기 위해 보존.
+      request_scope: scope ?? null,
+      request_scope_id: scope_id ?? null,
       user_id,
       related_type,
       related_id,

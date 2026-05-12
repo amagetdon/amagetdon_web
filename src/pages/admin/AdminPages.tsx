@@ -260,7 +260,7 @@ export default function AdminPages() {
 
   // 배너 CRUD
   const handleBannerSave = async () => {
-    if (!bannerEditing || !bannerEditing.title) { toast.error('타이틀은 필수입니다.'); return }
+    if (!bannerEditing) return
     try {
       setBannerSaving(true)
       if (bannerEditing.id) {
@@ -1077,7 +1077,7 @@ export default function AdminPages() {
         {bannerEditing && (
           <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
             <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">타이틀 *</label>
+              <label className="text-sm font-bold block mb-1">타이틀</label>
               <textarea value={(bannerEditing.title as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, title: e.target.value })}
                 placeholder="한번 배워서 평생 써먹는&#10;300 벌고 시작하는 보험 비즈니스" rows={3}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all resize-none" />

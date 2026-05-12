@@ -124,7 +124,7 @@ Deno.serve(async (req: Request) => {
     // 주의: custom canonical 필터링은 뒤에서 adminClient로 DB 조회 후 수행
 
     // DB에서 활성 키 풀 로드 (라운드로빈용) — service_role로 검증된 토큰 사용
-    const adminClient = createClient(supabaseUrl, isServiceRole ? token : serviceKey)
+    const adminClient = createClient(supabaseUrl, verified.isServiceRole ? token : serviceKey)
     const { data: keyRows } = await adminClient
       .from('openai_api_keys')
       .select('id, api_key, use_count')
