@@ -9,13 +9,21 @@ import ReviewForm from '../components/ReviewForm'
 import ProgressBar from '../components/ProgressBar'
 import toast from 'react-hot-toast'
 
+interface CurriculumVideo {
+  url: string
+  is_redirect: boolean
+  label?: string | null
+}
+
 interface CurriculumItem {
   id: number
   week: number | null
   label: string
   description: string | null
+  // deprecated — 단일 URL 시절 컬럼. 새 데이터는 video_urls 만 채워짐.
   video_url: string | null
   is_redirect: boolean | null
+  video_urls: CurriculumVideo[] | null
 }
 
 interface CoursePurchase {
@@ -78,6 +86,16 @@ function MyClassroomPage() {
   const [completedItems, setCompletedItems] = useState<Record<number, Set<number>>>({})
   const [completionRates, setCompletionRates] = useState<Record<number, number>>({})
   const [togglingItems, setTogglingItems] = useState<Set<number>>(new Set())
+  // 커리큘럼 항목 펼침 상태 — 한 항목에 영상/링크 여러 개일 때 클릭으로 열고 닫는다.
+  const [expandedCurriculumItems, setExpandedCurriculumItems] = useState<Set<number>>(new Set())
+  const toggleCurriculumExpand = (itemId: number) => {
+    setExpandedCurriculumItems((prev) => {
+      const next = new Set(prev)
+      if (next.has(itemId)) next.delete(itemId)
+      else next.add(itemId)
+      return next
+    })
+  }
   const [reviewTarget, setReviewTarget] = useState<{ courseId: number; courseName: string } | null>(null)
   const [reviewedCourses, setReviewedCourses] = useState<Set<number>>(new Set())
 
@@ -302,56 +320,115 @@ function MyClassroomPage() {
             {course.curriculum_items.map((item) => {
               const itemCompleted = courseCompleted.has(item.id)
               const isToggling = togglingItems.has(item.id)
+              // 신규 video_urls 우선, 없으면 옛 video_url 흡수 (마이그레이션 이전 데이터 호환).
+              const videos: CurriculumVideo[] = (item.video_urls && item.video_urls.length > 0)
+                ? item.video_urls.filter((v) => v.url)
+                : item.video_url
+                  ? [{ url: item.video_url, is_redirect: !!item.is_redirect, label: null }]
+                  : []
+              const hasMultipleVideos = videos.length >= 2
+              const singleVideo = videos.length === 1 ? videos[0] : null
+              const expanded = expandedCurriculumItems.has(item.id)
+
+              const playVideo = (v: CurriculumVideo) => {
+                if (expired) { toast.error('수강 기간이 만료되었습니다.'); return }
+                if (v.is_redirect) {
+                  window.open(v.url, '_blank', 'noopener,noreferrer')
+                } else {
+                  setPlayingVideo({ url: v.url, title: v.label || item.label })
+                }
+                if (user) {
+                  progressService.markWatched(user.id, course.id, item.id).catch(() => {})
+                }
+              }
 
               return (
-                <div key={item.id} className={`flex items-center gap-3 px-6 py-4 ${itemCompleted ? 'opacity-60' : ''}`}>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleComplete(course.id, item.id)}
-                    disabled={isToggling}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
-                      itemCompleted ? 'bg-[#2ED573] border-[#2ED573]' : 'border-gray-300 hover:border-[#2ED573]'
-                    } ${isToggling ? 'opacity-50' : ''}`}
-                    aria-label={itemCompleted ? `${item.label} 완료 해제` : `${item.label} 완료 표시`}
-                  >
-                    {itemCompleted && <i className="ti ti-check text-white text-xs" />}
-                  </button>
+                <div key={item.id} className={itemCompleted ? 'opacity-60' : ''}>
+                  <div className="flex items-center gap-3 px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleComplete(course.id, item.id)}
+                      disabled={isToggling}
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 cursor-pointer transition-colors ${
+                        itemCompleted ? 'bg-[#2ED573] border-[#2ED573]' : 'border-gray-300 hover:border-[#2ED573]'
+                      } ${isToggling ? 'opacity-50' : ''}`}
+                      aria-label={itemCompleted ? `${item.label} 완료 해제` : `${item.label} 완료 표시`}
+                    >
+                      {itemCompleted && <i className="ti ti-check text-white text-xs" />}
+                    </button>
 
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-bold whitespace-pre-line ${itemCompleted ? 'line-through text-gray-400' : ''}`}>
-                      {item.week ? `[${item.week}주차] ` : ''}{item.label}
-                    </p>
-                    {item.description && (
-                      <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line break-words">{item.description}</p>
+                    <button
+                      type="button"
+                      onClick={() => hasMultipleVideos && toggleCurriculumExpand(item.id)}
+                      disabled={!hasMultipleVideos}
+                      className={`flex-1 min-w-0 text-left bg-transparent border-none p-0 ${hasMultipleVideos ? 'cursor-pointer' : 'cursor-default'}`}
+                    >
+                      <p className={`text-sm font-bold whitespace-pre-line ${itemCompleted ? 'line-through text-gray-400' : ''}`}>
+                        {item.week ? `[${item.week}주차] ` : ''}{item.label}
+                      </p>
+                      {item.description && (
+                        <p className="text-xs text-gray-400 mt-0.5 whitespace-pre-line break-words">{item.description}</p>
+                      )}
+                    </button>
+
+                    {/* 영상 1개: 우측에 바로 재생/링크 버튼. 2개 이상: 펼침 토글. */}
+                    {singleVideo && (
+                      <button
+                        type="button"
+                        onClick={() => playVideo(singleVideo)}
+                        className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
+                          expired ? 'opacity-50 hover:border-gray-400' : 'hover:border-[#2ED573]'
+                        }`}
+                        aria-label={singleVideo.is_redirect ? '외부 링크 열기' : '영상 재생'}
+                      >
+                        {expired ? (
+                          <i className="ti ti-lock text-gray-400" />
+                        ) : singleVideo.is_redirect ? (
+                          <i className="ti ti-external-link text-[#2ED573]" />
+                        ) : (
+                          <i className="ti ti-player-play text-[#2ED573]" />
+                        )}
+                      </button>
+                    )}
+                    {hasMultipleVideos && (
+                      <button
+                        type="button"
+                        onClick={() => toggleCurriculumExpand(item.id)}
+                        className="border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white hover:border-[#2ED573]"
+                        aria-label={expanded ? '영상 목록 접기' : '영상 목록 펼치기'}
+                      >
+                        <i className={`ti ${expanded ? 'ti-chevron-up' : 'ti-chevron-down'} text-[#2ED573]`} />
+                      </button>
                     )}
                   </div>
 
-                  {item.video_url && (
-                    <button
-                      onClick={() => {
-                        if (expired) { toast.error('수강 기간이 만료되었습니다.'); return }
-                        if (item.is_redirect) {
-                          window.open(item.video_url!, '_blank', 'noopener,noreferrer')
-                        } else {
-                          setPlayingVideo({ url: item.video_url!, title: item.label })
-                        }
-                        if (user) {
-                          progressService.markWatched(user.id, course.id, item.id).catch(() => {})
-                        }
-                      }}
-                      className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
-                        expired ? 'opacity-50 hover:border-gray-400' : 'hover:border-[#2ED573]'
-                      }`}
-                      aria-label={item.is_redirect ? '외부 링크 열기' : '영상 재생'}
-                    >
-                      {expired ? (
-                        <i className="ti ti-lock text-gray-400" />
-                      ) : item.is_redirect ? (
-                        <i className="ti ti-external-link text-[#2ED573]" />
-                      ) : (
-                        <i className="ti ti-player-play text-[#2ED573]" />
-                      )}
-                    </button>
+                  {hasMultipleVideos && expanded && (
+                    <div className="px-6 pb-4 pl-[3.5rem] space-y-2">
+                      {videos.map((v, vIdx) => (
+                        <div key={vIdx} className="flex items-center gap-3 py-2.5 px-4 bg-gray-50 rounded-lg">
+                          <span className="text-gray-300 text-sm shrink-0">└</span>
+                          <span className="flex-1 min-w-0 text-sm font-bold text-gray-800 truncate">
+                            {v.label || (v.is_redirect ? '외부 링크' : `영상 ${vIdx + 1}`)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => playVideo(v)}
+                            className={`border border-gray-300 rounded-lg w-10 h-10 flex items-center justify-center shrink-0 cursor-pointer bg-white ${
+                              expired ? 'opacity-50 hover:border-gray-400' : 'hover:border-[#2ED573]'
+                            }`}
+                            aria-label={v.is_redirect ? '외부 링크 열기' : '영상 재생'}
+                          >
+                            {expired ? (
+                              <i className="ti ti-lock text-gray-400 text-base" />
+                            ) : v.is_redirect ? (
+                              <i className="ti ti-external-link text-[#2ED573] text-base" />
+                            ) : (
+                              <i className="ti ti-player-play text-[#2ED573] text-base" />
+                            )}
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )

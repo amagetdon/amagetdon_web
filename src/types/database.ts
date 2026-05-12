@@ -227,14 +227,23 @@ export interface CourseWithCurriculum extends Course {
   curriculum_items: CurriculumItem[]
 }
 
+export interface CurriculumVideo {
+  url: string
+  is_redirect: boolean
+  label?: string | null
+}
+
 export interface CurriculumItem {
   id: number
   course_id: number
   week: number | null
   label: string
   description: string | null
+  // deprecated — 단일 URL 시절 컬럼. 새 코드는 video_urls 만 읽고 쓴다.
   video_url: string | null
   is_redirect: boolean
+  // 한 항목에 들어가는 영상/외부 링크 목록. 마이그레이션으로 기존 video_url 데이터를 옮겨둠.
+  video_urls: CurriculumVideo[]
   sort_order: number
   created_at: string
 }

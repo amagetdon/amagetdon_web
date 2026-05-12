@@ -215,7 +215,7 @@ async function collectReferencedUrls(
   await required('faqs', 'video_url, file_url', (r) => {
     addJson(r.video_url); addJson(r.file_url)
   })
-  await required('curriculum_items', 'video_url', (r) => { addJson(r.video_url) })
+  await required('curriculum_items', 'video_url, video_urls', (r) => { addJson(r.video_url); addJson(r.video_urls) })
   await required('coupons', 'banner_image_url', (r) => { addJson(r.banner_image_url) })
   await required('achievements', 'image_url', (r) => { addJson(r.image_url) })
   await required('landing_categories', 'seo', (r) => { addJson(r.seo) })

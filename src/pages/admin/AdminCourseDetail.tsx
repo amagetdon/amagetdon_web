@@ -17,13 +17,19 @@ import { refundPolicyTemplateService } from '../../services/refundPolicyTemplate
 import { supabase } from '../../lib/supabase'
 import type { CourseWithCurriculum, Review, Instructor, LandingCategory } from '../../types'
 
+interface CurriculumVideo {
+  url: string
+  is_redirect: boolean
+  label: string | null
+}
+
 interface CurriculumRow {
   id?: number
   week: number | null
   label: string
   description: string | null
-  video_url: string | null
-  is_redirect: boolean
+  // 한 항목 안에 여러 영상/외부 링크. 빈 배열이면 영상 없음.
+  video_urls: CurriculumVideo[]
   sort_order: number
 }
 
@@ -81,6 +87,8 @@ export default function AdminCourseDetail() {
   const [curriculumDragIndex, setCurriculumDragIndex] = useState<number | null>(null)
   // 호버 중인 카드 인덱스와 마우스 Y 기준 위/아래 위치 — 인접 카드끼리 swap 과 끝자리 이동을 모두 지원.
   const [curriculumDragOver, setCurriculumDragOver] = useState<{ idx: number; position: 'above' | 'below' } | null>(null)
+  // 삭제 직전 확인 — 항목에 내용이 있을 때만 다이얼로그 띄움
+  const [curriculumDeleteIdx, setCurriculumDeleteIdx] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -262,15 +270,33 @@ export default function AdminCourseDetail() {
           : []
       setEditing({ ...(data as unknown as Record<string, unknown>), landing_image_urls: normalizedUrls })
       setCurriculumItems(
-        (data.curriculum_items ?? []).map((item) => ({
-          id: item.id,
-          week: item.week,
-          label: item.label,
-          description: item.description,
-          video_url: item.video_url,
-          is_redirect: !!(item as { is_redirect?: boolean }).is_redirect,
-          sort_order: item.sort_order,
-        }))
+        (data.curriculum_items ?? []).map((item) => {
+          const raw = (item as { video_urls?: unknown }).video_urls
+          let videos: CurriculumVideo[] = []
+          if (Array.isArray(raw)) {
+            videos = (raw as Array<Record<string, unknown>>).map((v) => ({
+              url: typeof v.url === 'string' ? v.url : '',
+              is_redirect: !!v.is_redirect,
+              label: typeof v.label === 'string' ? v.label : null,
+            })).filter((v) => v.url)
+          }
+          // jsonb 배열이 비어있는데 옛 video_url 이 있다면 흡수 — 마이그레이션 누락된 환경 대비 안전망.
+          if (videos.length === 0 && item.video_url) {
+            videos = [{
+              url: item.video_url,
+              is_redirect: !!(item as { is_redirect?: boolean }).is_redirect,
+              label: null,
+            }]
+          }
+          return {
+            id: item.id,
+            week: item.week,
+            label: item.label,
+            description: item.description,
+            video_urls: videos,
+            sort_order: item.sort_order,
+          }
+        })
       )
     } catch {
       toast.error('강의를 불러오는데 실패했습니다.')
@@ -421,7 +447,25 @@ export default function AdminCourseDetail() {
   const addCurriculumItem = () => {
     // 같은 주차에 영상/URL 을 연속 추가할 때 매번 주차를 다시 입력하지 않도록 마지막 항목의 week 를 복사.
     const lastWeek = curriculumItems.length > 0 ? curriculumItems[curriculumItems.length - 1].week : null
-    setCurriculumItems([...curriculumItems, { week: lastWeek, label: '', description: null, video_url: null, is_redirect: false, sort_order: curriculumItems.length + 1 }])
+    setCurriculumItems([...curriculumItems, { week: lastWeek, label: '', description: null, video_urls: [], sort_order: curriculumItems.length + 1 }])
+  }
+
+  const addCurriculumVideo = (rowIdx: number) => {
+    setCurriculumItems((prev) => prev.map((item, i) => i === rowIdx
+      ? { ...item, video_urls: [...item.video_urls, { url: '', is_redirect: false, label: null }] }
+      : item))
+  }
+
+  const updateCurriculumVideo = (rowIdx: number, videoIdx: number, patch: Partial<CurriculumVideo>) => {
+    setCurriculumItems((prev) => prev.map((item, i) => i === rowIdx
+      ? { ...item, video_urls: item.video_urls.map((v, j) => j === videoIdx ? { ...v, ...patch } : v) }
+      : item))
+  }
+
+  const removeCurriculumVideo = (rowIdx: number, videoIdx: number) => {
+    setCurriculumItems((prev) => prev.map((item, i) => i === rowIdx
+      ? { ...item, video_urls: item.video_urls.filter((_, j) => j !== videoIdx) }
+      : item))
   }
 
   const updateCurriculumItem = (index: number, field: keyof CurriculumRow, value: unknown) => {
@@ -433,6 +477,13 @@ export default function AdminCourseDetail() {
   const removeCurriculumItem = (index: number) => {
     setCurriculumItems(curriculumItems.filter((_, i) => i !== index))
   }
+
+  // 항목이 사실상 비어있는지 — 비어있으면 삭제 시 경고 없이 바로 제거.
+  const isCurriculumItemEmpty = (item: CurriculumRow): boolean =>
+    item.week == null &&
+    !item.label.trim() &&
+    !item.description?.trim() &&
+    item.video_urls.length === 0
 
   const moveCurriculumItem = (from: number, to: number) => {
     setCurriculumItems((prev) => {
@@ -452,15 +503,27 @@ export default function AdminCourseDetail() {
       if (delErr) throw delErr
       const validItems = curriculumItems.filter((item) => item.label.trim())
       if (validItems.length > 0) {
-        const items = validItems.map((item, idx) => ({
-          course_id: courseId,
-          week: item.week || null,
-          label: item.label.trim(),
-          description: item.description?.trim() || null,
-          video_url: item.video_url || null,
-          is_redirect: !!item.is_redirect,
-          sort_order: idx + 1,
-        }))
+        const items = validItems.map((item, idx) => {
+          const videos = item.video_urls
+            .map((v) => ({
+              url: v.url.trim(),
+              is_redirect: !!v.is_redirect,
+              label: v.label?.trim() || null,
+            }))
+            .filter((v) => v.url)
+          // 옛 video_url / is_redirect 컬럼도 첫 영상으로 동기화 (storage-orphans, 구버전 코드 호환).
+          const firstVideo = videos[0] ?? null
+          return {
+            course_id: courseId,
+            week: item.week || null,
+            label: item.label.trim(),
+            description: item.description?.trim() || null,
+            video_urls: videos,
+            video_url: firstVideo?.url ?? null,
+            is_redirect: !!firstVideo?.is_redirect,
+            sort_order: idx + 1,
+          }
+        })
         const { error } = await supabase.from('curriculum_items').insert(items as never)
         if (error) throw error
       }
@@ -1023,6 +1086,7 @@ export default function AdminCourseDetail() {
                   onDragOver={(e) => {
                     if (curriculumDragIndex === null || curriculumDragIndex === idx) return
                     e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
                     const rect = e.currentTarget.getBoundingClientRect()
                     const position: 'above' | 'below' = e.clientY > rect.top + rect.height / 2 ? 'below' : 'above'
                     if (curriculumDragOver?.idx !== idx || curriculumDragOver?.position !== position) {
@@ -1051,7 +1115,13 @@ export default function AdminCourseDetail() {
                   )}
                   <div
                     draggable
-                    onDragStart={() => setCurriculumDragIndex(idx)}
+                    onDragStart={(e) => {
+                      // 일부 브라우저는 dataTransfer 에 data 가 없으면 첫 드래그를 즉시 cancel 한다.
+                      // 더미 페이로드를 한 번 set 해서 native drag 가 활성화되도록 한다.
+                      e.dataTransfer.setData('text/plain', String(idx))
+                      e.dataTransfer.effectAllowed = 'move'
+                      setCurriculumDragIndex(idx)
+                    }}
                     onDragEnd={() => {
                       setCurriculumDragIndex(null)
                       setCurriculumDragOver(null)
@@ -1076,14 +1146,42 @@ export default function AdminCourseDetail() {
                         onChange={(e) => updateCurriculumItem(idx, 'description', e.target.value || null)}
                         className="flex-1 border border-gray-300 rounded-md px-2.5 py-2 text-sm outline-none focus:border-[#2ED573] resize-none min-h-[76px] max-sm:min-h-[60px]" />
                     </div>
-                    <div className="mt-2">
-                      <VideoUrlInput
-                        value={item.video_url}
-                        onChange={(url) => updateCurriculumItem(idx, 'video_url', url)}
-                        isRedirect={item.is_redirect}
-                        onIsRedirectChange={(next) => updateCurriculumItem(idx, 'is_redirect', next)}
-                        compact
-                      />
+                    <div className="mt-2 space-y-1.5">
+                      {item.video_urls.map((v, vIdx) => (
+                        <div key={vIdx} className="flex items-center gap-1.5">
+                          <input
+                            type="text"
+                            value={v.label ?? ''}
+                            onChange={(e) => updateCurriculumVideo(idx, vIdx, { label: e.target.value || null })}
+                            placeholder="라벨 (선택)"
+                            className="w-32 shrink-0 border border-gray-300 rounded-md px-2 py-2 text-sm outline-none focus:border-[#2ED573]"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <VideoUrlInput
+                              value={v.url || null}
+                              onChange={(url) => updateCurriculumVideo(idx, vIdx, { url: url || '' })}
+                              isRedirect={v.is_redirect}
+                              onIsRedirectChange={(next) => updateCurriculumVideo(idx, vIdx, { is_redirect: next })}
+                              compact
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeCurriculumVideo(idx, vIdx)}
+                            className="w-7 h-7 shrink-0 flex items-center justify-center rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 bg-white border border-gray-200 cursor-pointer transition-colors"
+                            aria-label="영상 항목 삭제"
+                          >
+                            <i className="ti ti-x text-sm" />
+                          </button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => addCurriculumVideo(idx)}
+                        className="w-full py-1.5 rounded-md text-xs font-medium border border-dashed border-gray-300 text-gray-500 bg-white cursor-pointer hover:border-[#2ED573] hover:text-[#2ED573] transition-colors flex items-center justify-center gap-1"
+                      >
+                        <i className="ti ti-plus text-xs" /> 영상/링크 추가
+                      </button>
                     </div>
                   </div>
                   <div className="flex flex-col gap-1 justify-center">
@@ -1097,7 +1195,11 @@ export default function AdminCourseDetail() {
                       aria-label="아래로 이동">
                       <i className="ti ti-chevron-down text-sm" />
                     </button>
-                    <button type="button" onClick={() => removeCurriculumItem(idx)}
+                    <button type="button"
+                      onClick={() => {
+                        if (isCurriculumItemEmpty(item)) removeCurriculumItem(idx)
+                        else setCurriculumDeleteIdx(idx)
+                      }}
                       className="w-7 h-7 flex items-center justify-center rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 bg-white border border-gray-200 cursor-pointer transition-colors"
                       aria-label="커리큘럼 항목 삭제">
                       <i className="ti ti-x text-sm" />
@@ -1329,6 +1431,17 @@ export default function AdminCourseDetail() {
         title="강의 삭제"
         message="이 강의를 삭제하시겠습니까? 관련 커리큘럼도 함께 삭제됩니다."
         loading={deleting}
+      />
+
+      <ConfirmDialog
+        isOpen={curriculumDeleteIdx != null}
+        onClose={() => setCurriculumDeleteIdx(null)}
+        onConfirm={() => {
+          if (curriculumDeleteIdx != null) removeCurriculumItem(curriculumDeleteIdx)
+          setCurriculumDeleteIdx(null)
+        }}
+        title="커리큘럼 항목 삭제"
+        message="이 항목에 입력한 내용이 모두 사라집니다. 정말 삭제하시겠습니까?"
       />
     </AdminLayout>
   )
