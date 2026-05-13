@@ -109,7 +109,7 @@ function EventBanner({ banners, pageKey }: EventBannerProps) {
       <div className="relative text-center px-5 max-w-[800px]">
         {eff.title && (
           <div
-            className="text-3xl max-sm:text-xl text-white font-normal leading-snug banner-rich"
+            className="text-3xl max-sm:text-xl text-white font-medium leading-snug banner-rich"
             dangerouslySetInnerHTML={{ __html: textToHtml(eff.title) }}
           />
         )}

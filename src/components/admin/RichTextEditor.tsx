@@ -29,7 +29,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     ? 'tiptap-content tiptap-banner outline-none px-4 py-3 leading-tight'
     : 'tiptap-content outline-none px-4 py-3 text-sm text-gray-800 leading-relaxed'
   const editorBaseStyle = preset === 'banner'
-    ? `min-height: ${minHeight}px; font-size: 32px; font-weight: 400; color: #ffffff; background: #0f0f0f;`
+    ? `min-height: ${minHeight}px; font-size: 32px; font-weight: 500; color: #ffffff; background: #0f0f0f;`
     : `min-height: ${minHeight}px;`
   const [htmlMode, setHtmlMode] = useState(false)
   const [htmlDraft, setHtmlDraft] = useState(value || '')
