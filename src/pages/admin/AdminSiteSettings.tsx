@@ -302,6 +302,11 @@ export default function AdminSiteSettings() {
           overlay_opacity: null,
           sort_order: (linkEditing.sort_order as number) || 0,
           is_published: linkEditing.is_published !== false,
+          title_mobile: null,
+          subtitle_mobile: null,
+          image_url_mobile: null,
+          video_url_mobile: null,
+          overlay_opacity_mobile: null,
         })
         toast.success('새 링크가 등록되었습니다.')
       }

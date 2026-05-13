@@ -289,6 +289,11 @@ export default function AdminPages() {
           overlay_opacity: (bannerEditing.overlay_opacity as number) ?? 30,
           sort_order: (bannerEditing.sort_order as number) || 0,
           is_published: bannerEditing.is_published !== false,
+          title_mobile: (bannerEditing.title_mobile as string) || null,
+          subtitle_mobile: (bannerEditing.subtitle_mobile as string) || null,
+          image_url_mobile: (bannerEditing.image_url_mobile as string) || null,
+          video_url_mobile: (bannerEditing.video_url_mobile as string) || null,
+          overlay_opacity_mobile: (bannerEditing.overlay_opacity_mobile as number) ?? null,
         })
         toast.success('새 배너가 등록되었습니다.')
       }
