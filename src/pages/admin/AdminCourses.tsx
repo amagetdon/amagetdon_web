@@ -208,10 +208,10 @@ export default function AdminCourses() {
                       </td>
                       <td className="px-4 py-3 text-center text-gray-500 max-md:hidden">
                         {(() => {
-                          if (course.course_type === 'free') return '무료'
-                          const price = course.sale_price ?? course.original_price
+                          if (course.course_type === 'free' || course.sale_price === 0) return '무료'
+                          const price = (course.sale_price && course.sale_price > 0) ? course.sale_price : course.original_price
                           if (price == null) return '-'
-                          return price === 0 ? '무료' : `${price.toLocaleString()}원`
+                          return `${price.toLocaleString()}원`
                         })()}
                       </td>
                       <td className="px-4 py-3 text-center text-gray-700 text-xs max-md:hidden">

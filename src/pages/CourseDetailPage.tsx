@@ -246,9 +246,10 @@ function CourseDetailPage() {
     (!course.discount_start || new Date(course.discount_start).getTime() <= now) &&
     (!course.discount_end || new Date(course.discount_end).getTime() > now)
   )
-  const displayedPrice = isFree ? 0
-    : discountActive && course?.sale_price != null ? course.sale_price
-    : course?.original_price ?? course?.sale_price ?? 0
+  const isExplicitlyFree = isFree || course?.sale_price === 0
+  const displayedPrice = isExplicitlyFree ? 0
+    : discountActive && course?.sale_price != null && course.sale_price > 0 ? course.sale_price
+    : course?.original_price ?? 0
   const price = displayedPrice
   const couponDiscount = selectedCoupon && price >= (selectedCoupon.min_purchase || 0)
     ? selectedCoupon.discount_type === 'percent'
@@ -689,7 +690,7 @@ function CourseDetailPage() {
                   <p className="text-sm text-gray-400 line-through mt-2">정가 {course.original_price.toLocaleString()}원</p>
                 )}
                 <p className="text-4xl font-extrabold text-gray-900 mt-1">
-                  {isFree || displayedPrice === 0 ? '무료' : `${displayedPrice.toLocaleString()}원`}
+                  {isExplicitlyFree ? '무료' : `${displayedPrice.toLocaleString()}원`}
                 </p>
                 {discountActive && course.discount_end && (
                   <p className="text-xs text-[#2ED573] font-medium mt-1">
@@ -804,10 +805,10 @@ function CourseDetailPage() {
                     </p>
                     <p className="text-xs text-gray-500">
                       {(() => {
-                        if (rc.course_type === 'free') return '무료'
-                        const price = rc.sale_price ?? rc.original_price
+                        if (rc.course_type === 'free' || rc.sale_price === 0) return '무료'
+                        const price = (rc.sale_price && rc.sale_price > 0) ? rc.sale_price : rc.original_price
                         if (price == null) return '-'
-                        return price === 0 ? '무료' : `${price.toLocaleString()}원`
+                        return `${price.toLocaleString()}원`
                       })()}
                     </p>
                   </Link>
