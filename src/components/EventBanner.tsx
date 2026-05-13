@@ -74,6 +74,12 @@ function EventBanner({ banners, pageKey }: EventBannerProps) {
   if (banners.length === 0) return null
 
   const banner = banners[current]
+  const eff = {
+    title: isMobile && banner.title_mobile ? banner.title_mobile : banner.title,
+    subtitle: isMobile && banner.subtitle_mobile ? banner.subtitle_mobile : banner.subtitle,
+    image_url: isMobile && banner.image_url_mobile ? banner.image_url_mobile : banner.image_url,
+    overlay_opacity: isMobile && banner.overlay_opacity_mobile != null ? banner.overlay_opacity_mobile : banner.overlay_opacity,
+  }
   const activeHeight = isMobile ? heightMobile : height
   const activeFit = isMobile ? fitMobile : fit
   const hasFixedHeight = activeHeight !== 'auto'
@@ -91,25 +97,25 @@ function EventBanner({ banners, pageKey }: EventBannerProps) {
       style={hasFixedHeight ? { height: activeHeight } : undefined}
       onClick={banner.link_url ? handleClick : undefined}
     >
-      {banner.image_url && (
+      {eff.image_url && (
         <img
-          src={imgUrl(banner.image_url, 'wide')}
+          src={imgUrl(eff.image_url, 'wide')}
           alt=""
           loading="lazy"
           className={mediaClassName(activeFit)}
-          style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }}
+          style={{ opacity: (eff.overlay_opacity ?? 30) / 100 }}
         />
       )}
       <div className="relative text-center px-5 max-w-[800px]">
-        {banner.title && (
+        {eff.title && (
           <div
             className="text-3xl max-sm:text-xl text-white font-bold leading-snug banner-rich"
-            dangerouslySetInnerHTML={{ __html: textToHtml(banner.title) }}
+            dangerouslySetInnerHTML={{ __html: textToHtml(eff.title) }}
           />
         )}
-        {banner.subtitle && (
+        {eff.subtitle && (
           <p className="text-base max-sm:text-sm text-gray-300 mt-4 leading-relaxed whitespace-pre-line">
-            {banner.subtitle}
+            {eff.subtitle}
           </p>
         )}
       </div>

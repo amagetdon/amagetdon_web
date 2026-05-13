@@ -180,8 +180,16 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
   }
 
   const banner = banners[current]
-  const videoInfo = banner.video_url ? getEmbedUrl(banner.video_url) : null
-  const isVideo = (banner.media_type === 'video' || banner.video_url) && videoInfo
+  // 모바일 변형이 채워져 있으면 우선 사용, 아니면 PC 값으로 폴백
+  const eff = {
+    title: isMobile && banner.title_mobile ? banner.title_mobile : banner.title,
+    subtitle: isMobile && banner.subtitle_mobile ? banner.subtitle_mobile : banner.subtitle,
+    image_url: isMobile && banner.image_url_mobile ? banner.image_url_mobile : banner.image_url,
+    video_url: isMobile && banner.video_url_mobile ? banner.video_url_mobile : banner.video_url,
+    overlay_opacity: isMobile && banner.overlay_opacity_mobile != null ? banner.overlay_opacity_mobile : banner.overlay_opacity,
+  }
+  const videoInfo = eff.video_url ? getEmbedUrl(eff.video_url) : null
+  const isVideo = (banner.media_type === 'video' || eff.video_url) && videoInfo
 
   const handleBannerClick = () => {
     if (banner.link_url) {
@@ -208,7 +216,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
     >
       {isVideo && videoInfo ? (
         videoInfo.type === 'youtube' ? (
-          <div className="absolute inset-0 overflow-hidden" style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }}>
+          <div className="absolute inset-0 overflow-hidden" style={{ opacity: (eff.overlay_opacity ?? 30) / 100 }}>
             {(() => {
               const layout = iframeLayout(activeFit)
               return (
@@ -227,27 +235,27 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
           <video
             key={videoInfo.src}
             src={videoInfo.src}
-            poster={imgUrl(banner.image_url, 'hero') || undefined}
+            poster={imgUrl(eff.image_url, 'hero') || undefined}
             className={mediaClassName(activeFit)}
-            style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }}
+            style={{ opacity: (eff.overlay_opacity ?? 30) / 100 }}
             autoPlay
             loop
             muted
             playsInline
           />
         )
-      ) : banner.image_url ? (
-        <img src={imgUrl(banner.image_url, 'hero')} alt="" className={mediaClassName(activeFit)} style={{ opacity: (banner.overlay_opacity ?? 30) / 100 }} />
+      ) : eff.image_url ? (
+        <img src={imgUrl(eff.image_url, 'hero')} alt="" className={mediaClassName(activeFit)} style={{ opacity: (eff.overlay_opacity ?? 30) / 100 }} />
       ) : null}
       <div className="relative w-full max-w-[1200px] mx-auto px-5">
-        {banner.subtitle && (
+        {eff.subtitle && (
           <div className="inline-flex items-center px-5 py-2 border border-gray-500 rounded-full mb-6">
-            <span className="text-xs leading-none text-gray-300">{banner.subtitle}</span>
+            <span className="text-xs leading-none text-gray-300">{eff.subtitle}</span>
           </div>
         )}
         <div
           className="text-[40px] max-sm:text-2xl text-white font-bold leading-tight banner-rich"
-          dangerouslySetInnerHTML={{ __html: textToHtml(banner.title) }}
+          dangerouslySetInnerHTML={{ __html: textToHtml(eff.title) }}
         />
         {banners.length > 1 && (
           <div className="flex items-center gap-3 mt-10" onClick={(e) => e.stopPropagation()}>

@@ -35,7 +35,7 @@ const emptyForm: EditingForm = {
 }
 
 type PageTab = 'landing' | 'academy' | 'hero' | 'results' | 'visibility'
-type BannerSubTab = 'hero' | 'reviews' | 'results' | 'faq'
+type BannerSubTab = 'hero' | 'academy_hero' | 'landing_hero' | 'reviews' | 'results' | 'faq'
 
 const PAGE_TABS: { key: PageTab; label: string }[] = [
   { key: 'landing', label: '랜딩 페이지' },
@@ -70,8 +70,9 @@ export default function AdminPages() {
   const [academySaving, setAcademySaving] = useState(false)
 
   // 배너
+  const [bannerDevice, setBannerDevice] = useState<'pc' | 'mobile'>('pc')
   const [bannerSubTab, setBannerSubTab] = useState<BannerSubTab>('hero')
-  const [allBanners, setAllBanners] = useState<Record<string, Banner[]>>({ hero: [], reviews: [], results: [], faq: [], reviews_event: [], results_event: [], faq_event: [] })
+  const [allBanners, setAllBanners] = useState<Record<string, Banner[]>>({ hero: [], academy_hero: [], landing_hero: [], reviews: [], results: [], faq: [], reviews_event: [], results_event: [], faq_event: [] })
   const [bannerEditing, setBannerEditing] = useState<Record<string, unknown> | null>(null)
   const [bannerSaving, setBannerSaving] = useState(false)
   const [bannerDeleteTarget, setBannerDeleteTarget] = useState<number | null>(null)
@@ -85,6 +86,8 @@ export default function AdminPages() {
 
   const [bannerSettings, setBannerSettings] = useState<Record<string, { height: string; heightMobile: string; speed: string; fit: string; fitMobile: string }>>({
     hero: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
+    academy_hero: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
+    landing_hero: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     reviews: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     results: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     faq: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
@@ -111,10 +114,12 @@ export default function AdminPages() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [data, promoRes, heroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, resultData, settingsData, academyRes, navRes] = await Promise.all([
+      const [data, promoRes, heroBanners, academyHeroBanners, landingHeroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, resultData, settingsData, academyRes, navRes] = await Promise.all([
         landingCategoryService.getAll(),
         supabase.from('site_settings').select('value').eq('key', 'promo_video').maybeSingle(),
         bannerService.getAllByPage('hero'),
+        bannerService.getAllByPage('academy_hero'),
+        bannerService.getAllByPage('landing_hero'),
         bannerService.getAllByPage('reviews'),
         bannerService.getAllByPage('results'),
         bannerService.getAllByPage('faq'),
@@ -133,7 +138,7 @@ export default function AdminPages() {
       setClosedVisualEffect(academyValue?.closedVisualEffect !== false)
       const navValue = (navRes.data as { value?: Partial<NavVisibility> } | null)?.value ?? {}
       setNavVisibility({ ...DEFAULT_NAV_VISIBILITY, ...navValue })
-      setAllBanners({ hero: heroBanners, reviews: reviewsBanners, results: resultsBanners, faq: faqBanners, reviews_event: reviewsEvent, results_event: resultsEvent, faq_event: faqEvent })
+      setAllBanners({ hero: heroBanners, academy_hero: academyHeroBanners, landing_hero: landingHeroBanners, reviews: reviewsBanners, results: resultsBanners, faq: faqBanners, reviews_event: reviewsEvent, results_event: resultsEvent, faq_event: faqEvent })
       setResults(resultData.data)
       const settingsValue = (settingsData.data as { value?: Record<string, { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }> } | null)?.value
       if (settingsValue) {
@@ -147,6 +152,8 @@ export default function AdminPages() {
         setBannerSettings((prev) => ({
           ...prev,
           hero: normalize(settingsValue.hero),
+          academy_hero: normalize(settingsValue.academy_hero),
+          landing_hero: normalize(settingsValue.landing_hero),
           reviews: normalize(settingsValue.reviews),
           results: normalize(settingsValue.results),
           faq: normalize(settingsValue.faq),
@@ -467,7 +474,7 @@ export default function AdminPages() {
       ) : tab === 'hero' ? (
         <>
           <div className="flex gap-2 mb-4">
-            {([['hero', '메인 히어로'], ['reviews', '수강 후기'], ['results', '수강 성과'], ['faq', 'FAQ']] as const).map(([key, label]) => (
+            {([['hero', '메인 히어로'], ['academy_hero', '아카데미 탭 히어로'], ['landing_hero', '랜딩 히어로'], ['reviews', '수강 후기'], ['results', '수강 성과'], ['faq', 'FAQ']] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setBannerSubTab(key)}
@@ -1075,28 +1082,47 @@ export default function AdminPages() {
       </AdminFormModal>
 
       {/* 배너 편집 모달 */}
-      <AdminFormModal isOpen={!!bannerEditing} onClose={() => setBannerEditing(null)} title={bannerEditing?.id ? '배너 수정' : '새 배너 등록'} onSubmit={handleBannerSave} loading={bannerSaving} maxWidthClass="max-w-[960px]">
-        {bannerEditing && (
+      <AdminFormModal isOpen={!!bannerEditing} onClose={() => { setBannerEditing(null); setBannerDevice('pc') }} title={bannerEditing?.id ? '배너 수정' : '새 배너 등록'} onSubmit={handleBannerSave} loading={bannerSaving} maxWidthClass="max-w-[960px]">
+        {bannerEditing && (() => {
+          const isMobileEdit = bannerDevice === 'mobile'
+          const k = (base: string) => isMobileEdit ? `${base}_mobile` : base
+          const get = (base: string) => bannerEditing[k(base)]
+          const set = (base: string, value: unknown) => setBannerEditing({ ...bannerEditing, [k(base)]: value })
+          const pcStr = (base: string) => (bannerEditing[base] as string) || ''
+          return (
           <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
             <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">타이틀</label>
+              <div className="inline-flex rounded-full border border-gray-200 bg-gray-50 p-1">
+                <button type="button" onClick={() => setBannerDevice('pc')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold cursor-pointer border-none transition-colors ${bannerDevice === 'pc' ? 'bg-white text-gray-900 shadow-sm' : 'bg-transparent text-gray-500'}`}>
+                  <i className="ti ti-device-desktop" /> PC
+                </button>
+                <button type="button" onClick={() => setBannerDevice('mobile')}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold cursor-pointer border-none transition-colors ${bannerDevice === 'mobile' ? 'bg-white text-gray-900 shadow-sm' : 'bg-transparent text-gray-500'}`}>
+                  <i className="ti ti-device-mobile" /> 모바일
+                </button>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-2">모바일 칸을 비우면 자동으로 PC 값을 사용합니다. 다르게 보이고 싶을 때만 모바일 값을 채워주세요.</p>
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">타이틀 {isMobileEdit && <span className="text-[10px] text-gray-400">(모바일)</span>}</label>
               <RichTextEditor
-                value={(bannerEditing.title as string) || ''}
-                onChange={(html) => setBannerEditing({ ...bannerEditing, title: html })}
-                placeholder="한번 배워서 평생 써먹는&#10;300 벌고 시작하는 보험 비즈니스"
+                value={(get('title') as string) || ''}
+                onChange={(html) => set('title', html)}
+                placeholder={isMobileEdit && pcStr('title') ? `PC 값 사용: ${pcStr('title').replace(/<[^>]+>/g, ' ').slice(0, 60)}` : '한번 배워서 평생 써먹는\n300 벌고 시작하는 보험 비즈니스'}
                 minHeight={160}
                 preset="banner"
               />
               <p className="text-xs text-gray-400 mt-1">에디터 글씨 크기·색상이 실제 히어로 배너 표시와 동일하게 보입니다.</p>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">뱃지 텍스트</label>
-              <input value={(bannerEditing.subtitle as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, subtitle: e.target.value })}
-                placeholder="무료강의 | 12월 25일(목) 19:30"
+              <label className="text-sm font-bold block mb-1">뱃지 텍스트 {isMobileEdit && <span className="text-[10px] text-gray-400">(모바일)</span>}</label>
+              <input value={(get('subtitle') as string) || ''} onChange={(e) => set('subtitle', e.target.value)}
+                placeholder={isMobileEdit && pcStr('subtitle') ? `PC 값 사용: ${pcStr('subtitle')}` : '무료강의 | 12월 25일(목) 19:30'}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">미디어 타입</label>
+              <label className="text-sm font-bold block mb-1">미디어 타입 <span className="text-[10px] text-gray-400">(PC·모바일 공통)</span></label>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setBannerEditing({ ...bannerEditing, media_type: 'image' })}
                   className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${(bannerEditing.media_type || 'image') === 'image' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'}`}>
@@ -1111,9 +1137,9 @@ export default function AdminPages() {
             {bannerEditing.media_type === 'video' ? (
               <>
                 <div className="col-span-2 max-sm:col-span-1">
-                  <label className="text-sm font-bold block mb-1">동영상 URL</label>
-                  <input value={(bannerEditing.video_url as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, video_url: e.target.value })}
-                    placeholder="https://vimeo.com/... 또는 https://youtu.be/... 또는 MP4/WebM 직접 링크"
+                  <label className="text-sm font-bold block mb-1">동영상 URL {isMobileEdit && <span className="text-[10px] text-gray-400">(모바일)</span>}</label>
+                  <input value={(get('video_url') as string) || ''} onChange={(e) => set('video_url', e.target.value)}
+                    placeholder={isMobileEdit && pcStr('video_url') ? `PC 값 사용: ${pcStr('video_url')}` : 'https://vimeo.com/... 또는 https://youtu.be/... 또는 MP4/WebM 직접 링크'}
                     className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                   <div className="mt-2 rounded-lg bg-[#2ED573]/10 border border-[#2ED573]/30 px-3 py-2 text-xs text-gray-700 flex items-start gap-2">
                     <i className="ti ti-info-circle text-[#2ED573] text-sm mt-0.5 shrink-0" />
@@ -1125,33 +1151,36 @@ export default function AdminPages() {
                   <p className="text-xs text-gray-400 mt-1">유튜브, 비메오, MP4/WebM 링크를 지원합니다. 자동 반복 재생됩니다.</p>
                 </div>
                 <div className="col-span-2 max-sm:col-span-1">
-                  <label className="text-sm font-bold block mb-1">포스터 이미지 (선택)</label>
-                  <ImageUploader bucket="banners" path={`${editingPageKey}/${bannerUploadKey}-poster`}
-                    currentUrl={bannerEditing.image_url as string} onUpload={(url) => setBannerEditing({ ...bannerEditing, image_url: url })} className="h-[120px]" />
-                  <p className="text-xs text-gray-400 mt-1">동영상 로딩 중 표시될 이미지 (없으면 검정 배경)</p>
+                  <label className="text-sm font-bold block mb-1">포스터 이미지 (선택) {isMobileEdit && <span className="text-[10px] text-gray-400">(모바일)</span>}</label>
+                  <ImageUploader bucket="banners" path={`${editingPageKey}/${bannerUploadKey}-poster${isMobileEdit ? '-mobile' : ''}`}
+                    currentUrl={(get('image_url') as string) || ''} onUpload={(url) => set('image_url', url)} className="h-[120px]" />
+                  <p className="text-xs text-gray-400 mt-1">{isMobileEdit && pcStr('image_url') ? '비워두면 PC 포스터 사용' : '동영상 로딩 중 표시될 이미지 (없으면 검정 배경)'}</p>
                 </div>
               </>
             ) : (
               <div className="col-span-2 max-sm:col-span-1">
-                <label className="text-sm font-bold block mb-1">배경 이미지</label>
-                <ImageUploader bucket="banners" path={`${editingPageKey}/${bannerUploadKey}`}
-                  currentUrl={bannerEditing.image_url as string} onUpload={(url) => setBannerEditing({ ...bannerEditing, image_url: url })} className="h-[160px]" />
+                <label className="text-sm font-bold block mb-1">배경 이미지 {isMobileEdit && <span className="text-[10px] text-gray-400">(모바일)</span>}</label>
+                <ImageUploader bucket="banners" path={`${editingPageKey}/${bannerUploadKey}${isMobileEdit ? '-mobile' : ''}`}
+                  currentUrl={(get('image_url') as string) || ''} onUpload={(url) => set('image_url', url)} className="h-[160px]" />
+                {isMobileEdit && pcStr('image_url') && !(get('image_url') as string) && (
+                  <p className="text-xs text-gray-400 mt-1">비워두면 PC 배경 이미지 사용</p>
+                )}
               </div>
             )}
             <div>
-              <label className="text-sm font-bold block mb-1">링크 URL</label>
+              <label className="text-sm font-bold block mb-1">링크 URL <span className="text-[10px] text-gray-400">(공통)</span></label>
               <input value={(bannerEditing.link_url as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, link_url: e.target.value })}
                 placeholder="https://..." className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div>
-              <label className="text-sm font-bold block mb-1">정렬 순서</label>
+              <label className="text-sm font-bold block mb-1">정렬 순서 <span className="text-[10px] text-gray-400">(공통)</span></label>
               <input type="number" value={(bannerEditing.sort_order as number) ?? 0} onChange={(e) => setBannerEditing({ ...bannerEditing, sort_order: Number(e.target.value) })}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">배경 밝기 ({(bannerEditing.overlay_opacity as number) ?? 30}%)</label>
-              <input type="range" min={0} max={100} value={(bannerEditing.overlay_opacity as number) ?? 30}
-                onChange={(e) => setBannerEditing({ ...bannerEditing, overlay_opacity: Number(e.target.value) })}
+              <label className="text-sm font-bold block mb-1">배경 밝기 {isMobileEdit && <span className="text-[10px] text-gray-400">(모바일)</span>} ({(get('overlay_opacity') as number) ?? (isMobileEdit ? ((bannerEditing.overlay_opacity as number) ?? 30) : 30)}%)</label>
+              <input type="range" min={0} max={100} value={(get('overlay_opacity') as number) ?? (isMobileEdit ? ((bannerEditing.overlay_opacity as number) ?? 30) : 30)}
+                onChange={(e) => set('overlay_opacity', Number(e.target.value))}
                 className="w-full accent-[#2ED573]" />
               <div className="flex justify-between text-xs text-gray-400 mt-1">
                 <span>0 = 검정</span>
@@ -1166,29 +1195,41 @@ export default function AdminPages() {
               </label>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
-              <p className="text-xs text-gray-400 mb-2">미리보기</p>
-              <div className="relative rounded-xl overflow-hidden bg-black py-8 px-5">
-                {bannerEditing.media_type === 'video' && (bannerEditing.video_url as string) ? (
-                  <video src={bannerEditing.video_url as string} className="absolute inset-0 w-full h-full object-cover" style={{ opacity: ((bannerEditing.overlay_opacity as number) ?? 30) / 100 }} muted autoPlay loop playsInline />
-                ) : (bannerEditing.image_url as string) ? (
-                  <img src={bannerEditing.image_url as string} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: ((bannerEditing.overlay_opacity as number) ?? 30) / 100 }} />
-                ) : null}
-                <div className="relative">
-                  {(bannerEditing.subtitle as string) && (
-                    <div className="inline-block px-3 py-1 border border-gray-500 rounded-full mb-3">
-                      <span className="text-[10px] text-gray-300">{bannerEditing.subtitle as string}</span>
-                    </div>
-                  )}
-                  {(bannerEditing.title as string) ? (
-                    <div className="text-lg text-white font-bold leading-tight banner-rich" dangerouslySetInnerHTML={{ __html: bannerEditing.title as string }} />
-                  ) : (
-                    <p className="text-lg text-white font-bold leading-tight">타이틀을 입력하세요</p>
-                  )}
-                </div>
+              <p className="text-xs text-gray-400 mb-2">미리보기 ({isMobileEdit ? '모바일' : 'PC'} — 비어 있으면 PC 값 사용)</p>
+              <div className={`relative rounded-xl overflow-hidden bg-black py-8 ${isMobileEdit ? 'px-3 max-w-[380px]' : 'px-5'}`}>
+                {(() => {
+                  const previewTitle = ((get('title') as string) || (bannerEditing.title as string) || '')
+                  const previewSubtitle = ((get('subtitle') as string) || (bannerEditing.subtitle as string) || '')
+                  const previewImage = ((get('image_url') as string) || (bannerEditing.image_url as string) || '')
+                  const previewVideo = ((get('video_url') as string) || (bannerEditing.video_url as string) || '')
+                  const previewOpacity = ((get('overlay_opacity') as number) ?? (bannerEditing.overlay_opacity as number) ?? 30)
+                  return (
+                    <>
+                      {bannerEditing.media_type === 'video' && previewVideo ? (
+                        <video src={previewVideo} className="absolute inset-0 w-full h-full object-cover" style={{ opacity: previewOpacity / 100 }} muted autoPlay loop playsInline />
+                      ) : previewImage ? (
+                        <img src={previewImage} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: previewOpacity / 100 }} />
+                      ) : null}
+                      <div className="relative">
+                        {previewSubtitle && (
+                          <div className="inline-block px-3 py-1 border border-gray-500 rounded-full mb-3">
+                            <span className="text-[10px] text-gray-300">{previewSubtitle}</span>
+                          </div>
+                        )}
+                        {previewTitle ? (
+                          <div className="text-lg text-white font-bold leading-tight banner-rich" dangerouslySetInnerHTML={{ __html: previewTitle }} />
+                        ) : (
+                          <p className="text-lg text-white font-bold leading-tight">타이틀을 입력하세요</p>
+                        )}
+                      </div>
+                    </>
+                  )
+                })()}
               </div>
             </div>
           </div>
-        )}
+          )
+        })()}
       </AdminFormModal>
 
       {/* 성과 모달 */}

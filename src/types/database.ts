@@ -482,4 +482,10 @@ export interface Banner {
   sort_order: number
   is_published: boolean
   created_at: string
+  // 모바일 전용 변형 — 비어 있으면 PC 필드를 폴백으로 사용
+  title_mobile: string | null
+  subtitle_mobile: string | null
+  image_url_mobile: string | null
+  video_url_mobile: string | null
+  overlay_opacity_mobile: number | null
 }
