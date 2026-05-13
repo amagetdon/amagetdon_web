@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { storageService } from '../../services/storageService'
+import ImageCropDialog from './ImageCropDialog'
 
 interface ImageUploaderProps {
   bucket: string
@@ -11,13 +12,17 @@ interface ImageUploaderProps {
   accept?: 'image' | 'video' | 'both'
   objectFit?: 'cover' | 'contain'
   compress?: boolean
+  crop?: boolean
+  cropAspect?: number
 }
 
-export default function ImageUploader({ bucket, path, currentUrl, onUpload, className = '', accept = 'image', objectFit = 'cover', compress = true }: ImageUploaderProps) {
+export default function ImageUploader({ bucket, path, currentUrl, onUpload, className = '', accept = 'image', objectFit = 'cover', compress = true, crop = false, cropAspect }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false)
   const [preview, setPreview] = useState<string | null>(currentUrl || null)
   const [isVideo, setIsVideo] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [cropSrc, setCropSrc] = useState<string | null>(null)
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
 
   useEffect(() => {
     setPreview(currentUrl || null)
@@ -33,14 +38,10 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
     : accept === 'both' ? 'image/*,video/mp4,video/webm'
     : 'image/*'
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  const doUpload = async (file: File) => {
     const fileIsVideo = file.type.startsWith('video/')
     setIsVideo(fileIsVideo)
     setPreview(URL.createObjectURL(file))
-
     try {
       setUploading(true)
       const url = fileIsVideo
@@ -54,6 +55,30 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
     } finally {
       setUploading(false)
     }
+  }
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (fileRef.current) fileRef.current.value = ''
+    if (!file) return
+    if (crop && file.type.startsWith('image/')) {
+      setPendingFile(file)
+      setCropSrc(URL.createObjectURL(file))
+      return
+    }
+    await doUpload(file)
+  }
+
+  const handleCropped = async (croppedFile: File) => {
+    setCropSrc(null)
+    setPendingFile(null)
+    await doUpload(croppedFile)
+  }
+
+  const handleCropCancel = () => {
+    if (cropSrc) URL.revokeObjectURL(cropSrc)
+    setCropSrc(null)
+    setPendingFile(null)
   }
 
   const handleRemove = (e: React.MouseEvent) => {
@@ -72,6 +97,7 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
     : 'ti-photo-plus'
 
   return (
+    <>
     <div
       className={`relative border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-[#2ED573] transition-colors overflow-hidden ${className}`}
       onClick={() => fileRef.current?.click()}
@@ -121,5 +147,17 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
         </div>
       )}
     </div>
+    {crop && (
+      <ImageCropDialog
+        isOpen={!!cropSrc}
+        src={cropSrc}
+        fileName={pendingFile?.name || 'image'}
+        fileType={pendingFile?.type || 'image/png'}
+        aspect={cropAspect}
+        onClose={handleCropCancel}
+        onCropped={handleCropped}
+      />
+    )}
+    </>
   )
 }

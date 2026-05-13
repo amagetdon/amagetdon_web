@@ -28,10 +28,10 @@ function InstructorListPage() {
     }).catch(() => setActiveInstructorIds(new Set()))
   }, [])
 
-  const filteredInstructors = useMemo(() =>
-    activeTab === 'all' ? instructors : instructors.filter((i) => activeInstructorIds.has(i.id)),
-    [activeTab, instructors, activeInstructorIds]
-  )
+  const filteredInstructors = useMemo(() => {
+    const published = instructors.filter((i) => i.is_published)
+    return activeTab === 'all' ? published : published.filter((i) => activeInstructorIds.has(i.id))
+  }, [activeTab, instructors, activeInstructorIds])
 
   return (
     <section className="w-full bg-white py-16 max-sm:py-10">

@@ -1,5 +1,16 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
+
+const HEX_VALID = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
+const HEX_VALUE_ONLY = /^([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
+
+function normalizeHex(v: string | null | undefined, fallback: string): string {
+  if (!v) return fallback
+  const t = v.trim()
+  if (HEX_VALID.test(t)) return t
+  if (HEX_VALUE_ONLY.test(t)) return `#${t}`
+  return fallback
+}
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
 import AdminLayout from '../../components/admin/AdminLayout'
@@ -46,6 +57,9 @@ export default function AdminInstructors() {
         careers: (editing.careers as string[] || []).filter((c: string) => c.trim()),
         bio_bullets: (editing.bio_bullets as string[] || []).filter((b: string) => b.trim()),
         hero_bullets: (editing.hero_bullets as string[] || []).filter((b: string) => b.trim()),
+        hero_title_color: normalizeHex(editing.hero_title_color, '#FFFFFF'),
+        hero_bg_from: normalizeHex(editing.hero_bg_from, '#1a1a1a'),
+        hero_bg_to: normalizeHex(editing.hero_bg_to, '#2a2a2a'),
       }
       if (editing.id) {
         await instructorService.update(editing.id, saveData)
@@ -231,9 +245,9 @@ export default function AdminInstructors() {
               />
             </div>
             <div className="flex flex-col gap-3 justify-center">
-              <label className="text-sm font-bold block mb-1">메인 랜딩 하단 강사위젯</label>
+              <label className="text-sm font-bold block mb-1">옵션</label>
               <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" /> 공개</label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" /> 강사소개 페이지 공개 여부</label>
               </div>
             </div>
 
@@ -270,12 +284,13 @@ export default function AdminInstructors() {
                     <label className="text-xs font-bold block mb-1">제목 색상</label>
                     <div className="flex items-center gap-2">
                       <input type="color"
-                        value={editing.hero_title_color || '#FFFFFF'}
+                        value={normalizeHex(editing.hero_title_color, '#FFFFFF')}
                         onChange={(e) => setEditing({ ...editing, hero_title_color: e.target.value })}
                         className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5" />
                       <input type="text"
                         value={editing.hero_title_color || '#FFFFFF'}
                         onChange={(e) => setEditing({ ...editing, hero_title_color: e.target.value })}
+                        onBlur={(e) => setEditing({ ...editing, hero_title_color: normalizeHex(e.target.value, '#FFFFFF') })}
                         className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#2ED573]" />
                     </div>
                   </div>
@@ -285,25 +300,27 @@ export default function AdminInstructors() {
                     <div className="grid grid-cols-2 gap-2">
                       <div className="flex items-center gap-2">
                         <input type="color"
-                          value={editing.hero_bg_from || '#1a1a1a'}
+                          value={normalizeHex(editing.hero_bg_from, '#1a1a1a')}
                           onChange={(e) => setEditing({ ...editing, hero_bg_from: e.target.value })}
                           title="시작색"
                           className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5 shrink-0" />
                         <input type="text"
                           value={editing.hero_bg_from || '#1a1a1a'}
                           onChange={(e) => setEditing({ ...editing, hero_bg_from: e.target.value })}
+                          onBlur={(e) => setEditing({ ...editing, hero_bg_from: normalizeHex(e.target.value, '#1a1a1a') })}
                           placeholder="#1a1a1a"
                           className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#2ED573]" />
                       </div>
                       <div className="flex items-center gap-2">
                         <input type="color"
-                          value={editing.hero_bg_to || '#2a2a2a'}
+                          value={normalizeHex(editing.hero_bg_to, '#2a2a2a')}
                           onChange={(e) => setEditing({ ...editing, hero_bg_to: e.target.value })}
                           title="끝색"
                           className="w-10 h-10 rounded-lg border border-gray-300 cursor-pointer bg-white p-0.5 shrink-0" />
                         <input type="text"
                           value={editing.hero_bg_to || '#2a2a2a'}
                           onChange={(e) => setEditing({ ...editing, hero_bg_to: e.target.value })}
+                          onBlur={(e) => setEditing({ ...editing, hero_bg_to: normalizeHex(e.target.value, '#2a2a2a') })}
                           placeholder="#2a2a2a"
                           className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono outline-none focus:border-[#2ED573]" />
                       </div>
@@ -319,7 +336,7 @@ export default function AdminInstructors() {
                       placeholder={'운영중인 채널 월 평균 조회수 **수익만 1,500만 원** 이상\n한달 평균 조회수 **1억회** 이상\n\'릴스\' 하나로 광고비 한 푼 없이 브랜드 런칭 직후 **7천만 원** 매출'}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#2ED573]" />
                     <p className="text-[10px] text-gray-400 mt-1">
-                      카드에서 자동으로 "-" 접두사가 붙습니다. 강조하려면 <code className="bg-white px-1 rounded">**볼드**</code> 로 감싸세요.
+                      한 줄에 한 항목씩 입력해주세요. 강조하려면 <code className="bg-white px-1 rounded">**볼드**</code> 로 감싸세요.
                     </p>
                   </div>
 
@@ -331,7 +348,11 @@ export default function AdminInstructors() {
                       currentUrl={editing.hero_portrait_url}
                       onUpload={(url) => setEditing({ ...editing, hero_portrait_url: url })}
                       className="h-[140px]"
+                      objectFit="contain"
+                      crop
+                      cropAspect={3 / 4}
                     />
+                    <p className="text-[10px] text-gray-400 mt-1">자르기 비율 3:4 (세로형). 영역을 드래그·확대해서 미리보기처럼 보이게 맞춰주세요.</p>
                   </div>
 
                   <div>
@@ -349,12 +370,12 @@ export default function AdminInstructors() {
                     <div className="relative h-[220px]">
                       <div
                         className="absolute inset-0 rounded-[32px] overflow-hidden shadow-lg"
-                        style={{ background: `linear-gradient(135deg, ${editing.hero_bg_from || '#1a1a1a'} 0%, ${editing.hero_bg_to || '#2a2a2a'} 100%)` }}
+                        style={{ background: `linear-gradient(135deg, ${normalizeHex(editing.hero_bg_from, '#1a1a1a')} 0%, ${normalizeHex(editing.hero_bg_to, '#2a2a2a')} 100%)` }}
                       >
-                        <div className="relative z-10 h-full flex flex-col items-start text-left p-5 max-w-[58%]">
+                        <div className="relative z-10 h-full flex flex-col items-start text-left p-5 max-w-full">
                           <h4
                             className="text-lg font-bold leading-[1.25] whitespace-pre-line"
-                            style={{ color: editing.hero_title_color || '#FFFFFF' }}
+                            style={{ color: normalizeHex(editing.hero_title_color, '#FFFFFF') }}
                           >
                             {editing.hero_title || `${editing.name || '강사'} 강사입니다.`}
                           </h4>
@@ -365,7 +386,7 @@ export default function AdminInstructors() {
                           {(editing.hero_bullets || []).filter((b) => b.trim()).length > 0 && (
                             <ul className="mt-2 space-y-0.5">
                               {(editing.hero_bullets || []).filter((b) => b.trim()).map((b, i) => {
-                                const html = `- ${b.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}`
+                                const html = b.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
                                 return <li key={i} className="text-white/85 text-[11px] leading-snug" dangerouslySetInnerHTML={{ __html: html }} />
                               })}
                             </ul>

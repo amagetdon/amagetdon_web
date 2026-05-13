@@ -55,8 +55,21 @@ function formatBoldMarkdown(text: string): string {
   return escaped.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
 }
 
+const HEX_VALID = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
+const HEX_VALUE_ONLY = /^([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/
+function safeHex(v: string | null | undefined, fallback: string): string {
+  if (!v) return fallback
+  const t = v.trim()
+  if (HEX_VALID.test(t)) return t
+  if (HEX_VALUE_ONLY.test(t)) return `#${t}`
+  return fallback
+}
+
 function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolean }) {
-  const bg = `linear-gradient(135deg, ${inst.hero_bg_from} 0%, ${inst.hero_bg_to} 100%)`
+  const bgFrom = safeHex(inst.hero_bg_from, '#1a1a1a')
+  const bgTo = safeHex(inst.hero_bg_to, '#2a2a2a')
+  const titleColor = safeHex(inst.hero_title_color, '#FFFFFF')
+  const bg = `linear-gradient(135deg, ${bgFrom} 0%, ${bgTo} 100%)`
   const bullets = (inst.hero_bullets && inst.hero_bullets.length > 0)
     ? inst.hero_bullets
     : (inst.bio_bullets ?? [])
@@ -70,12 +83,12 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
         style={{ background: bg }}
       >
         {/* 왼쪽 텍스트 — 누끼(z-10) 위에 겹치도록 z-20
-            데스크탑: 좌측 텍스트 + 우측 누끼 (max-w-[68%] 로 폭 제한)
-            모바일: 세로배치 — 텍스트 전체폭 사용, 하단에 누끼 영역(약 130px) 확보 */}
-        <div className="relative z-20 h-full flex flex-col items-start text-left px-10 pt-11 pb-9 max-sm:px-6 max-sm:pt-7 max-sm:pb-[180px] max-w-[68%] max-sm:max-w-full">
+            데스크탑/모바일 공통: 텍스트 전체폭 사용 (누끼 위에 겹쳐도 OK)
+            모바일은 하단에 누끼 영역(약 130px) 확보 */}
+        <div className="relative z-20 h-full flex flex-col items-start text-left px-10 pt-11 pb-9 max-sm:px-6 max-sm:pt-7 max-sm:pb-[180px] max-w-full">
           <h3
             className="text-[26px] max-sm:text-[19px] font-bold leading-[1.25] whitespace-pre-line"
-            style={{ color: inst.hero_title_color }}
+            style={{ color: titleColor }}
           >
             {inst.hero_title || `${inst.name} 강사입니다.`}
           </h3>
@@ -93,7 +106,7 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
                 <li
                   key={i}
                   className="text-white/85 text-[14px] max-sm:text-[12.5px] leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: `- ${formatBoldMarkdown(b)}` }}
+                  dangerouslySetInnerHTML={{ __html: formatBoldMarkdown(b) }}
                 />
               ))}
             </ul>
