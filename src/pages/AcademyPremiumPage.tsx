@@ -5,15 +5,17 @@ import Pagination from '../components/Pagination'
 import { useCourses } from '../hooks/useCourses'
 import { isCourseClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
-
-const PER_PAGE = 9
+import { useSectionConfig } from '../hooks/useSectionSettings'
+import EditableSectionTitle from '../components/admin/EditableSectionTitle'
 
 function AcademyPremiumPage() {
   const { courses, loading } = useCourses('premium')
   const { closedVisualEffect } = useAcademySettings()
+  const section = useSectionConfig('academy_premium_courses')
+  const perPage = section.count ?? 9
   const [currentPage, setCurrentPage] = useState(1)
-  const totalPages = Math.max(1, Math.ceil(courses.length / PER_PAGE))
-  const pagedCourses = courses.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE)
+  const totalPages = Math.max(1, Math.ceil(courses.length / perPage))
+  const pagedCourses = courses.slice((currentPage - 1) * perPage, currentPage * perPage)
 
   return (
     <>
@@ -33,7 +35,14 @@ function AcademyPremiumPage() {
       <section className="w-full bg-white py-14 max-sm:py-10">
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">프리미엄 강의</h2>
+            <EditableSectionTitle
+              sectionKey="academy_premium_courses"
+              config={section}
+              className="text-2xl font-bold text-gray-900 min-w-0"
+              editableCount
+              minCount={3}
+              maxCount={30}
+            />
           </div>
           {loading ? (
             <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">

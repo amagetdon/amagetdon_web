@@ -12,13 +12,25 @@ interface Props {
   onChange: (html: string) => void
   placeholder?: string
   minHeight?: number
+  /** 'banner' 프리셋: 검정 배경 + 굵은 흰 글씨 + 큰 폰트(WYSIWYG 히어로 배너용) */
+  preset?: 'default' | 'banner'
+  /** 폰트 크기 옵션 오버라이드 */
+  fontSizes?: string[]
 }
 
-const FONT_SIZES = ['12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px']
+const DEFAULT_FONT_SIZES = ['12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px']
+const BANNER_FONT_SIZES = ['16px', '20px', '24px', '28px', '32px', '36px', '40px', '48px']
 const LINE_HEIGHTS = ['0', '0.5', '1', '1.5', '2', '3', '4']
 const LETTER_SPACINGS = ['-1px', '-0.5px', '0', '0.5px', '1px', '2px']
 
-export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280 }: Props) {
+export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, preset = 'default', fontSizes }: Props) {
+  const FONT_SIZES = fontSizes ?? (preset === 'banner' ? BANNER_FONT_SIZES : DEFAULT_FONT_SIZES)
+  const editorBaseClass = preset === 'banner'
+    ? 'tiptap-content tiptap-banner outline-none px-4 py-3 leading-tight'
+    : 'tiptap-content outline-none px-4 py-3 text-sm text-gray-800 leading-relaxed'
+  const editorBaseStyle = preset === 'banner'
+    ? `min-height: ${minHeight}px; font-size: 32px; font-weight: 700; color: #ffffff; background: #0f0f0f;`
+    : `min-height: ${minHeight}px;`
   const [htmlMode, setHtmlMode] = useState(false)
   const [htmlDraft, setHtmlDraft] = useState(value || '')
   const colorInputRef = useRef<HTMLInputElement>(null)
@@ -46,8 +58,8 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
     content: textToHtml(value),
     editorProps: {
       attributes: {
-        class: 'tiptap-content outline-none px-4 py-3 text-sm text-gray-800 leading-relaxed',
-        style: `min-height: ${minHeight}px;`,
+        class: editorBaseClass,
+        style: editorBaseStyle,
       },
     },
     onUpdate: ({ editor }) => {

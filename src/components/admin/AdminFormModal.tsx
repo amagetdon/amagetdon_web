@@ -9,6 +9,8 @@ interface AdminFormModalProps {
   onSubmit: () => void
   submitText?: string
   loading?: boolean
+  /** 모달 최대 폭 (Tailwind 임의 값 또는 사이즈). 기본 'max-w-[640px]' */
+  maxWidthClass?: string
 }
 
 export default function AdminFormModal({
@@ -19,6 +21,7 @@ export default function AdminFormModal({
   onSubmit,
   submitText = '저장',
   loading = false,
+  maxWidthClass = 'max-w-[640px]',
 }: AdminFormModalProps) {
   const [confirmClose, setConfirmClose] = useState(false)
   const dirty = useRef(false)
@@ -77,7 +80,7 @@ export default function AdminFormModal({
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <DialogPanel className="bg-white rounded-2xl w-full max-w-[640px] max-h-[85vh] overflow-hidden shadow-2xl flex flex-col">
+              <DialogPanel className={`bg-white rounded-2xl w-full ${maxWidthClass} max-h-[85vh] overflow-hidden shadow-2xl flex flex-col`}>
                 <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
                   <DialogTitle className="text-base font-bold text-gray-900">{title}</DialogTitle>
                   <button

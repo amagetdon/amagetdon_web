@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
 import { imgUrl } from '../lib/image'
+import { textToHtml } from '../utils/richText'
 import type { Banner } from '../types'
 
 type FitMode = 'cover' | 'width' | 'height'
@@ -101,9 +102,10 @@ function EventBanner({ banners, pageKey }: EventBannerProps) {
       )}
       <div className="relative text-center px-5 max-w-[800px]">
         {banner.title && (
-          <h2 className="text-3xl max-sm:text-xl text-white font-bold leading-snug whitespace-pre-line">
-            {banner.title}
-          </h2>
+          <div
+            className="text-3xl max-sm:text-xl text-white font-bold leading-snug banner-rich"
+            dangerouslySetInnerHTML={{ __html: textToHtml(banner.title) }}
+          />
         )}
         {banner.subtitle && (
           <p className="text-base max-sm:text-sm text-gray-300 mt-4 leading-relaxed whitespace-pre-line">

@@ -4,15 +4,17 @@ import Pagination from '../components/Pagination'
 import { useEbooks } from '../hooks/useEbooks'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
-
-const PER_PAGE = 10
+import { useSectionConfig } from '../hooks/useSectionSettings'
+import EditableSectionTitle from '../components/admin/EditableSectionTitle'
 
 function EbooksFreePage() {
   const { ebooks, loading } = useEbooks({ isFree: true })
   const { closedVisualEffect } = useAcademySettings()
+  const section = useSectionConfig('academy_free_ebooks')
+  const perPage = section.count ?? 10
   const [currentPage, setCurrentPage] = useState(1)
-  const totalPages = Math.max(1, Math.ceil(ebooks.length / PER_PAGE))
-  const pagedEbooks = ebooks.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE)
+  const totalPages = Math.max(1, Math.ceil(ebooks.length / perPage))
+  const pagedEbooks = ebooks.slice((currentPage - 1) * perPage, currentPage * perPage)
 
   return (
     <>
@@ -30,7 +32,14 @@ function EbooksFreePage() {
       <section className="w-full bg-white py-14 max-sm:py-10">
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">무료 전자책</h2>
+            <EditableSectionTitle
+              sectionKey="academy_free_ebooks"
+              config={section}
+              className="text-2xl font-bold text-gray-900 min-w-0"
+              editableCount
+              minCount={5}
+              maxCount={50}
+            />
           </div>
           {loading ? (
             <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">

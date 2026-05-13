@@ -4,6 +4,8 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
+import RichTextEditor from '../../components/admin/RichTextEditor'
+import { htmlToPlainText } from '../../utils/richText'
 import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import { landingCategoryService } from '../../services/landingCategoryService'
 import { bannerService } from '../../services/bannerService'
@@ -642,7 +644,7 @@ export default function AdminPages() {
                       <div className="absolute inset-0 flex flex-col justify-center px-3">
                         {banner.media_type === 'video' && <span className="text-[8px] text-white bg-red-500/80 rounded px-1 py-0.5 self-start mb-1"><i className="ti ti-video text-[8px]" /> 동영상</span>}
                         {banner.subtitle && <span className="text-[8px] text-gray-300 border border-gray-500 rounded-full px-1.5 py-0.5 self-start mb-1">{banner.subtitle}</span>}
-                        <p className="text-[10px] text-white font-bold leading-tight line-clamp-2 whitespace-pre-line">{banner.title}</p>
+                        <p className="text-[10px] text-white font-bold leading-tight line-clamp-2 whitespace-pre-line">{htmlToPlainText(banner.title)}</p>
                       </div>
                     </div>
                     <div className="flex-1 p-4 flex items-center justify-between">
@@ -653,7 +655,7 @@ export default function AdminPages() {
                           </span>
                           <span className="text-[10px] text-gray-400">순서: {banner.sort_order}</span>
                         </div>
-                        <p className="text-sm font-bold text-gray-900 truncate">{banner.title}</p>
+                        <p className="text-sm font-bold text-gray-900 truncate">{htmlToPlainText(banner.title)}</p>
                         {banner.subtitle && <p className="text-xs text-gray-500 truncate mt-0.5">{banner.subtitle}</p>}
                       </div>
                       <div className="flex items-center gap-1 ml-4">
@@ -838,7 +840,7 @@ export default function AdminPages() {
                                 {banner.is_published ? '공개' : '비공개'}
                               </span>
                             </div>
-                            <p className="text-sm font-bold text-gray-900 truncate">{banner.title || '이벤트 안내'}</p>
+                            <p className="text-sm font-bold text-gray-900 truncate">{htmlToPlainText(banner.title) || '이벤트 안내'}</p>
                           </div>
                           <div className="flex items-center gap-1 shrink-0 ml-3">
                             <button onClick={() => { setEditingPageKey(banner.page_key); setBannerUploadKey(String(banner.id)); setBannerEditing(banner as unknown as Record<string, unknown>) }} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
@@ -1073,15 +1075,19 @@ export default function AdminPages() {
       </AdminFormModal>
 
       {/* 배너 편집 모달 */}
-      <AdminFormModal isOpen={!!bannerEditing} onClose={() => setBannerEditing(null)} title={bannerEditing?.id ? '배너 수정' : '새 배너 등록'} onSubmit={handleBannerSave} loading={bannerSaving}>
+      <AdminFormModal isOpen={!!bannerEditing} onClose={() => setBannerEditing(null)} title={bannerEditing?.id ? '배너 수정' : '새 배너 등록'} onSubmit={handleBannerSave} loading={bannerSaving} maxWidthClass="max-w-[960px]">
         {bannerEditing && (
           <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">타이틀</label>
-              <textarea value={(bannerEditing.title as string) || ''} onChange={(e) => setBannerEditing({ ...bannerEditing, title: e.target.value })}
-                placeholder="한번 배워서 평생 써먹는&#10;300 벌고 시작하는 보험 비즈니스" rows={3}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all resize-none" />
-              <p className="text-xs text-gray-400 mt-1">줄바꿈은 Enter로 구분됩니다.</p>
+              <RichTextEditor
+                value={(bannerEditing.title as string) || ''}
+                onChange={(html) => setBannerEditing({ ...bannerEditing, title: html })}
+                placeholder="한번 배워서 평생 써먹는&#10;300 벌고 시작하는 보험 비즈니스"
+                minHeight={160}
+                preset="banner"
+              />
+              <p className="text-xs text-gray-400 mt-1">에디터 글씨 크기·색상이 실제 히어로 배너 표시와 동일하게 보입니다.</p>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">뱃지 텍스트</label>
@@ -1173,7 +1179,11 @@ export default function AdminPages() {
                       <span className="text-[10px] text-gray-300">{bannerEditing.subtitle as string}</span>
                     </div>
                   )}
-                  <p className="text-lg text-white font-bold leading-tight whitespace-pre-line">{(bannerEditing.title as string) || '타이틀을 입력하세요'}</p>
+                  {(bannerEditing.title as string) ? (
+                    <div className="text-lg text-white font-bold leading-tight banner-rich" dangerouslySetInnerHTML={{ __html: bannerEditing.title as string }} />
+                  ) : (
+                    <p className="text-lg text-white font-bold leading-tight">타이틀을 입력하세요</p>
+                  )}
                 </div>
               </div>
             </div>

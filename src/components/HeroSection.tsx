@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { bannerService } from '../services/bannerService'
 import { supabase } from '../lib/supabase'
 import { imgUrl } from '../lib/image'
+import { textToHtml } from '../utils/richText'
 import type { Banner } from '../types'
 
 function getEmbedUrl(url: string): { type: 'youtube' | 'raw'; src: string } | null {
@@ -244,9 +245,10 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
             <span className="text-xs leading-none text-gray-300">{banner.subtitle}</span>
           </div>
         )}
-        <h1 className="text-[40px] max-sm:text-2xl text-white font-bold leading-tight whitespace-pre-line">
-          {banner.title}
-        </h1>
+        <div
+          className="text-[40px] max-sm:text-2xl text-white font-bold leading-tight banner-rich"
+          dangerouslySetInnerHTML={{ __html: textToHtml(banner.title) }}
+        />
         {banners.length > 1 && (
           <div className="flex items-center gap-3 mt-10" onClick={(e) => e.stopPropagation()}>
             <button onClick={prev} className="w-8 h-8 rounded-full border border-gray-600 bg-transparent text-gray-400 hover:text-white hover:border-gray-400 flex items-center justify-center cursor-pointer transition-colors" aria-label="이전">

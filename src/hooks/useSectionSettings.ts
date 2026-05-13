@@ -10,7 +10,13 @@ export interface SectionConfig {
 export type SectionKey =
   | 'premium_courses'
   | 'free_courses'
+  | 'academy_tab_premium_courses'
+  | 'academy_tab_free_courses'
+  | 'academy_premium_courses'
+  | 'academy_free_courses'
   | 'free_ebooks'
+  | 'academy_tab_free_ebooks'
+  | 'academy_free_ebooks'
   | 'secret_books'
   | 'real_results'
   | 'reviews'
@@ -21,7 +27,13 @@ export type SectionSettings = Partial<Record<SectionKey, SectionConfig>>
 const DEFAULTS: Record<SectionKey, SectionConfig> = {
   premium_courses: { title: '유료 강의', count: 6 },
   free_courses: { title: '무료 강의', count: 6 },
+  academy_tab_premium_courses: { title: '프리미엄 강의', count: 6 },
+  academy_tab_free_courses: { title: '무료 강의', count: 6 },
+  academy_premium_courses: { title: '프리미엄 강의', count: 9 },
+  academy_free_courses: { title: '무료 강의', count: 9 },
   free_ebooks: { title: '무료 전자책', count: 5 },
+  academy_tab_free_ebooks: { title: '무료 전자책', count: 5 },
+  academy_free_ebooks: { title: '무료 전자책', count: 10 },
   secret_books: { title: '시크릿 북', subtitle: '무료 전자책에서 더 깊게 배우고 싶다면?', count: 5 },
   real_results: {
     title: '리얼 성과 공개',

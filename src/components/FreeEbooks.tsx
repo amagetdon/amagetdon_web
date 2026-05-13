@@ -3,18 +3,18 @@ import { Link } from 'react-router-dom'
 import { ebookService } from '../services/ebookService'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
-import { useSectionConfig } from '../hooks/useSectionSettings'
+import { useSectionConfig, type SectionKey } from '../hooks/useSectionSettings'
 import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
 import type { EbookWithInstructor } from '../types'
 
-function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: EbookWithInstructor[]; loading?: boolean } = {}) {
+function FreeEbooks({ ebooks: propEbooks, loading: propLoading, sectionKey = 'free_ebooks' }: { ebooks?: EbookWithInstructor[]; loading?: boolean; sectionKey?: SectionKey } = {}) {
   const [selfEbooks, setSelfEbooks] = useState<EbookWithInstructor[]>([])
   const [selfLoading, setSelfLoading] = useState(!propEbooks)
   const ebooks = propEbooks ?? selfEbooks
   const loading = propLoading ?? selfLoading
   const { closedVisualEffect } = useAcademySettings()
-  const section = useSectionConfig('free_ebooks')
+  const section = useSectionConfig(sectionKey)
   const count = section.count ?? 5
 
   useEffect(() => {
@@ -26,7 +26,7 @@ function FreeEbooks({ ebooks: propEbooks, loading: propLoading }: { ebooks?: Ebo
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="flex items-center justify-between mb-6 gap-4">
           <EditableSectionTitle
-            sectionKey="free_ebooks"
+            sectionKey={sectionKey}
             config={section}
             className="text-2xl font-bold text-gray-900 min-w-0"
             editableCount

@@ -3,18 +3,18 @@ import { Link } from 'react-router-dom'
 import { courseService } from '../services/courseService'
 import { isCourseClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
-import { useSectionConfig } from '../hooks/useSectionSettings'
+import { useSectionConfig, type SectionKey } from '../hooks/useSectionSettings'
 import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
 import type { CourseWithInstructor } from '../types'
 
-function PremiumCourses({ courses: propCourses, loading: propLoading }: { courses?: CourseWithInstructor[]; loading?: boolean } = {}) {
+function PremiumCourses({ courses: propCourses, loading: propLoading, sectionKey = 'premium_courses' }: { courses?: CourseWithInstructor[]; loading?: boolean; sectionKey?: SectionKey } = {}) {
   const [selfCourses, setSelfCourses] = useState<CourseWithInstructor[]>([])
   const [selfLoading, setSelfLoading] = useState(!propCourses)
   const courses = propCourses ?? selfCourses
   const loading = propLoading ?? selfLoading
   const { closedVisualEffect } = useAcademySettings()
-  const section = useSectionConfig('premium_courses')
+  const section = useSectionConfig(sectionKey)
   const count = section.count ?? 6
 
   useEffect(() => {
@@ -29,7 +29,7 @@ function PremiumCourses({ courses: propCourses, loading: propLoading }: { course
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="flex items-center justify-between mb-6 gap-4">
           <EditableSectionTitle
-            sectionKey="premium_courses"
+            sectionKey={sectionKey}
             config={section}
             className="text-2xl font-bold text-gray-900 min-w-0"
             editableCount

@@ -242,6 +242,16 @@ body {
 .tiptap-content table .column-resize-handle { position: absolute; right: -2px; top: 0; bottom: 0; width: 4px; background-color: #2ED573; pointer-events: none; }
 .tiptap-content .tableWrapper { overflow-x: auto; }
 
+/* 배너 타이틀 (히어로/이벤트 배너) — 타이트한 레이아웃·인라인 폰트 사이즈 그대로 반영 */
+.tiptap-banner p,
+.banner-rich p { margin: 0; line-height: 1.15; min-height: 1em; }
+.tiptap-banner :first-child,
+.banner-rich :first-child { margin-top: 0; }
+.banner-rich strong { font-weight: 700; }
+.banner-rich em { font-style: italic; }
+.banner-rich u { text-decoration: underline; }
+.banner-rich s { text-decoration: line-through; }
+
 /* 공용 리치텍스트 본문 (FAQ 답변, 강사 소개, 강의 설명 등) */
 .rich-text-content :first-child { margin-top: 0; }
 .rich-text-content p { margin: 0 0 0.3rem 0; line-height: 1.6; min-height: 1em; }

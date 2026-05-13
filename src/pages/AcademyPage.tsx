@@ -11,9 +11,9 @@ function AcademyPage() {
     <>
       <VideoPromo />
       <ScheduleCalendar title="이달의 무료강의를 확인하세요" />
-      <PremiumCourses />
-      <FreeCourses />
-      <FreeEbooks />
+      <PremiumCourses sectionKey="academy_tab_premium_courses" />
+      <FreeCourses sectionKey="academy_tab_free_courses" />
+      <FreeEbooks sectionKey="academy_tab_free_ebooks" />
       <CouponBanner />
       <SecretBooks />
     </>
