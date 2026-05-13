@@ -94,11 +94,15 @@ export default function AdminCourses() {
   type PriceFilter = 'all' | 'free' | 'lt200' | '200to400' | '400to600' | 'gte600'
   type RatingFilter = 'all' | 'gte4_5' | 'gte4' | 'gte3' | 'noreview'
   type ScheduleFilter = 'all' | 'upcoming' | 'past' | 'none'
+  type EnrollStartFilter = 'all' | 'pending' | 'opened' | 'none'
+  type EnrollEndFilter = 'all' | 'open' | 'closed' | 'none'
   type CreatedFilter = 'all' | 'today' | 'week' | 'month' | 'quarter' | 'year'
   const [typeFilter, setTypeFilter] = useSessionState<TypeFilter>('admin:courses:typeFilter', 'all')
   const [priceFilter, setPriceFilter] = useSessionState<PriceFilter>('admin:courses:priceFilter', 'all')
   const [ratingFilter, setRatingFilter] = useSessionState<RatingFilter>('admin:courses:ratingFilter', 'all')
   const [scheduleFilter, setScheduleFilter] = useSessionState<ScheduleFilter>('admin:courses:scheduleFilter', 'all')
+  const [enrollStartFilter, setEnrollStartFilter] = useSessionState<EnrollStartFilter>('admin:courses:enrollStartFilter', 'all')
+  const [enrollEndFilter, setEnrollEndFilter] = useSessionState<EnrollEndFilter>('admin:courses:enrollEndFilter', 'all')
   const [instructorFilter, setInstructorFilter] = useSessionState<string>('admin:courses:instructorFilter', 'all')
   const [createdFilter, setCreatedFilter] = useSessionState<CreatedFilter>('admin:courses:createdFilter', 'all')
 
@@ -162,12 +166,26 @@ export default function AdminCourses() {
       if (scheduleFilter === 'upcoming' && (t == null || t < now)) return false
       if (scheduleFilter === 'past' && (t == null || t >= now)) return false
     }
+    if (enrollStartFilter !== 'all') {
+      const t = c.enrollment_start ? new Date(c.enrollment_start).getTime() : null
+      const now = Date.now()
+      if (enrollStartFilter === 'none' && t != null) return false
+      if (enrollStartFilter === 'pending' && (t == null || t <= now)) return false
+      if (enrollStartFilter === 'opened' && (t == null || t > now)) return false
+    }
+    if (enrollEndFilter !== 'all') {
+      const t = c.enrollment_deadline ? new Date(c.enrollment_deadline).getTime() : null
+      const now = Date.now()
+      if (enrollEndFilter === 'none' && t != null) return false
+      if (enrollEndFilter === 'open' && (t == null || t <= now)) return false
+      if (enrollEndFilter === 'closed' && (t == null || t > now)) return false
+    }
     return true
   })
 
-  const filterActive = typeFilter !== 'all' || priceFilter !== 'all' || ratingFilter !== 'all' || scheduleFilter !== 'all' || instructorFilter !== 'all' || createdFilter !== 'all'
+  const filterActive = typeFilter !== 'all' || priceFilter !== 'all' || ratingFilter !== 'all' || scheduleFilter !== 'all' || enrollStartFilter !== 'all' || enrollEndFilter !== 'all' || instructorFilter !== 'all' || createdFilter !== 'all'
   const resetFilters = () => {
-    setTypeFilter('all'); setPriceFilter('all'); setRatingFilter('all'); setScheduleFilter('all'); setInstructorFilter('all'); setCreatedFilter('all'); setPage(1)
+    setTypeFilter('all'); setPriceFilter('all'); setRatingFilter('all'); setScheduleFilter('all'); setEnrollStartFilter('all'); setEnrollEndFilter('all'); setInstructorFilter('all'); setCreatedFilter('all'); setPage(1)
   }
 
   const sorted = [...filtered].sort((a, b) => {
@@ -266,6 +284,20 @@ export default function AdminCourses() {
           <option value="all">강의일시: 전체</option>
           <option value="upcoming">예정</option>
           <option value="past">종료</option>
+          <option value="none">미설정</option>
+        </select>
+        <select value={enrollStartFilter} onChange={(e) => { setEnrollStartFilter(e.target.value as EnrollStartFilter); setPage(1) }}
+          className={`py-2 px-3 bg-white border rounded-lg text-sm outline-none cursor-pointer ${enrollStartFilter !== 'all' ? 'border-[#2ED573] text-[#2ED573] font-medium' : 'border-gray-200 text-gray-600'}`}>
+          <option value="all">오픈일시: 전체</option>
+          <option value="pending">오픈 예정</option>
+          <option value="opened">오픈됨</option>
+          <option value="none">미설정</option>
+        </select>
+        <select value={enrollEndFilter} onChange={(e) => { setEnrollEndFilter(e.target.value as EnrollEndFilter); setPage(1) }}
+          className={`py-2 px-3 bg-white border rounded-lg text-sm outline-none cursor-pointer ${enrollEndFilter !== 'all' ? 'border-[#2ED573] text-[#2ED573] font-medium' : 'border-gray-200 text-gray-600'}`}>
+          <option value="all">마감일시: 전체</option>
+          <option value="open">마감 전</option>
+          <option value="closed">마감됨</option>
           <option value="none">미설정</option>
         </select>
         <select value={createdFilter} onChange={(e) => { setCreatedFilter(e.target.value as CreatedFilter); setPage(1) }}
