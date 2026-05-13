@@ -28,7 +28,8 @@ export const courseService = {
       .select('*, instructor:instructors(id, name)')
       .eq('is_published', true)
       .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
-      .order('sort_order')
+      .order('scheduled_at', { ascending: false, nullsFirst: false })
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
     if (type) query = query.eq('course_type', type)
     const { data, error } = await query

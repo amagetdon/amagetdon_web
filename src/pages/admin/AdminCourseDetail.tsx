@@ -840,19 +840,26 @@ export default function AdminCourseDetail() {
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                 <p className="text-xs text-gray-400 mt-1">비우면 바로 오픈</p>
               </div>
-              <div className="w-[320px] max-sm:w-full">
+              <div className="w-[220px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">마감일시</label>
                 <input type="datetime-local" value={toKstDatetimeLocal(editing.enrollment_deadline as string)}
                   onChange={(e) => setEditing({ ...editing, enrollment_deadline: e.target.value ? e.target.value + ':00+09:00' : null })}
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                 <p className="text-xs text-gray-400 mt-1">이후 구매 회원도 시청 불가</p>
               </div>
-              <div className="w-[320px] max-sm:w-full">
+              <div className="w-[220px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">강의일시 <span className="text-red-500">*</span></label>
                 <input type="datetime-local" value={toKstDatetimeLocal(editing.scheduled_at as string)}
                   onChange={(e) => setEditing({ ...editing, scheduled_at: e.target.value ? e.target.value + ':00+09:00' : null })}
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                 <p className="text-xs text-gray-400 mt-1">홈/일정 캘린더 · 알림톡 변수에 사용</p>
+              </div>
+              <div className="w-[140px] max-sm:w-full">
+                <label className="text-sm font-bold block mb-1">우선순위</label>
+                <input type="number" value={(editing.sort_order as number) ?? 0}
+                  onChange={(e) => setEditing({ ...editing, sort_order: e.target.value === '' ? 0 : Number(e.target.value) })}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
+                <p className="text-xs text-gray-400 mt-1">강의일시 동일 시 작은 값이 먼저</p>
               </div>
               <div className="w-full">
                 <label className="text-sm font-bold block mb-1">구매 후 안내 링크</label>

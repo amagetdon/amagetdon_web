@@ -42,8 +42,8 @@ async function fetchHomeData(year: number, month: number): Promise<HomeData> {
   const queries = [
     supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order').then((r) => r),
     supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
-    supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
-    supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'premium').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
+    supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
+    supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'premium').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
     supabase.from('instructors').select('*').eq('is_published', true).order('sort_order').then((r) => r),
     supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(20).then((r) => r),
     supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).gte('rating', 4).order('created_at', { ascending: false }).limit(30).then((r) => r),
