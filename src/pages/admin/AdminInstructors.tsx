@@ -231,7 +231,7 @@ export default function AdminInstructors() {
               />
             </div>
             <div className="flex flex-col gap-3 justify-center">
-              <label className="text-sm font-bold block mb-1">옵션</label>
+              <label className="text-sm font-bold block mb-1">메인 랜딩 하단 강사위젯</label>
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" /> 공개</label>
               </div>
