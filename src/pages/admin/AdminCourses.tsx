@@ -108,7 +108,7 @@ export default function AdminCourses() {
       case 'title': return dir * a.title.localeCompare(b.title)
       case 'instructor': return dir * (a.instructor?.name || '').localeCompare(b.instructor?.name || '')
       case 'type': return dir * a.course_type.localeCompare(b.course_type)
-      case 'price': return dir * ((a.sale_price ?? 0) - (b.sale_price ?? 0))
+      case 'price': return dir * ((a.sale_price ?? a.original_price ?? 0) - (b.sale_price ?? b.original_price ?? 0))
       case 'created': return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
       case 'enrollments': return dir * (sa.enrollmentCount - sb.enrollmentCount)
       case 'reviews': return dir * (sa.reviewCount - sb.reviewCount)
@@ -207,7 +207,12 @@ export default function AdminCourses() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center text-gray-500 max-md:hidden">
-                        {course.course_type === 'free' ? '무료' : course.sale_price ? `${course.sale_price.toLocaleString()}원` : '-'}
+                        {(() => {
+                          if (course.course_type === 'free') return '무료'
+                          const price = course.sale_price ?? course.original_price
+                          if (price == null) return '-'
+                          return price === 0 ? '무료' : `${price.toLocaleString()}원`
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-center text-gray-700 text-xs max-md:hidden">
                         {s.enrollmentCount.toLocaleString()} / {course.max_enrollments != null && course.max_enrollments > 0 ? `${course.max_enrollments.toLocaleString()}명` : '무제한'}

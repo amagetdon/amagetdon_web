@@ -718,14 +718,16 @@ export default function AdminCourseDetail() {
               <div className="w-[180px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">정가 (원)</label>
                 <input type="number" value={isFree ? 0 : (editing.original_price as number) || ''} disabled={isFree}
-                  onChange={(e) => setEditing({ ...editing, original_price: e.target.value ? Number(e.target.value) : null })}
+                  onChange={(e) => setEditing({ ...editing, original_price: e.target.value === '' ? null : Number(e.target.value) })}
                   className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
+                <p className="text-xs text-gray-400 mt-1">0 입력 시 무료로 표시</p>
               </div>
               <div className="w-[180px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">할인가 (원)</label>
                 <input type="number" value={isFree ? 0 : (editing.sale_price as number) || ''} disabled={isFree}
-                  onChange={(e) => setEditing({ ...editing, sale_price: e.target.value ? Number(e.target.value) : null })}
+                  onChange={(e) => setEditing({ ...editing, sale_price: e.target.value === '' ? null : Number(e.target.value) })}
                   className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
+                <p className="text-xs text-gray-400 mt-1">비우면 정가로 표시</p>
               </div>
               <div className="w-[140px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">정원 (명)</label>

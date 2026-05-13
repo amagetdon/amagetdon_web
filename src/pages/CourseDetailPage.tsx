@@ -61,7 +61,7 @@ function CourseDetailPage() {
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [purchasing, setPurchasing] = useState(false)
   // 정원 / 관련 강의 — React Query 로 dedup + 캐싱
-  type RelatedCourse = { id: number; title: string; thumbnail_url: string | null; sale_price: number | null; course_type: string; enrollment_deadline: string | null }
+  type RelatedCourse = { id: number; title: string; thumbnail_url: string | null; sale_price: number | null; original_price: number | null; course_type: string; enrollment_deadline: string | null }
   const [myCoupons, setMyCoupons] = useState<Coupon[]>([])
   const [selectedCoupon, setSelectedCoupon] = useState<Coupon | null>(null)
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
@@ -224,7 +224,7 @@ function CourseDetailPage() {
       const nowIso = new Date().toISOString()
       const { data } = await supabase
         .from('courses')
-        .select('id, title, thumbnail_url, sale_price, course_type, enrollment_deadline')
+        .select('id, title, thumbnail_url, sale_price, original_price, course_type, enrollment_deadline')
         .in('id', relatedIds)
         .eq('is_published', true)
         .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
@@ -803,7 +803,12 @@ function CourseDetailPage() {
                       {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {rc.course_type === 'free' ? '무료' : rc.sale_price ? `${rc.sale_price.toLocaleString()}원` : '-'}
+                      {(() => {
+                        if (rc.course_type === 'free') return '무료'
+                        const price = rc.sale_price ?? rc.original_price
+                        if (price == null) return '-'
+                        return price === 0 ? '무료' : `${price.toLocaleString()}원`
+                      })()}
                     </p>
                   </Link>
                 )
