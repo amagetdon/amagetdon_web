@@ -1222,9 +1222,9 @@ export default function AdminPages() {
                           </div>
                         )}
                         {previewTitle ? (
-                          <div className="text-lg text-white font-bold leading-tight banner-rich" dangerouslySetInnerHTML={{ __html: previewTitle }} />
+                          <div className="text-lg text-white font-normal leading-tight banner-rich" dangerouslySetInnerHTML={{ __html: previewTitle }} />
                         ) : (
-                          <p className="text-lg text-white font-bold leading-tight">타이틀을 입력하세요</p>
+                          <p className="text-lg text-white font-normal leading-tight">타이틀을 입력하세요</p>
                         )}
                       </div>
                     </>

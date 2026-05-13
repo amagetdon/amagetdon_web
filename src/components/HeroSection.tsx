@@ -254,7 +254,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
           </div>
         )}
         <div
-          className="text-[40px] max-sm:text-2xl text-white font-bold leading-tight banner-rich"
+          className="text-[40px] max-sm:text-2xl text-white font-normal leading-tight banner-rich"
           dangerouslySetInnerHTML={{ __html: textToHtml(eff.title) }}
         />
         {banners.length > 1 && (
