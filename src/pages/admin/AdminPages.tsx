@@ -5,7 +5,7 @@ import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
 import RichTextEditor from '../../components/admin/RichTextEditor'
-import { htmlToPlainText } from '../../utils/richText'
+import { htmlToPlainText, textToHtml, scaleBannerFontSizes } from '../../utils/richText'
 import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import { landingCategoryService } from '../../services/landingCategoryService'
 import { bannerService } from '../../services/bannerService'
@@ -1240,17 +1240,34 @@ export default function AdminPages() {
                             <span className={`leading-none text-gray-300 ${isMobileEdit ? 'text-[11px]' : 'text-xs'}`}>{previewSubtitle}</span>
                           </div>
                         )}
-                        {/* 타이틀 — TipTap 에디터를 투명 배경으로 띄워 직접 편집 */}
-                        <RichTextEditor
-                          value={(get('title') as string) || ''}
-                          onChange={(html) => set('title', html)}
-                          placeholder={isMobileEdit && pcStr('title') ? `PC 값 사용: ${pcStr('title').replace(/<[^>]+>/g, ' ').slice(0, 60)}` : '한번 배워서 평생 써먹는\n300 벌고 시작하는 보험 비즈니스'}
-                          minHeight={editorMinHeight}
-                          preset="banner"
-                          seamless
-                          editorBackground="transparent"
-                          toolbarPortalTarget={bannerToolbarSlot}
-                        />
+                        {/* 타이틀 — 모바일 탭에서 값이 비면 PC 폴백(폰트 축소 적용)을
+                            실제 메인과 동일하게 미리보기. 편집하려면 모바일 전용으로 전환. */}
+                        {isMobileEdit && !((get('title') as string) || '') && pcStr('title') ? (
+                          <div>
+                            <div
+                              className="text-2xl text-white font-medium leading-tight banner-rich"
+                              dangerouslySetInnerHTML={{ __html: textToHtml(scaleBannerFontSizes(pcStr('title'))) }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => set('title', scaleBannerFontSizes(pcStr('title')))}
+                              className="mt-3 inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-white/15 text-white border border-white/30 cursor-pointer hover:bg-white/25 transition-colors"
+                            >
+                              <i className="ti ti-pencil" /> 모바일 전용으로 편집
+                            </button>
+                          </div>
+                        ) : (
+                          <RichTextEditor
+                            value={(get('title') as string) || ''}
+                            onChange={(html) => set('title', html)}
+                            placeholder={isMobileEdit && pcStr('title') ? `PC 값 사용: ${pcStr('title').replace(/<[^>]+>/g, ' ').slice(0, 60)}` : '한번 배워서 평생 써먹는\n300 벌고 시작하는 보험 비즈니스'}
+                            minHeight={editorMinHeight}
+                            preset="banner"
+                            seamless
+                            editorBackground="transparent"
+                            toolbarPortalTarget={bannerToolbarSlot}
+                          />
+                        )}
                       </div>
                     </div>
                   </div>

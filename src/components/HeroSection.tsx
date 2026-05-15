@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { bannerService } from '../services/bannerService'
 import { supabase } from '../lib/supabase'
 import { imgUrl } from '../lib/image'
-import { textToHtml } from '../utils/richText'
+import { textToHtml, scaleBannerFontSizes } from '../utils/richText'
 import type { Banner } from '../types'
 
 function getEmbedUrl(url: string): { type: 'youtube' | 'raw'; src: string } | null {
@@ -180,9 +180,12 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
   }
 
   const banner = banners[current]
-  // 모바일 변형이 채워져 있으면 우선 사용, 아니면 PC 값으로 폴백
+  // 모바일 변형이 채워져 있으면 우선 사용, 아니면 PC 값으로 폴백.
+  // 타이틀은 PC 폴백 시 인라인 font-size 를 축소해 고정 높이 배너 초과를 방지한다.
   const eff = {
-    title: isMobile && banner.title_mobile ? banner.title_mobile : banner.title,
+    title: isMobile
+      ? (banner.title_mobile || scaleBannerFontSizes(banner.title))
+      : banner.title,
     subtitle: isMobile && banner.subtitle_mobile ? banner.subtitle_mobile : banner.subtitle,
     image_url: isMobile && banner.image_url_mobile ? banner.image_url_mobile : banner.image_url,
     video_url: isMobile && banner.video_url_mobile ? banner.video_url_mobile : banner.video_url,
