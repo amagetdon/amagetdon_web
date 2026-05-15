@@ -87,7 +87,7 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
             모바일은 하단에 누끼 영역(약 130px) 확보 */}
         <div className="relative z-20 h-full flex flex-col items-start text-left px-10 pt-11 pb-9 max-sm:px-6 max-sm:pt-7 max-sm:pb-[180px] max-w-full">
           <h3
-            className="text-[26px] max-sm:text-[19px] font-bold leading-[1.25] whitespace-pre-line"
+            className="text-[22px] max-sm:text-[17px] font-bold leading-[1.25] whitespace-pre-line"
             style={{ color: titleColor }}
           >
             {inst.hero_title || `${inst.name} 강사입니다.`}
@@ -105,7 +105,8 @@ function HeroCard({ inst, interactive }: { inst: Instructor; interactive: boolea
               {bullets.map((b, i) => (
                 <li
                   key={i}
-                  className="text-white/85 text-[14px] max-sm:text-[12.5px] leading-relaxed"
+                  className="text-white/85 text-[14px] max-sm:text-[12.5px]"
+                  style={{ lineHeight: inst.hero_bullets_line_height ?? 1.375 }}
                   dangerouslySetInnerHTML={{ __html: formatBoldMarkdown(b) }}
                 />
               ))}

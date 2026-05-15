@@ -133,6 +133,7 @@ export interface Instructor {
   hero_bg_from: string
   hero_bg_to: string
   hero_bullets: string[]
+  hero_bullets_line_height: number
   hero_portrait_url: string | null
   hero_sort_order: number
   created_at: string

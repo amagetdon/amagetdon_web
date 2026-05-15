@@ -202,9 +202,11 @@ export default function AdminInstructors() {
         title={editing?.id ? '강사 수정' : '새 강사 등록'}
         onSubmit={handleSave}
         loading={saving}
+        maxWidthClass="max-w-[1240px]"
       >
         {editing && (
-          <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
+          <div className="grid grid-cols-[minmax(0,1fr)_640px] max-lg:grid-cols-1 gap-6">
+          <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4 min-w-0">
             <div>
               <label className="text-sm font-bold block mb-1">이름 *</label>
               <input value={editing.name || ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })}
@@ -338,6 +340,30 @@ export default function AdminInstructors() {
                     <p className="text-[10px] text-gray-400 mt-1">
                       한 줄에 한 항목씩 입력해주세요. 강조하려면 <code className="bg-white px-1 rounded">**볼드**</code> 로 감싸세요.
                     </p>
+
+                    {/* 불릿 줄높이 슬라이더 */}
+                    <div className="mt-3 flex items-center gap-3">
+                      <label className="text-xs font-bold whitespace-nowrap">줄높이</label>
+                      <input
+                        type="range"
+                        min="1.0"
+                        max="2.0"
+                        step="0.05"
+                        value={editing.hero_bullets_line_height ?? 1.375}
+                        onChange={(e) => setEditing({ ...editing, hero_bullets_line_height: Number(e.target.value) })}
+                        className="flex-1 accent-[#2ED573]"
+                      />
+                      <span className="text-xs font-mono text-gray-600 w-12 text-right">
+                        {(editing.hero_bullets_line_height ?? 1.375).toFixed(2)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditing({ ...editing, hero_bullets_line_height: 1.375 })}
+                        className="text-[10px] text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer underline"
+                      >
+                        기본값
+                      </button>
+                    </div>
                   </div>
 
                   <div>
@@ -364,44 +390,95 @@ export default function AdminInstructors() {
                     <p className="text-[10px] text-gray-400 mt-1">숫자가 작을수록 먼저 표시.</p>
                   </div>
 
-                  {/* 미리보기 — 실제 메인과 동일한 디자인 */}
-                  <div className="col-span-2 max-sm:col-span-1 mt-2">
-                    <label className="text-xs font-bold block mb-2">미리보기</label>
-                    <div className="relative h-[220px]">
-                      <div
-                        className="absolute inset-0 rounded-[32px] overflow-hidden shadow-lg"
-                        style={{ background: `linear-gradient(135deg, ${normalizeHex(editing.hero_bg_from, '#1a1a1a')} 0%, ${normalizeHex(editing.hero_bg_to, '#2a2a2a')} 100%)` }}
-                      >
-                        <div className="relative z-10 h-full flex flex-col items-start text-left p-5 max-w-full">
-                          <h4
-                            className="text-lg font-bold leading-[1.25] whitespace-pre-line"
-                            style={{ color: normalizeHex(editing.hero_title_color, '#FFFFFF') }}
-                          >
-                            {editing.hero_title || `${editing.name || '강사'} 강사입니다.`}
-                          </h4>
-                          <p className="text-white/90 mt-3">
-                            <span className="text-sm font-bold">{editing.name}</span>
-                            {editing.title && <span className="ml-1.5 text-xs font-medium text-white/75">{editing.title}</span>}
-                          </p>
-                          {(editing.hero_bullets || []).filter((b) => b.trim()).length > 0 && (
-                            <ul className="mt-2 space-y-0.5">
-                              {(editing.hero_bullets || []).filter((b) => b.trim()).map((b, i) => {
-                                const html = b.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                                return <li key={i} className="text-white/85 text-[11px] leading-snug" dangerouslySetInnerHTML={{ __html: html }} />
-                              })}
-                            </ul>
-                          )}
-                        </div>
-                      </div>
-                      {editing.hero_portrait_url && (
-                        <img src={editing.hero_portrait_url} alt=""
-                          className="absolute right-0 bottom-0 h-[115%] w-auto max-w-[55%] object-contain object-bottom rounded-br-[32px] pointer-events-none z-10" />
-                      )}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
+          </div>
+
+          {/* 우측 컬럼 — 미리보기 (sticky) */}
+          <div className="lg:sticky lg:top-0 self-start">
+            <h3 className="text-sm font-bold text-gray-900 mb-3">실시간 미리보기</h3>
+            {editing.hero_enabled ? (
+              <div className="space-y-5">
+                {/* PC 변형 (620 × 320) */}
+                <div>
+                  <label className="text-xs font-bold block mb-2 text-gray-500">PC</label>
+                  <div className="relative w-[620px] h-[320px] max-w-full">
+                    <div
+                      className="absolute inset-0 rounded-[32px] overflow-hidden shadow-2xl"
+                      style={{ background: `linear-gradient(135deg, ${normalizeHex(editing.hero_bg_from, '#1a1a1a')} 0%, ${normalizeHex(editing.hero_bg_to, '#2a2a2a')} 100%)` }}
+                    >
+                      <div className="relative z-20 h-full flex flex-col items-start text-left px-10 pt-11 pb-9 max-w-full">
+                        <h4
+                          className="text-[22px] font-bold leading-[1.25] whitespace-pre-line"
+                          style={{ color: normalizeHex(editing.hero_title_color, '#FFFFFF') }}
+                        >
+                          {editing.hero_title || `${editing.name || '강사'} 강사입니다.`}
+                        </h4>
+                        <p className="text-white/90 mt-5">
+                          <span className="text-[18px] font-bold">{editing.name}</span>
+                          {editing.title && <span className="ml-1.5 text-[15px] font-medium text-white/75">{editing.title}</span>}
+                        </p>
+                        {(editing.hero_bullets || []).filter((b) => b.trim()).length > 0 && (
+                          <ul className="mt-3 space-y-1.5">
+                            {(editing.hero_bullets || []).filter((b) => b.trim()).map((b, i) => {
+                              const html = b.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                              return <li key={i} className="text-white/85 text-[14px]" style={{ lineHeight: editing.hero_bullets_line_height ?? 1.375 }} dangerouslySetInnerHTML={{ __html: html }} />
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                    {editing.hero_portrait_url && (
+                      <img src={editing.hero_portrait_url} alt=""
+                        className="absolute right-0 bottom-0 h-[115%] w-auto max-w-[55%] object-contain object-bottom rounded-br-[32px] pointer-events-none z-10" />
+                    )}
+                  </div>
+                </div>
+
+                {/* 모바일 변형 (300 × 430) */}
+                <div>
+                  <label className="text-xs font-bold block mb-2 text-gray-500">모바일</label>
+                  <div className="relative w-[300px] h-[430px]">
+                    <div
+                      className="absolute inset-0 rounded-[24px] overflow-hidden shadow-2xl"
+                      style={{ background: `linear-gradient(135deg, ${normalizeHex(editing.hero_bg_from, '#1a1a1a')} 0%, ${normalizeHex(editing.hero_bg_to, '#2a2a2a')} 100%)` }}
+                    >
+                      <div className="relative z-20 h-full flex flex-col items-start text-left px-6 pt-7 pb-[180px] max-w-full">
+                        <h4
+                          className="text-[17px] font-bold leading-[1.25] whitespace-pre-line"
+                          style={{ color: normalizeHex(editing.hero_title_color, '#FFFFFF') }}
+                        >
+                          {editing.hero_title || `${editing.name || '강사'} 강사입니다.`}
+                        </h4>
+                        <p className="text-white/90 mt-3">
+                          <span className="text-[16px] font-bold">{editing.name}</span>
+                          {editing.title && <span className="ml-1.5 text-[14px] font-medium text-white/75">{editing.title}</span>}
+                        </p>
+                        {(editing.hero_bullets || []).filter((b) => b.trim()).length > 0 && (
+                          <ul className="mt-2 space-y-1">
+                            {(editing.hero_bullets || []).filter((b) => b.trim()).map((b, i) => {
+                              const html = b.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+                              return <li key={i} className="text-white/85 text-[12.5px]" style={{ lineHeight: editing.hero_bullets_line_height ?? 1.375 }} dangerouslySetInnerHTML={{ __html: html }} />
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                    {editing.hero_portrait_url && (
+                      <img src={editing.hero_portrait_url} alt=""
+                        className="absolute right-0 bottom-0 h-[220px] w-auto max-w-[60%] object-contain object-bottom rounded-br-[24px] pointer-events-none z-10" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-10 text-center">
+                <i className="ti ti-eye-off text-3xl text-gray-300 mb-2 block" />
+                <p className="text-xs text-gray-400">홈 히어로 카드가 OFF 상태입니다.<br />ON으로 켜면 미리보기가 표시됩니다.</p>
+              </div>
+            )}
+          </div>
           </div>
         )}
       </AdminFormModal>
