@@ -54,7 +54,7 @@ function LandingPage() {
       <section className="w-full bg-white py-20">
         <div className="max-w-[1200px] mx-auto px-5 text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-3">페이지를 찾을 수 없습니다</h1>
-          <p className="text-sm text-gray-500 mb-6">요청하신 랜딩 페이지가 존재하지 않거나 비공개 상태입니다.</p>
+          <p className="text-sm text-gray-500 mb-6">요청하신 랜딩 페이지가 존재하지 않습니다.</p>
           <Link to="/" className="inline-block px-5 py-2.5 bg-[#2ED573] text-white rounded-lg no-underline text-sm font-bold">홈으로</Link>
         </div>
       </section>

@@ -21,6 +21,7 @@ interface EditingForm {
   name: string
   is_published: boolean
   allow_guest_purchase: boolean
+  show_hero: boolean
   sort_order: number
   seo: LandingCategorySeo
   type: LandingCategoryType
@@ -32,6 +33,7 @@ const emptyForm: EditingForm = {
   name: '',
   is_published: true,
   allow_guest_purchase: false,
+  show_hero: true,
   sort_order: 0,
   seo: {},
   type: 'course_list',
@@ -232,6 +234,7 @@ export default function AdminPages() {
         name: editing.name,
         is_published: editing.is_published,
         allow_guest_purchase: editing.type === 'course_list' ? editing.allow_guest_purchase : false,
+        show_hero: editing.show_hero,
         sort_order: editing.sort_order,
         seo: editing.seo,
         type: editing.type,
@@ -451,6 +454,7 @@ export default function AdminPages() {
                             name: c.name,
                             is_published: c.is_published,
                             allow_guest_purchase: c.allow_guest_purchase ?? false,
+                            show_hero: c.show_hero ?? true,
                             sort_order: c.sort_order,
                             seo: c.seo ?? {},
                             type: c.type ?? 'course_list',
@@ -1038,6 +1042,11 @@ export default function AdminPages() {
                     <input type="checkbox" checked={editing.is_published} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" />
                     상단 메뉴에 노출
                   </label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer py-2.5">
+                    <input type="checkbox" checked={editing.show_hero} onChange={(e) => setEditing({ ...editing, show_hero: e.target.checked })} className="accent-[#2ED573]" />
+                    히어로 배너 노출
+                  </label>
+                  <p className="text-[11px] text-gray-400 -mt-1">해제하면 페이지 상단의 검은색 히어로 배너 영역이 숨겨집니다.</p>
                   {editing.type === 'course_list' && (
                     <>
                       <label className="flex items-center gap-2 text-sm cursor-pointer py-2.5">

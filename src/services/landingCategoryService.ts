@@ -27,14 +27,17 @@ export const landingCategoryService = {
   },
 
   async getBySlug(slug: string) {
+    // is_published 는 상단 메뉴 노출 여부만 의미하므로 직접 접근은 공개 여부와 무관하게 허용
+    const cacheKey = `landing_categories:slug:${slug}`
+    const cached = getCached<LandingCategory | null>(cacheKey)
+    if (cached !== null) return cached
     const { data, error } = await supabase
       .from('landing_categories')
       .select('*')
       .eq('slug', slug)
-      .eq('is_published', true)
       .maybeSingle()
     if (error) throw error
-    return data as LandingCategory | null
+    return setCache(cacheKey, (data as LandingCategory | null) ?? null)
   },
 
   invalidate() { clearCache('landing_categories') },

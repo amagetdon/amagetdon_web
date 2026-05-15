@@ -285,6 +285,39 @@ body {
   border-radius: 0.5rem;
 }
 
+/* 에디터 내 리사이즈 가능한 이미지 — 래퍼 + 우측 하단 드래그 핸들 */
+.rte-image-wrap {
+  display: inline-block;
+  position: relative;
+  line-height: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.rte-image-wrap > .rte-image {
+  display: block;
+}
+.rte-image-handle {
+  display: none;
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2ED573;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: nwse-resize;
+}
+.rte-image-wrap.ProseMirror-selectednode {
+  outline: 2px solid #2ED573;
+  outline-offset: 1px;
+  border-radius: 0.5rem;
+}
+.rte-image-wrap.ProseMirror-selectednode .rte-image-handle {
+  display: block;
+}
+
 /* 환불규정 본문(사용자 페이지에서 HTML 렌더링) */
 .refund-policy-content :first-child { margin-top: 0; }
 .refund-policy-content p { margin: 0 0 0.3rem 0; color: #374151; font-size: 0.875rem; line-height: 1.6; min-height: 1em; }

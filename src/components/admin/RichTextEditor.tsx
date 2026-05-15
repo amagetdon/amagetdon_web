@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, FontSize, LineHeight, Color, BackgroundColor } from '@tiptap/extension-text-style'
 import { TableKit } from '@tiptap/extension-table'
 import { TextAlign } from '@tiptap/extension-text-align'
-import Image from '@tiptap/extension-image'
+import { ResizableImage } from './tiptap-resizable-image'
 import { LetterSpacing } from './tiptap-letter-spacing'
 import { textToHtml } from '../../utils/richText'
 import { storageService } from '../../services/storageService'
@@ -70,8 +70,8 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
         alignments: ['left', 'center', 'right', 'justify'],
       }),
       // inline: true — paragraph 안에 inline 으로 들어가야 부모 paragraph 의 textAlign(center 등) 이 이미지에도 적용됨.
-      // 사이즈 클래스는 적용하지 않고 .rte-image CSS 에서 max-width:100% 만 보장 → 작은 이미지는 자연 너비로 표시되어 가운데 정렬이 시각적으로 보임.
-      Image.configure({
+      // 원본 크기로 삽입되며(.rte-image CSS 의 max-width:100% 로만 캡), 선택 후 핸들을 끌어 크기 조절 가능.
+      ResizableImage.configure({
         inline: true,
         allowBase64: false,
         HTMLAttributes: { class: 'rte-image' },
@@ -151,7 +151,8 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
       setImageUploading(true)
       const bucket = imageUpload?.bucket ?? 'banners'
       const basePath = imageUpload?.basePath ?? `rich-text/${Date.now()}`
-      const url = await storageService.uploadImage(bucket, basePath, file)
+      // 상세 이미지는 압축·리사이즈 없이 원본 그대로 업로드
+      const url = await storageService.uploadImage(bucket, basePath, file, { compress: false })
       editor.chain().focus().setImage({ src: url }).run()
       // 삽입 직후 selection 은 새 이미지 노드를 가리키는 NodeSelection 상태.
       // 그대로 두면 다음 업로드가 같은 노드를 '교체' 해 첫 이미지가 사라진다.

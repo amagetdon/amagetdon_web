@@ -219,6 +219,7 @@ export interface LandingCategory {
   name: string
   is_published: boolean
   allow_guest_purchase: boolean
+  show_hero: boolean
   sort_order: number
   seo: LandingCategorySeo | null
   type: LandingCategoryType

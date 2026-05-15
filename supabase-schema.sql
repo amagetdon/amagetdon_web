@@ -481,6 +481,7 @@ CREATE TABLE landing_categories (
   slug TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   is_published BOOLEAN DEFAULT true,
+  show_hero BOOLEAN DEFAULT true,
   sort_order INTEGER DEFAULT 0,
   seo JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ DEFAULT now(),
@@ -488,8 +489,9 @@ CREATE TABLE landing_categories (
 );
 
 ALTER TABLE landing_categories ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public read published landing categories" ON landing_categories
-  FOR SELECT USING (is_published = true);
+-- is_published 는 상단 메뉴 노출 여부만 의미 — 직접 접근은 공개 여부와 무관하게 허용
+CREATE POLICY "Public read landing categories" ON landing_categories
+  FOR SELECT USING (true);
 CREATE POLICY "Admin read all landing categories" ON landing_categories
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
