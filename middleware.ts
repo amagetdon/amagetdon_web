@@ -4,7 +4,9 @@ export const config = {
   matcher: '/((?!api|assets|favicon|logo|.*\\.(?:webp|png|jpg|jpeg|gif|svg|ico|css|js|map|woff2?|ttf|json|txt|xml)$).*)',
 }
 
-const BOT_UA = /kakaotalk|kakao|facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|slack-imgproxy|discordbot|telegrambot|whatsapp|yeti|naverbot|googlebot|bingbot|duckduckbot|baiduspider|applebot|petalbot|bytespider|line-poker/i
+// 링크 미리보기(OG) 크롤러만 매칭. 카카오톡 인앱 브라우저는 UA 에 `KAKAOTALK` 토큰이 있지만
+// 실제 사용자이므로 제외 — 크롤러 전용 UA(`kakaotalk-scrap`)만 잡는다. (LINE 도 `line-poker` 로 동일)
+const BOT_UA = /kakaotalk-scrap|facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|slack-imgproxy|discordbot|telegrambot|whatsapp|yeti|naverbot|googlebot|bingbot|duckduckbot|baiduspider|applebot|petalbot|bytespider|line-poker/i
 
 const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env
 const SUPABASE_URL = env.SUPABASE_URL || ''
