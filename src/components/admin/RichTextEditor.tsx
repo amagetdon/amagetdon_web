@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, FontSize, LineHeight, Color, BackgroundColor } from '@tiptap/extension-text-style'
@@ -16,6 +17,12 @@ interface Props {
   preset?: 'default' | 'banner'
   /** 폰트 크기 옵션 오버라이드 */
   fontSizes?: string[]
+  /** 외곽 흰 박스/테두리 제거 — 부모(배너 wrapper 등) 배경 위에 띄울 때 */
+  seamless?: boolean
+  /** banner 프리셋의 검정 배경(#0f0f0f) 덮어쓰기 — 'transparent' 등 */
+  editorBackground?: string
+  /** 툴바를 본 위치 대신 외부 DOM 노드로 portal 전송 — 배너 영역 위에 띄울 때 */
+  toolbarPortalTarget?: HTMLElement | null
 }
 
 const DEFAULT_FONT_SIZES = ['12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px']
@@ -23,13 +30,14 @@ const BANNER_FONT_SIZES = ['16px', '20px', '24px', '28px', '32px', '36px', '40px
 const LINE_HEIGHTS = ['0', '0.5', '1', '1.5', '2', '3', '4']
 const LETTER_SPACINGS = ['-1px', '-0.5px', '0', '0.5px', '1px', '2px']
 
-export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, preset = 'default', fontSizes }: Props) {
+export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, preset = 'default', fontSizes, seamless = false, editorBackground, toolbarPortalTarget }: Props) {
   const FONT_SIZES = fontSizes ?? (preset === 'banner' ? BANNER_FONT_SIZES : DEFAULT_FONT_SIZES)
   const editorBaseClass = preset === 'banner'
     ? 'tiptap-content tiptap-banner outline-none px-4 py-3 leading-tight'
     : 'tiptap-content outline-none px-4 py-3 text-sm text-gray-800 leading-relaxed'
+  const bannerBg = editorBackground ?? '#0f0f0f'
   const editorBaseStyle = preset === 'banner'
-    ? `min-height: ${minHeight}px; font-size: 32px; font-weight: 500; color: #ffffff; background: #0f0f0f;`
+    ? `min-height: ${minHeight}px; font-size: 32px; font-weight: 500; color: #ffffff; background: ${bannerBg};`
     : `min-height: ${minHeight}px;`
   const [htmlMode, setHtmlMode] = useState(false)
   const [htmlDraft, setHtmlDraft] = useState(value || '')
@@ -123,10 +131,8 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   const btnIdle = 'bg-transparent text-gray-600 hover:bg-gray-100'
   const btnActive = 'bg-[#2ED573] text-white'
 
-  return (
-    <div className="border border-gray-300 rounded-xl overflow-hidden bg-white focus-within:border-[#2ED573] focus-within:ring-2 focus-within:ring-[#2ED573]/10 transition-all">
-      {/* 툴바 */}
-      <div className="flex items-center gap-1 flex-wrap px-2 py-1.5 border-b border-gray-200 bg-gray-50">
+  const toolbarContent = (
+    <div className={`flex items-center gap-1 flex-wrap px-2 py-1.5 ${seamless ? 'rounded-t-xl border border-gray-200' : 'border-b border-gray-200'} bg-gray-50`}>
         <select
           value={activeHeading ?? ''}
           onChange={(e) => {
@@ -380,6 +386,11 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
           </button>
         </div>
       </div>
+  )
+
+  return (
+    <div className={seamless ? 'overflow-hidden' : 'border border-gray-300 rounded-xl overflow-hidden bg-white focus-within:border-[#2ED573] focus-within:ring-2 focus-within:ring-[#2ED573]/10 transition-all'}>
+      {toolbarPortalTarget ? createPortal(toolbarContent, toolbarPortalTarget) : toolbarContent}
 
       {/* 에디터 본문 / HTML 소스 */}
       {htmlMode ? (

@@ -80,6 +80,8 @@ export default function AdminPages() {
   // 업로드 경로의 stable suffix — 에디터를 열 때 1회 생성. Date.now() 를 path prop 에서 매 렌더 재계산하면
   // 동일 세션에서 두 번 업로드 시 첫 파일이 영구 orphan 으로 남으므로 분리한다.
   const [bannerUploadKey, setBannerUploadKey] = useState<string>('')
+  // 배너 모달 — TipTap 툴바를 배너 wrapper 외부 슬롯으로 portal 전송 (이미지 위에 흰박스 안 덮이게)
+  const [bannerToolbarSlot, setBannerToolbarSlot] = useState<HTMLDivElement | null>(null)
   const banners = allBanners[bannerSubTab]
   const eventKey = `${bannerSubTab}_event` as string
   const eventBanners = allBanners[eventKey] || []
@@ -1087,7 +1089,7 @@ export default function AdminPages() {
       </AdminFormModal>
 
       {/* 배너 편집 모달 */}
-      <AdminFormModal isOpen={!!bannerEditing} onClose={() => { setBannerEditing(null); setBannerDevice('pc') }} title={bannerEditing?.id ? '배너 수정' : '새 배너 등록'} onSubmit={handleBannerSave} loading={bannerSaving} maxWidthClass="max-w-[960px]">
+      <AdminFormModal isOpen={!!bannerEditing} onClose={() => { setBannerEditing(null); setBannerDevice('pc') }} title={bannerEditing?.id ? '배너 수정' : '새 배너 등록'} onSubmit={handleBannerSave} loading={bannerSaving} maxWidthClass="max-w-[1400px]" maxHeightClass="max-h-[95vh]">
         {bannerEditing && (() => {
           const isMobileEdit = bannerDevice === 'mobile'
           const k = (base: string) => isMobileEdit ? `${base}_mobile` : base
@@ -1110,15 +1112,106 @@ export default function AdminPages() {
               <p className="text-[11px] text-gray-400 mt-2">모바일 칸을 비우면 자동으로 PC 값을 사용합니다. 다르게 보이고 싶을 때만 모바일 값을 채워주세요.</p>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">타이틀 {isMobileEdit && <span className="text-[10px] text-gray-400">(모바일)</span>}</label>
-              <RichTextEditor
-                value={(get('title') as string) || ''}
-                onChange={(html) => set('title', html)}
-                placeholder={isMobileEdit && pcStr('title') ? `PC 값 사용: ${pcStr('title').replace(/<[^>]+>/g, ' ').slice(0, 60)}` : '한번 배워서 평생 써먹는\n300 벌고 시작하는 보험 비즈니스'}
-                minHeight={160}
-                preset="banner"
-              />
-              <p className="text-xs text-gray-400 mt-1">에디터 글씨 크기·색상이 실제 히어로 배너 표시와 동일하게 보입니다.</p>
+              <label className="text-sm font-bold block mb-1">타이틀 — 실제 메인과 동일한 모습으로 편집 {isMobileEdit && <span className="text-[10px] text-gray-400">(모바일)</span>}</label>
+              {(() => {
+                const previewSubtitle = ((get('subtitle') as string) || (bannerEditing.subtitle as string) || '')
+                const previewImage = ((get('image_url') as string) || (bannerEditing.image_url as string) || '')
+                const previewVideo = ((get('video_url') as string) || (bannerEditing.video_url as string) || '')
+                const previewOpacity = ((get('overlay_opacity') as number) ?? (bannerEditing.overlay_opacity as number) ?? 30)
+                // 페이지별 배너 설정(높이·맞춤) — 메인 HeroSection 과 동일한 키
+                const settings = bannerSettings[editingPageKey] ?? { height: 'auto', heightMobile: 'auto', fit: 'cover', fitMobile: 'cover', speed: '5' }
+                const activeHeight = isMobileEdit ? settings.heightMobile : settings.height
+                const activeFit = (isMobileEdit ? settings.fitMobile : settings.fit) as 'cover' | 'width' | 'height'
+                const isAutoHeight = !activeHeight || activeHeight === 'auto'
+                const heightPx = isAutoHeight ? undefined : (activeHeight.toString().endsWith('px') ? activeHeight : `${activeHeight}px`)
+                // 고정 높이일 때 — TipTap 본문이 배너 영역을 가득 채우도록 minHeight 동적 계산
+                // (subtitle 뱃지 + 좌우 패딩 등 컨텐츠 외 영역 약 100px 차감)
+                const numericHeight = isAutoHeight ? 0 : Number(String(activeHeight).replace('px', ''))
+                const editorMinHeight = isAutoHeight ? 120 : Math.max(120, numericHeight - 100)
+                // 유튜브/비메오/직접링크 처리 — 메인 HeroSection 과 동일한 변환
+                const ytMatch = previewVideo.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/)
+                const vimeoMatch = previewVideo.match(/vimeo\.com\/(\d+)(?:\/([a-zA-Z0-9]+))?/)
+                const embedSrc = ytMatch
+                  ? `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&playlist=${ytMatch[1]}&controls=0&showinfo=0&rel=0&modestbranding=1&playsinline=1`
+                  : vimeoMatch
+                  ? `https://player.vimeo.com/video/${vimeoMatch[1]}?${vimeoMatch[2] ? `h=${vimeoMatch[2]}&` : ''}autoplay=1&muted=1&loop=1&background=1`
+                  : null
+                const isEmbedVideo = bannerEditing.media_type === 'video' && previewVideo && embedSrc
+                const isRawVideo = bannerEditing.media_type === 'video' && previewVideo && !embedSrc
+                // 맞춤(fit) 별 미디어 className — 메인 HeroSection.mediaClassName 와 동일
+                const mediaClass = activeFit === 'width'
+                  ? 'absolute left-0 right-0 top-1/2 -translate-y-1/2 w-full h-auto max-h-none pointer-events-none'
+                  : activeFit === 'height'
+                  ? 'absolute top-0 bottom-0 left-1/2 -translate-x-1/2 h-full w-auto max-w-none pointer-events-none'
+                  : 'absolute inset-0 w-full h-full object-cover pointer-events-none'
+                const iframeStyle: React.CSSProperties = activeFit === 'width'
+                  ? { aspectRatio: '16 / 9' }
+                  : activeFit === 'height'
+                  ? { aspectRatio: '16 / 9' }
+                  : { width: '300%', height: '300%', transform: 'translate(-50%, -50%)' }
+                const iframeClass = activeFit === 'width'
+                  ? 'absolute left-0 right-0 top-1/2 -translate-y-1/2 w-full border-none pointer-events-none'
+                  : activeFit === 'height'
+                  ? 'absolute top-0 bottom-0 left-1/2 -translate-x-1/2 h-full border-none pointer-events-none'
+                  : 'absolute top-1/2 left-1/2 border-none pointer-events-none'
+                return (
+                  <div className={`mx-auto ${isMobileEdit ? 'w-[390px] max-w-full' : 'w-full'}`}>
+                    {/* TipTap 툴바 슬롯 — 배너 wrapper 위쪽 (portal 대상) */}
+                    <div ref={setBannerToolbarSlot} className="mb-2" />
+                    <div
+                      className={`relative w-full bg-black overflow-hidden rounded-xl ${isAutoHeight ? (isMobileEdit ? 'py-12' : 'py-20') : 'flex items-center justify-start'}`}
+                      style={isAutoHeight ? undefined : { height: heightPx }}
+                    >
+                      {/* 배경 미디어 — 입력 차단되지 않도록 pointer-events-none */}
+                      {isEmbedVideo ? (
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ opacity: previewOpacity / 100 }}>
+                          <iframe
+                            key={embedSrc}
+                            src={embedSrc!}
+                            className={iframeClass}
+                            style={iframeStyle}
+                            allow="autoplay; encrypted-media"
+                            tabIndex={-1}
+                          />
+                        </div>
+                      ) : isRawVideo ? (
+                        <video src={previewVideo} className={mediaClass} style={{ opacity: previewOpacity / 100 }} muted autoPlay loop playsInline />
+                      ) : previewImage ? (
+                        <img src={previewImage} alt="" className={mediaClass} style={{ opacity: previewOpacity / 100 }} />
+                      ) : null}
+
+                      {/* 컨텐츠 영역 — 메인 HeroSection 과 동일한 max-w/padding */}
+                      <div className={`relative w-full mx-auto px-5 ${isMobileEdit ? '' : 'max-w-[1200px]'}`}>
+                        {previewSubtitle && (
+                          <div className={`inline-flex items-center border border-gray-500 rounded-full ${isMobileEdit ? 'px-3 py-1 mb-4' : 'px-5 py-2 mb-6'}`}>
+                            <span className={`leading-none text-gray-300 ${isMobileEdit ? 'text-[11px]' : 'text-xs'}`}>{previewSubtitle}</span>
+                          </div>
+                        )}
+                        {/* 타이틀 — TipTap 에디터를 투명 배경으로 띄워 직접 편집 */}
+                        <RichTextEditor
+                          value={(get('title') as string) || ''}
+                          onChange={(html) => set('title', html)}
+                          placeholder={isMobileEdit && pcStr('title') ? `PC 값 사용: ${pcStr('title').replace(/<[^>]+>/g, ' ').slice(0, 60)}` : '한번 배워서 평생 써먹는\n300 벌고 시작하는 보험 비즈니스'}
+                          minHeight={editorMinHeight}
+                          preset="banner"
+                          seamless
+                          editorBackground="transparent"
+                          toolbarPortalTarget={bannerToolbarSlot}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })()}
+              <p className="text-xs text-gray-400 mt-1">
+                위 영역이 곧 메인 — 페이지 높이/맞춤 설정까지 그대로 반영됩니다.
+                {(() => {
+                  const s = bannerSettings[editingPageKey] ?? { height: 'auto', heightMobile: 'auto', fit: 'cover', fitMobile: 'cover' }
+                  const h = isMobileEdit ? s.heightMobile : s.height
+                  const f = isMobileEdit ? s.fitMobile : s.fit
+                  return ` (현재 ${isMobileEdit ? '모바일' : 'PC'}: 높이 ${h === 'auto' ? '자동' : `${h}px`} · 맞춤 ${f})`
+                })()}
+              </p>
             </div>
             <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">뱃지 텍스트 {isMobileEdit && <span className="text-[10px] text-gray-400">(모바일)</span>}</label>
@@ -1198,39 +1291,6 @@ export default function AdminPages() {
                 <input type="checkbox" checked={bannerEditing.is_published !== false} onChange={(e) => setBannerEditing({ ...bannerEditing, is_published: e.target.checked })} className="accent-[#2ED573]" />
                 공개
               </label>
-            </div>
-            <div className="col-span-2 max-sm:col-span-1">
-              <p className="text-xs text-gray-400 mb-2">미리보기 ({isMobileEdit ? '모바일' : 'PC'} — 비어 있으면 PC 값 사용)</p>
-              <div className={`relative rounded-xl overflow-hidden bg-black py-8 ${isMobileEdit ? 'px-3 max-w-[380px]' : 'px-5'}`}>
-                {(() => {
-                  const previewTitle = ((get('title') as string) || (bannerEditing.title as string) || '')
-                  const previewSubtitle = ((get('subtitle') as string) || (bannerEditing.subtitle as string) || '')
-                  const previewImage = ((get('image_url') as string) || (bannerEditing.image_url as string) || '')
-                  const previewVideo = ((get('video_url') as string) || (bannerEditing.video_url as string) || '')
-                  const previewOpacity = ((get('overlay_opacity') as number) ?? (bannerEditing.overlay_opacity as number) ?? 30)
-                  return (
-                    <>
-                      {bannerEditing.media_type === 'video' && previewVideo ? (
-                        <video src={previewVideo} className="absolute inset-0 w-full h-full object-cover" style={{ opacity: previewOpacity / 100 }} muted autoPlay loop playsInline />
-                      ) : previewImage ? (
-                        <img src={previewImage} alt="" className="absolute inset-0 w-full h-full object-cover" style={{ opacity: previewOpacity / 100 }} />
-                      ) : null}
-                      <div className="relative">
-                        {previewSubtitle && (
-                          <div className="inline-block px-3 py-1 border border-gray-500 rounded-full mb-3">
-                            <span className="text-[10px] text-gray-300">{previewSubtitle}</span>
-                          </div>
-                        )}
-                        {previewTitle ? (
-                          <div className="text-lg text-white font-medium leading-tight banner-rich" dangerouslySetInnerHTML={{ __html: previewTitle }} />
-                        ) : (
-                          <p className="text-lg text-white font-medium leading-tight">타이틀을 입력하세요</p>
-                        )}
-                      </div>
-                    </>
-                  )
-                })()}
-              </div>
             </div>
           </div>
           )
