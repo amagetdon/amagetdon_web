@@ -273,6 +273,18 @@ body {
 .rich-text-content table td, .rich-text-content table th { border: 1px solid #d1d5db; padding: 0.4rem 0.6rem; vertical-align: top; }
 .rich-text-content table th { background-color: #f9fafb; font-weight: 700; color: #111827; }
 
+/* RichTextEditor / 공개 노출 본문에 삽입된 이미지 —
+   Tailwind preflight 가 img 를 display:block 으로 강제하므로 inline-block 으로 덮어써야 부모 paragraph 의 text-align(center 등) 이 시각적으로 동작한다. */
+.rte-image,
+.tiptap-content img,
+.rich-text-content img {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
+  border-radius: 0.5rem;
+}
+
 /* 환불규정 본문(사용자 페이지에서 HTML 렌더링) */
 .refund-policy-content :first-child { margin-top: 0; }
 .refund-policy-content p { margin: 0 0 0.3rem 0; color: #374151; font-size: 0.875rem; line-height: 1.6; min-height: 1em; }

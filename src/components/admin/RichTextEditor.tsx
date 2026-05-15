@@ -69,10 +69,12 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
         types: ['heading', 'paragraph'],
         alignments: ['left', 'center', 'right', 'justify'],
       }),
+      // inline: true — paragraph 안에 inline 으로 들어가야 부모 paragraph 의 textAlign(center 등) 이 이미지에도 적용됨.
+      // 사이즈 클래스는 적용하지 않고 .rte-image CSS 에서 max-width:100% 만 보장 → 작은 이미지는 자연 너비로 표시되어 가운데 정렬이 시각적으로 보임.
       Image.configure({
-        inline: false,
+        inline: true,
         allowBase64: false,
-        HTMLAttributes: { class: 'rte-image max-w-full h-auto rounded-lg' },
+        HTMLAttributes: { class: 'rte-image' },
       }),
     ],
     content: textToHtml(value),
@@ -151,6 +153,10 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
       const basePath = imageUpload?.basePath ?? `rich-text/${Date.now()}`
       const url = await storageService.uploadImage(bucket, basePath, file)
       editor.chain().focus().setImage({ src: url }).run()
+      // 삽입 직후 selection 은 새 이미지 노드를 가리키는 NodeSelection 상태.
+      // 그대로 두면 다음 업로드가 같은 노드를 '교체' 해 첫 이미지가 사라진다.
+      // 이미지 직후의 텍스트 위치로 커서를 이동시켜 다음 setImage 가 '추가' 되게 한다.
+      editor.commands.focus(editor.state.selection.to)
     } catch {
       toast.error('이미지 업로드에 실패했습니다.')
     } finally {
