@@ -211,6 +211,8 @@ export interface LandingCategorySeo {
   twitterImage?: string
 }
 
+export type LandingCategoryType = 'course_list' | 'detail'
+
 export interface LandingCategory {
   id: number
   slug: string
@@ -219,6 +221,8 @@ export interface LandingCategory {
   allow_guest_purchase: boolean
   sort_order: number
   seo: LandingCategorySeo | null
+  type: LandingCategoryType
+  content_html: string | null
   created_at: string
   updated_at: string
 }

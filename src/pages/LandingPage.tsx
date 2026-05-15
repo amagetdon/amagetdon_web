@@ -29,6 +29,11 @@ function LandingPage() {
           return
         }
         setCategory(cat)
+        // 상세 페이지 랜딩은 강의 매핑 없이 content_html 만 노출
+        if (cat.type === 'detail') {
+          if (!cancelled) setCourses([])
+          return
+        }
         const { data } = await supabase
           .from('courses')
           .select('*, instructor:instructors(id, name)')
@@ -51,6 +56,25 @@ function LandingPage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-3">페이지를 찾을 수 없습니다</h1>
           <p className="text-sm text-gray-500 mb-6">요청하신 랜딩 페이지가 존재하지 않거나 비공개 상태입니다.</p>
           <Link to="/" className="inline-block px-5 py-2.5 bg-[#2ED573] text-white rounded-lg no-underline text-sm font-bold">홈으로</Link>
+        </div>
+      </section>
+    )
+  }
+
+  // 상세 페이지 랜딩 — content_html 풀폭 렌더링
+  if (category?.type === 'detail') {
+    return (
+      <section className="w-full bg-white py-14 max-sm:py-10">
+        <SeoHead override={category.seo ?? undefined} />
+        <div className="max-w-[1200px] mx-auto px-5">
+          {category.content_html ? (
+            <div
+              className="rich-text-content"
+              dangerouslySetInnerHTML={{ __html: category.content_html }}
+            />
+          ) : (
+            <div className="text-center py-20 text-gray-400 text-sm">아직 작성된 본문이 없습니다.</div>
+          )}
         </div>
       </section>
     )

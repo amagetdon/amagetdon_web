@@ -198,28 +198,32 @@ async function collectReferencedUrls(
     for (const r of (data ?? []) as Array<Record<string, unknown>>) extract(r)
   }
 
-  await required('courses', 'thumbnail_url, landing_image_url, landing_image_urls, video_url, seo', (r) => {
+  // 일반 URL 컬럼 + RichTextEditor 본문(HTML 안 <img src>도 정규식이 잡아줌)을 모두 referenced 로 등록
+  await required('courses', 'thumbnail_url, landing_image_url, landing_image_urls, video_url, seo, description, refund_policy', (r) => {
     addJson(r.thumbnail_url); addJson(r.landing_image_url); addJson(r.landing_image_urls); addJson(r.video_url); addJson(r.seo)
+    addJson(r.description); addJson(r.refund_policy)
   })
   await required('ebooks', 'thumbnail_url, landing_image_url, landing_image_urls, file_url, seo', (r) => {
     addJson(r.thumbnail_url); addJson(r.landing_image_url); addJson(r.landing_image_urls); addJson(r.file_url); addJson(r.seo)
   })
-  await required('instructors', 'image_url, thumbnail_url, hero_portrait_url', (r) => {
-    addJson(r.image_url); addJson(r.thumbnail_url); addJson(r.hero_portrait_url)
+  await required('instructors', 'image_url, thumbnail_url, hero_portrait_url, bio', (r) => {
+    addJson(r.image_url); addJson(r.thumbnail_url); addJson(r.hero_portrait_url); addJson(r.bio)
   })
-  await required('banners', 'image_url, video_url', (r) => {
-    addJson(r.image_url); addJson(r.video_url)
+  await required('banners', 'image_url, video_url, title, title_mobile, image_url_mobile, video_url_mobile', (r) => {
+    addJson(r.image_url); addJson(r.video_url); addJson(r.title); addJson(r.title_mobile)
+    addJson(r.image_url_mobile); addJson(r.video_url_mobile)
   })
   await required('results', 'image_url, video_url', (r) => {
     addJson(r.image_url); addJson(r.video_url)
   })
-  await required('faqs', 'video_url, file_url', (r) => {
-    addJson(r.video_url); addJson(r.file_url)
+  await required('faqs', 'video_url, file_url, answer', (r) => {
+    addJson(r.video_url); addJson(r.file_url); addJson(r.answer)
   })
   await required('curriculum_items', 'video_url, video_urls', (r) => { addJson(r.video_url); addJson(r.video_urls) })
   await required('coupons', 'banner_image_url', (r) => { addJson(r.banner_image_url) })
   await required('achievements', 'image_url', (r) => { addJson(r.image_url) })
-  await required('landing_categories', 'seo', (r) => { addJson(r.seo) })
+  await required('landing_categories', 'seo, content_html', (r) => { addJson(r.seo); addJson(r.content_html) })
+  await optional('refund_policy_templates', 'content', (r) => { addJson(r.content) })
   await optional('site_settings', 'value', (r) => { addJson(r.value) })
 
   return { supabase: supabaseRefs, r2: r2Refs }

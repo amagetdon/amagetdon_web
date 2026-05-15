@@ -13,7 +13,7 @@ import { resultService } from '../../services/resultService'
 import { supabase } from '../../lib/supabase'
 import { invalidateAcademySettings } from '../../hooks/useAcademySettings'
 import { invalidateNavVisibility, DEFAULT_NAV_VISIBILITY, type NavVisibility } from '../../hooks/useNavVisibility'
-import type { LandingCategory, LandingCategorySeo, Banner, Result } from '../../types'
+import type { LandingCategory, LandingCategorySeo, LandingCategoryType, Banner, Result } from '../../types'
 
 interface EditingForm {
   id?: number
@@ -23,6 +23,8 @@ interface EditingForm {
   allow_guest_purchase: boolean
   sort_order: number
   seo: LandingCategorySeo
+  type: LandingCategoryType
+  content_html: string
 }
 
 const emptyForm: EditingForm = {
@@ -32,6 +34,8 @@ const emptyForm: EditingForm = {
   allow_guest_purchase: false,
   sort_order: 0,
   seo: {},
+  type: 'course_list',
+  content_html: '',
 }
 
 type PageTab = 'landing' | 'academy' | 'hero' | 'results' | 'visibility'
@@ -227,9 +231,11 @@ export default function AdminPages() {
         slug: editing.slug,
         name: editing.name,
         is_published: editing.is_published,
-        allow_guest_purchase: editing.allow_guest_purchase,
+        allow_guest_purchase: editing.type === 'course_list' ? editing.allow_guest_purchase : false,
         sort_order: editing.sort_order,
         seo: editing.seo,
+        type: editing.type,
+        content_html: editing.type === 'detail' ? (editing.content_html || null) : null,
       }
 
       if (editing.id) {
@@ -377,14 +383,22 @@ export default function AdminPages() {
 
       {tab === 'landing' ? (
         <>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <p className="text-sm text-gray-500">시즌별 커스텀 페이지를 만들고 상단 메뉴에 노출합니다.</p>
-            <button
-              onClick={() => setEditing({ ...emptyForm })}
-              className="bg-[#2ED573] text-white px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors flex items-center gap-1.5"
-            >
-              <i className="ti ti-plus text-sm" /> 랜딩 페이지 추가
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setEditing({ ...emptyForm, type: 'course_list' })}
+                className="bg-[#2ED573] text-white px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors flex items-center gap-1.5"
+              >
+                <i className="ti ti-plus text-sm" /> 강의 랜딩 추가
+              </button>
+              <button
+                onClick={() => setEditing({ ...emptyForm, type: 'detail' })}
+                className="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-gray-700 transition-colors flex items-center gap-1.5"
+              >
+                <i className="ti ti-file-text text-sm" /> 상세 페이지 랜딩 추가
+              </button>
+            </div>
           </div>
 
           {loading ? (
@@ -397,6 +411,7 @@ export default function AdminPages() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left font-bold text-gray-600">이름</th>
+                    <th className="px-4 py-3 text-center font-bold text-gray-600">타입</th>
                     <th className="px-4 py-3 text-left font-bold text-gray-600">슬러그 (URL)</th>
                     <th className="px-4 py-3 text-center font-bold text-gray-600">정렬</th>
                     <th className="px-4 py-3 text-center font-bold text-gray-600">공개</th>
@@ -405,10 +420,21 @@ export default function AdminPages() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {categories.length === 0 ? (
-                    <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">등록된 랜딩 페이지가 없습니다.</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">등록된 랜딩 페이지가 없습니다.</td></tr>
                   ) : categories.map((c) => (
                     <tr key={c.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium">{c.name}</td>
+                      <td className="px-4 py-3 text-center">
+                        {c.type === 'detail' ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium bg-gray-900 text-white">
+                            <i className="ti ti-file-text" /> 상세
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium bg-emerald-50 text-emerald-600">
+                            <i className="ti ti-list" /> 강의
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-gray-500 font-mono text-xs">/landing/{c.slug}</td>
                       <td className="px-4 py-3 text-center text-gray-400 text-xs">{c.sort_order}</td>
                       <td className="px-4 py-3 text-center">
@@ -427,6 +453,8 @@ export default function AdminPages() {
                             allow_guest_purchase: c.allow_guest_purchase ?? false,
                             sort_order: c.sort_order,
                             seo: c.seo ?? {},
+                            type: c.type ?? 'course_list',
+                            content_html: c.content_html ?? '',
                           })} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정">
                             <i className="ti ti-pencil text-sm" />
                           </button>
@@ -969,9 +997,13 @@ export default function AdminPages() {
       <AdminFormModal
         isOpen={!!editing}
         onClose={() => setEditing(null)}
-        title={editing?.id ? '랜딩 페이지 수정' : '새 랜딩 페이지 등록'}
+        title={editing?.id
+          ? (editing.type === 'detail' ? '상세 페이지 랜딩 수정' : '강의 랜딩 수정')
+          : (editing?.type === 'detail' ? '새 상세 페이지 랜딩 등록' : '새 강의 랜딩 등록')}
         onSubmit={handleSave}
         loading={saving}
+        maxWidthClass={editing?.type === 'detail' ? 'max-w-[1200px]' : 'max-w-[640px]'}
+        maxHeightClass={editing?.type === 'detail' ? 'max-h-[95vh]' : undefined}
       >
         {editing && (
           <div className="flex flex-col gap-6">
@@ -1006,14 +1038,35 @@ export default function AdminPages() {
                     <input type="checkbox" checked={editing.is_published} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" />
                     상단 메뉴에 노출
                   </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer py-2.5">
-                    <input type="checkbox" checked={editing.allow_guest_purchase} onChange={(e) => setEditing({ ...editing, allow_guest_purchase: e.target.checked })} className="accent-[#2ED573]" />
-                    비회원 구매 가능
-                  </label>
-                  <p className="text-[11px] text-gray-400 -mt-1">이 랜딩페이지를 통해 접근한 강의는 로그인 없이도 구매할 수 있습니다.</p>
+                  {editing.type === 'course_list' && (
+                    <>
+                      <label className="flex items-center gap-2 text-sm cursor-pointer py-2.5">
+                        <input type="checkbox" checked={editing.allow_guest_purchase} onChange={(e) => setEditing({ ...editing, allow_guest_purchase: e.target.checked })} className="accent-[#2ED573]" />
+                        비회원 구매 가능
+                      </label>
+                      <p className="text-[11px] text-gray-400 -mt-1">이 랜딩페이지를 통해 접근한 강의는 로그인 없이도 구매할 수 있습니다.</p>
+                    </>
+                  )}
+                  <div className="mt-3 inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600">
+                    타입: {editing.type === 'detail' ? '상세 페이지 랜딩' : '강의 랜딩'}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {editing.type === 'detail' && (
+              <div className="border-t border-gray-100 pt-5">
+                <h3 className="text-sm font-bold text-gray-900 mb-1">페이지 본문</h3>
+                <p className="text-xs text-gray-400 mb-3">상세 페이지 랜딩 본문(이미지·텍스트·표 등)을 자유롭게 작성합니다. 메인 헤더/푸터 사이에 풀폭으로 노출됩니다.</p>
+                <RichTextEditor
+                  value={editing.content_html}
+                  onChange={(html) => setEditing({ ...editing, content_html: html })}
+                  placeholder="여기에 상세 페이지 본문을 작성하세요. 이미지, 표, 색상, 글자 크기 등 자유롭게 사용할 수 있습니다."
+                  minHeight={420}
+                  imageUpload={{ bucket: 'banners', basePath: `landing/${editing.slug || 'new'}` }}
+                />
+              </div>
+            )}
 
             <div className="border-t border-gray-100 pt-5">
               <h3 className="text-sm font-bold text-gray-900 mb-1">SEO 태그</h3>

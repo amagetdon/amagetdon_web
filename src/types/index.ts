@@ -27,6 +27,7 @@ export type {
   HeroContent,
   LandingCategory,
   LandingCategorySeo,
+  LandingCategoryType,
   CourseSeo,
   EbookSeo,
   RefundPolicyTemplate,

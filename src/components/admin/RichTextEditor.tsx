@@ -5,8 +5,11 @@ import StarterKit from '@tiptap/starter-kit'
 import { TextStyle, FontSize, LineHeight, Color, BackgroundColor } from '@tiptap/extension-text-style'
 import { TableKit } from '@tiptap/extension-table'
 import { TextAlign } from '@tiptap/extension-text-align'
+import Image from '@tiptap/extension-image'
 import { LetterSpacing } from './tiptap-letter-spacing'
 import { textToHtml } from '../../utils/richText'
+import { storageService } from '../../services/storageService'
+import toast from 'react-hot-toast'
 
 interface Props {
   value: string
@@ -23,6 +26,8 @@ interface Props {
   editorBackground?: string
   /** 툴바를 본 위치 대신 외부 DOM 노드로 portal 전송 — 배너 영역 위에 띄울 때 */
   toolbarPortalTarget?: HTMLElement | null
+  /** 이미지 업로드 옵션 — 미지정 시 기본값(banners 버킷, rich-text 경로) 사용 */
+  imageUpload?: { bucket?: string; basePath?: string }
 }
 
 const DEFAULT_FONT_SIZES = ['12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px']
@@ -30,7 +35,7 @@ const BANNER_FONT_SIZES = ['16px', '20px', '24px', '28px', '32px', '36px', '40px
 const LINE_HEIGHTS = ['0', '0.5', '1', '1.5', '2', '3', '4']
 const LETTER_SPACINGS = ['-1px', '-0.5px', '0', '0.5px', '1px', '2px']
 
-export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, preset = 'default', fontSizes, seamless = false, editorBackground, toolbarPortalTarget }: Props) {
+export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, preset = 'default', fontSizes, seamless = false, editorBackground, toolbarPortalTarget, imageUpload }: Props) {
   const FONT_SIZES = fontSizes ?? (preset === 'banner' ? BANNER_FONT_SIZES : DEFAULT_FONT_SIZES)
   const editorBaseClass = preset === 'banner'
     ? 'tiptap-content tiptap-banner outline-none px-4 py-3 leading-tight'
@@ -43,6 +48,8 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   const [htmlDraft, setHtmlDraft] = useState(value || '')
   const colorInputRef = useRef<HTMLInputElement>(null)
   const bgColorInputRef = useRef<HTMLInputElement>(null)
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [imageUploading, setImageUploading] = useState(false)
 
   const editor = useEditor({
     extensions: [
@@ -61,6 +68,11 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
       TextAlign.configure({
         types: ['heading', 'paragraph'],
         alignments: ['left', 'center', 'right', 'justify'],
+      }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: { class: 'rte-image max-w-full h-auto rounded-lg' },
       }),
     ],
     content: textToHtml(value),
@@ -130,6 +142,22 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   const btnBase = 'w-8 h-8 flex items-center justify-center rounded-md text-sm border-none cursor-pointer transition-colors'
   const btnIdle = 'bg-transparent text-gray-600 hover:bg-gray-100'
   const btnActive = 'bg-[#2ED573] text-white'
+
+  const handleImageUpload = async (file: File) => {
+    if (!editor) return
+    try {
+      setImageUploading(true)
+      const bucket = imageUpload?.bucket ?? 'banners'
+      const basePath = imageUpload?.basePath ?? `rich-text/${Date.now()}`
+      const url = await storageService.uploadImage(bucket, basePath, file)
+      editor.chain().focus().setImage({ src: url }).run()
+    } catch {
+      toast.error('이미지 업로드에 실패했습니다.')
+    } finally {
+      setImageUploading(false)
+      if (imageInputRef.current) imageInputRef.current.value = ''
+    }
+  }
 
   const toolbarContent = (
     <div className={`flex items-center gap-1 flex-wrap px-2 py-1.5 ${seamless ? 'rounded-t-xl border border-gray-200' : 'border-b border-gray-200'} bg-gray-50`}>
@@ -329,6 +357,32 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
         >
           <i className="ti ti-table" />
         </button>
+
+        {/* 이미지 삽입 — hidden input + 업로드 후 setImage */}
+        <button
+          type="button"
+          onClick={() => imageInputRef.current?.click()}
+          disabled={htmlMode || imageUploading}
+          className={`${btnBase} ${btnIdle} disabled:opacity-40 disabled:cursor-not-allowed`}
+          title="이미지 삽입"
+        >
+          {imageUploading ? (
+            <span className="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+          ) : (
+            <i className="ti ti-photo-plus" />
+          )}
+        </button>
+        <input
+          ref={imageInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          tabIndex={-1}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (file) handleImageUpload(file)
+          }}
+        />
         {isInTable && (
           <>
             <button type="button" onClick={() => editor.chain().focus().addRowAfter().run()} disabled={htmlMode}
