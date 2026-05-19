@@ -95,14 +95,14 @@ export default function PurchaseFeed() {
   const loop = items.length > 0 ? [...items, ...items] : []
 
   return (
-    <div className="h-full w-full flex flex-col bg-white border border-gray-200 rounded-2xl overflow-hidden min-w-0">
-      {/* 헤더 — 구매현황 + LIVE 배지 */}
-      <div className="px-5 py-3.5 flex items-center gap-2 shrink-0 border-b border-gray-100">
-        <p className="text-base font-bold text-gray-900">구매현황</p>
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-50 rounded-md">
-          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-          <span className="text-[10px] font-bold text-red-500">LIVE</span>
+    <div className="h-full w-full flex flex-col bg-white rounded-2xl overflow-hidden min-w-0">
+      {/* 헤더 — LIVE 배지(좌) + 구매현황 */}
+      <div className="px-5 py-3.5 flex items-center gap-2 shrink-0">
+        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-500 rounded-md leading-none">
+          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+          <span className="text-[10px] font-bold text-white">LIVE</span>
         </span>
+        <p className="text-base font-bold text-gray-900">구매현황</p>
       </div>
       {loading ? (
         <div className="flex-1 flex items-center justify-center text-xs text-gray-400">
@@ -125,7 +125,7 @@ export default function PurchaseFeed() {
               <Link
                 key={`${p.key}-${i}`}
                 to={p.link}
-                className="block px-5 py-3 hover:bg-gray-50 no-underline transition-colors border-b border-gray-50"
+                className="block px-5 py-3 hover:bg-gray-50 no-underline transition-colors"
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <div className="flex items-baseline gap-2 min-w-0">
