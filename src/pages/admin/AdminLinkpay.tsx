@@ -83,14 +83,18 @@ export default function AdminLinkpay() {
 
   const courseTitle = (id: number | null) => courses.find((c) => c.id === id)?.title ?? (id ? `#${id}` : '-')
 
-  const handleSyncProducts = async () => {
+  const handleSyncProducts = async (full: boolean) => {
     try {
       setLoadingTossProducts(true)
-      const { products, newCount } = await linkpayService.syncTossProducts()
+      const { products, syncedCount } = await linkpayService.syncTossProducts(full)
       setTossProducts(products)
-      toast.success(newCount > 0 ? `신규 상품 ${newCount}건을 가져왔습니다.` : '신규 상품 없음 (이미 최신)')
+      toast.success(
+        full
+          ? `전체 ${syncedCount}건 동기화 완료`
+          : (syncedCount > 0 ? `신규 상품 ${syncedCount}건을 가져왔습니다.` : '신규 상품 없음 (이미 최신)'),
+      )
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '토스 상품 갱신에 실패했습니다.')
+      toast.error(e instanceof Error ? e.message : '토스 상품 동기화에 실패했습니다.')
     } finally {
       setLoadingTossProducts(false)
     }
@@ -214,14 +218,25 @@ export default function AdminLinkpay() {
             <h2 className="font-bold text-gray-900">링크 ↔ 강의 매핑 만들기</h2>
             <p className="text-xs text-gray-400 mt-0.5">① 토스 상품 선택 → ② 아래 강의 표에서 연결할 강의의 "연결" 클릭</p>
           </div>
-          <button
-            onClick={handleSyncProducts}
-            disabled={loadingTossProducts}
-            className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50 flex items-center gap-1.5"
-          >
-            <i className="ti ti-refresh text-sm" />
-            {loadingTossProducts ? '갱신 중...' : '토스 상품 갱신하기'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => handleSyncProducts(false)}
+              disabled={loadingTossProducts}
+              className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              <i className="ti ti-refresh text-sm" />
+              {loadingTossProducts ? '동기화 중...' : '토스 상품 갱신하기'}
+            </button>
+            <button
+              onClick={() => handleSyncProducts(true)}
+              disabled={loadingTossProducts}
+              className="bg-white text-gray-600 border border-gray-300 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer hover:border-[#2ED573] hover:text-[#2ED573] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+              title="토스에서 전체를 다시 받아 캐시를 교체합니다 (수정·삭제 반영)"
+            >
+              <i className="ti ti-reload text-sm" />
+              전체 재동기화
+            </button>
+          </div>
         </div>
 
         {/* 토스 상품 목록 — 판매상품 / 개인결제창 좌우 분리 */}

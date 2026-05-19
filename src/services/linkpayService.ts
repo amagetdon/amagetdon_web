@@ -80,16 +80,19 @@ export const linkpayService = {
     })
   },
 
-  /** 토스에서 신규 상품만 추가 조회해 캐시에 저장하고, 캐시 전체를 반환 */
-  async syncTossProducts(): Promise<{ products: TossProduct[]; newCount: number }> {
-    const { data, error } = await supabase.functions.invoke('linkpay-products')
+  /**
+   * 토스 상품을 캐시에 동기화하고 캐시 전체를 반환.
+   * full=false: 신규 상품만 추가 / full=true: 전체 재동기화 (수정·삭제 반영)
+   */
+  async syncTossProducts(full = false): Promise<{ products: TossProduct[]; syncedCount: number; full: boolean }> {
+    const { data, error } = await supabase.functions.invoke('linkpay-products', { body: { full } })
     if (error) {
       const msg = (data as { error?: string } | null)?.error
       throw new Error(msg || error.message)
     }
-    const payload = (data as { products?: TossProduct[]; error?: string; newCount?: number }) ?? {}
+    const payload = (data as { products?: TossProduct[]; error?: string; syncedCount?: number; full?: boolean }) ?? {}
     if (payload.error) throw new Error(payload.error)
-    return { products: payload.products ?? [], newCount: payload.newCount ?? 0 }
+    return { products: payload.products ?? [], syncedCount: payload.syncedCount ?? 0, full: !!payload.full }
   },
 
   async getPayments(): Promise<LinkpayPayment[]> {

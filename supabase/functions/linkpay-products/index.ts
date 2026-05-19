@@ -65,6 +65,13 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
+    // full=true 면 전체 재동기화 (캐시 비우고 전체 재조회), 아니면 신규만
+    let full = false
+    try {
+      const body = await req.json()
+      full = !!(body && (body as { full?: boolean }).full)
+    } catch { /* 본문 없음 — 신규만 */ }
+
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: '인증이 필요합니다.' }, 401)
 
@@ -83,16 +90,25 @@ Deno.serve(async (req: Request) => {
     const secret = Deno.env.get('TOSS_LINKPAY_SECRET_KEY')
     if (!secret) return json({ error: '링크페이 시크릿 키가 설정되지 않았습니다.' }, 500)
 
-    // 캐시에서 가장 최근(toss_created_at 최대) 상품의 productKey 를 커서로
-    const { data: latest } = await supabase
-      .from('linkpay_products')
-      .select('product_key')
-      .order('toss_created_at', { ascending: false, nullsFirst: false })
-      .limit(1)
-      .maybeSingle()
-    const cursor = (latest as { product_key?: string } | null)?.product_key ?? ''
+    // 신규만: 캐시 최신 productKey 를 커서로 / 전체: 커서 없이 처음부터
+    let cursor = ''
+    if (!full) {
+      const { data: latest } = await supabase
+        .from('linkpay_products')
+        .select('product_key')
+        .order('toss_created_at', { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle()
+      cursor = (latest as { product_key?: string } | null)?.product_key ?? ''
+    }
 
     const fresh = await fetchNewProducts(secret, cursor)
+
+    // 전체 재동기화: 캐시를 비우고 새로 받은 것으로 교체 (수정·삭제 반영).
+    // 단 받아온 게 0건이면 안전하게 캐시를 건드리지 않음.
+    if (full && fresh.length > 0) {
+      await supabase.from('linkpay_products').delete().neq('product_key', '__none__')
+    }
     if (fresh.length > 0) {
       await supabase.from('linkpay_products').upsert(
         fresh.map((p) => ({ ...p, synced_at: new Date().toISOString() })),
@@ -102,7 +118,8 @@ Deno.serve(async (req: Request) => {
 
     const all = await loadCache(supabase)
     return json({
-      newCount: fresh.length,
+      full,
+      syncedCount: fresh.length,
       products: all.map((r) => ({
         productKey: r.product_key,
         name: r.name,
