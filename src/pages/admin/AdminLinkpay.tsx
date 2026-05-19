@@ -239,6 +239,11 @@ export default function AdminLinkpay() {
           </div>
         </div>
 
+        <p className="text-[11px] text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 mb-3 leading-relaxed">
+          <b className="text-[#2ED573]">토스 상품 갱신하기</b> — 새로 만든 링크페이 상품만 빠르게 추가합니다 (평소 사용).<br />
+          <b className="text-gray-600">전체 재동기화</b> — 토스 전체 상품을 다시 받아, 상품명·금액 <b>수정</b>이나 <b>삭제</b>된 항목까지 캐시에 반영합니다 (가끔 사용).
+        </p>
+
         {/* 토스 상품 목록 — 판매상품 / 개인결제창 좌우 분리 */}
         {tossProducts.length > 0 && (() => {
           const renderBtn = (p: TossProduct) => {
