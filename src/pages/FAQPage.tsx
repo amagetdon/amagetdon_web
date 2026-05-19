@@ -5,7 +5,7 @@ import Pagination from '../components/Pagination'
 import VideoEmbed from '../components/VideoEmbed'
 import EventBanner from '../components/EventBanner'
 import { useStaleRefreshKey } from '../hooks/useVisibilityRefresh'
-import type { Banner } from '../types'
+import type { Banner, Faq } from '../types'
 import { useExternalServices } from '../hooks/useExternalServices'
 import { textToHtml } from '../utils/richText'
 
@@ -15,6 +15,57 @@ function resolveKakaoPlusFriendUrl(raw: string): string {
   if (/^https?:\/\//i.test(trimmed)) return trimmed
   const id = trimmed.startsWith('_') ? trimmed : `_${trimmed}`
   return `https://pf.kakao.com/${id}`
+}
+
+// 평소엔 질문(Q.)만 보이고, 클릭하면 답변이 펼쳐지는 아코디언 항목
+function FaqItem({ item }: { item: Faq }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="py-6">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full flex items-start justify-between gap-3 text-left bg-transparent border-none cursor-pointer p-0"
+      >
+        <p className="text-lg font-bold text-gray-900">
+          <span className="text-xl font-extrabold">Q.</span> {item.question}
+        </p>
+        <i className={`ti ti-chevron-down text-gray-400 text-xl shrink-0 mt-0.5 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="mt-3">
+          <div
+            className="rich-text-content text-sm text-gray-600 leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: textToHtml(item.answer) }}
+          />
+
+          {item.video_url && (
+            <div className="mt-4 w-[300px]">
+              <VideoEmbed url={item.video_url} className="w-full" />
+            </div>
+          )}
+
+          {item.file_url && (
+            <a
+              href={item.file_url}
+              download={item.file_name || '첨부파일'}
+              className="border border-gray-200 rounded-lg p-3 flex items-center gap-3 mt-4 max-w-[400px] no-underline"
+            >
+              <i className="ti ti-file-spreadsheet text-[#2ED573] text-2xl shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">
+                  {item.file_name || '첨부파일'}
+                </p>
+              </div>
+              <i className="ti ti-download text-gray-400 text-xl shrink-0 cursor-pointer" />
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function FAQPage() {
@@ -101,39 +152,7 @@ function FAQPage() {
                 </div>
               ))
             ) : (
-              faqs.map((item) => (
-                <div key={item.id} className="py-8">
-                  <p className="text-lg font-bold text-gray-900">
-                    <span className="text-xl font-extrabold">Q.</span> {item.question}
-                  </p>
-                  <div
-                    className="rich-text-content text-sm text-gray-600 mt-3 leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: textToHtml(item.answer) }}
-                  />
-
-                  {item.video_url && (
-                    <div className="mt-4 w-[300px]">
-                      <VideoEmbed url={item.video_url} className="w-full" />
-                    </div>
-                  )}
-
-                  {item.file_url && (
-                    <a
-                      href={item.file_url}
-                      download={item.file_name || '첨부파일'}
-                      className="border border-gray-200 rounded-lg p-3 flex items-center gap-3 mt-4 max-w-[400px] no-underline"
-                    >
-                      <i className="ti ti-file-spreadsheet text-[#2ED573] text-2xl shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {item.file_name || '첨부파일'}
-                        </p>
-                      </div>
-                      <i className="ti ti-download text-gray-400 text-xl shrink-0 cursor-pointer" />
-                    </a>
-                  )}
-                </div>
-              ))
+              faqs.map((item) => <FaqItem key={item.id} item={item} />)
             )}
 
             {!loading && faqs.length === 0 && (
