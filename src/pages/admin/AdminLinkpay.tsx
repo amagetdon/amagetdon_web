@@ -11,6 +11,7 @@ import { linkpayService, type LinkpayLink, type LinkpayPayment } from '../../ser
 import type { CourseWithInstructor } from '../../types'
 
 interface MemberHit { id: string; name: string | null; phone: string | null; email: string | null }
+interface TossProduct { productKey: string; name: string; amount: number; url: string | null }
 
 /** 강의 마감일·수강기간 기준 수강권 만료일 (AdminMembers 수동 부여와 동일 규칙) */
 function courseExpiry(course: CourseWithInstructor | undefined): string | null {
@@ -36,6 +37,8 @@ export default function AdminLinkpay() {
   const [newLabel, setNewLabel] = useState('')
   const [linkCourseSearch, setLinkCourseSearch] = useState('')
   const [deleteLinkId, setDeleteLinkId] = useState<number | null>(null)
+  const [tossProducts, setTossProducts] = useState<TossProduct[]>([])
+  const [loadingTossProducts, setLoadingTossProducts] = useState(false)
 
   // 수동 부여 모달
   const [grantTarget, setGrantTarget] = useState<LinkpayPayment | null>(null)
@@ -88,6 +91,21 @@ export default function AdminLinkpay() {
       toast.error('추가에 실패했습니다. (productKey 중복 여부 확인)')
     } finally {
       setLinkSaving(false)
+    }
+  }
+
+  const loadTossProducts = async () => {
+    try {
+      setLoadingTossProducts(true)
+      const { data, error } = await supabase.functions.invoke('linkpay-products')
+      if (error) throw error
+      const list = ((data as { products?: TossProduct[] })?.products ?? [])
+      setTossProducts(list)
+      if (list.length === 0) toast('불러올 토스 상품이 없습니다.')
+    } catch {
+      toast.error('토스 상품 목록을 불러오지 못했습니다.')
+    } finally {
+      setLoadingTossProducts(false)
     }
   }
 
@@ -308,14 +326,40 @@ export default function AdminLinkpay() {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-bold block mb-1">productKey *</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-bold">productKey *</label>
+              <button
+                type="button"
+                onClick={loadTossProducts}
+                disabled={loadingTossProducts}
+                className="text-xs font-bold text-[#2ED573] bg-transparent border-none cursor-pointer disabled:opacity-50 flex items-center gap-1"
+              >
+                <i className="ti ti-download text-sm" />
+                {loadingTossProducts ? '불러오는 중...' : '토스 상품 목록 불러오기'}
+              </button>
+            </div>
             <input
               value={newProductKey}
               onChange={(e) => setNewProductKey(e.target.value)}
               placeholder="토스 링크페이 상품의 productKey"
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-mono outline-none focus:border-[#2ED573]"
             />
-            <p className="text-[11px] text-gray-400 mt-1">토스 상점관리자의 링크페이 상품 상세에서 확인하거나, 아래 결제 내역의 "미매핑 링크"에서 확인할 수 있습니다.</p>
+            {tossProducts.length > 0 && (
+              <div className="border border-gray-200 rounded-lg mt-1 max-h-[180px] overflow-y-auto">
+                {tossProducts.map((p) => (
+                  <button
+                    key={p.productKey}
+                    type="button"
+                    onClick={() => { setNewProductKey(p.productKey); if (!newLabel.trim()) setNewLabel(p.name) }}
+                    className={`w-full text-left px-3 py-2 text-xs border-none cursor-pointer flex items-center justify-between gap-2 ${newProductKey === p.productKey ? 'bg-[#2ED573]/10 text-gray-900' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <span className="truncate">{p.name} <span className="text-gray-400">· {p.amount.toLocaleString()}원</span></span>
+                    {newProductKey === p.productKey && <i className="ti ti-check text-[#2ED573] shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-gray-400 mt-1">"토스 상품 목록 불러오기"로 상품을 고르면 productKey가 자동 입력됩니다. 결제 내역의 미매핑 건에서도 가져올 수 있습니다.</p>
           </div>
           <div>
             <label className="text-sm font-bold block mb-1">연결할 강의 *</label>
