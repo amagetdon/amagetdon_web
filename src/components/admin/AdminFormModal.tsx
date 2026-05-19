@@ -15,6 +15,8 @@ interface AdminFormModalProps {
   maxHeightClass?: string
   /** 본문 영역에 덧붙일 클래스 (예: 컬럼별 독립 스크롤 시 'xl:overflow-hidden') */
   bodyClassName?: string
+  /** 푸터(취소/저장 버튼 줄) 왼쪽에 표시할 추가 요소 */
+  footerLeft?: React.ReactNode
 }
 
 export default function AdminFormModal({
@@ -28,6 +30,7 @@ export default function AdminFormModal({
   maxWidthClass = 'max-w-[640px]',
   maxHeightClass = 'max-h-[85vh]',
   bodyClassName = '',
+  footerLeft,
 }: AdminFormModalProps) {
   const [confirmClose, setConfirmClose] = useState(false)
   const dirty = useRef(false)
@@ -102,7 +105,8 @@ export default function AdminFormModal({
                   {children}
                 </div>
 
-                <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end shrink-0 bg-gray-50/50">
+                <div className="px-6 py-4 border-t border-gray-100 flex gap-3 items-center justify-end shrink-0 bg-gray-50/50">
+                  {footerLeft && <div className="mr-auto">{footerLeft}</div>}
                   <button
                     onClick={handleClose}
                     className="px-5 py-2.5 text-sm text-gray-600 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"

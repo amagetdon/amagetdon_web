@@ -60,6 +60,21 @@ const NAV_VISIBILITY_ITEMS: Array<{ key: keyof NavVisibility; label: string; pat
   { key: 'faq', label: 'FAQ', path: '/faq' },
 ]
 
+// 상세 랜딩 본문 이미지 일괄 가로폭 (px)
+const LANDING_IMAGE_WIDTH = 790
+
+// 본문 HTML 안의 모든 <img> 가로폭을 지정 px 로 통일한다.
+// 이미지는 <img class="rte-image" style="width: NNNpx;"> 형태로 직렬화되므로 인라인 style.width 를 덮어쓴다.
+function unifyContentImageWidth(html: string, width = LANDING_IMAGE_WIDTH): string {
+  if (!html) return html
+  const doc = new DOMParser().parseFromString(html, 'text/html')
+  doc.querySelectorAll('img').forEach((img) => {
+    img.style.width = `${width}px`
+    img.removeAttribute('width')
+  })
+  return doc.body.innerHTML
+}
+
 export default function AdminPages() {
   const [tab, setTab] = useState<PageTab>('landing')
 
@@ -69,6 +84,8 @@ export default function AdminPages() {
   const [editing, setEditing] = useState<EditingForm | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
+  // 저장 시 상세 랜딩 본문 이미지 가로폭을 790px 로 일괄 통일 (기본 ON)
+  const [unifyImageWidth, setUnifyImageWidth] = useState(true)
 
   // 아카데미 프로모 영상 + 설정
   const [promoVideoUrl, setPromoVideoUrl] = useState('')
@@ -238,7 +255,9 @@ export default function AdminPages() {
         sort_order: editing.sort_order,
         seo: editing.seo,
         type: editing.type,
-        content_html: editing.type === 'detail' ? (editing.content_html || null) : null,
+        content_html: editing.type === 'detail'
+          ? ((unifyImageWidth ? unifyContentImageWidth(editing.content_html || '') : editing.content_html) || null)
+          : null,
       }
 
       if (editing.id) {
@@ -1008,6 +1027,17 @@ export default function AdminPages() {
         loading={saving}
         maxWidthClass={editing?.type === 'detail' ? 'max-w-[1200px]' : 'max-w-[640px]'}
         maxHeightClass={editing?.type === 'detail' ? 'max-h-[95vh]' : undefined}
+        footerLeft={editing?.type === 'detail' ? (
+          <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={unifyImageWidth}
+              onChange={(e) => setUnifyImageWidth(e.target.checked)}
+              className="accent-[#2ED573]"
+            />
+            저장 시 강의 페이지와 동일하게 저장
+          </label>
+        ) : undefined}
       >
         {editing && (
           <div className="flex flex-col gap-6">

@@ -10,6 +10,7 @@ import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
 import RichTextEditor from '../../components/admin/RichTextEditor'
 import WebhookScheduleEditor from '../../components/admin/WebhookScheduleEditor'
 import CourseWebhookVariablesEditor from '../../components/admin/CourseWebhookVariablesEditor'
+import InstructorFormModal, { newInstructor } from '../../components/admin/InstructorFormModal'
 import { courseService } from '../../services/courseService'
 import { scheduleService } from '../../services/scheduleService'
 import { reviewService } from '../../services/reviewService'
@@ -80,6 +81,8 @@ export default function AdminCourseDetail() {
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
   const [saving, setSaving] = useState(false)
   const [instructors, setInstructors] = useState<Instructor[]>([])
+  // 강사 select 옆 '+추가' 버튼으로 여는 강사 등록 모달
+  const [instructorEditing, setInstructorEditing] = useState<Partial<Instructor> | null>(null)
   const [landingCategories, setLandingCategories] = useState<LandingCategory[]>([])
   const [allCourses, setAllCourses] = useState<{ id: number; title: string }[]>([])
 
@@ -717,13 +720,23 @@ export default function AdminCourseDetail() {
                 <input value={(editing.title as string) || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
               </div>
-              <div className="w-[240px] max-sm:w-full">
+              <div className="w-[300px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">강사</label>
-                <select value={(editing.instructor_id as number) || ''} onChange={(e) => setEditing({ ...editing, instructor_id: e.target.value ? Number(e.target.value) : null })}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all">
-                  <option value="">선택</option>
-                  {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-                </select>
+                <div className="flex items-center gap-1.5">
+                  <select value={(editing.instructor_id as number) || ''} onChange={(e) => setEditing({ ...editing, instructor_id: e.target.value ? Number(e.target.value) : null })}
+                    className="flex-1 min-w-0 border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all">
+                    <option value="">선택</option>
+                    {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setInstructorEditing(newInstructor())}
+                    className="shrink-0 flex items-center gap-1 px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-sm text-gray-600 cursor-pointer hover:border-[#2ED573] hover:text-[#2ED573] transition-colors whitespace-nowrap"
+                    title="새 강사 등록"
+                  >
+                    <i className="ti ti-plus text-sm" />추가
+                  </button>
+                </div>
               </div>
               <div className="w-[140px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">유형</label>
@@ -1519,6 +1532,21 @@ export default function AdminCourseDetail() {
         }}
         title="커리큘럼 항목 삭제"
         message="이 항목에 입력한 내용이 모두 사라집니다. 정말 삭제하시겠습니까?"
+      />
+
+      {/* 강사 select 옆 '+추가' 버튼으로 여는 강사 등록 모달 */}
+      <InstructorFormModal
+        editing={instructorEditing}
+        onChange={setInstructorEditing}
+        onClose={() => setInstructorEditing(null)}
+        onSaved={async (saved) => {
+          try {
+            const list = await instructorService.getAll()
+            setInstructors(list)
+          } catch { /* 목록 갱신 실패는 치명적이지 않음 */ }
+          // 방금 등록한 강사를 이 강의의 강사로 자동 선택
+          setEditing((prev) => (prev ? { ...prev, instructor_id: saved.id } : prev))
+        }}
       />
     </AdminLayout>
   )
