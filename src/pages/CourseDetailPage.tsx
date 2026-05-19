@@ -251,6 +251,8 @@ function CourseDetailPage() {
     : discountActive && course?.sale_price != null && course.sale_price > 0 ? course.sale_price
     : course?.original_price ?? 0
   const price = displayedPrice
+  // 할부 표시 개월수 (0 이면 할부 미표시 — 원가 그대로)
+  const installmentMonths = Math.max(0, course?.installment_months ?? 0)
   const couponDiscount = selectedCoupon && price >= (selectedCoupon.min_purchase || 0)
     ? selectedCoupon.discount_type === 'percent'
       ? Math.min(
@@ -685,9 +687,22 @@ function CourseDetailPage() {
                 {discountActive && course.original_price != null && course.original_price > 0 && course.sale_price != null && course.sale_price < course.original_price && (
                   <p className="text-sm text-gray-400 line-through mt-2">정가 {course.original_price.toLocaleString()}원</p>
                 )}
-                <p className="text-4xl font-extrabold text-gray-900 mt-1">
-                  {isExplicitlyFree ? '무료' : `${displayedPrice.toLocaleString()}원`}
-                </p>
+                {isExplicitlyFree ? (
+                  <p className="text-4xl font-extrabold text-gray-900 mt-1">무료</p>
+                ) : installmentMonths > 0 ? (
+                  <>
+                    <p className="text-4xl font-extrabold text-gray-900 mt-1">
+                      월 {Math.round(displayedPrice / installmentMonths).toLocaleString()}원
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      {installmentMonths}개월 할부 시 · 총 {displayedPrice.toLocaleString()}원
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-4xl font-extrabold text-gray-900 mt-1">
+                    {displayedPrice.toLocaleString()}원
+                  </p>
+                )}
                 {discountActive && course.discount_end && (
                   <p className="text-xs text-[#2ED573] font-medium mt-1">
                     할인 종료: {new Date(course.discount_end).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}

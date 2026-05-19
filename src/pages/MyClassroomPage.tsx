@@ -596,7 +596,7 @@ function MyClassroomPage() {
         )}
 
         {/* 내 전자책 */}
-        <h1 className="text-3xl font-bold mt-36 mb-6">내 전자책</h1>
+        <h1 className="text-3xl font-bold mt-30 mb-6">내 전자책</h1>
 
         {loading ? (
           courseSkeleton

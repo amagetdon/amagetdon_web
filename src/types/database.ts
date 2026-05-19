@@ -165,6 +165,8 @@ export interface Course {
   landing_image_links: string[] | null
   original_price: number | null
   sale_price: number | null
+  // 가격을 "월 N원 (M개월 할부 시)" 로 표시. 0 이면 할부 미적용(원가 그대로 표시).
+  installment_months: number
   course_type: 'free' | 'premium'
   enrollment_start: string | null
   enrollment_deadline: string | null

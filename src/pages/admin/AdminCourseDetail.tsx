@@ -330,6 +330,7 @@ export default function AdminCourseDetail() {
         course_type: 'free',
         original_price: 0,
         sale_price: 0,
+        installment_months: 12,
         is_published: true,
         is_on_sale: true,
         reviews_enabled: true,
@@ -445,6 +446,7 @@ export default function AdminCourseDetail() {
         course_type: editing.course_type ?? 'free',
         original_price: editing.original_price ?? null,
         sale_price: editing.sale_price ?? null,
+        installment_months: (editing.installment_months as number | undefined) ?? 12,
         thumbnail_url: editing.thumbnail_url ?? null,
         landing_image_url: ((editing.landing_image_urls as string[]) ?? [])[0] ?? null,
         landing_image_urls: (editing.landing_image_urls as string[]) ?? [],
@@ -759,6 +761,13 @@ export default function AdminCourseDetail() {
                   onChange={(e) => setEditing({ ...editing, sale_price: e.target.value === '' ? null : Number(e.target.value) })}
                   className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
                 <p className="text-xs text-gray-400 mt-1">0 입력 시 무료 / 비우면 정가로 표시</p>
+              </div>
+              <div className="w-[140px] max-sm:w-full">
+                <label className="text-sm font-bold block mb-1">할부 개월수</label>
+                <input type="number" min={0} value={isFree ? 0 : ((editing.installment_months as number | undefined) ?? 12)} disabled={isFree}
+                  onChange={(e) => setEditing({ ...editing, installment_months: e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)) })}
+                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
+                <p className="text-xs text-gray-400 mt-1">0 = 할부 미표시 / 12 = 월 가격으로 표시</p>
               </div>
               <div className="w-[140px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">정원 (명)</label>
