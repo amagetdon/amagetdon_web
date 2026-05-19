@@ -69,7 +69,7 @@ const formatKoDateTime = (iso: string | null | undefined) => {
   })
 }
 
-type TabType = 'all' | 'courses' | 'ebooks'
+type TabType = 'all' | 'courses' | 'ebooks' | 'expired'
 
 function MyClassroomPage() {
   const navigate = useNavigate()
@@ -224,10 +224,21 @@ function MyClassroomPage() {
     }
   }
 
+  // 만료 판정 — 강의: 다시보기 기한(purchase.expires_at) 우선, 없으면 강의 마감일
+  const courseExpired = (p: CoursePurchase) =>
+    isExpired(p.expires_at ?? p.course?.enrollment_deadline ?? null)
+  const ebookExpired = (p: EbookPurchase) => isExpired(p.expires_at)
+
+  const activeCourses = coursePurchases.filter((p) => !courseExpired(p))
+  const expiredCourses = coursePurchases.filter((p) => courseExpired(p))
+  const activeEbooks = ebookPurchases.filter((p) => !ebookExpired(p))
+  const expiredEbooks = ebookPurchases.filter((p) => ebookExpired(p))
+  const expiredCount = expiredCourses.length + expiredEbooks.length
+
   const tabs: { key: TabType; label: string }[] = [
     { key: 'all', label: '모두보기' },
-    { key: 'courses', label: `강의 (${coursePurchases.length})` },
-    { key: 'ebooks', label: `전자책 (${ebookPurchases.length})` },
+    { key: 'courses', label: `강의 (${activeCourses.length})` },
+    { key: 'ebooks', label: `전자책 (${activeEbooks.length})` },
   ]
 
   const showCourses = tab === 'all' || tab === 'courses'
@@ -540,6 +551,17 @@ function MyClassroomPage() {
               {t.label}
             </button>
           ))}
+          <button
+            onClick={() => setTab('expired')}
+            className={`ml-auto px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
+              tab === 'expired'
+                ? 'text-gray-700 border-b-2 border-gray-700 -mb-px'
+                : 'text-gray-400 hover:text-gray-600'
+            }`}
+            style={tab === 'expired' ? { borderBottom: '2px solid #374151', marginBottom: '-1px' } : {}}
+          >
+            만료됨 ({expiredCount})
+          </button>
         </div>
 
         {loading ? (
@@ -557,15 +579,21 @@ function MyClassroomPage() {
           </div>
         ) : isEmpty ? (
           <div className="text-center text-gray-400 py-20">구매한 강의/전자책이 없습니다.</div>
+        ) : tab === 'expired' ? (
+          expiredCount === 0 ? (
+            <div className="text-center text-gray-400 py-20">만료된 항목이 없습니다.</div>
+          ) : (
+            <>
+              {expiredCourses.map(renderCourse)}
+              {expiredEbooks.map(renderEbook)}
+            </>
+          )
         ) : (
           <>
-            {showCourses && coursePurchases.map(renderCourse)}
-            {showEbooks && ebookPurchases.map(renderEbook)}
-            {showCourses && coursePurchases.length === 0 && tab === 'courses' && (
-              <div className="text-center text-gray-400 py-20">구매한 강의가 없습니다.</div>
-            )}
-            {showEbooks && ebookPurchases.length === 0 && tab === 'ebooks' && (
-              <div className="text-center text-gray-400 py-20">구매한 전자책이 없습니다.</div>
+            {showCourses && activeCourses.map(renderCourse)}
+            {showEbooks && activeEbooks.map(renderEbook)}
+            {((showCourses ? activeCourses.length : 0) + (showEbooks ? activeEbooks.length : 0)) === 0 && (
+              <div className="text-center text-gray-400 py-20">수강 중인 항목이 없습니다.</div>
             )}
           </>
         )}
