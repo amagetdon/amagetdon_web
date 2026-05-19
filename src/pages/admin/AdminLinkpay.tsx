@@ -100,9 +100,13 @@ export default function AdminLinkpay() {
     try {
       setLoadingTossProducts(true)
       const { products, salesWarning } = await linkpayService.fetchTossProducts()
-      // 판매상품 먼저, 개인결제창 다음
-      products.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === '판매상품' ? -1 : 1))
-      setTossProducts(products)
+      // 종류별로 나눠 각각 최신순 정렬 → 판매상품, 개인결제창 순으로 합침
+      const byNewest = (a: TossProduct, b: TossProduct) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
+      const sorted = [
+        ...products.filter((p) => p.kind === '판매상품').sort(byNewest),
+        ...products.filter((p) => p.kind === '개인결제창').sort(byNewest),
+      ]
+      setTossProducts(sorted)
       if (salesWarning) toast(salesWarning, { icon: 'ℹ️', duration: 5000 })
       if (products.length === 0) toast('불러올 토스 상품이 없습니다.')
     } catch (e) {

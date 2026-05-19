@@ -21,6 +21,7 @@ interface Product {
   amount: number
   thumbnail: string | null
   status: string | null
+  createdAt: string | null
   kind: '판매상품' | '개인결제창'
 }
 
@@ -45,6 +46,7 @@ async function fetchPersonalProducts(): Promise<Product[]> {
         amount: Number(p.amount ?? 0),
         thumbnail: img?.thumbnailPath ?? img?.path ?? null,
         status: (p.status as string) ?? null,
+        createdAt: (p.createdAt as string) ?? null,
         kind: '개인결제창',
       })
     }
@@ -85,6 +87,7 @@ async function fetchSalesProducts(cookie: string): Promise<Product[]> {
         amount: Number(p.amount ?? 0),
         thumbnail: img?.thumbnailPath ?? img?.path ?? null,
         status: (p.status as string) ?? null,
+        createdAt: (p.createdAt as string) ?? null,
         kind: '판매상품',
       })
     }

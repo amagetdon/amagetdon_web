@@ -15,6 +15,7 @@ export interface TossProduct {
   amount: number
   status: string | null
   thumbnail: string | null
+  createdAt: string | null
   kind: '판매상품' | '개인결제창'
 }
 
