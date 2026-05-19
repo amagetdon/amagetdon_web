@@ -716,7 +716,7 @@ function CourseDetailPage() {
                 )}
 
                 {course.enrollment_deadline && (
-                  <div className="text-center mt-6">
+                  <div className="text-center mt-10">
                     <p className="text-sm text-gray-600">강의 모집 마감까지</p>
                     <p className={`text-2xl font-bold mt-1 ${isExpired ? 'text-gray-400' : 'text-[#2ED573]'}`}>
                       {countdownText}
