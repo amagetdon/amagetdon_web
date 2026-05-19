@@ -576,10 +576,10 @@ function MyClassroomPage() {
             onClick={() => setTab('replay')}
             className={`ml-auto px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
               tab === 'replay'
-                ? 'text-amber-500 border-b-2 border-amber-500 -mb-px'
-                : 'text-amber-400/80 hover:text-amber-500'
+                ? 'text-[#2ED573] border-b-2 border-[#2ED573] -mb-px'
+                : 'text-gray-400 hover:text-gray-600'
             }`}
-            style={tab === 'replay' ? { borderBottom: '2px solid #f59e0b', marginBottom: '-1px' } : {}}
+            style={tab === 'replay' ? { borderBottom: '2px solid #2ED573', marginBottom: '-1px' } : {}}
           >
             다시보기 ({replayCourses.length})
           </button>
