@@ -9,6 +9,8 @@ interface ReviewData {
   content: string
   courseName: string
   courseId: number | null
+  email?: string | null
+  phone?: string | null
 }
 
 interface ReviewModalProps {
@@ -54,6 +56,12 @@ function ReviewModal({ isOpen, onClose, review }: ReviewModalProps) {
 
         <div className="mb-3">
           <span className="text-xs text-gray-400">{review.author} | {review.date}</span>
+          {(review.email || review.phone) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400 mt-1">
+              {review.email && <span className="flex items-center gap-1"><i className="ti ti-mail" />{review.email}</span>}
+              {review.phone && <span className="flex items-center gap-1"><i className="ti ti-phone" />{review.phone}</span>}
+            </div>
+          )}
         </div>
 
         <h2 className="text-lg font-bold text-gray-900 mb-3">{review.title}</h2>

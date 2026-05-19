@@ -9,6 +9,7 @@ import {
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import { reviewService } from '../services/reviewService'
+import { maskEmail, maskPhone } from '../utils/mask'
 import StarRatingInput from './StarRatingInput'
 
 interface ReviewFormProps {
@@ -72,6 +73,10 @@ export default function ReviewForm({
       return
     }
 
+    // 작성자 연락처는 마스킹해서 저장 (원본 PII 는 보관하지 않음)
+    const maskedEmail = maskEmail(profile.email)
+    const maskedPhone = maskPhone(profile.phone)
+
     setSubmitting(true)
     try {
       if (editingId != null) {
@@ -79,6 +84,8 @@ export default function ReviewForm({
           title: title.trim(),
           content: content.trim(),
           rating,
+          email: maskedEmail,
+          phone: maskedPhone,
         })
         toast.success('후기가 수정되었습니다.')
       } else {
@@ -90,6 +97,8 @@ export default function ReviewForm({
           title: title.trim(),
           content: content.trim(),
           rating,
+          email: maskedEmail,
+          phone: maskedPhone,
         })
         toast.success('후기가 등록되었습니다.')
       }
@@ -99,6 +108,9 @@ export default function ReviewForm({
       setEditingId(null)
       onSuccess()
       onClose()
+      // 작성/수정 직후엔 수강 후기 목록 등 캐시가 stale 이라,
+      // 가장 단순하고 확실하게 페이지를 새로고침해 최신 목록이 바로 반영되게 한다.
+      setTimeout(() => window.location.reload(), 1000)
     } catch {
       toast.error(editingId != null ? '후기 수정에 실패했습니다.' : '후기 등록에 실패했습니다.')
     } finally {

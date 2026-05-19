@@ -318,6 +318,8 @@ export interface Review {
   title: string
   content: string
   rating: number
+  email: string | null
+  phone: string | null
   is_published: boolean
   created_at: string
 }

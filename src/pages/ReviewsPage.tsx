@@ -105,6 +105,12 @@ function ReviewsPage() {
                 <h3 className="text-base font-bold text-gray-900 mt-2 mb-2 pr-10">{review.title}</h3>
                 <StarRating rating={review.rating} />
                 <p className="text-sm text-gray-500 mt-3 leading-relaxed line-clamp-3">{review.content}</p>
+                {(review.email || review.phone) && (
+                  <div className="mt-3 pt-2.5 border-t border-gray-100 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-gray-400">
+                    {review.email && <span className="flex items-center gap-1"><i className="ti ti-mail" />{review.email}</span>}
+                    {review.phone && <span className="flex items-center gap-1"><i className="ti ti-phone" />{review.phone}</span>}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -127,6 +133,8 @@ function ReviewsPage() {
             content: selectedReview.content,
             courseName: selectedReview.course?.title || '',
             courseId: selectedReview.course_id,
+            email: selectedReview.email,
+            phone: selectedReview.phone,
           }}
         />
       )}

@@ -13,6 +13,8 @@ export const reviewService = {
       .from('reviews')
       .select('*, course:courses(id, title)', { count: 'exact' })
       .eq('is_published', true)
+      // 1~2점(is_low_rating=true) 후기는 후순위로, 그 외에는 최신 날짜순으로 정렬
+      .order('is_low_rating', { ascending: true })
       .order('created_at', { ascending: false })
       .range(from, to)
 
@@ -101,6 +103,19 @@ export const reviewService = {
     if (error) throw error
     this.invalidate()
     return data as Review
+  },
+
+  /** 엑셀 일괄 업로드용 — created_at 까지 지정 가능. 100건씩 끊어서 insert. */
+  async createMany(rows: Omit<Review, 'id' | 'is_published'>[]) {
+    if (rows.length === 0) return
+    for (let i = 0; i < rows.length; i += 100) {
+      const chunk = rows.slice(i, i + 100)
+      const { error } = await supabase
+        .from('reviews')
+        .insert(chunk as never)
+      if (error) throw error
+    }
+    this.invalidate()
   },
 
   async update(id: number, updates: Partial<Omit<Review, 'id' | 'created_at'>>) {

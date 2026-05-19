@@ -5,6 +5,7 @@ import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
+import ReviewBulkUploadModal from '../../components/admin/ReviewBulkUploadModal'
 import { reviewService } from '../../services/reviewService'
 import { courseService } from '../../services/courseService'
 import type { ReviewWithCourse, CourseWithInstructor } from '../../types'
@@ -18,6 +19,7 @@ export default function AdminReviews() {
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [search, setSearch] = useState('')
   const [courseSearch, setCourseSearch] = useState('')
+  const [bulkOpen, setBulkOpen] = useState(false)
 
   const fetchData = async () => {
     try {
@@ -64,6 +66,8 @@ export default function AdminReviews() {
           course_id: (editing.course_id as number) || null,
           instructor_id: (editing.instructor_id as number) || null,
           user_id: null,
+          email: null,
+          phone: null,
         })
         toast.success('새 후기가 등록되었습니다.')
       }
@@ -94,12 +98,20 @@ export default function AdminReviews() {
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">후기 관리</h1>
-        <button
-          onClick={() => setEditing({ author_name: '', title: '', content: '', rating: 5, course_id: null, is_published: true })}
-          className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"
-        >
-          <i className="ti ti-plus text-sm" /> 후기 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setBulkOpen(true)}
+            className="bg-white text-gray-700 border border-gray-200 px-4 py-2 rounded-xl text-sm font-bold cursor-pointer hover:border-[#2ED573] hover:text-[#2ED573] transition-colors flex items-center gap-1.5"
+          >
+            <i className="ti ti-file-spreadsheet text-sm" /> 엑셀 일괄 업로드
+          </button>
+          <button
+            onClick={() => setEditing({ author_name: '', title: '', content: '', rating: 5, course_id: null, is_published: true })}
+            className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"
+          >
+            <i className="ti ti-plus text-sm" /> 후기 추가
+          </button>
+        </div>
       </div>
 
       <div className="mb-4">
@@ -280,6 +292,13 @@ export default function AdminReviews() {
       </AdminFormModal>
 
       <ConfirmDialog isOpen={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={handleDelete} title="후기 삭제" message="이 후기를 삭제하시겠습니까?" />
+
+      <ReviewBulkUploadModal
+        isOpen={bulkOpen}
+        onClose={() => setBulkOpen(false)}
+        courses={courses}
+        onComplete={fetchData}
+      />
     </AdminLayout>
   )
 }
