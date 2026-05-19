@@ -54,6 +54,7 @@ const AdminCodeSettingsDetail = lazy(() => import('./pages/admin/AdminCodeSettin
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
 const AdminRevenueAnalytics = lazy(() => import('./pages/admin/AdminRevenueAnalytics'))
 const AdminMembers = lazy(() => import('./pages/admin/AdminMembers'))
+const AdminLinkpay = lazy(() => import('./pages/admin/AdminLinkpay'))
 const AdminAchievements = lazy(() => import('./pages/admin/AdminAchievements'))
 const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'))
 const AdminUtmBuilder = lazy(() => import('./pages/admin/AdminUtmBuilder'))
@@ -192,6 +193,7 @@ function App() {
                 <Route path="/admin/schedules" element={<AdminRoute><AdminSchedules /></AdminRoute>} />
                 <Route path="/admin/faqs" element={<AdminRoute><AdminFaqs /></AdminRoute>} />
                 <Route path="/admin/members" element={<AdminRoute><AdminMembers /></AdminRoute>} />
+                <Route path="/admin/linkpay" element={<AdminRoute><AdminLinkpay /></AdminRoute>} />
                 <Route path="/admin/achievements" element={<AdminRoute><AdminAchievements /></AdminRoute>} />
                 <Route path="/admin/site-settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
                 <Route path="/admin/external-services" element={<AdminRoute><AdminExternalServices /></AdminRoute>} />

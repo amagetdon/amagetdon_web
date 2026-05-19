@@ -16,6 +16,7 @@ const NAV_GROUPS = [
     label: '회원',
     items: [
       { path: '/admin/members', label: '회원 관리', icon: 'ti-user-circle' },
+      { path: '/admin/linkpay', label: '링크페이 연동', icon: 'ti-credit-card' },
     ],
   },
   {

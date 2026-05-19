@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.coupon-expiry-scanner]
 verify_jwt = false
+
+[functions.linkpay-webhook]
+verify_jwt = false
