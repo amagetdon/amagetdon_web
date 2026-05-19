@@ -19,13 +19,13 @@ function VideoPromo() {
     <section className="w-full bg-white py-14 max-sm:py-10">
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="flex max-md:flex-col max-md:gap-5">
-          {/* 영상 - 왼쪽 */}
-          <div className="w-[60%] max-md:w-full shrink-0 pr-5 max-md:pr-0">
-            <div className="bg-gray-100 rounded-2xl overflow-hidden h-full flex items-center justify-center">
+          {/* 영상 - 왼쪽 (16:9 컨테이너에 Vimeo 16:9 영상이 정확히 들어차서 위아래 여백 없음) */}
+          <div className="w-[60%] max-md:w-full shrink-0 pr-5 max-md:pr-0 self-start">
+            <div className="bg-gray-100 rounded-2xl overflow-hidden aspect-video">
               {videoUrl ? (
-                <VideoEmbed url={videoUrl} className="w-full" aspectRatio="aspect-[16/10]" />
+                <VideoEmbed url={videoUrl} className="w-full h-full" aspectRatio="" />
               ) : (
-                <div className="aspect-video flex items-center justify-center w-full">
+                <div className="w-full h-full flex items-center justify-center">
                   <span className="text-sm text-gray-400">아마겟돈 인트로 홍보 영상</span>
                 </div>
               )}
