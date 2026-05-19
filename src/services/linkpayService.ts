@@ -9,6 +9,14 @@ export interface LinkpayLink {
   created_at: string
 }
 
+export interface TossProduct {
+  productKey: string
+  name: string
+  amount: number
+  paymentLinkId: string | null
+  status: string | null
+}
+
 export interface LinkpayPayment {
   id: number
   order_key: string
@@ -46,6 +54,32 @@ export const linkpayService = {
   async deleteLink(id: number): Promise<void> {
     const { error } = await supabase.from('linkpay_links').delete().eq('id', id)
     if (error) throw error
+  },
+
+  /** 토스 대시보드 쿠키가 저장돼 있는지 여부 */
+  async hasDashboardCookie(): Promise<boolean> {
+    const { data } = await supabase
+      .from('linkpay_config').select('dashboard_cookie').eq('id', 1).maybeSingle()
+    return !!(data as { dashboard_cookie?: string } | null)?.dashboard_cookie
+  },
+
+  async saveDashboardCookie(cookie: string): Promise<void> {
+    const { error } = await supabase
+      .from('linkpay_config')
+      .upsert({ id: 1, dashboard_cookie: cookie, updated_at: new Date().toISOString() } as never)
+    if (error) throw error
+  },
+
+  /** 토스 대시보드에서 링크페이 상품 전체 조회 (최신순) */
+  async fetchTossProducts(): Promise<TossProduct[]> {
+    const { data, error } = await supabase.functions.invoke('linkpay-products')
+    if (error) {
+      const msg = (data as { error?: string } | null)?.error
+      throw new Error(msg || error.message)
+    }
+    const err = (data as { error?: string } | null)?.error
+    if (err) throw new Error(err)
+    return ((data as { products?: TossProduct[] })?.products ?? [])
   },
 
   async getPayments(): Promise<LinkpayPayment[]> {

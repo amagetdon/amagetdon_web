@@ -7,7 +7,7 @@ import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { supabase } from '../../lib/supabase'
 import { courseService } from '../../services/courseService'
-import { linkpayService, type LinkpayLink, type LinkpayPayment } from '../../services/linkpayService'
+import { linkpayService, type LinkpayLink, type LinkpayPayment, type TossProduct } from '../../services/linkpayService'
 import type { CourseWithInstructor } from '../../types'
 
 interface MemberHit { id: string; name: string | null; phone: string | null; email: string | null }
@@ -36,6 +36,13 @@ export default function AdminLinkpay() {
   const [newLabel, setNewLabel] = useState('')
   const [linkCourseSearch, setLinkCourseSearch] = useState('')
   const [deleteLinkId, setDeleteLinkId] = useState<number | null>(null)
+  const [tossProducts, setTossProducts] = useState<TossProduct[]>([])
+  const [loadingTossProducts, setLoadingTossProducts] = useState(false)
+
+  // 토스 대시보드 쿠키
+  const [cookieSet, setCookieSet] = useState(false)
+  const [cookieInput, setCookieInput] = useState('')
+  const [savingCookie, setSavingCookie] = useState(false)
 
   // 수동 부여 모달
   const [grantTarget, setGrantTarget] = useState<LinkpayPayment | null>(null)
@@ -49,14 +56,16 @@ export default function AdminLinkpay() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [l, p, c] = await withTimeout(Promise.all([
+      const [l, p, c, hasCookie] = await withTimeout(Promise.all([
         linkpayService.getLinks(),
         linkpayService.getPayments(),
         courseService.getAll(),
+        linkpayService.hasDashboardCookie(),
       ]))
       setLinks(l)
       setPayments(p)
       setCourses(c)
+      setCookieSet(hasCookie)
     } catch {
       toast.error('데이터를 불러오는데 실패했습니다.')
     } finally {
@@ -88,6 +97,34 @@ export default function AdminLinkpay() {
       toast.error('추가에 실패했습니다. (productKey 중복 여부 확인)')
     } finally {
       setLinkSaving(false)
+    }
+  }
+
+  const handleSaveCookie = async () => {
+    if (!cookieInput.trim()) { toast.error('쿠키 값을 붙여넣어 주세요.'); return }
+    try {
+      setSavingCookie(true)
+      await linkpayService.saveDashboardCookie(cookieInput.trim())
+      setCookieSet(true)
+      setCookieInput('')
+      toast.success('토스 대시보드 쿠키가 저장되었습니다.')
+    } catch {
+      toast.error('쿠키 저장에 실패했습니다.')
+    } finally {
+      setSavingCookie(false)
+    }
+  }
+
+  const loadTossProducts = async () => {
+    try {
+      setLoadingTossProducts(true)
+      const list = await linkpayService.fetchTossProducts()
+      setTossProducts(list)
+      if (list.length === 0) toast('불러올 토스 상품이 없습니다.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '토스 상품을 불러오지 못했습니다.')
+    } finally {
+      setLoadingTossProducts(false)
     }
   }
 
@@ -179,6 +216,37 @@ export default function AdminLinkpay() {
           링크페이 결제 완료 → 웹훅 수신 → <b>productKey로 강의 식별</b> → <b>결제자 전화번호로 회원 매칭</b> → 수강권 자동 부여.
           강의 매핑이 없거나 전화번호가 일치하는 회원이 없으면 아래 "결제 내역"에 미부여로 남고, 수동 부여할 수 있습니다.
         </p>
+      </div>
+
+      {/* 토스 대시보드 연결 (상품 목록 조회용 쿠키) */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-8">
+        <div className="flex items-center gap-2 mb-1">
+          <h2 className="font-bold text-gray-900">토스 대시보드 연결</h2>
+          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cookieSet ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+            {cookieSet ? '연결됨' : '미설정'}
+          </span>
+        </div>
+        <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+          매핑 추가 시 "토스 상품 목록 불러오기"를 쓰려면 토스 대시보드 세션 쿠키가 필요합니다.
+          토스 대시보드 로그인 상태에서 개발자도구(F12) → Network → 아무 요청의 <b>Request Headers</b> 중 <code className="bg-gray-100 px-1 rounded">cookie</code> 값 전체를 복사해 붙여넣으세요.
+          쿠키가 만료되면 "불러오기"가 실패하니 그때 다시 붙여넣으면 됩니다.
+        </p>
+        <div className="flex gap-2 max-sm:flex-col">
+          <textarea
+            value={cookieInput}
+            onChange={(e) => setCookieInput(e.target.value)}
+            rows={2}
+            placeholder={cookieSet ? '쿠키가 저장돼 있습니다. 갱신하려면 새 쿠키를 붙여넣으세요.' : 'cookie 헤더 값 전체를 붙여넣으세요'}
+            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono outline-none resize-none focus:border-[#2ED573]"
+          />
+          <button
+            onClick={handleSaveCookie}
+            disabled={savingCookie}
+            className="shrink-0 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-gray-700 transition-colors disabled:opacity-50"
+          >
+            {savingCookie ? '저장 중...' : '쿠키 저장'}
+          </button>
+        </div>
       </div>
 
       {/* 링크 매핑 */}
@@ -308,14 +376,40 @@ export default function AdminLinkpay() {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-bold block mb-1">productKey *</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-sm font-bold">productKey *</label>
+              <button
+                type="button"
+                onClick={loadTossProducts}
+                disabled={loadingTossProducts}
+                className="text-xs font-bold text-[#2ED573] bg-transparent border-none cursor-pointer disabled:opacity-50 flex items-center gap-1"
+              >
+                <i className="ti ti-download text-sm" />
+                {loadingTossProducts ? '불러오는 중...' : '토스 상품 목록 불러오기'}
+              </button>
+            </div>
             <input
               value={newProductKey}
               onChange={(e) => setNewProductKey(e.target.value)}
               placeholder="토스 링크페이 상품의 productKey"
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-mono outline-none focus:border-[#2ED573]"
             />
-            <p className="text-[11px] text-gray-400 mt-1">아래 "결제 내역"의 미매핑 건에서 <b>이 productKey로 강의 매핑</b> 버튼을 누르면 productKey가 자동으로 채워집니다. (링크페이 결제가 한 번 들어온 링크는 자동 기록됨)</p>
+            {tossProducts.length > 0 && (
+              <div className="border border-gray-200 rounded-lg mt-1 max-h-[200px] overflow-y-auto">
+                {tossProducts.map((p) => (
+                  <button
+                    key={p.productKey}
+                    type="button"
+                    onClick={() => { setNewProductKey(p.productKey); if (!newLabel.trim()) setNewLabel(p.name) }}
+                    className={`w-full text-left px-3 py-2 text-xs border-none cursor-pointer flex items-center justify-between gap-2 ${newProductKey === p.productKey ? 'bg-[#2ED573]/10 text-gray-900' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    <span className="truncate">{p.name} <span className="text-gray-400">· {p.amount.toLocaleString()}원</span></span>
+                    {newProductKey === p.productKey && <i className="ti ti-check text-[#2ED573] shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-gray-400 mt-1">"토스 상품 목록 불러오기"로 상품을 고르면 productKey가 자동 입력됩니다 (최신 생성 상품이 위쪽). 토스 대시보드 연결이 필요합니다.</p>
           </div>
           <div>
             <label className="text-sm font-bold block mb-1">연결할 강의 *</label>
