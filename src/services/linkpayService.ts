@@ -16,7 +16,6 @@ export interface TossProduct {
   status: string | null
   thumbnail: string | null
   createdAt: string | null
-  kind: '판매상품' | '개인결제창'
 }
 
 export interface LinkpayPayment {
@@ -61,30 +60,16 @@ export const linkpayService = {
     if (error) throw error
   },
 
-  /** 토스 대시보드 쿠키가 저장돼 있는지 여부 */
-  async hasDashboardCookie(): Promise<boolean> {
-    const { data } = await supabase
-      .from('linkpay_config').select('dashboard_cookie').eq('id', 1).maybeSingle()
-    return !!(data as { dashboard_cookie?: string } | null)?.dashboard_cookie
-  },
-
-  async saveDashboardCookie(cookie: string): Promise<void> {
-    const { error } = await supabase
-      .from('linkpay_config')
-      .upsert({ id: 1, dashboard_cookie: cookie, updated_at: new Date().toISOString() } as never)
-    if (error) throw error
-  },
-
-  /** 토스 링크페이 상품 전체 조회 (판매상품 + 개인결제창) */
-  async fetchTossProducts(): Promise<{ products: TossProduct[]; salesWarning: string | null }> {
+  /** 토스 링크페이 상품 전체 조회 */
+  async fetchTossProducts(): Promise<TossProduct[]> {
     const { data, error } = await supabase.functions.invoke('linkpay-products')
     if (error) {
       const msg = (data as { error?: string } | null)?.error
       throw new Error(msg || error.message)
     }
-    const payload = (data as { products?: TossProduct[]; error?: string; salesWarning?: string | null }) ?? {}
+    const payload = (data as { products?: TossProduct[]; error?: string }) ?? {}
     if (payload.error) throw new Error(payload.error)
-    return { products: payload.products ?? [], salesWarning: payload.salesWarning ?? null }
+    return payload.products ?? []
   },
 
   async getPayments(): Promise<LinkpayPayment[]> {

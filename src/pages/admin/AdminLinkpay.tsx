@@ -33,11 +33,6 @@ export default function AdminLinkpay() {
   const [courses, setCourses] = useState<CourseWithInstructor[]>([])
   const [loading, setLoading] = useState(true)
 
-  // 토스 대시보드 쿠키
-  const [cookieSet, setCookieSet] = useState(false)
-  const [cookieInput, setCookieInput] = useState('')
-  const [savingCookie, setSavingCookie] = useState(false)
-
   // 매핑 만들기
   const [tossProducts, setTossProducts] = useState<TossProduct[]>([])
   const [loadingTossProducts, setLoadingTossProducts] = useState(false)
@@ -59,16 +54,14 @@ export default function AdminLinkpay() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [l, p, c, hasCookie] = await withTimeout(Promise.all([
+      const [l, p, c] = await withTimeout(Promise.all([
         linkpayService.getLinks(),
         linkpayService.getPayments(),
         courseService.getAll(),
-        linkpayService.hasDashboardCookie(),
       ]))
       setLinks(l)
       setPayments(p)
       setCourses(c)
-      setCookieSet(hasCookie)
     } catch {
       toast.error('데이터를 불러오는데 실패했습니다.')
     } finally {
@@ -81,33 +74,12 @@ export default function AdminLinkpay() {
 
   const courseTitle = (id: number | null) => courses.find((c) => c.id === id)?.title ?? (id ? `#${id}` : '-')
 
-  const handleSaveCookie = async () => {
-    if (!cookieInput.trim()) { toast.error('쿠키 값을 붙여넣어 주세요.'); return }
-    try {
-      setSavingCookie(true)
-      await linkpayService.saveDashboardCookie(cookieInput.trim())
-      setCookieSet(true)
-      setCookieInput('')
-      toast.success('토스 대시보드 쿠키가 저장되었습니다.')
-    } catch {
-      toast.error('쿠키 저장에 실패했습니다.')
-    } finally {
-      setSavingCookie(false)
-    }
-  }
-
   const loadTossProducts = async () => {
     try {
       setLoadingTossProducts(true)
-      const { products, salesWarning } = await linkpayService.fetchTossProducts()
-      // 종류별로 나눠 각각 최신순 정렬 → 판매상품, 개인결제창 순으로 합침
-      const byNewest = (a: TossProduct, b: TossProduct) => (b.createdAt ?? '').localeCompare(a.createdAt ?? '')
-      const sorted = [
-        ...products.filter((p) => p.kind === '판매상품').sort(byNewest),
-        ...products.filter((p) => p.kind === '개인결제창').sort(byNewest),
-      ]
-      setTossProducts(sorted)
-      if (salesWarning) toast(salesWarning, { icon: 'ℹ️', duration: 5000 })
+      const products = await linkpayService.fetchTossProducts()
+      products.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+      setTossProducts(products)
       if (products.length === 0) toast('불러올 토스 상품이 없습니다.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '토스 상품을 불러오지 못했습니다.')
@@ -227,37 +199,6 @@ export default function AdminLinkpay() {
         <p className="text-sm text-gray-400 mt-0.5">토스 링크페이로 결제하면 수강권이 자동 부여됩니다. 링크별 강의 매핑을 등록하세요.</p>
       </div>
 
-      {/* 토스 대시보드 연결 */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
-        <div className="flex items-center gap-2 mb-1">
-          <h2 className="font-bold text-gray-900">토스 대시보드 연결</h2>
-          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cookieSet ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-            {cookieSet ? '연결됨' : '미설정'}
-          </span>
-        </div>
-        <p className="text-xs text-gray-400 mb-3 leading-relaxed">
-          <b>개인결제창</b> 상품은 쿠키 없이 조회됩니다. <b>판매상품(38개)</b>은 쿠키 인증 API로만 조회 가능해서 쿠키가 필요합니다.
-          토스 대시보드 로그인 상태에서 개발자도구(F12) → Network → 아무 요청의 <b>Request Headers</b> 중 <code className="bg-gray-100 px-1 rounded">cookie</code> 값 전체를 복사해 붙여넣으세요.
-          쿠키 만료 시 판매상품 조회가 실패하니 그때 다시 붙여넣으면 됩니다.
-        </p>
-        <div className="flex gap-2 max-sm:flex-col">
-          <textarea
-            value={cookieInput}
-            onChange={(e) => setCookieInput(e.target.value)}
-            rows={2}
-            placeholder={cookieSet ? '쿠키가 저장돼 있습니다. 갱신하려면 새 쿠키를 붙여넣으세요.' : 'cookie 헤더 값 전체를 붙여넣으세요'}
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-xs font-mono outline-none resize-none focus:border-[#2ED573]"
-          />
-          <button
-            onClick={handleSaveCookie}
-            disabled={savingCookie}
-            className="shrink-0 bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-bold cursor-pointer border-none hover:bg-gray-700 transition-colors disabled:opacity-50"
-          >
-            {savingCookie ? '저장 중...' : '쿠키 저장'}
-          </button>
-        </div>
-      </div>
-
       {/* 매핑 만들기 */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-8">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -294,10 +235,7 @@ export default function AdminLinkpay() {
                       {p.thumbnail && <img src={p.thumbnail} alt="" className="w-full h-full object-cover" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800 truncate">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded mr-1.5 font-bold align-middle ${p.kind === '판매상품' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{p.kind}</span>
-                        {p.name}
-                      </p>
+                      <p className="text-sm text-gray-800 truncate">{p.name}</p>
                       <p className="text-[11px] text-gray-400">{p.amount.toLocaleString()}원
                         {mapped && <span className="text-emerald-600 ml-2"><i className="ti ti-link" /> {courseTitle(mapped.course_id)}</span>}
                       </p>
