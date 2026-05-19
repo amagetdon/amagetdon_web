@@ -15,7 +15,7 @@ function AcademyPage() {
       <FreeCourses sectionKey="academy_tab_free_courses" />
       <FreeEbooks sectionKey="academy_tab_free_ebooks" />
       <CouponBanner />
-      <SecretBooks />
+      <SecretBooks sectionKey="academy_tab_secret_books" />
     </>
   )
 }

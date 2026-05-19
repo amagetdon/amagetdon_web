@@ -2,14 +2,14 @@ import { Link } from 'react-router-dom'
 import { useEbooks } from '../hooks/useEbooks'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
-import { useSectionConfig } from '../hooks/useSectionSettings'
+import { useSectionConfig, type SectionKey } from '../hooks/useSectionSettings'
 import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
 
-function SecretBooks() {
+function SecretBooks({ sectionKey = 'secret_books' }: { sectionKey?: SectionKey } = {}) {
   const { ebooks, loading } = useEbooks({ isFree: false })
   const { closedVisualEffect } = useAcademySettings()
-  const section = useSectionConfig('secret_books')
+  const section = useSectionConfig(sectionKey)
   const count = section.count ?? 5
 
   return (
@@ -17,7 +17,7 @@ function SecretBooks() {
       <div className="max-w-[1200px] mx-auto px-5">
         <div className="flex items-center justify-between mb-2 gap-4">
           <EditableSectionTitle
-            sectionKey="secret_books"
+            sectionKey={sectionKey}
             config={section}
             className="text-2xl font-bold text-white min-w-0"
             theme="dark"

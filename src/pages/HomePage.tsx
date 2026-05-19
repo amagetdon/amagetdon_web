@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useHomeData } from '../hooks/useHomeData'
-import FreeEbooks from '../components/FreeEbooks'
+import HomeEbooks from '../components/HomeEbooks'
 import ScheduleCalendar from '../components/ScheduleCalendar'
 import FreeCourses from '../components/FreeCourses'
 import PremiumCourses from '../components/PremiumCourses'
@@ -17,7 +17,7 @@ function HomePage() {
 
   return (
     <>
-      <FreeEbooks ebooks={data.freeEbooks} loading={loading} />
+      <HomeEbooks ebooks={data.freeEbooks} loading={loading} />
       <CouponBanner />
       <ScheduleCalendar schedules={data.schedules} />
       <PremiumCourses courses={data.premiumCourses} loading={loading} />
