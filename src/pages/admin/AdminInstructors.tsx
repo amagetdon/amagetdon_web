@@ -19,7 +19,7 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
 import RichTextEditor from '../../components/admin/RichTextEditor'
 import { instructorService } from '../../services/instructorService'
-import { htmlToPlainText } from '../../utils/richText'
+import { htmlToPlainText, textToHtml } from '../../utils/richText'
 import type { Instructor } from '../../types'
 
 export default function AdminInstructors() {
@@ -202,11 +202,12 @@ export default function AdminInstructors() {
         title={editing?.id ? '강사 수정' : '새 강사 등록'}
         onSubmit={handleSave}
         loading={saving}
-        maxWidthClass="max-w-[1240px]"
+        maxWidthClass="max-w-[1640px]"
+        bodyClassName="xl:overflow-hidden"
       >
         {editing && (
-          <div className="grid grid-cols-[minmax(0,1fr)_640px] max-lg:grid-cols-1 gap-6">
-          <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4 min-w-0">
+          <div className="grid grid-cols-[minmax(0,1fr)_1000px] max-xl:grid-cols-1 gap-6 items-start">
+          <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4 min-w-0 content-start xl:overflow-y-auto xl:max-h-[calc(85vh_-_180px)] xl:pr-3">
             <div>
               <label className="text-sm font-bold block mb-1">이름 *</label>
               <input value={editing.name || ''} onChange={(e) => setEditing({ ...editing, name: e.target.value })}
@@ -223,6 +224,11 @@ export default function AdminInstructors() {
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
             </div>
             <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">경력 (줄바꿈으로 구분)</label>
+              <textarea value={(editing.careers || []).join('\n')} onChange={(e) => setEditing({ ...editing, careers: e.target.value.split('\n') })}
+                rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#2ED573]" />
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
               <label className="text-sm font-bold block mb-1">소개글</label>
               <RichTextEditor
                 value={editing.bio || ''}
@@ -230,11 +236,6 @@ export default function AdminInstructors() {
                 placeholder="강사 소개 문단을 작성해 주세요"
                 minHeight={180}
               />
-            </div>
-            <div className="col-span-2 max-sm:col-span-1">
-              <label className="text-sm font-bold block mb-1">경력 (줄바꿈으로 구분)</label>
-              <textarea value={(editing.careers || []).join('\n')} onChange={(e) => setEditing({ ...editing, careers: e.target.value.split('\n') })}
-                rows={3} className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none resize-none focus:border-[#2ED573]" />
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">프로필 이미지</label>
@@ -395,15 +396,57 @@ export default function AdminInstructors() {
             </div>
           </div>
 
-          {/* 우측 컬럼 — 미리보기 (sticky) */}
-          <div className="lg:sticky lg:top-0 self-start">
+          {/* 우측 컬럼 — 미리보기 (독립 스크롤) */}
+          <div className="xl:overflow-y-auto xl:max-h-[calc(85vh_-_180px)] xl:pl-1">
             <h3 className="text-sm font-bold text-gray-900 mb-3">실시간 미리보기</h3>
+
+            {/* 강사소개 페이지 미리보기 — 헤드라인 / 직함 / 경력 / 소개글 / 프로필 이미지 */}
+            <div className="mb-6">
+              <label className="text-xs font-bold block mb-2 text-gray-500">강사소개 페이지</label>
+              <div className="rounded-xl border border-gray-200 bg-white p-5">
+                <h4 className="text-lg font-bold text-gray-900 mb-4">{editing.name || '강사명'} 강사</h4>
+                <div className="flex gap-5 max-sm:flex-col">
+                  <div className="shrink-0">
+                    <img
+                      src={editing.image_url || `https://placehold.co/300x400/e5e7eb/999999?text=${encodeURIComponent(editing.name || '강사')}`}
+                      alt=""
+                      className="rounded-lg w-[200px] max-sm:w-full bg-gray-100"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h5 className="text-base font-bold text-gray-900 mb-1">{editing.title || '직함'}</h5>
+                    {editing.headline && (
+                      <p className="text-sm text-gray-500 mb-3">
+                        {editing.headline}
+                        <span className="block text-[10px] text-gray-400 mt-0.5">※ 헤드라인은 검색 결과 카드에만 포함됩니다.</span>
+                      </p>
+                    )}
+                    {(editing.careers || []).filter((c) => c.trim()).length > 0 && (
+                      <ul className="list-none p-0 mb-3">
+                        {(editing.careers || []).filter((c) => c.trim()).map((c, i) => (
+                          <li key={i} className="text-sm text-gray-700 mb-1.5">{c}</li>
+                        ))}
+                      </ul>
+                    )}
+                    {editing.bio && (
+                      <div
+                        className="rich-text-content text-sm text-gray-600 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: textToHtml(editing.bio) }}
+                      />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 홈 히어로 카드 미리보기 */}
+            <label className="text-xs font-bold block mb-2 text-gray-500">홈 히어로 카드</label>
             {editing.hero_enabled ? (
-              <div className="space-y-5">
+              <div className="flex gap-5 items-start flex-wrap">
                 {/* PC 변형 (620 × 320) */}
-                <div>
+                <div className="shrink-0">
                   <label className="text-xs font-bold block mb-2 text-gray-500">PC</label>
-                  <div className="relative w-[620px] h-[320px] max-w-full">
+                  <div className="relative w-[620px] h-[320px]">
                     <div
                       className="absolute inset-0 rounded-[32px] overflow-hidden shadow-2xl"
                       style={{ background: `linear-gradient(135deg, ${normalizeHex(editing.hero_bg_from, '#1a1a1a')} 0%, ${normalizeHex(editing.hero_bg_to, '#2a2a2a')} 100%)` }}
@@ -437,7 +480,7 @@ export default function AdminInstructors() {
                 </div>
 
                 {/* 모바일 변형 (300 × 430) */}
-                <div>
+                <div className="shrink-0">
                   <label className="text-xs font-bold block mb-2 text-gray-500">모바일</label>
                   <div className="relative w-[300px] h-[430px]">
                     <div

@@ -672,17 +672,6 @@ function CourseDetailPage() {
                 <p className="text-sm text-[#2ED573] font-medium">{course.instructor?.name} 강사</p>
                 <h1 className="text-xl font-bold text-gray-900 mt-1">{course.title}</h1>
 
-                {course.curriculum_items.length > 0 && (
-                  <>
-                    <h3 className="font-bold mt-6 mb-3 text-gray-900">커리큘럼</h3>
-                    <ul className="space-y-2">
-                      {course.curriculum_items.map((item) => (
-                        <li key={item.id} className="text-sm text-gray-600">- {item.label}</li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-
                 <div className="border-t border-gray-200 my-6" />
 
                 <p className="font-bold text-gray-900">결제 예상 금액</p>

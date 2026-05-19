@@ -13,6 +13,8 @@ interface AdminFormModalProps {
   maxWidthClass?: string
   /** 모달 최대 높이 (기본 'max-h-[85vh]') */
   maxHeightClass?: string
+  /** 본문 영역에 덧붙일 클래스 (예: 컬럼별 독립 스크롤 시 'xl:overflow-hidden') */
+  bodyClassName?: string
 }
 
 export default function AdminFormModal({
@@ -25,6 +27,7 @@ export default function AdminFormModal({
   loading = false,
   maxWidthClass = 'max-w-[640px]',
   maxHeightClass = 'max-h-[85vh]',
+  bodyClassName = '',
 }: AdminFormModalProps) {
   const [confirmClose, setConfirmClose] = useState(false)
   const dirty = useRef(false)
@@ -95,7 +98,7 @@ export default function AdminFormModal({
                   </button>
                 </div>
 
-                <div ref={bodyRef} className="p-6 overflow-y-auto flex-1">
+                <div ref={bodyRef} className={`p-6 overflow-y-auto flex-1 ${bodyClassName}`}>
                   {children}
                 </div>
 
