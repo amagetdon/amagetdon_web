@@ -264,13 +264,24 @@ export default function AdminCourseDetail() {
     try {
       const data = await courseService.getById(courseId)
       setCourse(data)
-      const existingUrls = (data as unknown as { landing_image_urls?: string[] | null }).landing_image_urls
-      const normalizedUrls: string[] = Array.isArray(existingUrls) && existingUrls.length > 0
-        ? existingUrls.filter((u): u is string => !!u)
-        : data.landing_image_url
-          ? [data.landing_image_url]
-          : []
-      setEditing({ ...(data as unknown as Record<string, unknown>), landing_image_urls: normalizedUrls })
+      const raw = data as unknown as { landing_image_urls?: string[] | null; landing_image_links?: string[] | null }
+      const rawUrls = Array.isArray(raw.landing_image_urls) ? raw.landing_image_urls : []
+      const rawLinks = Array.isArray(raw.landing_image_links) ? raw.landing_image_links : []
+      let normalizedUrls: string[]
+      let normalizedLinks: string[]
+      if (rawUrls.length > 0) {
+        // url 이 빈 항목은 버리되, 링크는 같은 인덱스끼리 짝지어 함께 정리한다.
+        const pairs = rawUrls.map((u, i) => ({ u, l: rawLinks[i] ?? '' })).filter((p) => !!p.u)
+        normalizedUrls = pairs.map((p) => p.u)
+        normalizedLinks = pairs.map((p) => p.l)
+      } else if (data.landing_image_url) {
+        normalizedUrls = [data.landing_image_url]
+        normalizedLinks = ['']
+      } else {
+        normalizedUrls = []
+        normalizedLinks = []
+      }
+      setEditing({ ...(data as unknown as Record<string, unknown>), landing_image_urls: normalizedUrls, landing_image_links: normalizedLinks })
       setCurriculumItems(
         (data.curriculum_items ?? []).map((item) => {
           const raw = (item as { video_urls?: unknown }).video_urls
@@ -322,6 +333,7 @@ export default function AdminCourseDetail() {
         landing_category_ids: [],
         related_course_ids: [],
         landing_image_urls: [],
+        landing_image_links: [],
         strengths: [],
         features: [],
         seo: {},
@@ -433,6 +445,7 @@ export default function AdminCourseDetail() {
         thumbnail_url: editing.thumbnail_url ?? null,
         landing_image_url: ((editing.landing_image_urls as string[]) ?? [])[0] ?? null,
         landing_image_urls: (editing.landing_image_urls as string[]) ?? [],
+        landing_image_links: (editing.landing_image_links as string[]) ?? [],
         video_url: editing.video_url ?? null,
         enrollment_start: editing.enrollment_start ?? null,
         enrollment_deadline: editing.enrollment_deadline ?? null,
@@ -891,9 +904,11 @@ export default function AdminCourseDetail() {
                   bucket="courses"
                   pathPrefix={`${courseId ?? 'new'}/landing`}
                   values={(editing.landing_image_urls as string[]) || []}
-                  onChange={(urls) => setEditing({ ...editing, landing_image_urls: urls })}
+                  links={(editing.landing_image_links as string[]) || []}
+                  enableLinks
+                  onChange={(urls, links) => setEditing({ ...editing, landing_image_urls: urls, landing_image_links: links })}
                   compress={false}
-                  helperText="여러 장을 선택하면 한 번에 업로드됩니다. 위→아래 순서로 강의 상세 페이지에 표시됩니다. 원본 그대로 업로드됩니다 (자동 리사이징 없음)."
+                  helperText="여러 장을 선택하면 한 번에 업로드됩니다. 위→아래 순서로 강의 상세 페이지에 표시됩니다. 각 이미지에 링크를 넣으면 클릭 시 해당 페이지로 이동합니다."
                 />
               </div>
               <div className="w-full">

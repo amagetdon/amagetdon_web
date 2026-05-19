@@ -6,18 +6,24 @@ interface MultiImageUploaderProps {
   bucket: string
   pathPrefix: string
   values: string[]
-  onChange: (urls: string[]) => void
+  /** values 와 인덱스 정렬된 이미지별 클릭 링크. 미지정 시 링크 없음으로 간주. */
+  links?: string[]
+  onChange: (urls: string[], links: string[]) => void
   compress?: boolean
   helperText?: string
+  /** true 면 이미지별 '클릭 시 이동할 링크' 입력란 노출 */
+  enableLinks?: boolean
 }
 
 export default function MultiImageUploader({
   bucket,
   pathPrefix,
   values,
+  links,
   onChange,
   compress = true,
   helperText,
+  enableLinks = false,
 }: MultiImageUploaderProps) {
   const fileRef = useRef<HTMLInputElement>(null)
   const replaceFileRef = useRef<HTMLInputElement>(null)
@@ -26,6 +32,9 @@ export default function MultiImageUploader({
   const [dragIndex, setDragIndex] = useState<number | null>(null)
   // url → 원본 파일명. 이번 세션에서 업로드한 이미지에 대해서만 채워진다. 새로고침/재진입 시 초기화.
   const [nameMap, setNameMap] = useState<Record<string, string>>({})
+
+  // links 는 항상 values 와 같은 길이로 정규화해서 다룬다 (인덱스 어긋남 방지).
+  const linkList = values.map((_, i) => links?.[i] ?? '')
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -46,7 +55,7 @@ export default function MultiImageUploader({
       }
       if (uploaded.length > 0) {
         setNameMap((prev) => ({ ...prev, ...newNames }))
-        onChange([...values, ...uploaded])
+        onChange([...values, ...uploaded], [...linkList, ...uploaded.map(() => '')])
       }
     } finally {
       setUploading(false)
@@ -54,9 +63,11 @@ export default function MultiImageUploader({
   }
 
   const handleRemove = (idx: number) => {
-    const next = [...values]
-    next.splice(idx, 1)
-    onChange(next)
+    const nextUrls = [...values]
+    const nextLinks = [...linkList]
+    nextUrls.splice(idx, 1)
+    nextLinks.splice(idx, 1)
+    onChange(nextUrls, nextLinks)
   }
 
   const triggerReplace = (idx: number) => {
@@ -74,7 +85,8 @@ export default function MultiImageUploader({
       setNameMap((prev) => ({ ...prev, [url]: file.name }))
       const next = [...values]
       next[idx] = url
-      onChange(next)
+      // 교체는 이미지만 바뀌고 링크는 그대로 유지
+      onChange(next, [...linkList])
     } catch (err) {
       const message = err instanceof Error ? err.message : '업로드에 실패했습니다.'
       toast.error(`${file.name}: ${message}`)
@@ -85,10 +97,19 @@ export default function MultiImageUploader({
 
   const move = (from: number, to: number) => {
     if (to < 0 || to >= values.length) return
-    const next = [...values]
-    const [item] = next.splice(from, 1)
-    next.splice(to, 0, item)
-    onChange(next)
+    const nextUrls = [...values]
+    const nextLinks = [...linkList]
+    const [u] = nextUrls.splice(from, 1)
+    const [l] = nextLinks.splice(from, 1)
+    nextUrls.splice(to, 0, u)
+    nextLinks.splice(to, 0, l)
+    onChange(nextUrls, nextLinks)
+  }
+
+  const setLink = (idx: number, value: string) => {
+    const nextLinks = [...linkList]
+    nextLinks[idx] = value
+    onChange([...values], nextLinks)
   }
 
   const handleDragStart = (idx: number) => setDragIndex(idx)
@@ -152,6 +173,18 @@ export default function MultiImageUploader({
                   <p className="text-sm font-medium text-gray-800 truncate" title={nameMap[url]}>{nameMap[url]}</p>
                 )}
                 <p className="text-xs text-gray-500 truncate" title={url}>{url}</p>
+                {enableLinks && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <i className="ti ti-link text-xs text-gray-400 shrink-0" />
+                    <input
+                      type="text"
+                      value={linkList[idx]}
+                      onChange={(e) => setLink(idx, e.target.value)}
+                      placeholder="클릭 시 이동할 링크 (예: /course/12 또는 https://...)"
+                      className="flex-1 min-w-0 border border-gray-300 rounded-md px-2 py-1 text-xs outline-none focus:border-[#2ED573]"
+                    />
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-1">
                 <button

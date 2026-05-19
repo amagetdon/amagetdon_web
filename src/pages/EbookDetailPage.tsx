@@ -414,12 +414,19 @@ function EbookDetailPage() {
                 const urls = (ebook.landing_image_urls && ebook.landing_image_urls.length > 0)
                   ? ebook.landing_image_urls
                   : (ebook.landing_image_url ? [ebook.landing_image_url] : [])
+                const links = ebook.landing_image_links ?? []
                 if (urls.length === 0) return null
                 return (
                   <div className="bg-gray-100 rounded-xl overflow-hidden mt-6">
-                    {urls.map((url, idx) => (
-                      <img key={`${url}-${idx}`} src={url} alt={`${ebook.title} 상세 ${idx + 1}`} className="w-full block" />
-                    ))}
+                    {urls.map((url, idx) => {
+                      const key = `${url}-${idx}`
+                      const link = (links[idx] || '').trim()
+                      const img = <img src={url} alt={`${ebook.title} 상세 ${idx + 1}`} className="w-full block" />
+                      if (!link) return <Fragment key={key}>{img}</Fragment>
+                      // 내부 경로(/...)는 SPA 이동, 그 외(http 등)는 새 탭으로 연다.
+                      if (link.startsWith('/')) return <Link key={key} to={link} className="block">{img}</Link>
+                      return <a key={key} href={link} target="_blank" rel="noopener noreferrer" className="block">{img}</a>
+                    })}
                   </div>
                 )
               })()}

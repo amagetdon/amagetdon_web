@@ -88,13 +88,24 @@ export default function AdminEbookDetail() {
     try {
       const data = await ebookService.getById(ebookId)
       setEbook(data)
-      const existingUrls = (data as unknown as { landing_image_urls?: string[] | null }).landing_image_urls
-      const normalizedUrls: string[] = Array.isArray(existingUrls) && existingUrls.length > 0
-        ? existingUrls.filter((u): u is string => !!u)
-        : data.landing_image_url
-          ? [data.landing_image_url]
-          : []
-      setEditing({ ...(data as unknown as Record<string, unknown>), landing_image_urls: normalizedUrls })
+      const raw = data as unknown as { landing_image_urls?: string[] | null; landing_image_links?: string[] | null }
+      const rawUrls = Array.isArray(raw.landing_image_urls) ? raw.landing_image_urls : []
+      const rawLinks = Array.isArray(raw.landing_image_links) ? raw.landing_image_links : []
+      let normalizedUrls: string[]
+      let normalizedLinks: string[]
+      if (rawUrls.length > 0) {
+        // url 이 빈 항목은 버리되, 링크는 같은 인덱스끼리 짝지어 함께 정리한다.
+        const pairs = rawUrls.map((u, i) => ({ u, l: rawLinks[i] ?? '' })).filter((p) => !!p.u)
+        normalizedUrls = pairs.map((p) => p.u)
+        normalizedLinks = pairs.map((p) => p.l)
+      } else if (data.landing_image_url) {
+        normalizedUrls = [data.landing_image_url]
+        normalizedLinks = ['']
+      } else {
+        normalizedUrls = []
+        normalizedLinks = []
+      }
+      setEditing({ ...(data as unknown as Record<string, unknown>), landing_image_urls: normalizedUrls, landing_image_links: normalizedLinks })
     } catch {
       toast.error('전자책을 불러오는데 실패했습니다.')
       navigate('/admin/ebooks')
@@ -121,6 +132,7 @@ export default function AdminEbookDetail() {
         reward_points: 0,
         related_ebook_ids: [],
         landing_image_urls: [],
+        landing_image_links: [],
         refund_policy: '',
       })
       refundPolicyTemplateService.getDefault()
@@ -260,6 +272,7 @@ export default function AdminEbookDetail() {
         thumbnail_url: editing.thumbnail_url ?? null,
         landing_image_url: ((editing.landing_image_urls as string[]) ?? [])[0] ?? null,
         landing_image_urls: (editing.landing_image_urls as string[]) ?? [],
+        landing_image_links: (editing.landing_image_links as string[]) ?? [],
         file_url: editing.file_url ?? null,
         open_date: editing.open_date ?? null,
         close_date: editing.close_date ?? null,
@@ -488,9 +501,11 @@ export default function AdminEbookDetail() {
                   bucket="ebooks"
                   pathPrefix={`${ebookId ?? 'new'}/landing`}
                   values={(editing.landing_image_urls as string[]) || []}
-                  onChange={(urls) => setEditing({ ...editing, landing_image_urls: urls })}
+                  links={(editing.landing_image_links as string[]) || []}
+                  enableLinks
+                  onChange={(urls, links) => setEditing({ ...editing, landing_image_urls: urls, landing_image_links: links })}
                   compress={false}
-                  helperText="여러 장을 선택하면 한 번에 업로드됩니다. 위→아래 순서로 전자책 상세 페이지에 표시됩니다. 원본 그대로 업로드됩니다 (자동 리사이징 없음)."
+                  helperText="여러 장을 선택하면 한 번에 업로드됩니다. 위→아래 순서로 전자책 상세 페이지에 표시됩니다. 각 이미지에 링크를 넣으면 클릭 시 해당 페이지로 이동합니다."
                 />
               </div>
               <div className="w-full">

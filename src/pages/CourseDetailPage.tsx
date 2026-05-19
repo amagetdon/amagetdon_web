@@ -606,6 +606,7 @@ function CourseDetailPage() {
                 const urls = (course.landing_image_urls && course.landing_image_urls.length > 0)
                   ? course.landing_image_urls
                   : (course.landing_image_url ? [course.landing_image_url] : [])
+                const links = course.landing_image_links ?? []
                 if (urls.length === 0) {
                   return (
                     <div className={`bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center overflow-hidden ${course.video_url ? 'mt-6' : ''}`}>
@@ -615,9 +616,15 @@ function CourseDetailPage() {
                 }
                 return (
                   <div className={`bg-gray-100 rounded-xl overflow-hidden ${course.video_url ? 'mt-6' : ''}`}>
-                    {urls.map((url, idx) => (
-                      <img key={`${url}-${idx}`} src={url} alt={`${course.title} 상세 ${idx + 1}`} className="w-full block" />
-                    ))}
+                    {urls.map((url, idx) => {
+                      const key = `${url}-${idx}`
+                      const link = (links[idx] || '').trim()
+                      const img = <img src={url} alt={`${course.title} 상세 ${idx + 1}`} className="w-full block" />
+                      if (!link) return <Fragment key={key}>{img}</Fragment>
+                      // 내부 경로(/...)는 SPA 이동, 그 외(http 등)는 새 탭으로 연다.
+                      if (link.startsWith('/')) return <Link key={key} to={link} className="block">{img}</Link>
+                      return <a key={key} href={link} target="_blank" rel="noopener noreferrer" className="block">{img}</a>
+                    })}
                   </div>
                 )
               })()}
