@@ -18,6 +18,9 @@ export default function AdminReviews() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [search, setSearch] = useState('')
+  const [courseFilter, setCourseFilter] = useState<number | 'all'>('all')
+  const [ratingFilter, setRatingFilter] = useState<number | 'all'>('all')
+  const [page, setPage] = useState(0)
   const [courseSearch, setCourseSearch] = useState('')
   const [bulkOpen, setBulkOpen] = useState(false)
 
@@ -25,7 +28,7 @@ export default function AdminReviews() {
     try {
       setLoading(true)
       const [r, c] = await withTimeout(Promise.all([
-        reviewService.getAll({ perPage: 50 }),
+        reviewService.getAll({ perPage: 1000 }),
         courseService.getAll(),
       ]))
       setReviews(r.data)
@@ -53,8 +56,9 @@ export default function AdminReviews() {
     try {
       setSaving(true)
       if (editing.id) {
-        const { id, created_at, course, ...updates } = editing
-        void created_at; void course
+        // is_low_rating 은 rating 으로부터 자동 계산되는 generated column — 업데이트 대상에서 제외
+        const { id, created_at, course, is_low_rating, ...updates } = editing
+        void created_at; void course; void is_low_rating
         await reviewService.update(id as number, updates)
         toast.success('후기가 수정되었습니다.')
       } else {
@@ -92,7 +96,16 @@ export default function AdminReviews() {
     }
   }
 
-  const filtered = reviews.filter((r) => r.author_name.includes(search) || r.title.includes(search))
+  const filtered = reviews.filter((r) =>
+    (r.author_name.includes(search) || r.title.includes(search))
+    && (courseFilter === 'all' || r.course_id === courseFilter)
+    && (ratingFilter === 'all' || r.rating === ratingFilter),
+  )
+  const PER_PAGE = 20
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const pageClamped = Math.min(page, totalPages - 1)
+  const paged = filtered.slice(pageClamped * PER_PAGE, (pageClamped + 1) * PER_PAGE)
+  useEffect(() => { setPage(0) }, [search, courseFilter, ratingFilter])
 
   return (
     <AdminLayout>
@@ -114,8 +127,8 @@ export default function AdminReviews() {
         </div>
       </div>
 
-      <div className="mb-4">
-        <div className="relative max-w-xs">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
           <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
           <input
             value={search}
@@ -124,6 +137,34 @@ export default function AdminReviews() {
             className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
           />
         </div>
+        <select
+          value={courseFilter}
+          onChange={(e) => setCourseFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+          className="py-2 px-3 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573] cursor-pointer max-w-[240px]"
+        >
+          <option value="all">전체 강의</option>
+          {courses.map((c) => (
+            <option key={c.id} value={c.id}>{c.title}</option>
+          ))}
+        </select>
+        <select
+          value={ratingFilter}
+          onChange={(e) => setRatingFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+          className="py-2 px-3 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573] cursor-pointer"
+        >
+          <option value="all">전체 별점</option>
+          {[5, 4, 3, 2, 1].map((n) => (
+            <option key={n} value={n}>{n}점</option>
+          ))}
+        </select>
+        {(search || courseFilter !== 'all' || ratingFilter !== 'all') && (
+          <button
+            onClick={() => { setSearch(''); setCourseFilter('all'); setRatingFilter('all') }}
+            className="py-2 px-3 text-sm text-gray-500 bg-transparent border-none cursor-pointer hover:text-gray-800"
+          >
+            필터 초기화
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -131,12 +172,14 @@ export default function AdminReviews() {
           {[1, 2, 3].map((i) => <div key={i} className="animate-pulse h-12 bg-gray-100 rounded" />)}
         </div>
       ) : (
+        <>
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">작성자</th>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">제목</th>
+                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">강의명</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">별점</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">날짜</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
@@ -144,11 +187,12 @@ export default function AdminReviews() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filtered.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 후기가 없습니다.'}</td></tr>
-              ) : filtered.map((r) => (
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 후기가 없습니다.'}</td></tr>
+              ) : paged.map((r) => (
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{r.author_name}</td>
                   <td className="px-4 py-3 text-gray-700">{r.title}</td>
+                  <td className="px-4 py-3 text-gray-500 max-sm:hidden">{r.course?.title ?? '-'}</td>
                   <td className="px-4 py-3 text-center text-yellow-500 max-sm:hidden">{'★'.repeat(r.rating)}</td>
                   <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{new Date(r.created_at).toLocaleDateString('ko-KR')}</td>
                   <td className="px-4 py-3 text-center">
@@ -174,6 +218,42 @@ export default function AdminReviews() {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-1 mt-4">
+            <button
+              onClick={() => setPage(Math.max(0, pageClamped - 1))}
+              disabled={pageClamped === 0}
+              className="px-3 py-1.5 rounded-lg text-sm text-gray-500 bg-white border border-gray-200 cursor-pointer hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              이전
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i)
+              .filter((i) => Math.abs(i - pageClamped) <= 2 || i === 0 || i === totalPages - 1)
+              .map((i, idx, arr) => (
+                <span key={i} className="flex items-center">
+                  {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-1 text-gray-300 text-sm">…</span>}
+                  <button
+                    onClick={() => setPage(i)}
+                    className={`min-w-[32px] px-2 py-1.5 rounded-lg text-sm cursor-pointer border ${
+                      i === pageClamped
+                        ? 'bg-[#2ED573] text-white border-[#2ED573] font-bold'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                </span>
+              ))}
+            <button
+              onClick={() => setPage(Math.min(totalPages - 1, pageClamped + 1))}
+              disabled={pageClamped >= totalPages - 1}
+              className="px-3 py-1.5 rounded-lg text-sm text-gray-500 bg-white border border-gray-200 cursor-pointer hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              다음
+            </button>
+          </div>
+        )}
+        </>
       )}
 
       <AdminFormModal isOpen={!!editing} onClose={() => setEditing(null)} title={editing?.id ? '후기 수정' : '새 후기 등록'} onSubmit={handleSave} loading={saving}>
@@ -246,7 +326,10 @@ export default function AdminReviews() {
                   </button>
                   {[...courses]
                     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-                    .filter((c) => !courseSearch || c.title.includes(courseSearch) || (c.instructor?.name || '').includes(courseSearch))
+                    .filter((c) => {
+                      const q = courseSearch.trim().toLowerCase()
+                      return !q || c.title.toLowerCase().includes(q) || (c.instructor?.name || '').toLowerCase().includes(q)
+                    })
                     .map((c) => (
                       <button
                         key={c.id}

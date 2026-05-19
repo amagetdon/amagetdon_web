@@ -168,10 +168,11 @@ export default function ReviewBulkUploadModal({ isOpen, onClose, courses, onComp
   const sortedCourses = [...courses].sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   )
+  const courseSearchLower = courseSearch.trim().toLowerCase()
   const filteredCourses = sortedCourses.filter(
-    (c) => !courseSearch
-      || c.title.includes(courseSearch)
-      || (c.instructor?.name || '').includes(courseSearch),
+    (c) => !courseSearchLower
+      || c.title.toLowerCase().includes(courseSearchLower)
+      || (c.instructor?.name || '').toLowerCase().includes(courseSearchLower),
   )
   const selectedCourse = courseId !== '' ? courses.find((c) => c.id === courseId) : undefined
 
