@@ -98,9 +98,9 @@ export default function PurchaseFeed() {
     <div className="h-full w-full flex flex-col bg-white rounded-2xl overflow-hidden min-w-0">
       {/* 헤더 — LIVE 배지(좌) + 구매현황 */}
       <div className="px-5 py-3.5 flex items-center gap-2 shrink-0">
-        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-500 rounded-md leading-none">
-          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-          <span className="text-[10px] font-bold text-white">LIVE</span>
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-500 rounded-md leading-none">
+          <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          <span className="text-sm font-bold text-white">LIVE</span>
         </span>
         <p className="text-base font-bold text-gray-900">구매현황</p>
       </div>
