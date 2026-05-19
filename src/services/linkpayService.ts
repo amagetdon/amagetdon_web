@@ -60,16 +60,36 @@ export const linkpayService = {
     if (error) throw error
   },
 
-  /** 토스 링크페이 상품 전체 조회 */
-  async fetchTossProducts(): Promise<TossProduct[]> {
+  /** DB 캐시에 저장된 토스 상품 목록 (페이지 로드 시 즉시 표시용) */
+  async getCachedProducts(): Promise<TossProduct[]> {
+    const { data, error } = await supabase
+      .from('linkpay_products')
+      .select('product_key, name, amount, thumbnail, status, toss_created_at')
+      .order('toss_created_at', { ascending: false, nullsFirst: false })
+    if (error) throw error
+    return (data ?? []).map((r) => {
+      const row = r as Record<string, unknown>
+      return {
+        productKey: row.product_key as string,
+        name: (row.name as string) ?? '',
+        amount: (row.amount as number) ?? 0,
+        thumbnail: (row.thumbnail as string) ?? null,
+        status: (row.status as string) ?? null,
+        createdAt: (row.toss_created_at as string) ?? null,
+      }
+    })
+  },
+
+  /** 토스에서 신규 상품만 추가 조회해 캐시에 저장하고, 캐시 전체를 반환 */
+  async syncTossProducts(): Promise<{ products: TossProduct[]; newCount: number }> {
     const { data, error } = await supabase.functions.invoke('linkpay-products')
     if (error) {
       const msg = (data as { error?: string } | null)?.error
       throw new Error(msg || error.message)
     }
-    const payload = (data as { products?: TossProduct[]; error?: string }) ?? {}
+    const payload = (data as { products?: TossProduct[]; error?: string; newCount?: number }) ?? {}
     if (payload.error) throw new Error(payload.error)
-    return payload.products ?? []
+    return { products: payload.products ?? [], newCount: payload.newCount ?? 0 }
   },
 
   async getPayments(): Promise<LinkpayPayment[]> {

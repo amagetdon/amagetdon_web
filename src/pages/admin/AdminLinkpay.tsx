@@ -61,14 +61,16 @@ export default function AdminLinkpay() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [l, p, c] = await withTimeout(Promise.all([
+      const [l, p, c, cached] = await withTimeout(Promise.all([
         linkpayService.getLinks(),
         linkpayService.getPayments(),
         courseService.getAll(),
+        linkpayService.getCachedProducts(),
       ]))
       setLinks(l)
       setPayments(p)
       setCourses(c)
+      setTossProducts(cached)
     } catch {
       toast.error('데이터를 불러오는데 실패했습니다.')
     } finally {
@@ -81,15 +83,14 @@ export default function AdminLinkpay() {
 
   const courseTitle = (id: number | null) => courses.find((c) => c.id === id)?.title ?? (id ? `#${id}` : '-')
 
-  const loadTossProducts = async () => {
+  const handleSyncProducts = async () => {
     try {
       setLoadingTossProducts(true)
-      const products = await linkpayService.fetchTossProducts()
-      products.sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''))
+      const { products, newCount } = await linkpayService.syncTossProducts()
       setTossProducts(products)
-      if (products.length === 0) toast('불러올 토스 상품이 없습니다.')
+      toast.success(newCount > 0 ? `신규 상품 ${newCount}건을 가져왔습니다.` : '신규 상품 없음 (이미 최신)')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : '토스 상품을 불러오지 못했습니다.')
+      toast.error(e instanceof Error ? e.message : '토스 상품 갱신에 실패했습니다.')
     } finally {
       setLoadingTossProducts(false)
     }
@@ -214,12 +215,12 @@ export default function AdminLinkpay() {
             <p className="text-xs text-gray-400 mt-0.5">① 토스 상품 선택 → ② 아래 강의 표에서 연결할 강의의 "연결" 클릭</p>
           </div>
           <button
-            onClick={loadTossProducts}
+            onClick={handleSyncProducts}
             disabled={loadingTossProducts}
             className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50 flex items-center gap-1.5"
           >
-            <i className="ti ti-download text-sm" />
-            {loadingTossProducts ? '불러오는 중...' : '토스 상품 불러오기'}
+            <i className="ti ti-refresh text-sm" />
+            {loadingTossProducts ? '갱신 중...' : '토스 상품 갱신하기'}
           </button>
         </div>
 
@@ -293,14 +294,14 @@ export default function AdminLinkpay() {
         <div className="border border-gray-200 rounded-xl overflow-hidden">
           <div className="max-h-[460px] overflow-y-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 sticky top-0">
+              <thead className="bg-gray-50 sticky top-0 z-20">
                 <tr>
-                  <th className="px-3 py-2.5 text-left font-bold text-gray-600 w-[56px]">썸네일</th>
-                  <th onClick={() => toggleSort('title')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none">강의명{sortArrow('title')}</th>
-                  <th onClick={() => toggleSort('instructor')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none max-sm:hidden">강사{sortArrow('instructor')}</th>
-                  <th onClick={() => toggleSort('price')} className="px-3 py-2.5 text-right font-bold text-gray-600 cursor-pointer select-none max-sm:hidden">가격{sortArrow('price')}</th>
-                  <th onClick={() => toggleSort('created')} className="px-3 py-2.5 text-center font-bold text-gray-600 cursor-pointer select-none max-sm:hidden">등록일{sortArrow('created')}</th>
-                  <th className="px-3 py-2.5 text-center font-bold text-gray-600 w-[90px]">연결</th>
+                  <th className="px-3 py-2.5 text-left font-bold text-gray-600 w-[56px] bg-gray-50">썸네일</th>
+                  <th onClick={() => toggleSort('title')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none bg-gray-50">강의명{sortArrow('title')}</th>
+                  <th onClick={() => toggleSort('instructor')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">강사{sortArrow('instructor')}</th>
+                  <th onClick={() => toggleSort('price')} className="px-3 py-2.5 text-right font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">가격{sortArrow('price')}</th>
+                  <th onClick={() => toggleSort('created')} className="px-3 py-2.5 text-center font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">등록일{sortArrow('created')}</th>
+                  <th className="px-3 py-2.5 text-center font-bold text-gray-600 w-[90px] bg-gray-50">연결</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

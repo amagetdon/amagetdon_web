@@ -932,10 +932,13 @@ export default function AdminMembers() {
                               {p.payment_method === 'toss' && (
                                 <span className="text-[9px] px-1 py-0.5 bg-blue-50 text-blue-600 rounded shrink-0">카드</span>
                               )}
+                              {p.payment_method === 'linkpay' && (
+                                <span className="text-[9px] px-1 py-0.5 bg-emerald-50 text-emerald-600 rounded shrink-0">링크페이</span>
+                              )}
                             </div>
                             <span className="text-[10px] text-gray-400">
                               {(() => {
-                                const unit = p.payment_method === 'toss' ? '원' : 'P'
+                                const unit = (p.payment_method === 'toss' || p.payment_method === 'linkpay') ? '원' : 'P'
                                 if (p.original_price && p.original_price !== p.price) {
                                   return <><span className="line-through">{p.original_price.toLocaleString()}{unit}</span> → <span className="text-[#2ED573] font-bold">{p.price > 0 ? `${p.price.toLocaleString()}${unit}` : '무료'}</span> (쿠폰)</>
                                 }
