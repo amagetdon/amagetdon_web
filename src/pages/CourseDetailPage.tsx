@@ -694,8 +694,8 @@ function CourseDetailPage() {
                     <p className="text-4xl font-extrabold text-gray-900 mt-1">
                       월 {Math.round(displayedPrice / installmentMonths).toLocaleString()}원
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      {installmentMonths}개월 할부 시 · 총 {displayedPrice.toLocaleString()}원
+                    <p className="text-sm text-gray-400 mt-1">
+                      {installmentMonths}개월 할부 시
                     </p>
                   </>
                 ) : (
