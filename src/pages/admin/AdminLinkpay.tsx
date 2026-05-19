@@ -27,6 +27,13 @@ function coursePrice(c: CourseWithInstructor): number {
   return c.sale_price ?? c.original_price ?? 0
 }
 
+// 개인결제창 상품은 토스 기본 플레이스홀더 이미지를 공유한다 (이미지를 직접 올리지 않음).
+// 고유 이미지면 판매상품, 플레이스홀더(또는 이미지 없음)면 개인결제창으로 분류.
+const PERSONAL_PLACEHOLDER = '8dbc0b796336418ba5cbcb6a07b3fcf5'
+function isPersonalProduct(p: TossProduct): boolean {
+  return !p.thumbnail || p.thumbnail.includes(PERSONAL_PLACEHOLDER)
+}
+
 export default function AdminLinkpay() {
   const [links, setLinks] = useState<LinkpayLink[]>([])
   const [payments, setPayments] = useState<LinkpayPayment[]>([])
@@ -216,37 +223,54 @@ export default function AdminLinkpay() {
           </button>
         </div>
 
-        {/* 토스 상품 목록 */}
-        {tossProducts.length > 0 && (
-          <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
-            <p className="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-500">토스 상품 {tossProducts.length}개 — 매핑할 상품을 선택하세요 (최신순)</p>
-            <div className="max-h-[280px] overflow-y-auto divide-y divide-gray-50">
-              {tossProducts.map((p) => {
-                const mapped = productMapping(p.productKey)
-                const selected = selectedProduct?.productKey === p.productKey
-                return (
-                  <button
-                    key={p.productKey}
-                    type="button"
-                    onClick={() => setSelectedProduct(selected ? null : p)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 text-left border-none cursor-pointer transition-colors ${selected ? 'bg-[#2ED573]/10' : 'bg-white hover:bg-gray-50'}`}
-                  >
-                    <div className="w-9 h-9 rounded-md bg-gray-100 overflow-hidden shrink-0">
-                      {p.thumbnail && <img src={p.thumbnail} alt="" className="w-full h-full object-cover" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-800 truncate">{p.name}</p>
-                      <p className="text-[11px] text-gray-400">{p.amount.toLocaleString()}원
-                        {mapped && <span className="text-emerald-600 ml-2"><i className="ti ti-link" /> {courseTitle(mapped.course_id)}</span>}
-                      </p>
-                    </div>
-                    {selected && <i className="ti ti-check text-[#2ED573] shrink-0" />}
-                  </button>
-                )
-              })}
+        {/* 토스 상품 목록 — 판매상품 / 개인결제창 좌우 분리 */}
+        {tossProducts.length > 0 && (() => {
+          const renderBtn = (p: TossProduct) => {
+            const mapped = productMapping(p.productKey)
+            const selected = selectedProduct?.productKey === p.productKey
+            return (
+              <button
+                key={p.productKey}
+                type="button"
+                onClick={() => setSelectedProduct(selected ? null : p)}
+                className={`w-full flex items-center gap-3 px-3 py-2 text-left border-none cursor-pointer transition-colors ${selected ? 'bg-[#2ED573]/10' : 'bg-white hover:bg-gray-50'}`}
+              >
+                <div className="w-9 h-9 rounded-md bg-gray-100 overflow-hidden shrink-0">
+                  {p.thumbnail && <img src={p.thumbnail} alt="" className="w-full h-full object-cover" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-800 truncate">{p.name}</p>
+                  <p className="text-[11px] text-gray-400">{p.amount.toLocaleString()}원
+                    {mapped && <span className="text-emerald-600 ml-2"><i className="ti ti-link" /> {courseTitle(mapped.course_id)}</span>}
+                  </p>
+                </div>
+                {selected && <i className="ti ti-check text-[#2ED573] shrink-0" />}
+              </button>
+            )
+          }
+          const sales = tossProducts.filter((p) => !isPersonalProduct(p))
+          const personal = tossProducts.filter((p) => isPersonalProduct(p))
+          return (
+            <div className="grid grid-cols-2 max-md:grid-cols-1 gap-3 mb-4">
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <p className="px-3 py-2 bg-orange-50 text-xs font-bold text-orange-600">판매상품 {sales.length}개</p>
+                <div className="max-h-[320px] overflow-y-auto divide-y divide-gray-50">
+                  {sales.length === 0
+                    ? <p className="px-3 py-5 text-xs text-gray-400 text-center">없음</p>
+                    : sales.map(renderBtn)}
+                </div>
+              </div>
+              <div className="border border-gray-200 rounded-xl overflow-hidden">
+                <p className="px-3 py-2 bg-blue-50 text-xs font-bold text-blue-600">개인결제창 {personal.length}개</p>
+                <div className="max-h-[320px] overflow-y-auto divide-y divide-gray-50">
+                  {personal.length === 0
+                    ? <p className="px-3 py-5 text-xs text-gray-400 text-center">없음</p>
+                    : personal.map(renderBtn)}
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {selectedProduct && (
           <div className="flex items-center gap-2 mb-3 bg-[#2ED573]/10 border border-[#2ED573]/30 rounded-lg px-3 py-2">
