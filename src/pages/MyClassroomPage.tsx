@@ -69,7 +69,8 @@ const formatKoDateTime = (iso: string | null | undefined) => {
   })
 }
 
-type TabType = 'all' | 'courses' | 'ebooks' | 'replay' | 'expired'
+type CourseTab = 'progressing' | 'replay' | 'expired'
+type EbookTab = 'active' | 'expired'
 
 function MyClassroomPage() {
   const navigate = useNavigate()
@@ -82,7 +83,8 @@ function MyClassroomPage() {
   const [coursePurchases, setCoursePurchases] = useState<CoursePurchase[]>([])
   const [ebookPurchases, setEbookPurchases] = useState<EbookPurchase[]>([])
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<TabType>('all')
+  const [courseTab, setCourseTab] = useState<CourseTab>('progressing')
+  const [ebookTab, setEbookTab] = useState<EbookTab>('active')
   const [completedItems, setCompletedItems] = useState<Record<number, Set<number>>>({})
   const [completionRates, setCompletionRates] = useState<Record<number, number>>({})
   const [togglingItems, setTogglingItems] = useState<Set<number>>(new Set())
@@ -237,34 +239,20 @@ function MyClassroomPage() {
   const progressingCourses = coursePurchases.filter((p) => courseStatus(p) === 'progressing')
   const replayCourses = coursePurchases.filter((p) => courseStatus(p) === 'replay')
   const expiredCourses = coursePurchases.filter((p) => courseStatus(p) === 'expired')
-  const activeCourses = coursePurchases.filter((p) => courseStatus(p) !== 'expired')
   const activeEbooks = ebookPurchases.filter((p) => !ebookExpired(p))
   const expiredEbooks = ebookPurchases.filter((p) => ebookExpired(p))
-  const expiredCount = expiredCourses.length + expiredEbooks.length
 
-  const tabs: { key: TabType; label: string }[] = [
-    { key: 'all', label: '진행 중' },
-    { key: 'courses', label: `강의 (${activeCourses.length})` },
-    { key: 'ebooks', label: `전자책 (${activeEbooks.length})` },
+  const courseTabs = [
+    { key: 'progressing' as const, label: `진행 중 (${progressingCourses.length})`, list: progressingCourses },
+    { key: 'replay' as const, label: `다시보기 (${replayCourses.length})`, list: replayCourses },
+    { key: 'expired' as const, label: `만료됨 (${expiredCourses.length})`, list: expiredCourses },
   ]
-
-  const isEmpty = coursePurchases.length === 0 && ebookPurchases.length === 0
-
-  // 현재 탭에 표시할 항목
-  let viewCourses: CoursePurchase[] = []
-  let viewEbooks: EbookPurchase[] = []
-  let emptyMsg = ''
-  if (tab === 'all') {
-    viewCourses = progressingCourses; viewEbooks = activeEbooks; emptyMsg = '진행 중인 강의·전자책이 없습니다.'
-  } else if (tab === 'courses') {
-    viewCourses = activeCourses; emptyMsg = '강의가 없습니다.'
-  } else if (tab === 'ebooks') {
-    viewEbooks = activeEbooks; emptyMsg = '전자책이 없습니다.'
-  } else if (tab === 'replay') {
-    viewCourses = replayCourses; emptyMsg = '다시보기 가능한 강의가 없습니다.'
-  } else {
-    viewCourses = expiredCourses; viewEbooks = expiredEbooks; emptyMsg = '만료된 항목이 없습니다.'
-  }
+  const ebookTabs = [
+    { key: 'active' as const, label: `진행 중 (${activeEbooks.length})`, list: activeEbooks },
+    { key: 'expired' as const, label: `만료됨 (${expiredEbooks.length})`, list: expiredEbooks },
+  ]
+  const courseList = courseTabs.find((t) => t.key === courseTab)?.list ?? []
+  const ebookList = ebookTabs.find((t) => t.key === ebookTab)?.list ?? []
 
   const renderCourse = (purchase: CoursePurchase) => {
     const course = purchase.course
@@ -521,6 +509,37 @@ function MyClassroomPage() {
     )
   }
 
+  // 상태 탭 버튼 — danger=true 면 빨간색(만료됨), 아니면 일반(회색/그린)
+  const statusTabButton = (key: string, label: string, active: boolean, danger: boolean, onClick: () => void) => (
+    <button
+      key={key}
+      onClick={onClick}
+      className={`px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
+        active
+          ? (danger ? 'text-red-500 -mb-px' : 'text-[#2ED573] -mb-px')
+          : (danger ? 'text-red-400/80 hover:text-red-500' : 'text-gray-400 hover:text-gray-600')
+      }`}
+      style={active ? { borderBottom: `2px solid ${danger ? '#ef4444' : '#2ED573'}`, marginBottom: '-1px' } : {}}
+    >
+      {label}
+    </button>
+  )
+
+  const courseSkeleton = (
+    <div className="animate-pulse space-y-8">
+      {[1, 2].map((i) => (
+        <div key={i} className="flex items-start gap-6">
+          <div className="bg-gray-200 rounded-xl w-[300px] aspect-video" />
+          <div className="flex-1 space-y-3">
+            <div className="h-6 bg-gray-200 rounded w-24" />
+            <div className="h-5 bg-gray-200 rounded w-3/4" />
+            <div className="h-4 bg-gray-200 rounded w-1/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
   return (
     <>
       <div className="bg-black h-[200px] w-full" />
@@ -554,69 +573,47 @@ function MyClassroomPage() {
             </div>
           </div>
         )}
+        {/* 내 강의실 */}
         <h1 className="text-3xl font-bold mt-16 mb-6">내 강의실</h1>
 
-        {/* 탭 */}
-        <div className="flex gap-2 mb-8 border-b border-gray-200">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
-                tab === t.key
-                  ? 'text-[#2ED573] border-b-2 border-[#2ED573] -mb-px'
-                  : 'text-gray-400 hover:text-gray-600'
-              }`}
-              style={tab === t.key ? { borderBottom: '2px solid #2ED573', marginBottom: '-1px' } : {}}
-            >
-              {t.label}
-            </button>
-          ))}
-          <button
-            onClick={() => setTab('replay')}
-            className={`ml-auto px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
-              tab === 'replay'
-                ? 'text-[#2ED573] border-b-2 border-[#2ED573] -mb-px'
-                : 'text-gray-400 hover:text-gray-600'
-            }`}
-            style={tab === 'replay' ? { borderBottom: '2px solid #2ED573', marginBottom: '-1px' } : {}}
-          >
-            다시보기 ({replayCourses.length})
-          </button>
-          <button
-            onClick={() => setTab('expired')}
-            className={`px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
-              tab === 'expired'
-                ? 'text-red-500 border-b-2 border-red-500 -mb-px'
-                : 'text-red-400/80 hover:text-red-500'
-            }`}
-            style={tab === 'expired' ? { borderBottom: '2px solid #ef4444', marginBottom: '-1px' } : {}}
-          >
-            만료됨 ({expiredCount})
-          </button>
-        </div>
-
         {loading ? (
-          <div className="animate-pulse space-y-8">
-            {[1, 2].map((i) => (
-              <div key={i} className="flex items-start gap-6">
-                <div className="bg-gray-200 rounded-xl w-[300px] aspect-video" />
-                <div className="flex-1 space-y-3">
-                  <div className="h-6 bg-gray-200 rounded w-24" />
-                  <div className="h-5 bg-gray-200 rounded w-3/4" />
-                  <div className="h-4 bg-gray-200 rounded w-1/3" />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : isEmpty ? (
-          <div className="text-center text-gray-400 py-20">구매한 강의/전자책이 없습니다.</div>
-        ) : viewCourses.length + viewEbooks.length === 0 ? (
-          <div className="text-center text-gray-400 py-20">{emptyMsg}</div>
+          courseSkeleton
         ) : (
           <>
-            {viewCourses.map(renderCourse)}
-            {viewEbooks.map(renderEbook)}
+            <div className="flex gap-2 mb-8 border-b border-gray-200">
+              {courseTabs.map((t) =>
+                statusTabButton(t.key, t.label, courseTab === t.key, t.key === 'expired', () => setCourseTab(t.key)),
+              )}
+            </div>
+            {coursePurchases.length === 0 ? (
+              <div className="text-center text-gray-400 py-16">구매한 강의가 없습니다.</div>
+            ) : courseList.length === 0 ? (
+              <div className="text-center text-gray-400 py-16">해당하는 강의가 없습니다.</div>
+            ) : (
+              courseList.map(renderCourse)
+            )}
+          </>
+        )}
+
+        {/* 내 전자책 */}
+        <h1 className="text-3xl font-bold mt-20 pt-12 border-t border-gray-200 mb-6">내 전자책</h1>
+
+        {loading ? (
+          courseSkeleton
+        ) : (
+          <>
+            <div className="flex gap-2 mb-8 border-b border-gray-200">
+              {ebookTabs.map((t) =>
+                statusTabButton(t.key, t.label, ebookTab === t.key, t.key === 'expired', () => setEbookTab(t.key)),
+              )}
+            </div>
+            {ebookPurchases.length === 0 ? (
+              <div className="text-center text-gray-400 py-16">구매한 전자책이 없습니다.</div>
+            ) : ebookList.length === 0 ? (
+              <div className="text-center text-gray-400 py-16">해당하는 전자책이 없습니다.</div>
+            ) : (
+              ebookList.map(renderEbook)
+            )}
           </>
         )}
       </div>
