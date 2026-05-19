@@ -14,6 +14,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/u/(.*)", "destination": "https://umami-ama.vercel.app/$1" },
     { "source": "/assets/(.*)", "destination": "/assets/$1" },
     { "source": "/version.json", "destination": "/version.json" },
     { "source": "/(.*)", "destination": "/" }
