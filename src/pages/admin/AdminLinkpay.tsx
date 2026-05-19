@@ -11,6 +11,7 @@ import { linkpayService, type LinkpayLink, type LinkpayPayment, type TossProduct
 import type { CourseWithInstructor } from '../../types'
 
 interface MemberHit { id: string; name: string | null; phone: string | null; email: string | null }
+type CourseSortKey = 'title' | 'instructor' | 'price' | 'created'
 
 /** 강의 마감일·수강기간 기준 수강권 만료일 (AdminMembers 수동 부여와 동일 규칙) */
 function courseExpiry(course: CourseWithInstructor | undefined): string | null {
@@ -22,27 +23,29 @@ function courseExpiry(course: CourseWithInstructor | undefined): string | null {
   return null
 }
 
+function coursePrice(c: CourseWithInstructor): number {
+  return c.sale_price ?? c.original_price ?? 0
+}
+
 export default function AdminLinkpay() {
   const [links, setLinks] = useState<LinkpayLink[]>([])
   const [payments, setPayments] = useState<LinkpayPayment[]>([])
   const [courses, setCourses] = useState<CourseWithInstructor[]>([])
   const [loading, setLoading] = useState(true)
 
-  // 링크 매핑 추가 모달
-  const [linkModalOpen, setLinkModalOpen] = useState(false)
-  const [linkSaving, setLinkSaving] = useState(false)
-  const [newProductKey, setNewProductKey] = useState('')
-  const [newCourseId, setNewCourseId] = useState<number | ''>('')
-  const [newLabel, setNewLabel] = useState('')
-  const [linkCourseSearch, setLinkCourseSearch] = useState('')
-  const [deleteLinkId, setDeleteLinkId] = useState<number | null>(null)
-  const [tossProducts, setTossProducts] = useState<TossProduct[]>([])
-  const [loadingTossProducts, setLoadingTossProducts] = useState(false)
-
   // 토스 대시보드 쿠키
   const [cookieSet, setCookieSet] = useState(false)
   const [cookieInput, setCookieInput] = useState('')
   const [savingCookie, setSavingCookie] = useState(false)
+
+  // 매핑 만들기
+  const [tossProducts, setTossProducts] = useState<TossProduct[]>([])
+  const [loadingTossProducts, setLoadingTossProducts] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState<TossProduct | null>(null)
+  const [creatingLink, setCreatingLink] = useState(false)
+  const [courseSearch, setCourseSearch] = useState('')
+  const [courseSort, setCourseSort] = useState<{ key: CourseSortKey; dir: 'asc' | 'desc' }>({ key: 'created', dir: 'desc' })
+  const [deleteLinkId, setDeleteLinkId] = useState<number | null>(null)
 
   // 수동 부여 모달
   const [grantTarget, setGrantTarget] = useState<LinkpayPayment | null>(null)
@@ -78,28 +81,6 @@ export default function AdminLinkpay() {
 
   const courseTitle = (id: number | null) => courses.find((c) => c.id === id)?.title ?? (id ? `#${id}` : '-')
 
-  const handleCreateLink = async () => {
-    if (!newProductKey.trim()) { toast.error('productKey를 입력해주세요.'); return }
-    if (newCourseId === '') { toast.error('강의를 선택해주세요.'); return }
-    try {
-      setLinkSaving(true)
-      await linkpayService.createLink({
-        product_key: newProductKey.trim(),
-        course_id: newCourseId as number,
-        ebook_id: null,
-        label: newLabel.trim() || null,
-      })
-      toast.success('링크 매핑이 추가되었습니다.')
-      setLinkModalOpen(false)
-      setNewProductKey(''); setNewCourseId(''); setNewLabel(''); setLinkCourseSearch('')
-      await fetchData()
-    } catch {
-      toast.error('추가에 실패했습니다. (productKey 중복 여부 확인)')
-    } finally {
-      setLinkSaving(false)
-    }
-  }
-
   const handleSaveCookie = async () => {
     if (!cookieInput.trim()) { toast.error('쿠키 값을 붙여넣어 주세요.'); return }
     try {
@@ -118,9 +99,12 @@ export default function AdminLinkpay() {
   const loadTossProducts = async () => {
     try {
       setLoadingTossProducts(true)
-      const list = await linkpayService.fetchTossProducts()
-      setTossProducts(list)
-      if (list.length === 0) toast('불러올 토스 상품이 없습니다.')
+      const { products, salesWarning } = await linkpayService.fetchTossProducts()
+      // 판매상품 먼저, 개인결제창 다음
+      products.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === '판매상품' ? -1 : 1))
+      setTossProducts(products)
+      if (salesWarning) toast(salesWarning, { icon: 'ℹ️', duration: 5000 })
+      if (products.length === 0) toast('불러올 토스 상품이 없습니다.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '토스 상품을 불러오지 못했습니다.')
     } finally {
@@ -128,12 +112,24 @@ export default function AdminLinkpay() {
     }
   }
 
-  const openLinkModalWith = (productKey: string) => {
-    setNewProductKey(productKey)
-    setNewCourseId('')
-    setNewLabel('')
-    setLinkCourseSearch('')
-    setLinkModalOpen(true)
+  const createMapping = async (course: CourseWithInstructor) => {
+    if (!selectedProduct) { toast.error('먼저 토스 상품을 선택하세요.'); return }
+    try {
+      setCreatingLink(true)
+      await linkpayService.createLink({
+        product_key: selectedProduct.productKey,
+        course_id: course.id,
+        ebook_id: null,
+        label: selectedProduct.name || null,
+      })
+      toast.success(`"${selectedProduct.name}" → "${course.title}" 매핑 완료`)
+      setSelectedProduct(null)
+      await fetchData()
+    } catch {
+      toast.error('매핑에 실패했습니다.')
+    } finally {
+      setCreatingLink(false)
+    }
   }
 
   const handleDeleteLink = async () => {
@@ -196,9 +192,26 @@ export default function AdminLinkpay() {
     }
   }
 
-  const filteredLinkCourses = [...courses]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .filter((c) => !linkCourseSearch || c.title.includes(linkCourseSearch) || (c.instructor?.name || '').includes(linkCourseSearch))
+  // 토스 상품 → 매핑된 강의
+  const productMapping = (productKey: string) => links.find((l) => l.product_key === productKey)
+
+  const displayCourses = [...courses]
+    .filter((c) => !courseSearch || c.title.includes(courseSearch) || (c.instructor?.name || '').includes(courseSearch))
+    .sort((a, b) => {
+      const dir = courseSort.dir === 'asc' ? 1 : -1
+      switch (courseSort.key) {
+        case 'title': return dir * a.title.localeCompare(b.title)
+        case 'instructor': return dir * (a.instructor?.name || '').localeCompare(b.instructor?.name || '')
+        case 'price': return dir * (coursePrice(a) - coursePrice(b))
+        default: return dir * (new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      }
+    })
+
+  const toggleSort = (key: CourseSortKey) =>
+    setCourseSort((s) => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }))
+
+  const sortArrow = (key: CourseSortKey) => courseSort.key === key ? (courseSort.dir === 'asc' ? ' ▲' : ' ▼') : ''
+
   const filteredGrantCourses = [...courses]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .filter((c) => !grantCourseSearch || c.title.includes(grantCourseSearch) || (c.instructor?.name || '').includes(grantCourseSearch))
@@ -210,16 +223,8 @@ export default function AdminLinkpay() {
         <p className="text-sm text-gray-400 mt-0.5">토스 링크페이로 결제하면 수강권이 자동 부여됩니다. 링크별 강의 매핑을 등록하세요.</p>
       </div>
 
-      <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-900">
-        <p className="font-bold mb-1"><i className="ti ti-info-circle mr-1" />동작 방식</p>
-        <p className="text-xs text-blue-800/80 leading-relaxed">
-          링크페이 결제 완료 → 웹훅 수신 → <b>productKey로 강의 식별</b> → <b>결제자 전화번호로 회원 매칭</b> → 수강권 자동 부여.
-          강의 매핑이 없거나 전화번호가 일치하는 회원이 없으면 아래 "결제 내역"에 미부여로 남고, 수동 부여할 수 있습니다.
-        </p>
-      </div>
-
-      {/* 토스 대시보드 연결 (상품 목록 조회용 쿠키) */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-8">
+      {/* 토스 대시보드 연결 */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-6">
         <div className="flex items-center gap-2 mb-1">
           <h2 className="font-bold text-gray-900">토스 대시보드 연결</h2>
           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${cookieSet ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
@@ -227,9 +232,9 @@ export default function AdminLinkpay() {
           </span>
         </div>
         <p className="text-xs text-gray-400 mb-3 leading-relaxed">
-          매핑 추가 시 "토스 상품 목록 불러오기"를 쓰려면 토스 대시보드 세션 쿠키가 필요합니다.
+          <b>개인결제창</b> 상품은 쿠키 없이 조회됩니다. <b>판매상품(38개)</b>은 쿠키 인증 API로만 조회 가능해서 쿠키가 필요합니다.
           토스 대시보드 로그인 상태에서 개발자도구(F12) → Network → 아무 요청의 <b>Request Headers</b> 중 <code className="bg-gray-100 px-1 rounded">cookie</code> 값 전체를 복사해 붙여넣으세요.
-          쿠키가 만료되면 "불러오기"가 실패하니 그때 다시 붙여넣으면 됩니다.
+          쿠키 만료 시 판매상품 조회가 실패하니 그때 다시 붙여넣으면 됩니다.
         </p>
         <div className="flex gap-2 max-sm:flex-col">
           <textarea
@@ -249,37 +254,151 @@ export default function AdminLinkpay() {
         </div>
       </div>
 
-      {/* 링크 매핑 */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-8">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h2 className="font-bold text-gray-900">링크 ↔ 강의 매핑 <span className="text-gray-400 font-normal">({links.length})</span></h2>
+      {/* 매핑 만들기 */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-8">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 className="font-bold text-gray-900">링크 ↔ 강의 매핑 만들기</h2>
+            <p className="text-xs text-gray-400 mt-0.5">① 토스 상품 선택 → ② 아래 강의 표에서 연결할 강의의 "연결" 클릭</p>
+          </div>
           <button
-            onClick={() => setLinkModalOpen(true)}
-            className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors flex items-center gap-1.5"
+            onClick={loadTossProducts}
+            disabled={loadingTossProducts}
+            className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors disabled:opacity-50 flex items-center gap-1.5"
           >
-            <i className="ti ti-plus text-sm" /> 매핑 추가
+            <i className="ti ti-download text-sm" />
+            {loadingTossProducts ? '불러오는 중...' : '토스 상품 불러오기'}
           </button>
         </div>
-        {loading ? (
-          <div className="p-4 space-y-2">{[1, 2].map((i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
-        ) : links.length === 0 ? (
-          <p className="px-5 py-10 text-center text-sm text-gray-400">등록된 링크 매핑이 없습니다.</p>
+
+        {/* 토스 상품 목록 */}
+        {tossProducts.length > 0 && (
+          <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
+            <p className="px-3 py-2 bg-gray-50 text-xs font-bold text-gray-500">토스 상품 {tossProducts.length}개 — 매핑할 상품을 선택하세요 (최신순)</p>
+            <div className="max-h-[280px] overflow-y-auto divide-y divide-gray-50">
+              {tossProducts.map((p) => {
+                const mapped = productMapping(p.productKey)
+                const selected = selectedProduct?.productKey === p.productKey
+                return (
+                  <button
+                    key={p.productKey}
+                    type="button"
+                    onClick={() => setSelectedProduct(selected ? null : p)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left border-none cursor-pointer transition-colors ${selected ? 'bg-[#2ED573]/10' : 'bg-white hover:bg-gray-50'}`}
+                  >
+                    <div className="w-9 h-9 rounded-md bg-gray-100 overflow-hidden shrink-0">
+                      {p.thumbnail && <img src={p.thumbnail} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-800 truncate">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded mr-1.5 font-bold align-middle ${p.kind === '판매상품' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'}`}>{p.kind}</span>
+                        {p.name}
+                      </p>
+                      <p className="text-[11px] text-gray-400">{p.amount.toLocaleString()}원
+                        {mapped && <span className="text-emerald-600 ml-2"><i className="ti ti-link" /> {courseTitle(mapped.course_id)}</span>}
+                      </p>
+                    </div>
+                    {selected && <i className="ti ti-check text-[#2ED573] shrink-0" />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {selectedProduct && (
+          <div className="flex items-center gap-2 mb-3 bg-[#2ED573]/10 border border-[#2ED573]/30 rounded-lg px-3 py-2">
+            <i className="ti ti-arrow-down text-[#2ED573]" />
+            <span className="text-sm text-gray-700">선택됨: <b>{selectedProduct.name}</b> — 아래 강의 표에서 연결할 강의를 고르세요</span>
+            <button onClick={() => setSelectedProduct(null)} className="ml-auto text-xs text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer">선택 해제</button>
+          </div>
+        )}
+
+        {/* 강의 테이블 */}
+        <div className="relative mb-2 max-w-xs">
+          <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+          <input
+            value={courseSearch}
+            onChange={(e) => setCourseSearch(e.target.value)}
+            placeholder="강의 검색..."
+            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
+          />
+        </div>
+        <div className="border border-gray-200 rounded-xl overflow-hidden">
+          <div className="max-h-[460px] overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-3 py-2.5 text-left font-bold text-gray-600 w-[56px]">썸네일</th>
+                  <th onClick={() => toggleSort('title')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none">강의명{sortArrow('title')}</th>
+                  <th onClick={() => toggleSort('instructor')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none max-sm:hidden">강사{sortArrow('instructor')}</th>
+                  <th onClick={() => toggleSort('price')} className="px-3 py-2.5 text-right font-bold text-gray-600 cursor-pointer select-none max-sm:hidden">가격{sortArrow('price')}</th>
+                  <th onClick={() => toggleSort('created')} className="px-3 py-2.5 text-center font-bold text-gray-600 cursor-pointer select-none max-sm:hidden">등록일{sortArrow('created')}</th>
+                  <th className="px-3 py-2.5 text-center font-bold text-gray-600 w-[90px]">연결</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">불러오는 중...</td></tr>
+                ) : displayCourses.length === 0 ? (
+                  <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">강의가 없습니다.</td></tr>
+                ) : displayCourses.map((c) => {
+                  const mappedCount = links.filter((l) => l.course_id === c.id).length
+                  return (
+                    <tr key={c.id} className="hover:bg-gray-50">
+                      <td className="px-3 py-2">
+                        <div className="w-10 h-10 rounded-md bg-gray-100 overflow-hidden">
+                          {c.thumbnail_url && <img src={c.thumbnail_url} alt="" className="w-full h-full object-cover" />}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-gray-800">
+                        {c.title}
+                        {mappedCount > 0 && <span className="ml-1.5 text-[11px] text-emerald-600 whitespace-nowrap"><i className="ti ti-link" />{mappedCount}</span>}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500 max-sm:hidden whitespace-nowrap">{c.instructor?.name || '-'}</td>
+                      <td className="px-3 py-2 text-right text-gray-600 max-sm:hidden whitespace-nowrap">{coursePrice(c).toLocaleString()}원</td>
+                      <td className="px-3 py-2 text-center text-gray-400 text-xs max-sm:hidden whitespace-nowrap">{new Date(c.created_at).toLocaleDateString('ko-KR')}</td>
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          onClick={() => createMapping(c)}
+                          disabled={!selectedProduct || creatingLink}
+                          className="text-xs font-bold text-white bg-[#2ED573] hover:bg-[#25B866] px-3 py-1.5 rounded-lg border-none cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                        >
+                          연결
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* 등록된 매핑 */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-8">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900">등록된 매핑 <span className="text-gray-400 font-normal">({links.length})</span></h2>
+        </div>
+        {links.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-gray-400">등록된 링크 매핑이 없습니다.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-bold text-gray-600">productKey</th>
+                <th className="px-4 py-3 text-left font-bold text-gray-600">상품(링크)</th>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">연결 강의</th>
-                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">메모</th>
+                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">productKey</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600 w-[80px]">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {links.map((l) => (
                 <tr key={l.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{l.product_key}</td>
-                  <td className="px-4 py-3 text-gray-800">{courseTitle(l.course_id)}</td>
-                  <td className="px-4 py-3 text-gray-400 text-xs max-sm:hidden">{l.label || '-'}</td>
+                  <td className="px-4 py-3 text-gray-800">{l.label || '-'}</td>
+                  <td className="px-4 py-3 text-gray-700">{courseTitle(l.course_id)}</td>
+                  <td className="px-4 py-3 font-mono text-[11px] text-gray-400 max-sm:hidden">{l.product_key}</td>
                   <td className="px-4 py-3 text-center">
                     <button onClick={() => setDeleteLinkId(l.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors mx-auto" aria-label="삭제">
                       <i className="ti ti-trash text-sm" />
@@ -297,10 +416,8 @@ export default function AdminLinkpay() {
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="font-bold text-gray-900">링크페이 결제 내역 <span className="text-gray-400 font-normal">({payments.length})</span></h2>
         </div>
-        {loading ? (
-          <div className="p-4 space-y-2">{[1, 2, 3].map((i) => <div key={i} className="h-10 bg-gray-100 rounded animate-pulse" />)}</div>
-        ) : payments.length === 0 ? (
-          <p className="px-5 py-10 text-center text-sm text-gray-400">아직 링크페이 결제 내역이 없습니다.</p>
+        {payments.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-gray-400">아직 링크페이 결제 내역이 없습니다.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -326,17 +443,7 @@ export default function AdminLinkpay() {
                     </td>
                     <td className="px-4 py-3 text-gray-700">
                       {p.course_id ? courseTitle(p.course_id) : (p.order_name || '-')}
-                      {p.product_key && (
-                        <span className="block text-[10px] font-mono text-gray-400 mt-0.5">{p.product_key}</span>
-                      )}
-                      {!p.course_id && p.product_key && (
-                        <button
-                          onClick={() => openLinkModalWith(p.product_key as string)}
-                          className="mt-1 text-[11px] text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded px-1.5 py-0.5 cursor-pointer transition-colors"
-                        >
-                          <i className="ti ti-link" /> 이 productKey로 강의 매핑
-                        </button>
-                      )}
+                      {!p.course_id && <span className="block text-[11px] text-amber-600">미매핑 링크</span>}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{(p.amount ?? 0).toLocaleString()}원</td>
                     <td className="px-4 py-3 text-center">
@@ -365,88 +472,6 @@ export default function AdminLinkpay() {
           </div>
         )}
       </div>
-
-      {/* 링크 매핑 추가 모달 */}
-      <AdminFormModal
-        isOpen={linkModalOpen}
-        onClose={() => setLinkModalOpen(false)}
-        title="링크 ↔ 강의 매핑 추가"
-        onSubmit={handleCreateLink}
-        loading={linkSaving}
-      >
-        <div className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-bold">productKey *</label>
-              <button
-                type="button"
-                onClick={loadTossProducts}
-                disabled={loadingTossProducts}
-                className="text-xs font-bold text-[#2ED573] bg-transparent border-none cursor-pointer disabled:opacity-50 flex items-center gap-1"
-              >
-                <i className="ti ti-download text-sm" />
-                {loadingTossProducts ? '불러오는 중...' : '토스 상품 목록 불러오기'}
-              </button>
-            </div>
-            <input
-              value={newProductKey}
-              onChange={(e) => setNewProductKey(e.target.value)}
-              placeholder="토스 링크페이 상품의 productKey"
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm font-mono outline-none focus:border-[#2ED573]"
-            />
-            {tossProducts.length > 0 && (
-              <div className="border border-gray-200 rounded-lg mt-1 max-h-[200px] overflow-y-auto">
-                {tossProducts.map((p) => (
-                  <button
-                    key={p.productKey}
-                    type="button"
-                    onClick={() => { setNewProductKey(p.productKey); if (!newLabel.trim()) setNewLabel(p.name) }}
-                    className={`w-full text-left px-3 py-2 text-xs border-none cursor-pointer flex items-center justify-between gap-2 ${newProductKey === p.productKey ? 'bg-[#2ED573]/10 text-gray-900' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    <span className="truncate">{p.name} <span className="text-gray-400">· {p.amount.toLocaleString()}원</span></span>
-                    {newProductKey === p.productKey && <i className="ti ti-check text-[#2ED573] shrink-0" />}
-                  </button>
-                ))}
-              </div>
-            )}
-            <p className="text-[11px] text-gray-400 mt-1">"토스 상품 목록 불러오기"로 상품을 고르면 productKey가 자동 입력됩니다 (최신 생성 상품이 위쪽). 토스 대시보드 연결이 필요합니다.</p>
-          </div>
-          <div>
-            <label className="text-sm font-bold block mb-1">연결할 강의 *</label>
-            <div className="border border-gray-300 rounded-xl overflow-hidden">
-              <input
-                value={linkCourseSearch}
-                onChange={(e) => setLinkCourseSearch(e.target.value)}
-                placeholder="강의 검색..."
-                className="w-full px-3 py-2 text-sm border-none outline-none border-b border-gray-200"
-                style={{ borderBottom: '1px solid #e5e7eb' }}
-              />
-              <div className="max-h-[200px] overflow-y-auto">
-                {filteredLinkCourses.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setNewCourseId(newCourseId === c.id ? '' : c.id)}
-                    className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer flex items-center justify-between ${newCourseId === c.id ? 'bg-[#2ED573]/10 text-gray-900' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                  >
-                    <span>{c.instructor?.name && <span className="text-xs text-gray-400 mr-1">[{c.instructor.name}]</span>}{c.title}</span>
-                    {newCourseId === c.id && <i className="ti ti-check text-[#2ED573]" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div>
-            <label className="text-sm font-bold block mb-1">메모 (선택)</label>
-            <input
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="예: 5월 할인 링크"
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573]"
-            />
-          </div>
-        </div>
-      </AdminFormModal>
 
       {/* 수동 부여 모달 */}
       <AdminFormModal

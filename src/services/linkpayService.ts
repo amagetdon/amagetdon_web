@@ -13,8 +13,9 @@ export interface TossProduct {
   productKey: string
   name: string
   amount: number
-  paymentLinkId: string | null
   status: string | null
+  thumbnail: string | null
+  kind: '판매상품' | '개인결제창'
 }
 
 export interface LinkpayPayment {
@@ -47,7 +48,10 @@ export const linkpayService = {
   },
 
   async createLink(input: { product_key: string; course_id: number | null; ebook_id: number | null; label: string | null }): Promise<void> {
-    const { error } = await supabase.from('linkpay_links').insert(input as never)
+    // product_key 가 이미 있으면 갱신 (재매핑 허용)
+    const { error } = await supabase
+      .from('linkpay_links')
+      .upsert(input as never, { onConflict: 'product_key' })
     if (error) throw error
   },
 
@@ -70,16 +74,16 @@ export const linkpayService = {
     if (error) throw error
   },
 
-  /** 토스 대시보드에서 링크페이 상품 전체 조회 (최신순) */
-  async fetchTossProducts(): Promise<TossProduct[]> {
+  /** 토스 링크페이 상품 전체 조회 (판매상품 + 개인결제창) */
+  async fetchTossProducts(): Promise<{ products: TossProduct[]; salesWarning: string | null }> {
     const { data, error } = await supabase.functions.invoke('linkpay-products')
     if (error) {
       const msg = (data as { error?: string } | null)?.error
       throw new Error(msg || error.message)
     }
-    const err = (data as { error?: string } | null)?.error
-    if (err) throw new Error(err)
-    return ((data as { products?: TossProduct[] })?.products ?? [])
+    const payload = (data as { products?: TossProduct[]; error?: string; salesWarning?: string | null }) ?? {}
+    if (payload.error) throw new Error(payload.error)
+    return { products: payload.products ?? [], salesWarning: payload.salesWarning ?? null }
   },
 
   async getPayments(): Promise<LinkpayPayment[]> {
