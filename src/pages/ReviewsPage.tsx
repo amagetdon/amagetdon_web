@@ -117,7 +117,7 @@ function ReviewsPage() {
         )}
 
         {totalPages > 1 && (
-          <Pagination current={currentPage} total={totalPages} onPageChange={setCurrentPage} />
+          <Pagination current={currentPage} total={totalPages} onPageChange={setCurrentPage} windowed />
         )}
       </div>
 
