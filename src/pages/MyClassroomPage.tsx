@@ -555,10 +555,10 @@ function MyClassroomPage() {
             onClick={() => setTab('expired')}
             className={`ml-auto px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
               tab === 'expired'
-                ? 'text-gray-700 border-b-2 border-gray-700 -mb-px'
-                : 'text-gray-400 hover:text-gray-600'
+                ? 'text-red-500 border-b-2 border-red-500 -mb-px'
+                : 'text-red-400/80 hover:text-red-500'
             }`}
-            style={tab === 'expired' ? { borderBottom: '2px solid #374151', marginBottom: '-1px' } : {}}
+            style={tab === 'expired' ? { borderBottom: '2px solid #ef4444', marginBottom: '-1px' } : {}}
           >
             만료됨 ({expiredCount})
           </button>
