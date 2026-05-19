@@ -69,7 +69,7 @@ const formatKoDateTime = (iso: string | null | undefined) => {
   })
 }
 
-type TabType = 'all' | 'courses' | 'ebooks' | 'expired'
+type TabType = 'all' | 'courses' | 'ebooks' | 'replay' | 'expired'
 
 function MyClassroomPage() {
   const navigate = useNavigate()
@@ -224,26 +224,47 @@ function MyClassroomPage() {
     }
   }
 
-  // 만료 판정 — 강의: 다시보기 기한(purchase.expires_at) 우선, 없으면 강의 마감일
-  const courseExpired = (p: CoursePurchase) =>
-    isExpired(p.expires_at ?? p.course?.enrollment_deadline ?? null)
+  // 강의 상태 — 진행중 / 다시보기(마감 후 다시보기 기한 내) / 만료
+  const courseStatus = (p: CoursePurchase): 'progressing' | 'replay' | 'expired' => {
+    const c = p.course
+    const effectiveExpiry = p.expires_at ?? c?.enrollment_deadline ?? null
+    if (isExpired(effectiveExpiry)) return 'expired'
+    if (p.expires_at && c?.enrollment_deadline && isExpired(c.enrollment_deadline)) return 'replay'
+    return 'progressing'
+  }
   const ebookExpired = (p: EbookPurchase) => isExpired(p.expires_at)
 
-  const activeCourses = coursePurchases.filter((p) => !courseExpired(p))
-  const expiredCourses = coursePurchases.filter((p) => courseExpired(p))
+  const progressingCourses = coursePurchases.filter((p) => courseStatus(p) === 'progressing')
+  const replayCourses = coursePurchases.filter((p) => courseStatus(p) === 'replay')
+  const expiredCourses = coursePurchases.filter((p) => courseStatus(p) === 'expired')
+  const activeCourses = coursePurchases.filter((p) => courseStatus(p) !== 'expired')
   const activeEbooks = ebookPurchases.filter((p) => !ebookExpired(p))
   const expiredEbooks = ebookPurchases.filter((p) => ebookExpired(p))
   const expiredCount = expiredCourses.length + expiredEbooks.length
 
   const tabs: { key: TabType; label: string }[] = [
-    { key: 'all', label: '모두보기' },
+    { key: 'all', label: '진행 중' },
     { key: 'courses', label: `강의 (${activeCourses.length})` },
     { key: 'ebooks', label: `전자책 (${activeEbooks.length})` },
   ]
 
-  const showCourses = tab === 'all' || tab === 'courses'
-  const showEbooks = tab === 'all' || tab === 'ebooks'
   const isEmpty = coursePurchases.length === 0 && ebookPurchases.length === 0
+
+  // 현재 탭에 표시할 항목
+  let viewCourses: CoursePurchase[] = []
+  let viewEbooks: EbookPurchase[] = []
+  let emptyMsg = ''
+  if (tab === 'all') {
+    viewCourses = progressingCourses; viewEbooks = activeEbooks; emptyMsg = '진행 중인 강의·전자책이 없습니다.'
+  } else if (tab === 'courses') {
+    viewCourses = activeCourses; emptyMsg = '강의가 없습니다.'
+  } else if (tab === 'ebooks') {
+    viewEbooks = activeEbooks; emptyMsg = '전자책이 없습니다.'
+  } else if (tab === 'replay') {
+    viewCourses = replayCourses; emptyMsg = '다시보기 가능한 강의가 없습니다.'
+  } else {
+    viewCourses = expiredCourses; viewEbooks = expiredEbooks; emptyMsg = '만료된 항목이 없습니다.'
+  }
 
   const renderCourse = (purchase: CoursePurchase) => {
     const course = purchase.course
@@ -552,8 +573,19 @@ function MyClassroomPage() {
             </button>
           ))}
           <button
-            onClick={() => setTab('expired')}
+            onClick={() => setTab('replay')}
             className={`ml-auto px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
+              tab === 'replay'
+                ? 'text-amber-500 border-b-2 border-amber-500 -mb-px'
+                : 'text-amber-400/80 hover:text-amber-500'
+            }`}
+            style={tab === 'replay' ? { borderBottom: '2px solid #f59e0b', marginBottom: '-1px' } : {}}
+          >
+            다시보기 ({replayCourses.length})
+          </button>
+          <button
+            onClick={() => setTab('expired')}
+            className={`px-4 py-2.5 text-sm font-medium border-none cursor-pointer transition-colors bg-transparent ${
               tab === 'expired'
                 ? 'text-red-500 border-b-2 border-red-500 -mb-px'
                 : 'text-red-400/80 hover:text-red-500'
@@ -579,22 +611,12 @@ function MyClassroomPage() {
           </div>
         ) : isEmpty ? (
           <div className="text-center text-gray-400 py-20">구매한 강의/전자책이 없습니다.</div>
-        ) : tab === 'expired' ? (
-          expiredCount === 0 ? (
-            <div className="text-center text-gray-400 py-20">만료된 항목이 없습니다.</div>
-          ) : (
-            <>
-              {expiredCourses.map(renderCourse)}
-              {expiredEbooks.map(renderEbook)}
-            </>
-          )
+        ) : viewCourses.length + viewEbooks.length === 0 ? (
+          <div className="text-center text-gray-400 py-20">{emptyMsg}</div>
         ) : (
           <>
-            {showCourses && activeCourses.map(renderCourse)}
-            {showEbooks && activeEbooks.map(renderEbook)}
-            {((showCourses ? activeCourses.length : 0) + (showEbooks ? activeEbooks.length : 0)) === 0 && (
-              <div className="text-center text-gray-400 py-20">수강 중인 항목이 없습니다.</div>
-            )}
+            {viewCourses.map(renderCourse)}
+            {viewEbooks.map(renderEbook)}
           </>
         )}
       </div>
