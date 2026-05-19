@@ -710,7 +710,7 @@ function CourseDetailPage() {
                 )}
 
                 {user && profile && !isFree && (
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-sm text-gray-500 mt-5">
                     보유 포인트: <span className="font-bold text-gray-900">{profile.points.toLocaleString()}P</span>
                   </p>
                 )}
