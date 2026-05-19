@@ -253,6 +253,11 @@ function CourseDetailPage() {
   const price = displayedPrice
   // 할부 표시 개월수 (0 이면 할부 미표시 — 원가 그대로)
   const installmentMonths = Math.max(0, course?.installment_months ?? 0)
+  // 할부 개월수가 있으면 "월 N원"으로, 없으면 일시불 금액으로 표기 (실제 결제 금액은 항상 일시불)
+  const fmtMonthly = (won: number) =>
+    installmentMonths > 0
+      ? `월 ${Math.round(won / installmentMonths).toLocaleString()}원`
+      : `${won.toLocaleString()}원`
   const couponDiscount = selectedCoupon && price >= (selectedCoupon.min_purchase || 0)
     ? selectedCoupon.discount_type === 'percent'
       ? Math.min(
@@ -890,13 +895,18 @@ function CourseDetailPage() {
                   </Dialog.Title>
                   <div className="mt-4 space-y-2 text-sm text-gray-600">
                     <p>강의명: <span className="font-medium text-gray-900">{course.title}</span></p>
-                    <p>결제 금액: <span className="font-bold text-gray-900">{price.toLocaleString()}원</span></p>
+                    <p>결제 금액: <span className="font-bold text-gray-900">{fmtMonthly(price)}</span></p>
 
                     {/* 쿠폰 선택 */}
                     <CouponSelector coupons={myCoupons} selected={selectedCoupon} onSelect={setSelectedCoupon} price={price} />
 
-                    {selectedCoupon && <p>할인 적용: <span className="font-bold text-[#2ED573]">-{couponDiscount.toLocaleString()}원</span></p>}
-                    <p>최종 결제: <span className="font-bold text-gray-900">{finalPrice.toLocaleString()}원</span></p>
+                    {selectedCoupon && <p>할인 적용: <span className="font-bold text-[#2ED573]">-{fmtMonthly(couponDiscount)}</span></p>}
+                    <p>최종 결제: <span className="font-bold text-gray-900">{fmtMonthly(finalPrice)}</span></p>
+                    {installmentMonths > 0 && (
+                      <p className="text-xs text-gray-400">
+                        {installmentMonths}개월 할부 시 · 실제 결제 금액 {finalPrice.toLocaleString()}원
+                      </p>
+                    )}
                   </div>
 
                   {/* 결제 방식 선택 (0원이면 숨김) */}
