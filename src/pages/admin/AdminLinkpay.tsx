@@ -91,6 +91,14 @@ export default function AdminLinkpay() {
     }
   }
 
+  const openLinkModalWith = (productKey: string) => {
+    setNewProductKey(productKey)
+    setNewCourseId('')
+    setNewLabel('')
+    setLinkCourseSearch('')
+    setLinkModalOpen(true)
+  }
+
   const handleDeleteLink = async () => {
     if (deleteLinkId == null) return
     try {
@@ -250,7 +258,17 @@ export default function AdminLinkpay() {
                     </td>
                     <td className="px-4 py-3 text-gray-700">
                       {p.course_id ? courseTitle(p.course_id) : (p.order_name || '-')}
-                      {!p.course_id && <span className="block text-[11px] text-amber-600">미매핑 링크</span>}
+                      {p.product_key && (
+                        <span className="block text-[10px] font-mono text-gray-400 mt-0.5">{p.product_key}</span>
+                      )}
+                      {!p.course_id && p.product_key && (
+                        <button
+                          onClick={() => openLinkModalWith(p.product_key as string)}
+                          className="mt-1 text-[11px] text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded px-1.5 py-0.5 cursor-pointer transition-colors"
+                        >
+                          <i className="ti ti-link" /> 이 productKey로 강의 매핑
+                        </button>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{(p.amount ?? 0).toLocaleString()}원</td>
                     <td className="px-4 py-3 text-center">
