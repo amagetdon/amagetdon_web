@@ -176,9 +176,12 @@ function EbookReaderPage() {
     updateSize()
     const ro = new ResizeObserver(updateSize)
     ro.observe(containerEl)
+    // window.resize 는 일부 브라우저에서 ResizeObserver 가 놓치는 브라우저 줌 변경을 보완
+    window.addEventListener('resize', updateSize)
     window.addEventListener('orientationchange', updateSize)
     return () => {
       ro.disconnect()
+      window.removeEventListener('resize', updateSize)
       window.removeEventListener('orientationchange', updateSize)
     }
   }, [containerEl])
@@ -208,11 +211,12 @@ function EbookReaderPage() {
           const baseViewport = page.getViewport({ scale: 1 })
 
           // fit-to-page 모드: 페이지 전체가 컨테이너 안에 들어가도록 폭·높이 중 더 작은 비율 채택.
+          // 0.98 safety margin — 반올림 오차·서브픽셀 차이로 1–2px 비뚤어지거나 잘리는 것 방지.
           let effectiveScale = scale
           if (fitMode === 'width' && containerWidth > 0 && containerHeight > 0) {
             const widthScale = containerWidth / baseViewport.width
             const heightScale = containerHeight / baseViewport.height
-            effectiveScale = Math.min(3, widthScale, heightScale)
+            effectiveScale = Math.min(3, widthScale, heightScale) * 0.98
           }
 
           // DPR 캡 — 모바일은 2, 데스크톱은 2.5까지
@@ -249,6 +253,8 @@ function EbookReaderPage() {
           canvas.height = Math.floor(viewport.height * dpr)
           canvas.style.width = `${Math.floor(viewport.width)}px`
           canvas.style.height = `${Math.floor(viewport.height)}px`
+          // aspect-ratio 로 비율 잠금 — max-w/max-h 가 clamp 해도 캔버스가 찌그러지지 않음.
+          canvas.style.aspectRatio = `${viewport.width} / ${viewport.height}`
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
           await page.render({ canvasContext: ctx, viewport, canvas } as never).promise
@@ -509,10 +515,10 @@ function EbookReaderPage() {
           className="min-h-full flex px-4 py-4"
           style={{ justifyContent: 'safe center', alignItems: 'safe center' }}
         >
-          <div className="relative">
+          <div className="relative max-w-full max-h-full">
             <canvas
               ref={canvasRef}
-              className="block"
+              className="block max-w-full max-h-full"
               style={{ pointerEvents: 'none', touchAction: 'pan-y pinch-zoom' }}
             />
             {rendering && (
