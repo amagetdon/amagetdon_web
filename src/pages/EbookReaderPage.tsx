@@ -144,6 +144,10 @@ function EbookReaderPage() {
           standardFontDataUrl: STANDARD_FONT_DATA_URL,
           // 시스템 폰트 치환은 시스템에 한글 폰트가 부실한 PC 에서 글자 누락을 유발 — 임베디드 폰트 사용
           useSystemFonts: false,
+          // FontFace API 우회 — RenderTask.cancel() 시점에 "loading" 상태였던 폰트가 document-level
+          // 캐시에 갇혀 다음 render 가 그 폰트를 못 받아 글자가 듬성듬성/통째로 사라지는 증상 차단.
+          // true 면 PDF.js 가 글리프를 캔버스에 path 로 직접 그려 캐시·async 상태 의존이 사라짐.
+          disableFontFace: true,
         }).promise
         pdfRef.current = pdf
         setNumPages(pdf.numPages)
