@@ -60,6 +60,8 @@ export const reviewService = {
       .select('*', { count: 'exact' })
       .eq('course_id', courseId)
       .eq('is_published', true)
+      // 1~2점(is_low_rating=true) 후기는 후순위로, 그 외에는 최신 날짜순으로 정렬 (/reviews 와 동일)
+      .order('is_low_rating', { ascending: true })
       .order('created_at', { ascending: false })
       .range(from, to)
 
