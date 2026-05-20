@@ -42,7 +42,7 @@ const emptyForm: EditingForm = {
 }
 
 type PageTab = 'landing' | 'academy' | 'hero' | 'results' | 'visibility'
-type BannerSubTab = 'hero' | 'academy_hero' | 'landing_hero' | 'reviews' | 'results' | 'faq' | 'ebooks_free_hero' | 'ebooks_secret_hero' | 'academy_free_hero' | 'academy_premium_hero'
+type BannerSubTab = 'hero' | 'academy_hero' | 'reviews' | 'results' | 'faq' | 'ebooks_free_hero' | 'ebooks_secret_hero' | 'academy_free_hero' | 'academy_premium_hero'
 
 const PAGE_TABS: { key: PageTab; label: string }[] = [
   { key: 'landing', label: '랜딩 페이지' },
@@ -87,7 +87,7 @@ export default function AdminPages() {
     if (t === 'hero') {
       setTab('hero')
       if (p && (
-        p === 'hero' || p === 'academy_hero' || p === 'landing_hero' ||
+        p === 'hero' || p === 'academy_hero' ||
         p === 'reviews' || p === 'results' || p === 'faq' ||
         p === 'ebooks_free_hero' || p === 'ebooks_secret_hero' ||
         p === 'academy_free_hero' || p === 'academy_premium_hero'
@@ -117,7 +117,7 @@ export default function AdminPages() {
   const [bannerDevice, setBannerDevice] = useState<'pc' | 'mobile'>('pc')
   const [bannerSubTab, setBannerSubTab] = useState<BannerSubTab>('hero')
   const [allBanners, setAllBanners] = useState<Record<string, Banner[]>>({
-    hero: [], academy_hero: [], landing_hero: [], reviews: [], results: [], faq: [],
+    hero: [], academy_hero: [], reviews: [], results: [], faq: [],
     ebooks_free_hero: [], ebooks_secret_hero: [], academy_free_hero: [], academy_premium_hero: [],
     reviews_event: [], results_event: [], faq_event: [],
   })
@@ -137,7 +137,6 @@ export default function AdminPages() {
   const [bannerSettings, setBannerSettings] = useState<Record<string, { height: string; heightMobile: string; speed: string; fit: string; fitMobile: string }>>({
     hero: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     academy_hero: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
-    landing_hero: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     reviews: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     results: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
     faq: { height: 'auto', heightMobile: 'auto', speed: '5', fit: 'cover', fitMobile: 'cover' },
@@ -164,12 +163,11 @@ export default function AdminPages() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [data, promoRes, heroBanners, academyHeroBanners, landingHeroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, ebooksFreeHeroBanners, ebooksSecretHeroBanners, academyFreeHeroBanners, academyPremiumHeroBanners, resultData, settingsData, academyRes, navRes] = await Promise.all([
+      const [data, promoRes, heroBanners, academyHeroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, ebooksFreeHeroBanners, ebooksSecretHeroBanners, academyFreeHeroBanners, academyPremiumHeroBanners, resultData, settingsData, academyRes, navRes] = await Promise.all([
         landingCategoryService.getAll(),
         supabase.from('site_settings').select('value').eq('key', 'promo_video').maybeSingle(),
         bannerService.getAllByPage('hero'),
         bannerService.getAllByPage('academy_hero'),
-        bannerService.getAllByPage('landing_hero'),
         bannerService.getAllByPage('reviews'),
         bannerService.getAllByPage('results'),
         bannerService.getAllByPage('faq'),
@@ -193,7 +191,7 @@ export default function AdminPages() {
       const navValue = (navRes.data as { value?: Partial<NavVisibility> } | null)?.value ?? {}
       setNavVisibility({ ...DEFAULT_NAV_VISIBILITY, ...navValue })
       setAllBanners({
-        hero: heroBanners, academy_hero: academyHeroBanners, landing_hero: landingHeroBanners,
+        hero: heroBanners, academy_hero: academyHeroBanners,
         reviews: reviewsBanners, results: resultsBanners, faq: faqBanners,
         reviews_event: reviewsEvent, results_event: resultsEvent, faq_event: faqEvent,
         ebooks_free_hero: ebooksFreeHeroBanners,
@@ -215,7 +213,6 @@ export default function AdminPages() {
           ...prev,
           hero: normalize(settingsValue.hero),
           academy_hero: normalize(settingsValue.academy_hero),
-          landing_hero: normalize(settingsValue.landing_hero),
           reviews: normalize(settingsValue.reviews),
           results: normalize(settingsValue.results),
           faq: normalize(settingsValue.faq),
@@ -568,29 +565,46 @@ export default function AdminPages() {
         </div>
       ) : tab === 'hero' ? (
         <>
-          <div className="flex gap-2 mb-4">
-            {([
-              ['hero', '메인 히어로'],
-              ['academy_hero', '아카데미 탭 히어로'],
-              ['landing_hero', '랜딩 히어로'],
-              ['academy_premium_hero', '프리미엄 강의'],
-              ['academy_free_hero', '무료 강의'],
-              ['ebooks_free_hero', '무료 전자책'],
-              ['ebooks_secret_hero', '시크릿 북'],
-              ['reviews', '수강 후기'],
-              ['results', '수강 성과'],
-              ['faq', 'FAQ'],
-            ] as const).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setBannerSubTab(key)}
-                className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${
-                  bannerSubTab === key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          <div className="flex gap-2 mb-4 flex-wrap items-center">
+            {/* 좌측: 사이트 공통 히어로 */}
+            <div className="flex gap-2 flex-wrap">
+              {([
+                ['hero', '메인 히어로'],
+                ['academy_hero', '아카데미 탭 히어로'],
+                ['reviews', '수강 후기'],
+                ['results', '수강 성과'],
+                ['faq', 'FAQ'],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setBannerSubTab(key)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${
+                    bannerSubTab === key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {/* 우측: 페이지별 히어로 */}
+            <div className="flex gap-2 flex-wrap ml-auto">
+              {([
+                ['academy_premium_hero', '프리미엄 강의'],
+                ['academy_free_hero', '무료 강의'],
+                ['ebooks_free_hero', '무료 전자책'],
+                ['ebooks_secret_hero', '시크릿 북'],
+              ] as const).map(([key, label]) => (
+                <button
+                  key={key}
+                  onClick={() => setBannerSubTab(key)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-medium border cursor-pointer transition-colors ${
+                    bannerSubTab === key ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="bg-white rounded-xl shadow-sm p-4 mb-4 flex flex-col gap-3">
             {([
@@ -1120,11 +1134,6 @@ export default function AdminPages() {
                     <input type="checkbox" checked={editing.is_published} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" />
                     상단 메뉴에 노출
                   </label>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer py-2.5">
-                    <input type="checkbox" checked={editing.show_hero} onChange={(e) => setEditing({ ...editing, show_hero: e.target.checked })} className="accent-[#2ED573]" />
-                    히어로 배너 노출
-                  </label>
-                  <p className="text-[11px] text-gray-400 -mt-1">해제하면 페이지 상단의 검은색 히어로 배너 영역이 숨겨집니다.</p>
                   {editing.type === 'course_list' && (
                     <>
                       <label className="flex items-center gap-2 text-sm cursor-pointer py-2.5">
