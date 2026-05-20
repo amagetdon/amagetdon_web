@@ -503,12 +503,11 @@ function EbookReaderPage() {
         </div>
       </div>
 
-      {/* PDF 캔버스 — 배경을 흰색으로 두어 PDF 페이지(흰색) 와 시각적 대비를 없앰.
-          브라우저 줌 변화로 인한 1–2px 캔버스 위치 어긋남이 있어도 대비가 없어 안 보이게 함.
-          PDF 페이지 경계는 캔버스의 얇은 회색 외곽선(box-shadow) 으로 표시. */}
+      {/* PDF 캔버스 — dark gray 배경 + 캔버스 box-shadow 로 PDF 페이지 경계 명확히 표시.
+          (배경이 어두워도 캔버스 외곽선이 안정적으로 보여 1–2px 어긋남이 덜 거슬림) */}
       <div
         ref={setContainerEl}
-        className="flex-1 overflow-auto bg-white"
+        className="flex-1 overflow-auto bg-gray-900"
         onDragStart={(e) => e.preventDefault()}
       >
         <div
@@ -522,11 +521,11 @@ function EbookReaderPage() {
               style={{
                 pointerEvents: 'none',
                 touchAction: 'pan-y pinch-zoom',
-                boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)',
+                boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.12), 0 4px 16px rgba(0, 0, 0, 0.4)',
               }}
             />
             {rendering && (
-              <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 pointer-events-none">
                 <div className="w-8 h-8 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
               </div>
             )}
