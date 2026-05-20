@@ -44,6 +44,9 @@ function EbookReaderPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pdfRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  // 동시 진행 시 canvas.width 리셋이 in-flight render 와 충돌해 비트맵이 좌상단으로 밀리는 현상 방지
+  const renderTaskRef = useRef<{ cancel: () => void; promise: Promise<unknown> } | null>(null)
+  const renderSeqRef = useRef(0)
 
   const watermarkText = profile?.email || profile?.name || user?.id || ''
 
@@ -138,6 +141,10 @@ function EbookReaderPage() {
     loadPdf()
 
     return () => {
+      if (renderTaskRef.current) {
+        try { renderTaskRef.current.cancel() } catch { /* cancel 은 throw 안 함 */ }
+        renderTaskRef.current = null
+      }
       pdfRef.current?.destroy()
       pdfRef.current = null
     }
@@ -163,14 +170,26 @@ function EbookReaderPage() {
   }, [])
 
   // 페이지 렌더링 — 캔버스 크기 안전 클램프 + DPR 캡
+  // currentPage/containerWidth 동시 변경(예: PDF 로드 직후 ResizeObserver 첫 발화) 시
+  // 두 render 가 겹쳐 canvas.width 리셋이 in-flight 렌더와 충돌하면 비트맵이 좌상단으로 밀린다.
+  // → seq 번호 + RenderTask.cancel() 로 단일 활성 렌더만 유지.
   const renderPage = useCallback(async (pageNum: number) => {
     const pdf = pdfRef.current
     const canvas = canvasRef.current
     if (!pdf || !canvas) return
 
+    const mySeq = ++renderSeqRef.current
+
+    if (renderTaskRef.current) {
+      try { renderTaskRef.current.cancel() } catch { /* cancel 은 throw 안 함 */ }
+      renderTaskRef.current = null
+    }
+
     setRendering(true)
     try {
       const page = await pdf.getPage(pageNum)
+      if (mySeq !== renderSeqRef.current) return
+
       const baseViewport = page.getViewport({ scale: 1 })
 
       // fit-to-width 모드: 컨테이너 폭에 맞춤 (모바일 기본)
@@ -183,7 +202,7 @@ function EbookReaderPage() {
       const rawDpr = window.devicePixelRatio || 1
       let dpr = Math.min(rawDpr, isMobile() ? 2 : 2.5)
 
-      let viewport = page.getViewport({ scale: effectiveScale })
+      const viewport = page.getViewport({ scale: effectiveScale })
 
       // 캔버스 한 변 4096 / 총 16M 픽셀 제한 (특히 iOS) — scale·dpr 동시 클램프
       const clampToLimits = () => {
@@ -209,13 +228,28 @@ function EbookReaderPage() {
         return
       }
 
+      if (mySeq !== renderSeqRef.current) return
+
       canvas.width = Math.floor(viewport.width * dpr)
       canvas.height = Math.floor(viewport.height * dpr)
       canvas.style.width = `${Math.floor(viewport.width)}px`
       canvas.style.height = `${Math.floor(viewport.height)}px`
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-      await page.render({ canvasContext: ctx, viewport, canvas } as never).promise
+      const task = page.render({ canvasContext: ctx, viewport, canvas } as never) as { cancel: () => void; promise: Promise<unknown> }
+      renderTaskRef.current = task
+
+      try {
+        await task.promise
+      } catch (err: unknown) {
+        // 후속 renderPage 에 의한 정상 취소 — 에러로 표시하지 않음
+        const name = err && typeof err === 'object' && 'name' in err ? (err as { name?: string }).name : undefined
+        if (name === 'RenderingCancelledException') return
+        throw err
+      }
+
+      if (mySeq !== renderSeqRef.current) return
+      renderTaskRef.current = null
 
       // 워터마크 — 화면 한 페이지 분량만 (성능)
       if (watermarkText) {
@@ -239,10 +273,14 @@ function EbookReaderPage() {
         ctx.restore()
       }
     } catch (e) {
+      if (mySeq !== renderSeqRef.current) return
       console.error('[EbookReader] 페이지 렌더 실패:', e)
       setError('페이지를 표시하는 중 오류가 발생했습니다. 페이지를 새로고침해 주세요.')
     } finally {
-      setRendering(false)
+      // 더 새로운 render 가 진행 중이면 spinner 상태를 그대로 둠
+      if (mySeq === renderSeqRef.current) {
+        setRendering(false)
+      }
     }
   }, [scale, fitMode, containerWidth, watermarkText])
 
