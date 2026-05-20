@@ -12,6 +12,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker
 const MAX_CANVAS_DIM = 4096
 const MAX_CANVAS_AREA = 16_777_216
 
+// 한글 PDF 의 CID 폰트 글리프 매핑(CMap) + 표준 폰트 fallback 데이터.
+// 미지정 시 한글 글자가 통째로 사라져 보이는 환경(시스템에 임베디드 폰트 호환 폰트가 없는 PC)이 발생.
+// pdfjs-dist 버전에 맞춰 CDN 경로 자동 매칭.
+const PDFJS_ASSETS_BASE = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}`
+const CMAP_URL = `${PDFJS_ASSETS_BASE}/cmaps/`
+const STANDARD_FONT_DATA_URL = `${PDFJS_ASSETS_BASE}/standard_fonts/`
+
 const isMobile = () =>
   typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
 
@@ -40,10 +47,15 @@ function EbookReaderPage() {
   const [fitMode, setFitMode] = useState<'width' | 'manual'>('width')
   const [rendering, setRendering] = useState(false)
   const [containerWidth, setContainerWidth] = useState(0)
+  const [containerHeight, setContainerHeight] = useState(0)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pdfRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  // 콜백 ref + state — loading 단계엔 컨테이너 div 가 DOM 에 없어 useRef 는 첫 useEffect 시점에 null 이라
+  // ResizeObserver 가 영영 부착되지 않는 버그를 회피 (containerWidth 가 0 으로 고정돼 fit-to-width 실패).
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
+  // 휠로 페이지 이동 시 트랙패드 관성 스크롤이 연쇄로 여러 페이지를 넘기는 것 방지용 디바운스
+  const lastWheelPageChangeRef = useRef(0)
   // 동시 진행 시 canvas.width 리셋이 in-flight render 와 충돌해 비트맵이 좌상단으로 밀리는 현상 방지
   const renderTaskRef = useRef<{ cancel: () => void; promise: Promise<unknown> } | null>(null)
   const renderSeqRef = useRef(0)
@@ -126,8 +138,12 @@ function EbookReaderPage() {
           // stream/range 비활성화 시 모바일 셀룰러 환경에서 timeout 발생 — 켜둠
           disableAutoFetch: false,
           disableStream: false,
-          // 모바일 메모리 보호 — fontFace 사용으로 캔버스 메모리 절감
-          useSystemFonts: true,
+          // 한글 CID 폰트 매핑 + 표준 폰트 fallback. 미지정 시 한글 글자 통째로 사라지는 환경 발생.
+          cMapUrl: CMAP_URL,
+          cMapPacked: true,
+          standardFontDataUrl: STANDARD_FONT_DATA_URL,
+          // 시스템 폰트 치환은 시스템에 한글 폰트가 부실한 PC 에서 글자 누락을 유발 — 임베디드 폰트 사용
+          useSystemFonts: false,
         }).promise
         pdfRef.current = pdf
         setNumPages(pdf.numPages)
@@ -150,24 +166,23 @@ function EbookReaderPage() {
     }
   }, [ebook?.file_url])
 
-  // 컨테이너 폭 추적 (반응형 fit-to-width)
+  // 컨테이너 폭·높이 추적 (fit-to-page 용) — containerEl 이 마운트된 시점에 반드시 발화
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const updateWidth = () => {
-      // padding 16px(좌우) 제외
-      const w = Math.max(0, el.clientWidth - 32)
-      setContainerWidth(w)
+    if (!containerEl) return
+    const updateSize = () => {
+      // padding 16px(상하좌우) 제외
+      setContainerWidth(Math.max(0, containerEl.clientWidth - 32))
+      setContainerHeight(Math.max(0, containerEl.clientHeight - 32))
     }
-    updateWidth()
-    const ro = new ResizeObserver(updateWidth)
-    ro.observe(el)
-    window.addEventListener('orientationchange', updateWidth)
+    updateSize()
+    const ro = new ResizeObserver(updateSize)
+    ro.observe(containerEl)
+    window.addEventListener('orientationchange', updateSize)
     return () => {
       ro.disconnect()
-      window.removeEventListener('orientationchange', updateWidth)
+      window.removeEventListener('orientationchange', updateSize)
     }
-  }, [])
+  }, [containerEl])
 
   // 페이지 렌더링 — 캔버스 크기 안전 클램프 + DPR 캡
   // currentPage/containerWidth 동시 변경(예: PDF 로드 직후 ResizeObserver 첫 발화) 시
@@ -192,10 +207,13 @@ function EbookReaderPage() {
 
       const baseViewport = page.getViewport({ scale: 1 })
 
-      // fit-to-width 모드: 컨테이너 폭에 맞춤 (모바일 기본)
+      // fit-to-page 모드: 페이지 전체가 컨테이너 안에 들어가도록 폭·높이 중 더 작은 비율 채택.
+      // (이전엔 폭만 맞춰서 데스크톱처럼 컨테이너 가로가 넓을 때 세로로 화면을 한참 넘어 페이지가 비대해짐.)
       let effectiveScale = scale
-      if (fitMode === 'width' && containerWidth > 0) {
-        effectiveScale = Math.min(3, containerWidth / baseViewport.width)
+      if (fitMode === 'width' && containerWidth > 0 && containerHeight > 0) {
+        const widthScale = containerWidth / baseViewport.width
+        const heightScale = containerHeight / baseViewport.height
+        effectiveScale = Math.min(3, widthScale, heightScale)
       }
 
       // DPR 캡 — 모바일은 2, 데스크톱은 2.5까지
@@ -282,18 +300,39 @@ function EbookReaderPage() {
         setRendering(false)
       }
     }
-  }, [scale, fitMode, containerWidth, watermarkText])
+  }, [scale, fitMode, containerWidth, containerHeight, watermarkText])
 
   useEffect(() => {
     if (numPages > 0) renderPage(currentPage)
   }, [currentPage, numPages, renderPage])
 
-  // 키보드 단축키 차단 + 페이지 이동
+  // 키보드 단축키 차단 + 페이지 이동 + 줌
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // 인쇄/저장 차단
       if ((e.ctrlKey || e.metaKey) && (e.key === 'p' || e.key === 's')) {
         e.preventDefault()
+      }
+      // 브라우저 줌(Ctrl+= / Ctrl++ / Ctrl+- / Ctrl+0) 차단 + 뷰어 줌 연결
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === '=' || e.key === '+') {
+          e.preventDefault()
+          setFitMode('manual')
+          setScale((s) => Math.min(3, s + 0.2))
+          return
+        }
+        if (e.key === '-' || e.key === '_') {
+          e.preventDefault()
+          setFitMode('manual')
+          setScale((s) => Math.max(0.5, s - 0.2))
+          return
+        }
+        if (e.key === '0') {
+          e.preventDefault()
+          setFitMode('width')
+          setScale(1)
+          return
+        }
       }
       // 페이지 이동
       if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
@@ -306,9 +345,44 @@ function EbookReaderPage() {
       }
     }
 
+    // 휠: Ctrl+휠 = 줌, 일반 휠 = 스크롤 끝에서 페이지 이동. preventDefault 가 동작하려면 passive:false 필수.
+    const handleWheel = (e: WheelEvent) => {
+      // Ctrl+휠 → 줌 (브라우저 전체 줌 차단 + 뷰어 줌)
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        if (e.deltaY < 0) {
+          setFitMode('manual')
+          setScale((s) => Math.min(3, s + 0.2))
+        } else if (e.deltaY > 0) {
+          setFitMode('manual')
+          setScale((s) => Math.max(0.5, s - 0.2))
+        }
+        return
+      }
+      // 일반 휠 → 스크롤 가능한 영역에선 기본 스크롤, 끝 도달 시 페이지 이동
+      if (!containerEl) return
+      const { scrollTop, scrollHeight, clientHeight } = containerEl
+      const atTop = scrollTop <= 1
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1
+      const wantsNext = e.deltaY > 0 && atBottom
+      const wantsPrev = e.deltaY < 0 && atTop
+      if (!wantsNext && !wantsPrev) return
+      e.preventDefault()
+      // 디바운스 — 트랙패드 관성 스크롤로 연쇄 페이지 점프 방지
+      const now = performance.now()
+      if (now - lastWheelPageChangeRef.current < 500) return
+      lastWheelPageChangeRef.current = now
+      if (wantsNext) setCurrentPage((p) => Math.min(numPages, p + 1))
+      else setCurrentPage((p) => Math.max(1, p - 1))
+    }
+
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [numPages])
+    window.addEventListener('wheel', handleWheel, { passive: false })
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('wheel', handleWheel)
+    }
+  }, [numPages, containerEl])
 
   // 우클릭 차단
   useEffect(() => {
@@ -406,7 +480,7 @@ function EbookReaderPage() {
               className={`px-2 h-7 flex items-center justify-center rounded text-xs border-none cursor-pointer transition-colors max-sm:hidden ${
                 fitMode === 'width' ? 'bg-[#2ED573] text-black' : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
               }`}
-              aria-label="너비 맞춤"
+              aria-label="페이지 맞춤"
             >
               맞춤
             </button>
@@ -435,23 +509,28 @@ function EbookReaderPage() {
         </div>
       </div>
 
-      {/* PDF 캔버스 */}
+      {/* PDF 캔버스 — safe center: 캔버스가 컨테이너보다 작으면 양축 중앙, 크면 자르지 않고 start 정렬(스크롤 가능) */}
       <div
-        ref={containerRef}
-        className="flex-1 overflow-auto flex justify-center px-4 py-4 bg-gray-900"
+        ref={setContainerEl}
+        className="flex-1 overflow-auto bg-gray-900"
         onDragStart={(e) => e.preventDefault()}
       >
-        <div className="relative">
-          <canvas
-            ref={canvasRef}
-            className="max-w-full block"
-            style={{ pointerEvents: 'none', touchAction: 'pan-y pinch-zoom' }}
-          />
-          {rendering && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 pointer-events-none">
-              <div className="w-8 h-8 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
+        <div
+          className="min-h-full flex px-4 py-4"
+          style={{ justifyContent: 'safe center', alignItems: 'safe center' }}
+        >
+          <div className="relative">
+            <canvas
+              ref={canvasRef}
+              className="block"
+              style={{ pointerEvents: 'none', touchAction: 'pan-y pinch-zoom' }}
+            />
+            {rendering && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 pointer-events-none">
+                <div className="w-8 h-8 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
