@@ -375,7 +375,7 @@ function EbookReaderPage() {
       e.preventDefault()
       // 디바운스 — 트랙패드 관성 스크롤로 연쇄 페이지 점프 방지
       const now = performance.now()
-      if (now - lastWheelPageChangeRef.current < 500) return
+      if (now - lastWheelPageChangeRef.current < 300) return
       lastWheelPageChangeRef.current = now
       if (wantsNext) setCurrentPage((p) => Math.min(numPages, p + 1))
       else setCurrentPage((p) => Math.max(1, p - 1))
