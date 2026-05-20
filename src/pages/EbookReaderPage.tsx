@@ -138,18 +138,21 @@ function EbookReaderPage() {
       try {
         const pdf = await pdfjsLib.getDocument({
           url: ebook.file_url!,
-          // stream/range 비활성화 시 모바일 셀룰러 환경에서 timeout 발생 — 켜둠
-          disableAutoFetch: false,
-          disableStream: false,
+          // range/stream/autoFetch 전부 비활성 — PDF 를 한 번에 전체 다운로드.
+          // progressive 모드일 때 페이지 이동 시점에 필요한 폰트 데이터가 아직 안 받아진 영역에 있으면
+          // 추가 range 요청이 가는데, 프로덕션의 Supabase Storage 같은 외부 스토리지에서 range 응답이
+          // 인터미턴트로 실패/지연하면 폰트 일부만 받아 글자가 듬성듬성/통째로 사라지는 증상 발생.
+          // 전체 다운로드로 전환하면 첫 로드만 약간 느리고 그 이후 메모리 데이터만 사용해 누락 가능성 0.
+          disableRange: true,
+          disableStream: true,
+          disableAutoFetch: true,
           // 한글 CID 폰트 매핑 + 표준 폰트 fallback. 미지정 시 한글 글자 통째로 사라지는 환경 발생.
           cMapUrl: CMAP_URL,
           cMapPacked: true,
           standardFontDataUrl: STANDARD_FONT_DATA_URL,
           // 시스템 폰트 치환은 시스템에 한글 폰트가 부실한 PC 에서 글자 누락을 유발 — 임베디드 폰트 사용
           useSystemFonts: false,
-          // FontFace API 우회 — RenderTask.cancel() 시점에 "loading" 상태였던 폰트가 document-level
-          // 캐시에 갇혀 다음 render 가 그 폰트를 못 받아 글자가 듬성듬성/통째로 사라지는 증상 차단.
-          // true 면 PDF.js 가 글리프를 캔버스에 path 로 직접 그려 캐시·async 상태 의존이 사라짐.
+          // FontFace API 우회 — RenderTask 상태에 의존하지 않고 캔버스에 글리프 path 를 직접 그림.
           disableFontFace: true,
         }).promise
         pdfRef.current = pdf
