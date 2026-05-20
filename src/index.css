@@ -87,6 +87,16 @@ body {
   animation: applicantsRoll 25s linear infinite;
 }
 
+/* LIVE 배지 점 — splash hide 로직(.animate-pulse 감지)과 충돌하지 않도록 전용 클래스 사용 */
+@keyframes livePulseDot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.live-pulse-dot {
+  animation: livePulseDot 1.5s ease-in-out infinite;
+}
+
+
 /* Marquee animation */
 @keyframes marquee {
   0% {
