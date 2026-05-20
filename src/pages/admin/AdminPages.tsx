@@ -130,7 +130,7 @@ export default function AdminPages() {
   const [bannerUploadKey, setBannerUploadKey] = useState<string>('')
   // 배너 모달 — TipTap 툴바를 배너 wrapper 외부 슬롯으로 portal 전송 (이미지 위에 흰박스 안 덮이게)
   const [bannerToolbarSlot, setBannerToolbarSlot] = useState<HTMLDivElement | null>(null)
-  const banners = allBanners[bannerSubTab]
+  const banners = allBanners[bannerSubTab] ?? []
   const eventKey = `${bannerSubTab}_event` as string
   const eventBanners = allBanners[eventKey] || []
 
@@ -164,7 +164,7 @@ export default function AdminPages() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [data, promoRes, heroBanners, academyHeroBanners, landingHeroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, resultData, settingsData, academyRes, navRes] = await Promise.all([
+      const [data, promoRes, heroBanners, academyHeroBanners, landingHeroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, ebooksFreeHeroBanners, ebooksSecretHeroBanners, academyFreeHeroBanners, academyPremiumHeroBanners, resultData, settingsData, academyRes, navRes] = await Promise.all([
         landingCategoryService.getAll(),
         supabase.from('site_settings').select('value').eq('key', 'promo_video').maybeSingle(),
         bannerService.getAllByPage('hero'),
@@ -176,6 +176,10 @@ export default function AdminPages() {
         bannerService.getAllByPage('reviews_event'),
         bannerService.getAllByPage('results_event'),
         bannerService.getAllByPage('faq_event'),
+        bannerService.getAllByPage('ebooks_free_hero'),
+        bannerService.getAllByPage('ebooks_secret_hero'),
+        bannerService.getAllByPage('academy_free_hero'),
+        bannerService.getAllByPage('academy_premium_hero'),
         resultService.getAll({ perPage: 50 }),
         supabase.from('site_settings').select('*').eq('key', 'banner_settings').maybeSingle(),
         supabase.from('site_settings').select('value').eq('key', 'academy_settings').maybeSingle(),
@@ -188,7 +192,15 @@ export default function AdminPages() {
       setClosedVisualEffect(academyValue?.closedVisualEffect !== false)
       const navValue = (navRes.data as { value?: Partial<NavVisibility> } | null)?.value ?? {}
       setNavVisibility({ ...DEFAULT_NAV_VISIBILITY, ...navValue })
-      setAllBanners({ hero: heroBanners, academy_hero: academyHeroBanners, landing_hero: landingHeroBanners, reviews: reviewsBanners, results: resultsBanners, faq: faqBanners, reviews_event: reviewsEvent, results_event: resultsEvent, faq_event: faqEvent })
+      setAllBanners({
+        hero: heroBanners, academy_hero: academyHeroBanners, landing_hero: landingHeroBanners,
+        reviews: reviewsBanners, results: resultsBanners, faq: faqBanners,
+        reviews_event: reviewsEvent, results_event: resultsEvent, faq_event: faqEvent,
+        ebooks_free_hero: ebooksFreeHeroBanners,
+        ebooks_secret_hero: ebooksSecretHeroBanners,
+        academy_free_hero: academyFreeHeroBanners,
+        academy_premium_hero: academyPremiumHeroBanners,
+      })
       setResults(resultData.data)
       const settingsValue = (settingsData.data as { value?: Record<string, { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }> } | null)?.value
       if (settingsValue) {
