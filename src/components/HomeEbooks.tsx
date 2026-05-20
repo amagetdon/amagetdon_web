@@ -96,7 +96,14 @@ function EbookColumn({
         <div className="grid grid-cols-3 gap-5">
           {books.slice(0, count).map((book) => {
             const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
-            const discounted = paid && book.original_price != null && book.sale_price != null && book.sale_price < book.original_price
+            // 무료: is_free 또는 sale_price === 0
+            // 실효 가격: 무료면 0, 할인가 있으면 할인가, 아니면 정가
+            // 정가 line-through: 정가가 있고 실효 가격이 그보다 낮을 때 (sale=0 무료 케이스도 포함 → 정가 ↘ 무료)
+            const isItemFree = paid && (book.is_free || book.sale_price === 0)
+            const effectivePrice = isItemFree ? 0
+              : (book.sale_price && book.sale_price > 0 ? book.sale_price : (book.original_price ?? 0))
+            const discounted = paid && book.original_price != null && book.original_price > 0
+              && effectivePrice < book.original_price
             return (
               <Link key={book.id} to={`/ebook/${book.id}`} className="no-underline group">
                 <div className={`bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
@@ -115,11 +122,13 @@ function EbookColumn({
                 )}
                 {paid ? (
                   <p className={`text-sm font-bold ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
-                    {book.sale_price
-                      ? `${book.sale_price.toLocaleString()}원`
-                      : book.original_price
-                        ? `${book.original_price.toLocaleString()}원`
-                        : '무료'}
+                    {isItemFree
+                      ? '무료'
+                      : book.sale_price && book.sale_price > 0
+                        ? `${book.sale_price.toLocaleString()}원`
+                        : book.original_price
+                          ? `${book.original_price.toLocaleString()}원`
+                          : '무료'}
                   </p>
                 ) : (
                   <p className="text-sm text-gray-500">무료</p>

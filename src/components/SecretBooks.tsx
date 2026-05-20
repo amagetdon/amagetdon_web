@@ -47,6 +47,12 @@ function SecretBooks({ sectionKey = 'secret_books' }: { sectionKey?: SectionKey 
           <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
             {ebooks.slice(0, count).map((book) => {
               const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
+              // 무료(sale=0 또는 is_free) 일 때도 정가가 있으면 line-through 노출 → "정가 ↘ 무료" 강조
+              const isItemFree = book.is_free || book.sale_price === 0
+              const effectivePrice = isItemFree ? 0
+                : (book.sale_price && book.sale_price > 0 ? book.sale_price : (book.original_price ?? 0))
+              const showStrike = book.original_price != null && book.original_price > 0
+                && effectivePrice < book.original_price
               return (
                 <Link key={book.id} to={`/ebook/${book.id}`} className="cursor-pointer group no-underline">
                   <div className={`bg-gray-800 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
@@ -60,13 +66,19 @@ function SecretBooks({ sectionKey = 'secret_books' }: { sectionKey?: SectionKey 
                     <span className={closed ? 'line-through' : ''}>{book.title}</span>
                     {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
                   </p>
-                  {book.original_price && (
+                  {showStrike && (
                     <p className="text-xs text-gray-500 line-through">
-                      {book.original_price.toLocaleString()}원
+                      {book.original_price!.toLocaleString()}원
                     </p>
                   )}
                   <p className={`text-base font-bold ${closed ? 'text-gray-500' : 'text-white'}`}>
-                    {book.sale_price ? `${book.sale_price.toLocaleString()}원` : '무료'}
+                    {isItemFree
+                      ? '무료'
+                      : book.sale_price && book.sale_price > 0
+                        ? `${book.sale_price.toLocaleString()}원`
+                        : book.original_price
+                          ? `${book.original_price.toLocaleString()}원`
+                          : '무료'}
                   </p>
                   {book.is_hot && (
                     <span className="inline-block mt-1 px-2 py-0.5 bg-[#2ED573] text-white text-xs font-bold rounded">

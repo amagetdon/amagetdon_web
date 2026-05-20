@@ -616,7 +616,17 @@ function EbookDetailPage() {
                     <p>전자책: <span className="font-medium text-gray-900">{ebook.title}</span></p>
                     <p>결제 금액: <span className="font-bold text-gray-900">{price.toLocaleString()}원</span></p>
 
-                    <CouponSelector coupons={myCoupons} selected={selectedCoupon} onSelect={setSelectedCoupon} price={price} />
+                    {/* 이 전자책에 적용 가능한 쿠폰만 노출 */}
+                    <CouponSelector
+                      coupons={myCoupons.filter((c) => {
+                        if (c.applies_to === 'all') return true
+                        if (c.applies_to === 'ebook') return c.ebook_id == null || c.ebook_id === ebook.id
+                        return false
+                      })}
+                      selected={selectedCoupon}
+                      onSelect={setSelectedCoupon}
+                      price={price}
+                    />
 
                     {selectedCoupon && <p>할인 적용: <span className="font-bold text-[#2ED573]">-{couponDiscount.toLocaleString()}원</span></p>}
                     <p>최종 결제: <span className="font-bold text-gray-900">{finalPrice.toLocaleString()}원</span></p>
