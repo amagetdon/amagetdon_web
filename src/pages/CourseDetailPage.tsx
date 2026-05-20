@@ -606,23 +606,26 @@ function CourseDetailPage() {
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="flex gap-8 max-md:flex-col">
             <div className="flex-1">
-              {course.video_url && (
+              {course.video_url ? (
                 <VideoEmbed url={course.video_url} className="w-full" />
-              )}
+              ) : course.promo_image_url ? (
+                <img src={course.promo_image_url} alt={course.title} className="w-full rounded-xl block" loading="lazy" />
+              ) : null}
               {(() => {
+                const hasPromo = !!(course.video_url || course.promo_image_url)
                 const urls = (course.landing_image_urls && course.landing_image_urls.length > 0)
                   ? course.landing_image_urls
                   : (course.landing_image_url ? [course.landing_image_url] : [])
                 const links = course.landing_image_links ?? []
                 if (urls.length === 0) {
                   return (
-                    <div className={`bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center overflow-hidden ${course.video_url ? 'mt-6' : ''}`}>
+                    <div className={`bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center overflow-hidden ${hasPromo ? 'mt-6' : ''}`}>
                       <span className="text-sm text-gray-400">숏랜딩 및 상세페이지 jpg 가로 800px</span>
                     </div>
                   )
                 }
                 return (
-                  <div className={`bg-gray-100 rounded-xl overflow-hidden ${course.video_url ? 'mt-6' : ''}`}>
+                  <div className={`bg-gray-100 rounded-xl overflow-hidden ${hasPromo ? 'mt-6' : ''}`}>
                     {urls.map((url, idx) => {
                       const key = `${url}-${idx}`
                       const link = (links[idx] || '').trim()
@@ -897,15 +900,22 @@ function CourseDetailPage() {
                     <p>강의명: <span className="font-medium text-gray-900">{course.title}</span></p>
                     <p>결제 금액: <span className="font-bold text-gray-900">{fmtMonthly(price)}</span></p>
 
-                    {/* 쿠폰 선택 */}
-                    <CouponSelector coupons={myCoupons} selected={selectedCoupon} onSelect={setSelectedCoupon} price={price} />
+                    {/* 쿠폰 선택 — 이 강의에 적용 가능한 쿠폰만 노출 */}
+                    <CouponSelector
+                      coupons={myCoupons.filter((c) => {
+                        if (c.applies_to === 'all') return true
+                        if (c.applies_to === 'course') return c.course_id == null || c.course_id === course.id
+                        return false
+                      })}
+                      selected={selectedCoupon}
+                      onSelect={setSelectedCoupon}
+                      price={price}
+                    />
 
                     {selectedCoupon && <p>할인 적용: <span className="font-bold text-[#2ED573]">-{fmtMonthly(couponDiscount)}</span></p>}
                     <p>최종 결제: <span className="font-bold text-gray-900">{fmtMonthly(finalPrice)}</span></p>
                     {installmentMonths > 0 && (
-                      <p className="text-xs text-gray-400">
-                        {installmentMonths}개월 할부 시 · 실제 결제 금액 {finalPrice.toLocaleString()}원
-                      </p>
+                      <p className="text-xs text-gray-400">{installmentMonths}개월 할부 시</p>
                     )}
                   </div>
 
@@ -967,7 +977,7 @@ function CourseDetailPage() {
                         disabled={tossLoading}
                         className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {tossLoading ? '결제 준비 중...' : `${finalPrice.toLocaleString()}원 카드 결제`}
+                        {tossLoading ? '결제 준비 중...' : `${fmtMonthly(finalPrice)} 카드 결제`}
                       </button>
                     ) : (
                       <button
