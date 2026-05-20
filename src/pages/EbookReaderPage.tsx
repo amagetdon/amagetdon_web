@@ -385,16 +385,6 @@ function EbookReaderPage() {
     return () => document.removeEventListener('contextmenu', handleContext)
   }, [])
 
-  // body CSS zoom 을 1(=100%) 로 명시 — 외부 스크립트/스타일이 body zoom 을 건드린 경우를 reset.
-  // (브라우저 자체 줌은 보안상 JS 로 변경 불가하므로 이건 CSS 단의 zoom 만 정규화함)
-  useEffect(() => {
-    const prevZoom = document.body.style.zoom
-    document.body.style.zoom = '100%'
-    return () => {
-      document.body.style.zoom = prevZoom
-    }
-  }, [])
-
   const handleClose = () => navigate(-1)
 
   if (loading) {
@@ -513,10 +503,12 @@ function EbookReaderPage() {
         </div>
       </div>
 
-      {/* PDF 캔버스 — safe center: 캔버스가 컨테이너보다 작으면 양축 중앙, 크면 자르지 않고 start 정렬(스크롤 가능) */}
+      {/* PDF 캔버스 — 배경을 흰색으로 두어 PDF 페이지(흰색) 와 시각적 대비를 없앰.
+          브라우저 줌 변화로 인한 1–2px 캔버스 위치 어긋남이 있어도 대비가 없어 안 보이게 함.
+          PDF 페이지 경계는 캔버스의 얇은 회색 외곽선(box-shadow) 으로 표시. */}
       <div
         ref={setContainerEl}
-        className="flex-1 overflow-auto bg-gray-900"
+        className="flex-1 overflow-auto bg-white"
         onDragStart={(e) => e.preventDefault()}
       >
         <div
@@ -527,10 +519,14 @@ function EbookReaderPage() {
             <canvas
               ref={canvasRef}
               className="block"
-              style={{ pointerEvents: 'none', touchAction: 'pan-y pinch-zoom' }}
+              style={{
+                pointerEvents: 'none',
+                touchAction: 'pan-y pinch-zoom',
+                boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)',
+              }}
             />
             {rendering && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 pointer-events-none">
+              <div className="absolute inset-0 flex items-center justify-center bg-white/60 pointer-events-none">
                 <div className="w-8 h-8 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
               </div>
             )}
