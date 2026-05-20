@@ -153,6 +153,7 @@ export default function CourseReviewSection({
           current={page}
           total={totalPages}
           onPageChange={setPage}
+          windowed
         />
       )}
 
