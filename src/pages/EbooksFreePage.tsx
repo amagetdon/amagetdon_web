@@ -19,11 +19,7 @@ function EbooksFreePage() {
 
   return (
     <>
-      <HeroSection
-        pageKey="ebooks_free_hero"
-        defaultSubtitle="무료 전자책"
-        defaultTitle="무료로 받아보는 아마겟돈 전자책"
-      />
+      <HeroSection pageKey="ebooks_free_hero" />
 
       <section className="w-full bg-white py-14 max-sm:py-10">
         <div className="max-w-[1200px] mx-auto px-5">

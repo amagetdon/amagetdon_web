@@ -17,12 +17,7 @@ function EbooksSecretPage() {
 
   return (
     <>
-      <HeroSection
-        pageKey="ebooks_secret_hero"
-        defaultSubtitle="시크릿 북"
-        defaultTitle="더 깊이 배우는 아마겟돈 시크릿 북"
-        defaultDescription="무료 전자책에서 더 깊게 배우고 싶다면?"
-      />
+      <HeroSection pageKey="ebooks_secret_hero" />
 
       <section className="w-full bg-black py-14 max-sm:py-10">
         <div className="max-w-[1200px] mx-auto px-5">

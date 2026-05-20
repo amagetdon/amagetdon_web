@@ -20,11 +20,7 @@ function AcademyFreePage() {
 
   return (
     <>
-      <HeroSection
-        pageKey="academy_free_hero"
-        defaultSubtitle="무료강의"
-        defaultTitle="무료로 시작하는 아마겟돈 클래스"
-      />
+      <HeroSection pageKey="academy_free_hero" />
 
       <ScheduleCalendar title="이달의 무료강의를 확인하세요" linkTo="/academy/free" />
 

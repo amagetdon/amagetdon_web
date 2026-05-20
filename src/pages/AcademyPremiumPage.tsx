@@ -20,11 +20,7 @@ function AcademyPremiumPage() {
 
   return (
     <>
-      <HeroSection
-        pageKey="academy_premium_hero"
-        defaultSubtitle="프리미엄 강의"
-        defaultTitle="프리미엄 아마겟돈 클래스"
-      />
+      <HeroSection pageKey="academy_premium_hero" />
 
       <ScheduleCalendar title="이달의 프리미엄 강의를 확인하세요" linkTo="/academy/premium" />
 
