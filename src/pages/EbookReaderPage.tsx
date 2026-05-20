@@ -14,10 +14,10 @@ const MAX_CANVAS_AREA = 16_777_216
 
 // 한글 PDF 의 CID 폰트 글리프 매핑(CMap) + 표준 폰트 fallback 데이터.
 // 미지정 시 한글 글자가 통째로 사라져 보이는 환경(시스템에 임베디드 폰트 호환 폰트가 없는 PC)이 발생.
-// pdfjs-dist 버전에 맞춰 CDN 경로 자동 매칭.
-const PDFJS_ASSETS_BASE = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}`
-const CMAP_URL = `${PDFJS_ASSETS_BASE}/cmaps/`
-const STANDARD_FONT_DATA_URL = `${PDFJS_ASSETS_BASE}/standard_fonts/`
+// scripts/copy-pdfjs-assets.cjs 가 postinstall/prebuild 에서 node_modules/pdfjs-dist/{cmaps,standard_fonts}
+// 를 public/ 으로 복사 → 같은 origin 에서 서빙해 jsDelivr CDN 의 인터미턴트 실패·CORS·버전 매칭 변수 제거.
+const CMAP_URL = '/cmaps/'
+const STANDARD_FONT_DATA_URL = '/standard_fonts/'
 
 const isMobile = () =>
   typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)

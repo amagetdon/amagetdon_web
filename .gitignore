@@ -28,3 +28,7 @@ dist-ssr
 *.sw?
 dist
 supabase/.temp/
+
+# pdfjs-dist 에서 postinstall/prebuild 로 복사되는 자산 — 빌드 산출물 취급, 커밋 제외
+public/cmaps/
+public/standard_fonts/
