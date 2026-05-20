@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { courseService } from '../services/courseService'
-import { isCourseClosed } from '../utils/courseStatus'
-import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useClosedAccessGuard } from '../hooks/useClosedAccessGuard'
 import { useSectionConfig, type SectionKey } from '../hooks/useSectionSettings'
 import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
@@ -13,7 +12,7 @@ function FreeCourses({ courses: propCourses, loading: propLoading, sectionKey = 
   const [selfLoading, setSelfLoading] = useState(!propCourses)
   const courses = propCourses ?? selfCourses
   const loading = propLoading ?? selfLoading
-  const { closedVisualEffect } = useAcademySettings()
+  const { blockIfClosed } = useClosedAccessGuard()
   const section = useSectionConfig(sectionKey)
   const count = section.count ?? 6
 
@@ -51,25 +50,26 @@ function FreeCourses({ courses: propCourses, loading: propLoading, sectionKey = 
           </div>
         ) : (
           <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">
-            {courses.slice(0, count).map((course) => {
-              const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
-              return (
-                <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">
-                  <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
-                    {course.thumbnail_url ? (
-                      <img src={imgUrl(course.thumbnail_url, 'thumb')} alt={course.title} loading="lazy" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-sm text-gray-400">썸네일<br />16:9</span>
-                    )}
-                  </div>
-                  <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
-                    <span className={closed ? 'line-through' : ''}>{course.title}</span>
-                    {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
-                  </p>
-                  <p className="text-xs text-gray-400">{course.instructor?.name ? `강사 ${course.instructor.name}` : ''}</p>
-                </Link>
-              )
-            })}
+            {courses.slice(0, count).map((course) => (
+              <Link
+                key={course.id}
+                to={`/course/${course.id}`}
+                onClick={blockIfClosed('course', course.enrollment_deadline)}
+                className="no-underline group"
+              >
+                <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
+                  {course.thumbnail_url ? (
+                    <img src={imgUrl(course.thumbnail_url, 'thumb')} alt={course.title} loading="lazy" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm text-gray-400">썸네일<br />16:9</span>
+                  )}
+                </div>
+                <p className="text-sm font-bold whitespace-pre-line leading-snug mb-1 text-gray-900">
+                  {course.title}
+                </p>
+                <p className="text-xs text-gray-400">{course.instructor?.name ? `강사 ${course.instructor.name}` : ''}</p>
+              </Link>
+            ))}
           </div>
         )}
       </div>

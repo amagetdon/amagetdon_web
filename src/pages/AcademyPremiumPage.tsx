@@ -4,14 +4,13 @@ import ScheduleCalendar from '../components/ScheduleCalendar'
 import Pagination from '../components/Pagination'
 import HeroSection from '../components/HeroSection'
 import { useCourses } from '../hooks/useCourses'
-import { isCourseClosed } from '../utils/courseStatus'
-import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useClosedAccessGuard } from '../hooks/useClosedAccessGuard'
 import { useSectionConfig } from '../hooks/useSectionSettings'
 import EditableSectionTitle from '../components/admin/EditableSectionTitle'
 
 function AcademyPremiumPage() {
   const { courses, loading } = useCourses('premium')
-  const { closedVisualEffect } = useAcademySettings()
+  const { blockIfClosed } = useClosedAccessGuard()
   const section = useSectionConfig('academy_premium_courses')
   const perPage = section.count ?? 9
   const [currentPage, setCurrentPage] = useState(1)
@@ -49,25 +48,26 @@ function AcademyPremiumPage() {
           ) : (
             <>
               <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-x-5 gap-y-8">
-                {pagedCourses.map((course) => {
-                  const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
-                  return (
-                    <Link key={course.id} to={`/course/${course.id}`} className="no-underline group">
-                      <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
-                        {course.thumbnail_url ? (
-                          <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
-                        ) : (
-                          <span className="text-sm text-gray-400">썸네일<br />16:9</span>
-                        )}
-                      </div>
-                      <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
-                        <span className={closed ? 'line-through' : ''}>{course.title}</span>
-                        {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
-                      </p>
-                      <p className="text-xs text-gray-400">{course.instructor?.name ? `강사 ${course.instructor.name}` : ''}</p>
-                    </Link>
-                  )
-                })}
+                {pagedCourses.map((course) => (
+                  <Link
+                    key={course.id}
+                    to={`/course/${course.id}`}
+                    onClick={blockIfClosed('course', course.enrollment_deadline)}
+                    className="no-underline group"
+                  >
+                    <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
+                      {course.thumbnail_url ? (
+                        <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-sm text-gray-400">썸네일<br />16:9</span>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold whitespace-pre-line leading-snug mb-1 text-gray-900">
+                      {course.title}
+                    </p>
+                    <p className="text-xs text-gray-400">{course.instructor?.name ? `강사 ${course.instructor.name}` : ''}</p>
+                  </Link>
+                ))}
               </div>
               {totalPages > 1 && (
                 <Pagination current={currentPage} total={totalPages} onPageChange={setCurrentPage} />

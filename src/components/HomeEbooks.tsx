@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useEbooks } from '../hooks/useEbooks'
-import { isEbookClosed } from '../utils/courseStatus'
-import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useClosedAccessGuard } from '../hooks/useClosedAccessGuard'
 import { useSectionConfig, type SectionKey } from '../hooks/useSectionSettings'
 import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
@@ -10,7 +9,6 @@ import type { EbookWithInstructor } from '../types'
 // 홈 화면 전자책 — 무료 전자책 / 유료 전자책을 한 줄에 좌우 반반으로 배치.
 // (좁은 화면에서는 위아래로 쌓임)
 function HomeEbooks({ ebooks: freeEbooks, loading: freeLoading }: { ebooks?: EbookWithInstructor[]; loading?: boolean } = {}) {
-  const { closedVisualEffect } = useAcademySettings()
   const { ebooks: paidEbooks, loading: paidLoading } = useEbooks({ isFree: false })
 
   const renderColumn = (opts: {
@@ -28,7 +26,6 @@ function HomeEbooks({ ebooks: freeEbooks, loading: freeLoading }: { ebooks?: Ebo
         books={books}
         loading={loading}
         paid={paid}
-        closedVisualEffect={closedVisualEffect}
       />
     )
   }
@@ -51,17 +48,16 @@ function EbookColumn({
   books,
   loading,
   paid,
-  closedVisualEffect,
 }: {
   sectionKey: SectionKey
   to: string
   books: EbookWithInstructor[]
   loading: boolean
   paid: boolean
-  closedVisualEffect: boolean | undefined
 }) {
   const section = useSectionConfig(sectionKey)
   const count = section.count ?? 4
+  const { blockIfClosed } = useClosedAccessGuard()
 
   return (
     <div className="min-w-0">
@@ -95,33 +91,33 @@ function EbookColumn({
       ) : (
         <div className="grid grid-cols-3 gap-5">
           {books.slice(0, count).map((book) => {
-            const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
-            // 무료: is_free 또는 sale_price === 0
-            // 실효 가격: 무료면 0, 할인가 있으면 할인가, 아니면 정가
-            // 정가 line-through: 정가가 있고 실효 가격이 그보다 낮을 때 (sale=0 무료 케이스도 포함 → 정가 ↘ 무료)
             const isItemFree = paid && (book.is_free || book.sale_price === 0)
             const effectivePrice = isItemFree ? 0
               : (book.sale_price && book.sale_price > 0 ? book.sale_price : (book.original_price ?? 0))
             const discounted = paid && book.original_price != null && book.original_price > 0
               && effectivePrice < book.original_price
             return (
-              <Link key={book.id} to={`/ebook/${book.id}`} className="no-underline group">
-                <div className={`bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+              <Link
+                key={book.id}
+                to={`/ebook/${book.id}`}
+                onClick={blockIfClosed('ebook', book.close_date)}
+                className="no-underline group"
+              >
+                <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
                   {book.thumbnail_url ? (
                     <img src={imgUrl(book.thumbnail_url, 'thumb')} alt={book.title} loading="lazy" className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-sm text-gray-400">썸네일</span>
                   )}
                 </div>
-                <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
-                  <span className={closed ? 'line-through' : ''}>{book.title}</span>
-                  {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                <p className="text-sm font-bold whitespace-pre-line leading-snug mb-1 text-gray-900">
+                  {book.title}
                 </p>
                 {discounted && (
                   <p className="text-xs text-gray-400 line-through">{book.original_price!.toLocaleString()}원</p>
                 )}
                 {paid ? (
-                  <p className={`text-sm font-bold ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
+                  <p className="text-sm font-bold text-gray-900">
                     {isItemFree
                       ? '무료'
                       : book.sale_price && book.sale_price > 0

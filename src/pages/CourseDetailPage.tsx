@@ -21,8 +21,7 @@ import { paymentService } from '../services/paymentService'
 import { supabase } from '../lib/supabase'
 import type { Coupon } from '../types'
 import { textToHtml } from '../utils/richText'
-import { isCourseClosed } from '../utils/courseStatus'
-import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
 
 function CourseDetailPage() {
   const { id } = useParams()
@@ -53,7 +52,7 @@ function CourseDetailPage() {
   useEffect(() => { webhookService.markLandingEntry() }, [])
   const navigate = useNavigate()
   const { user, profile, refreshProfile, isAdmin } = useAuth()
-  const { closedVisualEffect } = useAcademySettings()
+  const { blockIfClosed } = useClosedAccessGuard()
 
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
   const [owned, setOwned] = useState(false)
@@ -154,6 +153,14 @@ function CourseDetailPage() {
     }).catch(() => setGuestPurchaseAllowed(false))
     return () => { cancelled = true }
   }, [fromSlug])
+
+  // 마감된 강의 직접 URL 접근 차단 — 어드민/미리보기/이미 보유한 사용자는 우회
+  useRedirectIfClosed({
+    kind: 'course',
+    deadline: course?.enrollment_deadline,
+    fallback: course?.course_type === 'premium' ? '/academy/premium' : '/academy/free',
+    active: !loading && !!course && !ownershipLoading && !owned && !isAdmin && !isPreview,
+  })
 
   useEffect(() => {
     if (!course?.enrollment_deadline || isClosed) return
@@ -807,32 +814,33 @@ function CourseDetailPage() {
           <div className="max-w-[1200px] mx-auto px-5">
             <h2 className="text-xl font-bold text-gray-900 mb-6">관련 강의</h2>
             <div className="grid grid-cols-4 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
-              {relatedCourses.map((rc) => {
-                const closed = closedVisualEffect !== false && isCourseClosed(rc.enrollment_deadline)
-                return (
-                  <Link key={rc.id} to={`/course/${rc.id}`} className="no-underline group">
-                    <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
-                      {rc.thumbnail_url ? (
-                        <img src={rc.thumbnail_url} alt={rc.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <span className="text-xs text-gray-400">썸네일</span>
-                      )}
-                    </div>
-                    <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 line-clamp-2 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
-                      <span className={closed ? 'line-through' : ''}>{rc.title}</span>
-                      {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {(() => {
-                        if (rc.course_type === 'free' || rc.sale_price === 0) return '무료'
-                        const price = (rc.sale_price && rc.sale_price > 0) ? rc.sale_price : rc.original_price
-                        if (price == null) return '-'
-                        return `${price.toLocaleString()}원`
-                      })()}
-                    </p>
-                  </Link>
-                )
-              })}
+              {relatedCourses.map((rc) => (
+                <Link
+                  key={rc.id}
+                  to={`/course/${rc.id}`}
+                  onClick={blockIfClosed('course', rc.enrollment_deadline)}
+                  className="no-underline group"
+                >
+                  <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
+                    {rc.thumbnail_url ? (
+                      <img src={rc.thumbnail_url} alt={rc.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <span className="text-xs text-gray-400">썸네일</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold whitespace-pre-line leading-snug mb-1 line-clamp-2 text-gray-900">
+                    {rc.title}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {(() => {
+                      if (rc.course_type === 'free' || rc.sale_price === 0) return '무료'
+                      const price = (rc.sale_price && rc.sale_price > 0) ? rc.sale_price : rc.original_price
+                      if (price == null) return '-'
+                      return `${price.toLocaleString()}원`
+                    })()}
+                  </p>
+                </Link>
+              ))}
             </div>
           </div>
         </section>

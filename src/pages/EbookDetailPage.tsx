@@ -13,15 +13,14 @@ import SeoHead from '../components/SeoHead'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
 import type { EbookWithInstructor, Coupon } from '../types'
-import { isEbookClosed } from '../utils/courseStatus'
-import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
 
 function EbookDetailPage() {
   const { id } = useParams()
   const ebookId = id ? Number(id) : null
   const navigate = useNavigate()
   const { user, profile, refreshProfile, isAdmin } = useAuth()
-  const { closedVisualEffect } = useAcademySettings()
+  const { blockIfClosed } = useClosedAccessGuard()
   const [searchParams] = useSearchParams()
   const isPreview = searchParams.get('preview') === '1'
   useEffect(() => { webhookService.markLandingEntry() }, [])
@@ -120,6 +119,15 @@ function EbookDetailPage() {
   }, [user])
 
   const isFree = ebook?.is_free === true
+
+  // 마감된 전자책 직접 URL 접근 차단 — 어드민/미리보기/이미 보유한 사용자는 우회
+  useRedirectIfClosed({
+    kind: 'ebook',
+    deadline: ebook?.close_date,
+    fallback: isFree ? '/ebooks/free' : '/ebooks/secret',
+    active: !loading && !!ebook && !ownershipLoading && !owned && !isAdmin && !isPreview,
+  })
+
   const now = Date.now()
   const discountActive = !!ebook && !isFree && (
     !ebook.discount_start && !ebook.discount_end ? true :
@@ -537,27 +545,28 @@ function EbookDetailPage() {
           <div className="max-w-[1200px] mx-auto px-5">
             <h2 className="text-xl font-bold text-gray-900 mb-6">관련 전자책</h2>
             <div className="grid grid-cols-4 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
-              {relatedEbooks.map((re) => {
-                const closed = closedVisualEffect !== false && isEbookClosed(re.close_date)
-                return (
-                  <Link key={re.id} to={`/ebook/${re.id}`} className="no-underline group">
-                    <div className={`bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
-                      {re.thumbnail_url ? (
-                        <img src={re.thumbnail_url} alt={re.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      ) : (
-                        <span className="text-xs text-gray-400">표지</span>
-                      )}
-                    </div>
-                    <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 line-clamp-2 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
-                      <span className={closed ? 'line-through' : ''}>{re.title}</span>
-                      {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {re.is_free ? '무료' : re.sale_price ? `${re.sale_price.toLocaleString()}원` : '-'}
-                    </p>
-                  </Link>
-                )
-              })}
+              {relatedEbooks.map((re) => (
+                <Link
+                  key={re.id}
+                  to={`/ebook/${re.id}`}
+                  onClick={blockIfClosed('ebook', re.close_date)}
+                  className="no-underline group"
+                >
+                  <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
+                    {re.thumbnail_url ? (
+                      <img src={re.thumbnail_url} alt={re.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <span className="text-xs text-gray-400">표지</span>
+                    )}
+                  </div>
+                  <p className="text-sm font-bold whitespace-pre-line leading-snug mb-1 line-clamp-2 text-gray-900">
+                    {re.title}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {re.is_free ? '무료' : re.sale_price ? `${re.sale_price.toLocaleString()}원` : '-'}
+                  </p>
+                </Link>
+              ))}
             </div>
           </div>
         </section>

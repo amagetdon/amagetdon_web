@@ -3,8 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import type { CourseWithInstructor, Instructor, EbookWithInstructor } from '../types'
 import { htmlToPlainText } from '../utils/richText'
-import { isCourseClosed, isEbookClosed } from '../utils/courseStatus'
-import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useClosedAccessGuard } from '../hooks/useClosedAccessGuard'
 
 function SearchPage() {
   const [searchParams] = useSearchParams()
@@ -14,7 +13,7 @@ function SearchPage() {
   const [instructors, setInstructors] = useState<Instructor[]>([])
   const [ebooks, setEbooks] = useState<EbookWithInstructor[]>([])
   const [loading, setLoading] = useState(true)
-  const { closedVisualEffect } = useAcademySettings()
+  const { blockIfClosed } = useClosedAccessGuard()
 
   useEffect(() => {
     if (!query.trim()) {
@@ -139,25 +138,26 @@ function SearchPage() {
               <div className="mb-12">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">강의</h2>
                 <div className="grid grid-cols-3 max-md:grid-cols-2 max-sm:grid-cols-1 gap-5">
-                  {courses.map((course) => {
-                    const closed = closedVisualEffect !== false && isCourseClosed(course.enrollment_deadline)
-                    return (
-                      <Link key={course.id} to={`/course/${course.id}`} className="no-underline">
-                        <div className={`bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
-                          {course.thumbnail_url ? (
-                            <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-sm text-gray-400">썸네일</span>
-                          )}
-                        </div>
-                        <p className={`text-sm font-bold mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
-                          <span className={closed ? 'line-through' : ''}>{course.title}</span>
-                          {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
-                        </p>
-                        <p className="text-xs text-gray-400">{course.instructor?.name}</p>
-                      </Link>
-                    )
-                  })}
+                  {courses.map((course) => (
+                    <Link
+                      key={course.id}
+                      to={`/course/${course.id}`}
+                      onClick={blockIfClosed('course', course.enrollment_deadline)}
+                      className="no-underline"
+                    >
+                      <div className="bg-gray-100 rounded-xl aspect-video flex items-center justify-center mb-3 overflow-hidden">
+                        {course.thumbnail_url ? (
+                          <img src={course.thumbnail_url} alt={course.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-sm text-gray-400">썸네일</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-bold mb-1 text-gray-900">
+                        {course.title}
+                      </p>
+                      <p className="text-xs text-gray-400">{course.instructor?.name}</p>
+                    </Link>
+                  ))}
                 </div>
               </div>
             )}
@@ -166,25 +166,26 @@ function SearchPage() {
               <div className="mb-12">
                 <h2 className="text-lg font-bold text-gray-900 mb-4">전자책</h2>
                 <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
-                  {ebooks.map((ebook) => {
-                    const closed = closedVisualEffect !== false && isEbookClosed(ebook.close_date)
-                    return (
-                      <Link key={ebook.id} to={`/ebook/${ebook.id}`} className="no-underline">
-                        <div className={`bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
-                          {ebook.thumbnail_url ? (
-                            <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-sm text-gray-400">썸네일</span>
-                          )}
-                        </div>
-                        <p className={`text-sm font-bold mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
-                          <span className={closed ? 'line-through' : ''}>{ebook.title}</span>
-                          {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
-                        </p>
-                        <p className="text-xs text-gray-400">{ebook.instructor?.name}</p>
-                      </Link>
-                    )
-                  })}
+                  {ebooks.map((ebook) => (
+                    <Link
+                      key={ebook.id}
+                      to={`/ebook/${ebook.id}`}
+                      onClick={blockIfClosed('ebook', ebook.close_date)}
+                      className="no-underline"
+                    >
+                      <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
+                        {ebook.thumbnail_url ? (
+                          <img src={ebook.thumbnail_url} alt={ebook.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-sm text-gray-400">썸네일</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-bold mb-1 text-gray-900">
+                        {ebook.title}
+                      </p>
+                      <p className="text-xs text-gray-400">{ebook.instructor?.name}</p>
+                    </Link>
+                  ))}
                 </div>
               </div>
             )}

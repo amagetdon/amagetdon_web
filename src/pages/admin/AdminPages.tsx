@@ -539,8 +539,8 @@ export default function AdminPages() {
             />
           </div>
           <div className="pt-6 border-t border-gray-100">
-            <h3 className="text-sm font-bold text-gray-900 mb-1">마감 시 시각적 효과</h3>
-            <p className="text-xs text-gray-400 mb-3">목록에서 마감된 강의·전자책의 제목에 취소선과 "(마감)" 라벨을 표시합니다.</p>
+            <h3 className="text-sm font-bold text-gray-900 mb-1">마감 시 접근 차단</h3>
+            <p className="text-xs text-gray-400 mb-3">마감된 강의·전자책은 카드 클릭과 직접 URL 진입을 모두 막고 안내 토스트를 띄웁니다. (이미 구매한 사용자·관리자는 우회)</p>
             <label className="inline-flex items-center gap-3 cursor-pointer select-none">
               <span className="relative">
                 <input

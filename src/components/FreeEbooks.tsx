@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ebookService } from '../services/ebookService'
-import { isEbookClosed } from '../utils/courseStatus'
-import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useClosedAccessGuard } from '../hooks/useClosedAccessGuard'
 import { useSectionConfig, type SectionKey } from '../hooks/useSectionSettings'
 import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
@@ -13,7 +12,7 @@ function FreeEbooks({ ebooks: propEbooks, loading: propLoading, sectionKey = 'fr
   const [selfLoading, setSelfLoading] = useState(!propEbooks)
   const ebooks = propEbooks ?? selfEbooks
   const loading = propLoading ?? selfLoading
-  const { closedVisualEffect } = useAcademySettings()
+  const { blockIfClosed } = useClosedAccessGuard()
   const section = useSectionConfig(sectionKey)
   const count = section.count ?? 5
 
@@ -51,25 +50,26 @@ function FreeEbooks({ ebooks: propEbooks, loading: propLoading, sectionKey = 'fr
           </div>
         ) : (
           <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
-            {ebooks.slice(0, count).map((book) => {
-              const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
-              return (
-                <Link key={book.id} to={`/ebook/${book.id}`} className="no-underline group">
-                  <div className={`bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
-                    {book.thumbnail_url ? (
-                      <img src={imgUrl(book.thumbnail_url, 'thumb')} alt={book.title} loading="lazy" className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-sm text-gray-400">썸네일</span>
-                    )}
-                  </div>
-                  <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-1 ${closed ? 'text-gray-400' : 'text-gray-900'}`}>
-                    <span className={closed ? 'line-through' : ''}>{book.title}</span>
-                    {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
-                  </p>
-                  <p className="text-sm text-gray-500">무료</p>
-                </Link>
-              )
-            })}
+            {ebooks.slice(0, count).map((book) => (
+              <Link
+                key={book.id}
+                to={`/ebook/${book.id}`}
+                onClick={blockIfClosed('ebook', book.close_date)}
+                className="no-underline group"
+              >
+                <div className="bg-gray-100 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
+                  {book.thumbnail_url ? (
+                    <img src={imgUrl(book.thumbnail_url, 'thumb')} alt={book.title} loading="lazy" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-sm text-gray-400">썸네일</span>
+                  )}
+                </div>
+                <p className="text-sm font-bold whitespace-pre-line leading-snug mb-1 text-gray-900">
+                  {book.title}
+                </p>
+                <p className="text-sm text-gray-500">무료</p>
+              </Link>
+            ))}
           </div>
         )}
       </div>

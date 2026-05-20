@@ -1,14 +1,13 @@
 import { Link } from 'react-router-dom'
 import { useEbooks } from '../hooks/useEbooks'
-import { isEbookClosed } from '../utils/courseStatus'
-import { useAcademySettings } from '../hooks/useAcademySettings'
+import { useClosedAccessGuard } from '../hooks/useClosedAccessGuard'
 import { useSectionConfig, type SectionKey } from '../hooks/useSectionSettings'
 import EditableSectionTitle from './admin/EditableSectionTitle'
 import { imgUrl } from '../lib/image'
 
 function SecretBooks({ sectionKey = 'secret_books' }: { sectionKey?: SectionKey } = {}) {
   const { ebooks, loading } = useEbooks({ isFree: false })
-  const { closedVisualEffect } = useAcademySettings()
+  const { blockIfClosed } = useClosedAccessGuard()
   const section = useSectionConfig(sectionKey)
   const count = section.count ?? 5
 
@@ -46,7 +45,6 @@ function SecretBooks({ sectionKey = 'secret_books' }: { sectionKey?: SectionKey 
         ) : (
           <div className="grid grid-cols-5 max-lg:grid-cols-4 max-md:grid-cols-3 max-sm:grid-cols-2 gap-5">
             {ebooks.slice(0, count).map((book) => {
-              const closed = closedVisualEffect !== false && isEbookClosed(book.close_date)
               // 무료(sale=0 또는 is_free) 일 때도 정가가 있으면 line-through 노출 → "정가 ↘ 무료" 강조
               const isItemFree = book.is_free || book.sale_price === 0
               const effectivePrice = isItemFree ? 0
@@ -54,24 +52,28 @@ function SecretBooks({ sectionKey = 'secret_books' }: { sectionKey?: SectionKey 
               const showStrike = book.original_price != null && book.original_price > 0
                 && effectivePrice < book.original_price
               return (
-                <Link key={book.id} to={`/ebook/${book.id}`} className="cursor-pointer group no-underline">
-                  <div className={`bg-gray-800 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden ${closed ? 'opacity-60' : ''}`}>
+                <Link
+                  key={book.id}
+                  to={`/ebook/${book.id}`}
+                  onClick={blockIfClosed('ebook', book.close_date)}
+                  className="cursor-pointer group no-underline"
+                >
+                  <div className="bg-gray-800 rounded-xl aspect-[3/4] flex items-center justify-center mb-3 overflow-hidden">
                     {book.thumbnail_url ? (
                       <img src={imgUrl(book.thumbnail_url, 'thumb')} alt={book.title} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-sm text-gray-500">썸네일<br />16:9</span>
                     )}
                   </div>
-                  <p className={`text-sm font-bold whitespace-pre-line leading-snug mb-2 ${closed ? 'text-gray-500' : 'text-white'}`}>
-                    <span className={closed ? 'line-through' : ''}>{book.title}</span>
-                    {closed && <span className="ml-1 text-xs font-medium">(마감)</span>}
+                  <p className="text-sm font-bold whitespace-pre-line leading-snug mb-2 text-white">
+                    {book.title}
                   </p>
                   {showStrike && (
                     <p className="text-xs text-gray-500 line-through">
                       {book.original_price!.toLocaleString()}원
                     </p>
                   )}
-                  <p className={`text-base font-bold ${closed ? 'text-gray-500' : 'text-white'}`}>
+                  <p className="text-base font-bold text-white">
                     {isItemFree
                       ? '무료'
                       : book.sale_price && book.sale_price > 0
