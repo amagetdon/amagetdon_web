@@ -253,9 +253,21 @@ function EbookReaderPage() {
           canvas.height = Math.floor(viewport.height * dpr)
           canvas.style.width = `${Math.floor(viewport.width)}px`
           canvas.style.height = `${Math.floor(viewport.height)}px`
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-          await page.render({ canvasContext: ctx, viewport, canvas } as never).promise
+          // pdf.js v4 의 beginDrawing 은 시작 시 resetCtxToDefault 로 컨텍스트를 초기화하므로
+          // ctx.setTransform 으로 DPR 을 미리 걸어두면 무효화됨. transform 파라미터로 넘겨야
+          // pdf.js 가 reset 후 viewport transform 적용 직전에 우리 DPR scale 을 적용함.
+          // 이 누락이 있을 경우 canvas bitmap 의 일부에만 PDF 가 찍히고 나머지는 투명으로 남아
+          // 컨테이너 어두운 배경이 비쳐 "캔버스 외곽이 좌상단으로 밀린 듯" 한 시각 발생.
+          const renderTransform: [number, number, number, number, number, number] | null =
+            dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null
+
+          await page.render({
+            canvasContext: ctx,
+            viewport,
+            canvas,
+            transform: renderTransform,
+          } as never).promise
 
           // 워터마크 — 화면 한 페이지 분량만 (성능)
           if (watermarkText) {
@@ -521,7 +533,7 @@ function EbookReaderPage() {
               style={{
                 pointerEvents: 'none',
                 touchAction: 'pan-y pinch-zoom',
-                boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.12), 0 4px 16px rgba(0, 0, 0, 0.4)',
+                boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.1)',
               }}
             />
             {rendering && (
