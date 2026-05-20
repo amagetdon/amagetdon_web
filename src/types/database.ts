@@ -160,6 +160,8 @@ export interface Course {
   description: string | null
   thumbnail_url: string | null
   video_url: string | null
+  // 홍보 영상 대신 이미지로 노출하고 싶을 때. video_url 과 둘 중 택1로 사용.
+  promo_image_url: string | null
   landing_image_url: string | null
   landing_image_urls: string[] | null
   landing_image_links: string[] | null
@@ -460,6 +462,10 @@ export interface Coupon {
   use_days: number | null
   expires_at: string | null
   is_published: boolean
+  // 적용 범위 — 'all' 전체, 'course' 강의(course_id 비면 전체 강의), 'ebook' 전자책(ebook_id 비면 전체 전자책)
+  applies_to: 'all' | 'course' | 'ebook'
+  course_id: number | null
+  ebook_id: number | null
   created_at: string
 }
 
