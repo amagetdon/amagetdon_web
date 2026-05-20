@@ -56,9 +56,12 @@ function EbookReaderPage() {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
   // 휠로 페이지 이동 시 트랙패드 관성 스크롤이 연쇄로 여러 페이지를 넘기는 것 방지용 디바운스
   const lastWheelPageChangeRef = useRef(0)
-  // 동시 진행 시 canvas.width 리셋이 in-flight render 와 충돌해 비트맵이 좌상단으로 밀리는 현상 방지
-  const renderTaskRef = useRef<{ cancel: () => void; promise: Promise<unknown> } | null>(null)
-  const renderSeqRef = useRef(0)
+  // latest-wins 큐로 렌더 직렬화 — RenderTask.cancel() 을 쓰면 pdf.js v5 의 폰트/페이지 캐시 상태가
+  // 더럽혀져 글자가 듬성듬성/통째로 사라지는 증상(특히 프로덕션) 발생. cancel 대신 큐로 직렬화하면
+  // 캔버스 race 도 없고 캐시 상태도 깨끗하게 유지됨. 진행 중이면 후속 요청은 큐에 덮어써(latest-wins)
+  // 완료 후 마지막 요청만 이어 그림.
+  const renderInFlightRef = useRef(false)
+  const renderQueuedPageRef = useRef<number | null>(null)
 
   const watermarkText = profile?.email || profile?.name || user?.id || ''
 
@@ -161,12 +164,11 @@ function EbookReaderPage() {
     loadPdf()
 
     return () => {
-      if (renderTaskRef.current) {
-        try { renderTaskRef.current.cancel() } catch { /* cancel 은 throw 안 함 */ }
-        renderTaskRef.current = null
-      }
+      // in-flight render 는 pdf.destroy() 가 강제 종료. 별도 cancel 호출 불필요.
       pdfRef.current?.destroy()
       pdfRef.current = null
+      renderInFlightRef.current = false
+      renderQueuedPageRef.current = null
     }
   }, [ebook?.file_url])
 
@@ -188,121 +190,112 @@ function EbookReaderPage() {
     }
   }, [containerEl])
 
-  // 페이지 렌더링 — 캔버스 크기 안전 클램프 + DPR 캡
-  // currentPage/containerWidth 동시 변경(예: PDF 로드 직후 ResizeObserver 첫 발화) 시
-  // 두 render 가 겹쳐 canvas.width 리셋이 in-flight 렌더와 충돌하면 비트맵이 좌상단으로 밀린다.
-  // → seq 번호 + RenderTask.cancel() 로 단일 활성 렌더만 유지.
+  // 페이지 렌더링 — latest-wins 큐로 직렬화. 진행 중이면 후속 요청은 큐에 덮어쓰고, 완료 후 큐의
+  // 마지막 페이지만 이어서 렌더. cancel 안 하므로 pdf.js 내부 폰트/페이지 캐시 상태가 안정 유지됨.
   const renderPage = useCallback(async (pageNum: number) => {
-    const pdf = pdfRef.current
-    const canvas = canvasRef.current
-    if (!pdf || !canvas) return
-
-    const mySeq = ++renderSeqRef.current
-
-    if (renderTaskRef.current) {
-      try { renderTaskRef.current.cancel() } catch { /* cancel 은 throw 안 함 */ }
-      renderTaskRef.current = null
+    if (renderInFlightRef.current) {
+      renderQueuedPageRef.current = pageNum
+      return
     }
-
+    renderInFlightRef.current = true
     setRendering(true)
+
+    let target: number | null = pageNum
     try {
-      const page = await pdf.getPage(pageNum)
-      if (mySeq !== renderSeqRef.current) return
+      while (target !== null) {
+        const currentTarget = target
+        target = null
 
-      const baseViewport = page.getViewport({ scale: 1 })
+        const pdf = pdfRef.current
+        const canvas = canvasRef.current
+        if (!pdf || !canvas) break
 
-      // fit-to-page 모드: 페이지 전체가 컨테이너 안에 들어가도록 폭·높이 중 더 작은 비율 채택.
-      // (이전엔 폭만 맞춰서 데스크톱처럼 컨테이너 가로가 넓을 때 세로로 화면을 한참 넘어 페이지가 비대해짐.)
-      let effectiveScale = scale
-      if (fitMode === 'width' && containerWidth > 0 && containerHeight > 0) {
-        const widthScale = containerWidth / baseViewport.width
-        const heightScale = containerHeight / baseViewport.height
-        effectiveScale = Math.min(3, widthScale, heightScale)
-      }
+        try {
+          const page = await pdf.getPage(currentTarget)
+          const baseViewport = page.getViewport({ scale: 1 })
 
-      // DPR 캡 — 모바일은 2, 데스크톱은 2.5까지
-      const rawDpr = window.devicePixelRatio || 1
-      let dpr = Math.min(rawDpr, isMobile() ? 2 : 2.5)
-
-      const viewport = page.getViewport({ scale: effectiveScale })
-
-      // 캔버스 한 변 4096 / 총 16M 픽셀 제한 (특히 iOS) — scale·dpr 동시 클램프
-      const clampToLimits = () => {
-        const w = viewport.width * dpr
-        const h = viewport.height * dpr
-        const maxDim = Math.max(w, h)
-        if (maxDim > MAX_CANVAS_DIM) {
-          const r = MAX_CANVAS_DIM / maxDim
-          dpr *= r
-        }
-        const w2 = viewport.width * dpr
-        const h2 = viewport.height * dpr
-        if (w2 * h2 > MAX_CANVAS_AREA) {
-          const r = Math.sqrt(MAX_CANVAS_AREA / (w2 * h2))
-          dpr *= r
-        }
-      }
-      clampToLimits()
-
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        setError('캔버스 컨텍스트를 사용할 수 없습니다.')
-        return
-      }
-
-      if (mySeq !== renderSeqRef.current) return
-
-      canvas.width = Math.floor(viewport.width * dpr)
-      canvas.height = Math.floor(viewport.height * dpr)
-      canvas.style.width = `${Math.floor(viewport.width)}px`
-      canvas.style.height = `${Math.floor(viewport.height)}px`
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-
-      const task = page.render({ canvasContext: ctx, viewport, canvas } as never) as { cancel: () => void; promise: Promise<unknown> }
-      renderTaskRef.current = task
-
-      try {
-        await task.promise
-      } catch (err: unknown) {
-        // 후속 renderPage 에 의한 정상 취소 — 에러로 표시하지 않음
-        const name = err && typeof err === 'object' && 'name' in err ? (err as { name?: string }).name : undefined
-        if (name === 'RenderingCancelledException') return
-        throw err
-      }
-
-      if (mySeq !== renderSeqRef.current) return
-      renderTaskRef.current = null
-
-      // 워터마크 — 화면 한 페이지 분량만 (성능)
-      if (watermarkText) {
-        ctx.save()
-        ctx.globalAlpha = 0.05
-        ctx.font = '14px sans-serif'
-        ctx.fillStyle = '#000'
-        ctx.translate(viewport.width / 2, viewport.height / 2)
-        ctx.rotate(-Math.PI / 6)
-
-        const text = watermarkText
-        const colWidth = ctx.measureText(text).width + 100
-        const lineHeight = 80
-        const halfW = viewport.width
-        const halfH = viewport.height
-        for (let y = -halfH; y < halfH; y += lineHeight) {
-          for (let x = -halfW; x < halfW; x += colWidth) {
-            ctx.fillText(text, x, y)
+          // fit-to-page 모드: 페이지 전체가 컨테이너 안에 들어가도록 폭·높이 중 더 작은 비율 채택.
+          let effectiveScale = scale
+          if (fitMode === 'width' && containerWidth > 0 && containerHeight > 0) {
+            const widthScale = containerWidth / baseViewport.width
+            const heightScale = containerHeight / baseViewport.height
+            effectiveScale = Math.min(3, widthScale, heightScale)
           }
+
+          // DPR 캡 — 모바일은 2, 데스크톱은 2.5까지
+          const rawDpr = window.devicePixelRatio || 1
+          let dpr = Math.min(rawDpr, isMobile() ? 2 : 2.5)
+
+          const viewport = page.getViewport({ scale: effectiveScale })
+
+          // 캔버스 한 변 4096 / 총 16M 픽셀 제한 (특히 iOS) — scale·dpr 동시 클램프
+          const clampToLimits = () => {
+            const w = viewport.width * dpr
+            const h = viewport.height * dpr
+            const maxDim = Math.max(w, h)
+            if (maxDim > MAX_CANVAS_DIM) {
+              const r = MAX_CANVAS_DIM / maxDim
+              dpr *= r
+            }
+            const w2 = viewport.width * dpr
+            const h2 = viewport.height * dpr
+            if (w2 * h2 > MAX_CANVAS_AREA) {
+              const r = Math.sqrt(MAX_CANVAS_AREA / (w2 * h2))
+              dpr *= r
+            }
+          }
+          clampToLimits()
+
+          const ctx = canvas.getContext('2d')
+          if (!ctx) {
+            setError('캔버스 컨텍스트를 사용할 수 없습니다.')
+            break
+          }
+
+          canvas.width = Math.floor(viewport.width * dpr)
+          canvas.height = Math.floor(viewport.height * dpr)
+          canvas.style.width = `${Math.floor(viewport.width)}px`
+          canvas.style.height = `${Math.floor(viewport.height)}px`
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+
+          await page.render({ canvasContext: ctx, viewport, canvas } as never).promise
+
+          // 워터마크 — 화면 한 페이지 분량만 (성능)
+          if (watermarkText) {
+            ctx.save()
+            ctx.globalAlpha = 0.05
+            ctx.font = '14px sans-serif'
+            ctx.fillStyle = '#000'
+            ctx.translate(viewport.width / 2, viewport.height / 2)
+            ctx.rotate(-Math.PI / 6)
+
+            const text = watermarkText
+            const colWidth = ctx.measureText(text).width + 100
+            const lineHeight = 80
+            const halfW = viewport.width
+            const halfH = viewport.height
+            for (let y = -halfH; y < halfH; y += lineHeight) {
+              for (let x = -halfW; x < halfW; x += colWidth) {
+                ctx.fillText(text, x, y)
+              }
+            }
+            ctx.restore()
+          }
+        } catch (e) {
+          console.error('[EbookReader] 페이지 렌더 실패:', e)
+          setError('페이지를 표시하는 중 오류가 발생했습니다. 페이지를 새로고침해 주세요.')
+          break
         }
-        ctx.restore()
+
+        // 렌더 도중 들어온 후속 요청이 있으면 이어서 처리 (latest-wins)
+        if (renderQueuedPageRef.current !== null) {
+          target = renderQueuedPageRef.current
+          renderQueuedPageRef.current = null
+        }
       }
-    } catch (e) {
-      if (mySeq !== renderSeqRef.current) return
-      console.error('[EbookReader] 페이지 렌더 실패:', e)
-      setError('페이지를 표시하는 중 오류가 발생했습니다. 페이지를 새로고침해 주세요.')
     } finally {
-      // 더 새로운 render 가 진행 중이면 spinner 상태를 그대로 둠
-      if (mySeq === renderSeqRef.current) {
-        setRendering(false)
-      }
+      renderInFlightRef.current = false
+      setRendering(false)
     }
   }, [scale, fitMode, containerWidth, containerHeight, watermarkText])
 
