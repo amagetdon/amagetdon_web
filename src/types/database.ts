@@ -466,6 +466,8 @@ export interface Coupon {
   applies_to: 'all' | 'course' | 'ebook'
   course_id: number | null
   ebook_id: number | null
+  // 쿠폰 받기 성공 후 이동할 채널 링크(빈 값이면 이동 없음)
+  redirect_url: string | null
   created_at: string
 }
 

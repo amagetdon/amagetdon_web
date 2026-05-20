@@ -34,6 +34,10 @@ function CouponBanner() {
       await couponService.claim(coupon.id, user.id)
       setClaimedIds((prev) => new Set([...prev, coupon.id]))
       toast.success(`쿠폰이 발급되었습니다! 코드: ${coupon.code}`)
+      const redirectUrl = coupon.redirect_url?.trim()
+      if (redirectUrl) {
+        window.location.href = redirectUrl
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : '쿠폰 받기에 실패했습니다.')
     } finally {

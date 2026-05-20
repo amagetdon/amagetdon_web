@@ -97,6 +97,7 @@ export default function AdminCoupons() {
           applies_to: ((editing.applies_to as 'all' | 'course' | 'ebook') || 'all'),
           course_id: editing.applies_to === 'course' && editing.course_id ? Number(editing.course_id) : null,
           ebook_id: editing.applies_to === 'ebook' && editing.ebook_id ? Number(editing.ebook_id) : null,
+          redirect_url: ((editing.redirect_url as string) || '').trim() || null,
         })
         toast.success('새 쿠폰이 등록되었습니다.')
       }
@@ -170,6 +171,7 @@ export default function AdminCoupons() {
             applies_to: 'all',
             course_id: null,
             ebook_id: null,
+            redirect_url: '',
           })}
           className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"
         >
@@ -355,6 +357,17 @@ export default function AdminCoupons() {
                 </select>
               )}
               <p className="text-xs text-gray-400 mt-1">분류 안에서 특정 상품만 적용하려면 위에서 골라주세요. 비워두면 분류 전체에 적용됩니다.</p>
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1">쿠폰 받기 후 이동 링크</label>
+              <input
+                type="url"
+                value={(editing.redirect_url as string) || ''}
+                onChange={(e) => setEditing({ ...editing, redirect_url: e.target.value })}
+                placeholder="https://pf.kakao.com/_xxxxx"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all"
+              />
+              <p className="text-xs text-gray-400 mt-1">쿠폰 받기 성공 시 이동시킬 채널 링크. 비워두면 이동하지 않습니다.</p>
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">쿠폰 코드 *</label>
