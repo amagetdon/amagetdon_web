@@ -199,12 +199,13 @@ async function collectReferencedUrls(
   }
 
   // 일반 URL 컬럼 + RichTextEditor 본문(HTML 안 <img src>도 정규식이 잡아줌)을 모두 referenced 로 등록
-  await required('courses', 'thumbnail_url, landing_image_url, landing_image_urls, video_url, seo, description, refund_policy', (r) => {
-    addJson(r.thumbnail_url); addJson(r.landing_image_url); addJson(r.landing_image_urls); addJson(r.video_url); addJson(r.seo)
+  await required('courses', 'thumbnail_url, landing_image_url, landing_image_urls, video_url, promo_image_url, seo, description, refund_policy', (r) => {
+    addJson(r.thumbnail_url); addJson(r.landing_image_url); addJson(r.landing_image_urls); addJson(r.video_url); addJson(r.promo_image_url); addJson(r.seo)
     addJson(r.description); addJson(r.refund_policy)
   })
-  await required('ebooks', 'thumbnail_url, landing_image_url, landing_image_urls, file_url, seo', (r) => {
+  await required('ebooks', 'thumbnail_url, landing_image_url, landing_image_urls, file_url, seo, refund_policy', (r) => {
     addJson(r.thumbnail_url); addJson(r.landing_image_url); addJson(r.landing_image_urls); addJson(r.file_url); addJson(r.seo)
+    addJson(r.refund_policy)
   })
   await required('instructors', 'image_url, thumbnail_url, hero_portrait_url, bio', (r) => {
     addJson(r.image_url); addJson(r.thumbnail_url); addJson(r.hero_portrait_url); addJson(r.bio)

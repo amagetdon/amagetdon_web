@@ -452,6 +452,7 @@ export default function AdminCourseDetail() {
         landing_image_urls: (editing.landing_image_urls as string[]) ?? [],
         landing_image_links: (editing.landing_image_links as string[]) ?? [],
         video_url: editing.video_url ?? null,
+        promo_image_url: editing.promo_image_url ?? null,
         enrollment_start: editing.enrollment_start ?? null,
         enrollment_deadline: editing.enrollment_deadline ?? null,
         scheduled_at: editing.scheduled_at ?? null,
@@ -918,7 +919,7 @@ export default function AdminCourseDetail() {
                 <label className="text-sm font-bold block mb-1">썸네일 이미지</label>
                 <ImageUploader bucket="courses" path={`${courseId ?? 'new'}/thumb-${Date.now()}`}
                   currentUrl={editing.thumbnail_url as string} onUpload={(url) => setEditing({ ...editing, thumbnail_url: url })} className="h-[140px]" compress={false} />
-                <p className="text-xs text-gray-400 mt-1">원본 그대로 업로드됩니다 (자동 리사이징 없음).</p>
+                <p className="text-xs text-gray-400 mt-1">제품 클릭 전, 보이는 제품 썸네일 이미지 (메인, 아카데미 노출)</p>
               </div>
               <div className="w-full">
                 <label className="text-sm font-bold block mb-1">상세페이지 이미지 (분할 업로드)</label>
@@ -934,11 +935,56 @@ export default function AdminCourseDetail() {
                 />
               </div>
               <div className="w-full">
-                <VideoUrlInput
-                  value={(editing.video_url as string) || null}
-                  onChange={(url) => setEditing({ ...editing, video_url: url })}
-                  label="홍보 영상"
-                />
+                {(() => {
+                  // 탭 활성 상태는 명시적 _promoType 우선, 없으면 데이터에서 추론.
+                  const promoType: 'video' | 'image' =
+                    (editing._promoType as 'video' | 'image' | undefined)
+                    ?? (editing.promo_image_url ? 'image' : 'video')
+                  return (
+                    <>
+                      <div className="flex items-center justify-between mb-1.5 gap-3 flex-wrap">
+                        <label className="block text-sm font-medium text-gray-700">홍보 영상 / 이미지</label>
+                        <div className="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setEditing({ ...editing, _promoType: 'video', promo_image_url: null })}
+                            className={`px-3 py-1.5 rounded-md font-medium border-none cursor-pointer flex items-center gap-1 transition-colors ${
+                              promoType === 'video' ? 'bg-white text-gray-900 shadow-sm' : 'bg-transparent text-gray-500 hover:text-gray-800'
+                            }`}
+                          >
+                            <i className="ti ti-player-play text-xs" />
+                            영상
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditing({ ...editing, _promoType: 'image', video_url: null })}
+                            className={`px-3 py-1.5 rounded-md font-medium border-none cursor-pointer flex items-center gap-1 transition-colors ${
+                              promoType === 'image' ? 'bg-white text-gray-900 shadow-sm' : 'bg-transparent text-gray-500 hover:text-gray-800'
+                            }`}
+                          >
+                            <i className="ti ti-photo text-xs" />
+                            이미지
+                          </button>
+                        </div>
+                      </div>
+                      {promoType === 'video' ? (
+                        <VideoUrlInput
+                          value={(editing.video_url as string) || null}
+                          onChange={(url) => setEditing({ ...editing, video_url: url })}
+                        />
+                      ) : (
+                        <ImageUploader
+                          bucket="courses"
+                          path={`${courseId ?? 'new'}/promo`}
+                          currentUrl={(editing.promo_image_url as string) || null}
+                          onUpload={(url) => setEditing({ ...editing, promo_image_url: url || null })}
+                          className="h-[200px]"
+                        />
+                      )}
+                      <p className="text-xs text-gray-400 mt-1">강의 상세 페이지 최상단에 표시됩니다. 영상과 이미지 중 하나만 설정할 수 있습니다.</p>
+                    </>
+                  )
+                })()}
               </div>
               <div className="w-full">
                 <label className="text-sm font-bold block mb-1">강의 소개</label>

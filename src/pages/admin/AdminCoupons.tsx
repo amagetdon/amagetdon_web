@@ -7,8 +7,11 @@ import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ImageUploader from '../../components/admin/ImageUploader'
 import { couponService } from '../../services/couponService'
+import { supabase } from '../../lib/supabase'
 import CustomEventOverrideEditor from '../../components/admin/CustomEventOverrideEditor'
 import type { Coupon } from '../../types'
+
+interface ProductLite { id: number; title: string }
 
 const COUPON_EVENT_CODES = ['coupon_issued', 'coupon_expiring_d3', 'coupon_expiring_d1', 'coupon_expired']
 
@@ -33,6 +36,8 @@ function couponSampleVars(c: Coupon): Array<{ name: string; code: string; sample
 
 export default function AdminCoupons() {
   const [coupons, setCoupons] = useState<Coupon[]>([])
+  const [courses, setCourses] = useState<ProductLite[]>([])
+  const [ebooks, setEbooks] = useState<ProductLite[]>([])
   const [loading, setLoading] = useState(true)
   const [editing, setEditing] = useState<Record<string, unknown> | null>(null)
   const [saving, setSaving] = useState(false)
@@ -42,8 +47,14 @@ export default function AdminCoupons() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const data = await withTimeout(couponService.getAll())
+      const [data, coursesRes, ebooksRes] = await withTimeout(Promise.all([
+        couponService.getAll(),
+        supabase.from('courses').select('id, title').order('sort_order').order('created_at', { ascending: false }),
+        supabase.from('ebooks').select('id, title').order('sort_order').order('created_at', { ascending: false }),
+      ]))
       setCoupons(data)
+      setCourses((coursesRes.data ?? []) as ProductLite[])
+      setEbooks((ebooksRes.data ?? []) as ProductLite[])
     } catch {
       toast.error('데이터를 불러오는데 실패했습니다.')
     } finally {
@@ -83,6 +94,9 @@ export default function AdminCoupons() {
           use_days: editing.use_days ? Number(editing.use_days) : null,
           expires_at: (editing.expires_at as string) || null,
           is_published: editing.is_published !== false,
+          applies_to: ((editing.applies_to as 'all' | 'course' | 'ebook') || 'all'),
+          course_id: editing.applies_to === 'course' && editing.course_id ? Number(editing.course_id) : null,
+          ebook_id: editing.applies_to === 'ebook' && editing.ebook_id ? Number(editing.ebook_id) : null,
         })
         toast.success('새 쿠폰이 등록되었습니다.')
       }
@@ -105,6 +119,21 @@ export default function AdminCoupons() {
     } catch {
       toast.error('삭제에 실패했습니다.')
     }
+  }
+
+  const scopeLabel = (c: Coupon): string => {
+    if (c.applies_to === 'all') return ''
+    if (c.applies_to === 'course') {
+      if (!c.course_id) return '강의 전체'
+      const target = courses.find((cs) => cs.id === c.course_id)
+      return `강의: ${target?.title ?? `#${c.course_id}`}`
+    }
+    if (c.applies_to === 'ebook') {
+      if (!c.ebook_id) return '전자책 전체'
+      const target = ebooks.find((eb) => eb.id === c.ebook_id)
+      return `전자책: ${target?.title ?? `#${c.ebook_id}`}`
+    }
+    return ''
   }
 
   const generateCode = () => {
@@ -138,6 +167,9 @@ export default function AdminCoupons() {
             use_days: null,
             expires_at: '',
             is_published: true,
+            applies_to: 'all',
+            course_id: null,
+            ebook_id: null,
           })}
           className="bg-[#2ED573] text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20 flex items-center gap-1.5"
         >
@@ -173,7 +205,14 @@ export default function AdminCoupons() {
                   <tr key={c.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <p className="font-bold text-gray-900">{c.title}</p>
-                      {c.brand_name && <p className="text-xs text-gray-400">{c.brand_name}</p>}
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        {c.brand_name && <p className="text-xs text-gray-400">{c.brand_name}</p>}
+                        {c.applies_to !== 'all' && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 max-w-[260px] truncate" title={scopeLabel(c)}>
+                            {scopeLabel(c)}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-center max-sm:hidden">
                       <span className="font-bold text-gray-900">{c.discount_type === 'percent' ? `${c.discount_value}%` : `${c.discount_value.toLocaleString()}원`}</span>
@@ -284,6 +323,38 @@ export default function AdminCoupons() {
                 disabled={editing.discount_type !== 'percent'}
                 className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all ${editing.discount_type !== 'percent' ? 'bg-gray-50 text-gray-300 cursor-not-allowed' : ''}`} />
               <p className="text-xs text-gray-400 mt-1">정률 할인 시 최대 할인 상한 (비워두면 무제한)</p>
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="text-sm font-bold block mb-1.5">적용 범위</label>
+              <div className="flex gap-2 mb-3">
+                <button type="button" onClick={() => setEditing({ ...editing, applies_to: 'all', course_id: null, ebook_id: null })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${((editing.applies_to as string) || 'all') === 'all' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                  전체
+                </button>
+                <button type="button" onClick={() => setEditing({ ...editing, applies_to: 'course', ebook_id: null })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${editing.applies_to === 'course' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                  강의
+                </button>
+                <button type="button" onClick={() => setEditing({ ...editing, applies_to: 'ebook', course_id: null })}
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${editing.applies_to === 'ebook' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+                  전자책
+                </button>
+              </div>
+              {editing.applies_to === 'course' && (
+                <select value={(editing.course_id as number | null) ?? ''} onChange={(e) => setEditing({ ...editing, course_id: e.target.value ? Number(e.target.value) : null })}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all bg-white">
+                  <option value="">전체 강의에 적용</option>
+                  {courses.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                </select>
+              )}
+              {editing.applies_to === 'ebook' && (
+                <select value={(editing.ebook_id as number | null) ?? ''} onChange={(e) => setEditing({ ...editing, ebook_id: e.target.value ? Number(e.target.value) : null })}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all bg-white">
+                  <option value="">전체 전자책에 적용</option>
+                  {ebooks.map((e) => <option key={e.id} value={e.id}>{e.title}</option>)}
+                </select>
+              )}
+              <p className="text-xs text-gray-400 mt-1">분류 안에서 특정 상품만 적용하려면 위에서 골라주세요. 비워두면 분류 전체에 적용됩니다.</p>
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">쿠폰 코드 *</label>
