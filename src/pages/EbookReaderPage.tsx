@@ -253,8 +253,6 @@ function EbookReaderPage() {
           canvas.height = Math.floor(viewport.height * dpr)
           canvas.style.width = `${Math.floor(viewport.width)}px`
           canvas.style.height = `${Math.floor(viewport.height)}px`
-          // aspect-ratio 로 비율 잠금 — max-w/max-h 가 clamp 해도 캔버스가 찌그러지지 않음.
-          canvas.style.aspectRatio = `${viewport.width} / ${viewport.height}`
           ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
           await page.render({ canvasContext: ctx, viewport, canvas } as never).promise
@@ -387,6 +385,16 @@ function EbookReaderPage() {
     return () => document.removeEventListener('contextmenu', handleContext)
   }, [])
 
+  // body CSS zoom 을 1(=100%) 로 명시 — 외부 스크립트/스타일이 body zoom 을 건드린 경우를 reset.
+  // (브라우저 자체 줌은 보안상 JS 로 변경 불가하므로 이건 CSS 단의 zoom 만 정규화함)
+  useEffect(() => {
+    const prevZoom = document.body.style.zoom
+    document.body.style.zoom = '100%'
+    return () => {
+      document.body.style.zoom = prevZoom
+    }
+  }, [])
+
   const handleClose = () => navigate(-1)
 
   if (loading) {
@@ -515,10 +523,10 @@ function EbookReaderPage() {
           className="min-h-full flex px-4 py-4"
           style={{ justifyContent: 'safe center', alignItems: 'safe center' }}
         >
-          <div className="relative max-w-full max-h-full">
+          <div className="relative">
             <canvas
               ref={canvasRef}
-              className="block max-w-full max-h-full"
+              className="block"
               style={{ pointerEvents: 'none', touchAction: 'pan-y pinch-zoom' }}
             />
             {rendering && (
