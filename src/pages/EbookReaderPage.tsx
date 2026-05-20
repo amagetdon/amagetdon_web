@@ -56,6 +56,9 @@ function EbookReaderPage() {
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
   // 휠로 페이지 이동 시 트랙패드 관성 스크롤이 연쇄로 여러 페이지를 넘기는 것 방지용 디바운스
   const lastWheelPageChangeRef = useRef(0)
+  // fit 모드에서 계산된 실제 표시 배율 추적 — fit→manual 전환 시 + 버튼이 갑자기 줄어드는
+  // 현상(state 의 scale 은 1 인데 실제로는 1.5 로 보고 있던 경우 등) 방지용 시작점.
+  const effectiveFitScaleRef = useRef(1)
   // latest-wins 큐로 렌더 직렬화 — RenderTask.cancel() 을 쓰면 pdf.js v5 의 폰트/페이지 캐시 상태가
   // 더럽혀져 글자가 듬성듬성/통째로 사라지는 증상(특히 프로덕션) 발생. cancel 대신 큐로 직렬화하면
   // 캔버스 race 도 없고 캐시 상태도 깨끗하게 유지됨. 진행 중이면 후속 요청은 큐에 덮어써(latest-wins)
@@ -216,6 +219,8 @@ function EbookReaderPage() {
             const widthScale = containerWidth / baseViewport.width
             const heightScale = containerHeight / baseViewport.height
             effectiveScale = Math.min(3, widthScale, heightScale)
+            // +/-/wheel zoom 이 fit 모드에서 manual 로 전환할 때 시작점으로 쓰임
+            effectiveFitScaleRef.current = effectiveScale
           }
 
           // DPR 캡 — 모바일은 2, 데스크톱은 2.5까지
@@ -271,6 +276,10 @@ function EbookReaderPage() {
           // 워터마크 — 화면 한 페이지 분량만 (성능)
           if (watermarkText) {
             ctx.save()
+            // pdf.js render 후 ctx 는 identity(bitmap pixel space) 상태. 워터마크 코드는 user-space
+            // 좌표(viewport.width 등)를 쓰므로 DPR transform 을 다시 걸어야 고DPI 화면에서 정확히 가운데
+            // 큰 크기로 나옴. (DPR transform 을 render 파라미터로 옮긴 뒤 누락된 부분 보강)
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
             ctx.globalAlpha = 0.05
             ctx.font = '14px sans-serif'
             ctx.fillStyle = '#000'
@@ -322,14 +331,16 @@ function EbookReaderPage() {
       if (e.ctrlKey || e.metaKey) {
         if (e.key === '=' || e.key === '+') {
           e.preventDefault()
+          const base = fitMode === 'width' ? effectiveFitScaleRef.current : scale
           setFitMode('manual')
-          setScale((s) => Math.min(3, s + 0.2))
+          setScale(Math.min(3, base + 0.2))
           return
         }
         if (e.key === '-' || e.key === '_') {
           e.preventDefault()
+          const base = fitMode === 'width' ? effectiveFitScaleRef.current : scale
           setFitMode('manual')
-          setScale((s) => Math.max(0.5, s - 0.2))
+          setScale(Math.max(0.5, base - 0.2))
           return
         }
         if (e.key === '0') {
@@ -355,12 +366,13 @@ function EbookReaderPage() {
       // Ctrl+휠 → 줌 (브라우저 전체 줌 차단 + 뷰어 줌)
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault()
+        const base = fitMode === 'width' ? effectiveFitScaleRef.current : scale
         if (e.deltaY < 0) {
           setFitMode('manual')
-          setScale((s) => Math.min(3, s + 0.2))
+          setScale(Math.min(3, base + 0.2))
         } else if (e.deltaY > 0) {
           setFitMode('manual')
-          setScale((s) => Math.max(0.5, s - 0.2))
+          setScale(Math.max(0.5, base - 0.2))
         }
         return
       }
@@ -387,7 +399,7 @@ function EbookReaderPage() {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('wheel', handleWheel)
     }
-  }, [numPages, containerEl])
+  }, [numPages, containerEl, scale, fitMode])
 
   // 우클릭 차단
   useEffect(() => {
@@ -469,8 +481,9 @@ function EbookReaderPage() {
           <div className="flex items-center gap-1">
             <button
               onClick={() => {
+                const base = fitMode === 'width' ? effectiveFitScaleRef.current : scale
                 setFitMode('manual')
-                setScale((s) => Math.max(0.5, s - 0.2))
+                setScale(Math.max(0.5, base - 0.2))
               }}
               className="w-7 h-7 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 border-none cursor-pointer transition-colors"
               aria-label="축소"
@@ -491,8 +504,9 @@ function EbookReaderPage() {
             </button>
             <button
               onClick={() => {
+                const base = fitMode === 'width' ? effectiveFitScaleRef.current : scale
                 setFitMode('manual')
-                setScale((s) => Math.min(3, s + 0.2))
+                setScale(Math.min(3, base + 0.2))
               }}
               className="w-7 h-7 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 border-none cursor-pointer transition-colors"
               aria-label="확대"
