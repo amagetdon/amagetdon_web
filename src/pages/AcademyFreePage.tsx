@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import ScheduleCalendar from '../components/ScheduleCalendar'
 import Pagination from '../components/Pagination'
+import HeroSection from '../components/HeroSection'
 import { useCourses } from '../hooks/useCourses'
 import { isCourseClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
@@ -19,16 +20,11 @@ function AcademyFreePage() {
 
   return (
     <>
-      <section className="w-full bg-black py-20 max-sm:py-14">
-        <div className="max-w-[1200px] mx-auto px-5">
-          <span className="inline-block bg-white/10 text-white text-xs font-medium px-4 py-1.5 rounded-full mb-4">
-            무료강의
-          </span>
-          <h1 className="text-3xl max-sm:text-2xl font-bold text-white leading-snug">
-            무료로 시작하는 아마겟돈 클래스
-          </h1>
-        </div>
-      </section>
+      <HeroSection
+        pageKey="academy_free_hero"
+        defaultSubtitle="무료강의"
+        defaultTitle="무료로 시작하는 아마겟돈 클래스"
+      />
 
       <ScheduleCalendar title="이달의 무료강의를 확인하세요" linkTo="/academy/free" />
 

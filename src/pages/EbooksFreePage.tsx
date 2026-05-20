@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Pagination from '../components/Pagination'
+import HeroSection from '../components/HeroSection'
 import { useEbooks } from '../hooks/useEbooks'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
@@ -18,16 +19,11 @@ function EbooksFreePage() {
 
   return (
     <>
-      <section className="w-full bg-black py-20 max-sm:py-14">
-        <div className="max-w-[1200px] mx-auto px-5">
-          <span className="inline-block bg-white/10 text-white text-xs font-medium px-4 py-1.5 rounded-full mb-4">
-            무료 전자책
-          </span>
-          <h1 className="text-3xl max-sm:text-2xl font-bold text-white leading-snug">
-            무료로 받아보는 아마겟돈 전자책
-          </h1>
-        </div>
-      </section>
+      <HeroSection
+        pageKey="ebooks_free_hero"
+        defaultSubtitle="무료 전자책"
+        defaultTitle="무료로 받아보는 아마겟돈 전자책"
+      />
 
       <section className="w-full bg-white py-14 max-sm:py-10">
         <div className="max-w-[1200px] mx-auto px-5">

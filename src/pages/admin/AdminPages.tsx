@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
@@ -41,7 +42,7 @@ const emptyForm: EditingForm = {
 }
 
 type PageTab = 'landing' | 'academy' | 'hero' | 'results' | 'visibility'
-type BannerSubTab = 'hero' | 'academy_hero' | 'landing_hero' | 'reviews' | 'results' | 'faq'
+type BannerSubTab = 'hero' | 'academy_hero' | 'landing_hero' | 'reviews' | 'results' | 'faq' | 'ebooks_free_hero' | 'ebooks_secret_hero' | 'academy_free_hero' | 'academy_premium_hero'
 
 const PAGE_TABS: { key: PageTab; label: string }[] = [
   { key: 'landing', label: '랜딩 페이지' },
@@ -77,6 +78,26 @@ function unifyContentImageWidth(html: string, width = LANDING_IMAGE_WIDTH): stri
 
 export default function AdminPages() {
   const [tab, setTab] = useState<PageTab>('landing')
+  const [searchParams] = useSearchParams()
+
+  // ?tab=hero&page=<pageKey> 로 진입하면 해당 탭/서브탭을 자동 선택 (HeroSection 의 편집 펜슬 버튼이 사용)
+  useEffect(() => {
+    const t = searchParams.get('tab')
+    const p = searchParams.get('page')
+    if (t === 'hero') {
+      setTab('hero')
+      if (p && (
+        p === 'hero' || p === 'academy_hero' || p === 'landing_hero' ||
+        p === 'reviews' || p === 'results' || p === 'faq' ||
+        p === 'ebooks_free_hero' || p === 'ebooks_secret_hero' ||
+        p === 'academy_free_hero' || p === 'academy_premium_hero'
+      )) {
+        setBannerSubTab(p as BannerSubTab)
+      }
+    }
+    // 진입 시 1회만 — 이후 사용자가 탭을 바꿀 수 있어야 하므로 deps 비움
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 랜딩 페이지
   const [categories, setCategories] = useState<LandingCategory[]>([])
@@ -95,7 +116,11 @@ export default function AdminPages() {
   // 배너
   const [bannerDevice, setBannerDevice] = useState<'pc' | 'mobile'>('pc')
   const [bannerSubTab, setBannerSubTab] = useState<BannerSubTab>('hero')
-  const [allBanners, setAllBanners] = useState<Record<string, Banner[]>>({ hero: [], academy_hero: [], landing_hero: [], reviews: [], results: [], faq: [], reviews_event: [], results_event: [], faq_event: [] })
+  const [allBanners, setAllBanners] = useState<Record<string, Banner[]>>({
+    hero: [], academy_hero: [], landing_hero: [], reviews: [], results: [], faq: [],
+    ebooks_free_hero: [], ebooks_secret_hero: [], academy_free_hero: [], academy_premium_hero: [],
+    reviews_event: [], results_event: [], faq_event: [],
+  })
   const [bannerEditing, setBannerEditing] = useState<Record<string, unknown> | null>(null)
   const [bannerSaving, setBannerSaving] = useState(false)
   const [bannerDeleteTarget, setBannerDeleteTarget] = useState<number | null>(null)
@@ -532,7 +557,18 @@ export default function AdminPages() {
       ) : tab === 'hero' ? (
         <>
           <div className="flex gap-2 mb-4">
-            {([['hero', '메인 히어로'], ['academy_hero', '아카데미 탭 히어로'], ['landing_hero', '랜딩 히어로'], ['reviews', '수강 후기'], ['results', '수강 성과'], ['faq', 'FAQ']] as const).map(([key, label]) => (
+            {([
+              ['hero', '메인 히어로'],
+              ['academy_hero', '아카데미 탭 히어로'],
+              ['landing_hero', '랜딩 히어로'],
+              ['academy_premium_hero', '프리미엄 강의'],
+              ['academy_free_hero', '무료 강의'],
+              ['ebooks_free_hero', '무료 전자책'],
+              ['ebooks_secret_hero', '시크릿 북'],
+              ['reviews', '수강 후기'],
+              ['results', '수강 성과'],
+              ['faq', 'FAQ'],
+            ] as const).map(([key, label]) => (
               <button
                 key={key}
                 onClick={() => setBannerSubTab(key)}

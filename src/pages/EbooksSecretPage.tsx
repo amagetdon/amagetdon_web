@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Pagination from '../components/Pagination'
+import HeroSection from '../components/HeroSection'
 import { useEbooks } from '../hooks/useEbooks'
 import { isEbookClosed } from '../utils/courseStatus'
 import { useAcademySettings } from '../hooks/useAcademySettings'
@@ -16,17 +17,12 @@ function EbooksSecretPage() {
 
   return (
     <>
-      <section className="w-full bg-black py-20 max-sm:py-14">
-        <div className="max-w-[1200px] mx-auto px-5">
-          <span className="inline-block bg-white/10 text-white text-xs font-medium px-4 py-1.5 rounded-full mb-4">
-            시크릿 북
-          </span>
-          <h1 className="text-3xl max-sm:text-2xl font-bold text-white leading-snug">
-            더 깊이 배우는 아마겟돈 시크릿 북
-          </h1>
-          <p className="text-sm text-gray-400 mt-3">무료 전자책에서 더 깊게 배우고 싶다면?</p>
-        </div>
-      </section>
+      <HeroSection
+        pageKey="ebooks_secret_hero"
+        defaultSubtitle="시크릿 북"
+        defaultTitle="더 깊이 배우는 아마겟돈 시크릿 북"
+        defaultDescription="무료 전자책에서 더 깊게 배우고 싶다면?"
+      />
 
       <section className="w-full bg-black py-14 max-sm:py-10">
         <div className="max-w-[1200px] mx-auto px-5">

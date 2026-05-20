@@ -1,9 +1,28 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { bannerService } from '../services/bannerService'
 import { supabase } from '../lib/supabase'
 import { imgUrl } from '../lib/image'
 import { textToHtml, scaleBannerFontSizes } from '../utils/richText'
+import { useAuth } from '../contexts/AuthContext'
 import type { Banner } from '../types'
+
+// 관리자에게만 보이는 히어로 편집 버튼 — 클릭 시 /admin/pages 의 해당 히어로 탭으로 이동
+function AdminEditPencil({ pageKey }: { pageKey: string }) {
+  const { isAdmin } = useAuth()
+  if (!isAdmin) return null
+  return (
+    <Link
+      to={`/admin/pages?tab=hero&page=${encodeURIComponent(pageKey)}`}
+      onClick={(e) => e.stopPropagation()}
+      className="absolute top-4 right-4 z-20 inline-flex items-center justify-center w-9 h-9 rounded-full bg-white/15 hover:bg-white/30 text-white border-0 cursor-pointer transition-colors no-underline"
+      title="히어로 배너 편집"
+      aria-label="히어로 배너 편집"
+    >
+      <i className="ti ti-pencil text-base" />
+    </Link>
+  )
+}
 
 function getEmbedUrl(url: string): { type: 'youtube' | 'raw'; src: string } | null {
   if (!url) return null
@@ -60,9 +79,15 @@ interface HeroSectionProps {
   fit?: FitMode
   fitMobile?: FitMode
   pageKey?: string
+  /** 배너가 등록되지 않았을 때 보여줄 기본 부제 (pill 스타일) — 페이지별 히어로용 */
+  defaultSubtitle?: string
+  /** 배너가 등록되지 않았을 때 보여줄 기본 제목 */
+  defaultTitle?: string
+  /** 배너가 등록되지 않았을 때 보여줄 부가 설명 (제목 아래 작은 텍스트) */
+  defaultDescription?: string
 }
 
-function HeroSection({ banners: propBanners, loading: propLoading, height: propHeight, heightMobile: propHeightMobile, speed: propSpeed, fit: propFit, fitMobile: propFitMobile, pageKey = 'hero' }: HeroSectionProps) {
+function HeroSection({ banners: propBanners, loading: propLoading, height: propHeight, heightMobile: propHeightMobile, speed: propSpeed, fit: propFit, fitMobile: propFitMobile, pageKey = 'hero', defaultSubtitle, defaultTitle, defaultDescription }: HeroSectionProps) {
   const cached = bannerCache.get(pageKey)
   const [selfBanners, setSelfBanners] = useState<Banner[]>(cached || [])
   const [selfLoading, setSelfLoading] = useState(!propBanners && !cached)
@@ -168,13 +193,35 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
 
   if (banners.length === 0) {
     if (pageKey === 'reviews' || pageKey === 'results' || pageKey === 'faq') return null
+    // 페이지에서 기본 제목·부제를 넘긴 경우 (예: 무료 전자책, 시크릿 북) — pill 스타일 기본 히어로
+    if (defaultTitle) {
+      return (
+        <section data-no-fade className="relative w-full bg-black py-20 max-sm:py-14">
+          <div className="max-w-[1200px] mx-auto px-5">
+            {defaultSubtitle && (
+              <span className="inline-block bg-white/10 text-white text-xs font-medium px-4 py-1.5 rounded-full mb-4">
+                {defaultSubtitle}
+              </span>
+            )}
+            <h1 className="text-3xl max-sm:text-2xl font-bold text-white leading-snug">
+              {defaultTitle}
+            </h1>
+            {defaultDescription && (
+              <p className="text-sm text-gray-400 mt-3">{defaultDescription}</p>
+            )}
+          </div>
+          <AdminEditPencil pageKey={pageKey} />
+        </section>
+      )
+    }
     return (
-      <section data-no-fade className="w-full bg-black py-20 max-sm:py-12">
+      <section data-no-fade className="relative w-full bg-black py-20 max-sm:py-12">
         <div className="max-w-[1200px] mx-auto px-5">
           <h1 className="text-[40px] max-sm:text-2xl text-white font-bold leading-tight">
             아마겟돈 클래스
           </h1>
         </div>
+        <AdminEditPencil pageKey={pageKey} />
       </section>
     )
   }
@@ -260,6 +307,7 @@ function HeroSection({ banners: propBanners, loading: propLoading, height: propH
           className="text-[40px] max-sm:text-2xl text-white font-medium leading-tight banner-rich"
           dangerouslySetInnerHTML={{ __html: textToHtml(eff.title) }}
         />
+        <AdminEditPencil pageKey={pageKey} />
         {banners.length > 1 && (
           <div className="flex items-center gap-3 mt-10" onClick={(e) => e.stopPropagation()}>
             <button onClick={prev} className="w-8 h-8 rounded-full border border-gray-600 bg-transparent text-gray-400 hover:text-white hover:border-gray-400 flex items-center justify-center cursor-pointer transition-colors" aria-label="이전">
