@@ -397,11 +397,16 @@ export default function AdminCourseDetail() {
   }, [courseId])
 
   const isFree = editing?.course_type === 'free'
+  const isPreAlert = editing?.course_type === 'pre_alert'
+  // 결제가 없는 유형(무료/사전알림) — 가격/할부 입력 비활성화 일괄 처리.
+  const pricingDisabled = isFree || isPreAlert
 
   const handleTypeChange = (type: string) => {
     if (!editing) return
-    if (type === 'free') setEditing({ ...editing, course_type: type, original_price: 0, sale_price: 0 })
-    else {
+    // 무료·사전알림 모두 결제 없음 → 가격 0 으로 자동 설정.
+    if (type === 'free' || type === 'pre_alert') {
+      setEditing({ ...editing, course_type: type, original_price: 0, sale_price: 0 })
+    } else {
       const next: Record<string, unknown> = { ...editing, course_type: type }
       if (editing.original_price === 0) next.original_price = null
       if (editing.sale_price === 0) next.sale_price = null
@@ -642,7 +647,7 @@ export default function AdminCourseDetail() {
               <p className="text-sm text-gray-400 mt-0.5">
                 {course.instructor?.name ? `강사 ${course.instructor.name}` : '강사 미지정'}
                 {' · '}
-                {course.course_type === 'free' ? '무료' : '유료'}
+                {course.course_type === 'free' ? '무료' : course.course_type === 'pre_alert' ? '사전 알림 신청' : '유료'}
                 {' · '}
                 <span className={course.is_published ? 'text-emerald-600' : 'text-gray-400'}>
                   {course.is_published ? '공개' : '비공개'}
@@ -747,27 +752,28 @@ export default function AdminCourseDetail() {
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all">
                   <option value="free">무료</option>
                   <option value="premium">프리미엄</option>
+                  <option value="pre_alert">사전 알림 신청</option>
                 </select>
               </div>
               <div className="w-[180px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">정가 (원)</label>
-                <input type="number" value={isFree ? 0 : ((editing.original_price as number | null) ?? '')} disabled={isFree}
+                <input type="number" value={pricingDisabled ? 0 : ((editing.original_price as number | null) ?? '')} disabled={pricingDisabled}
                   onChange={(e) => setEditing({ ...editing, original_price: e.target.value === '' ? null : Number(e.target.value) })}
-                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
+                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${pricingDisabled ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
                 <p className="text-xs text-gray-400 mt-1">강의 정가 (할인가 비워두면 이 값으로 표시)</p>
               </div>
               <div className="w-[180px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">할인가 (원)</label>
-                <input type="number" value={isFree ? 0 : ((editing.sale_price as number | null) ?? '')} disabled={isFree}
+                <input type="number" value={pricingDisabled ? 0 : ((editing.sale_price as number | null) ?? '')} disabled={pricingDisabled}
                   onChange={(e) => setEditing({ ...editing, sale_price: e.target.value === '' ? null : Number(e.target.value) })}
-                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
+                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${pricingDisabled ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
                 <p className="text-xs text-gray-400 mt-1">0 입력 시 무료 / 비우면 정가로 표시</p>
               </div>
               <div className="w-[140px] max-sm:w-full">
                 <label className="text-sm font-bold block mb-1">할부 개월수</label>
-                <input type="number" min={0} value={isFree ? 0 : ((editing.installment_months as number | undefined) ?? 12)} disabled={isFree}
+                <input type="number" min={0} value={pricingDisabled ? 0 : ((editing.installment_months as number | undefined) ?? 12)} disabled={pricingDisabled}
                   onChange={(e) => setEditing({ ...editing, installment_months: e.target.value === '' ? 0 : Math.max(0, Number(e.target.value)) })}
-                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
+                  className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none ${pricingDisabled ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573]'}`} />
                 <p className="text-xs text-gray-400 mt-1">0 = 할부 미표시 / 12 = 월 가격으로 표시</p>
               </div>
               <div className="w-[140px] max-sm:w-full">
@@ -856,16 +862,16 @@ export default function AdminCourseDetail() {
               <div className="flex gap-3 max-sm:w-full max-sm:flex-col">
                 <div className="w-[220px] max-sm:w-full">
                   <label className="text-sm font-bold block mb-1">할인 시작일시</label>
-                  <input type="datetime-local" value={toKstDatetimeLocal(editing.discount_start as string)} disabled={isFree}
+                  <input type="datetime-local" value={toKstDatetimeLocal(editing.discount_start as string)} disabled={pricingDisabled}
                     onChange={(e) => setEditing({ ...editing, discount_start: e.target.value ? e.target.value + ':00+09:00' : null })}
-                    className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
+                    className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${pricingDisabled ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
                   <p className="text-xs text-gray-400 mt-1">비우면 할인가 상시 적용</p>
                 </div>
                 <div className="w-[220px] max-sm:w-full">
                   <label className="text-sm font-bold block mb-1">할인 종료일시</label>
-                  <input type="datetime-local" value={toKstDatetimeLocal(editing.discount_end as string)} disabled={isFree}
+                  <input type="datetime-local" value={toKstDatetimeLocal(editing.discount_end as string)} disabled={pricingDisabled}
                     onChange={(e) => setEditing({ ...editing, discount_end: e.target.value ? e.target.value + ':00+09:00' : null })}
-                    className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${isFree ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
+                    className={`w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${pricingDisabled ? 'bg-gray-100 text-gray-400' : 'focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
                   <p className="text-xs text-gray-400 mt-1">이후 정가로 판매</p>
                 </div>
               </div>

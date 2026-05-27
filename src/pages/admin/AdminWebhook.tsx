@@ -144,6 +144,7 @@ export default function AdminWebhook() {
     | 'purchase_premium' | 'purchase_free'
     | 'purchase_ebook_premium' | 'purchase_ebook_free'
     | 'refund'
+    | 'course_pre_alert'
     | 'course_d7' | 'course_d3' | 'course_d1' | 'course_d0'
     | 'coupon_issued' | 'coupon_expiring_d3' | 'coupon_expiring_d1' | 'coupon_expired'
     | 'point_charge'
@@ -154,6 +155,7 @@ export default function AdminWebhook() {
     { id: 'purchase_ebook_premium', label: '전자책 유료 구매', isCustom: true },
     { id: 'purchase_ebook_free', label: '전자책 무료 구매', isCustom: true },
     { id: 'refund', label: '환불', isCustom: true },
+    { id: 'course_pre_alert', label: '사전 알림 신청', isCustom: true },
     { id: 'course_d7', label: '강의 7일 전', isCustom: true },
     { id: 'course_d3', label: '강의 3일 전', isCustom: true },
     { id: 'course_d1', label: '강의 1일 전', isCustom: true },

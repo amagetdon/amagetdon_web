@@ -85,7 +85,7 @@ export interface Database {
     Views: Record<string, never>
     Functions: Record<string, never>
     Enums: {
-      course_type: 'free' | 'premium'
+      course_type: 'free' | 'premium' | 'pre_alert'
       user_role: 'user' | 'admin'
     }
   }
@@ -169,7 +169,7 @@ export interface Course {
   sale_price: number | null
   // 가격을 "월 N원 (M개월 할부 시)" 로 표시. 0 이면 할부 미적용(원가 그대로 표시).
   installment_months: number
-  course_type: 'free' | 'premium'
+  course_type: 'free' | 'premium' | 'pre_alert'
   enrollment_start: string | null
   enrollment_deadline: string | null
   // 강의 진행 일시. UI 에서 강의일시로 입력받고 schedules 테이블과 1:1 동기화된다.

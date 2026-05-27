@@ -12,7 +12,9 @@ export const courseService = {
       .select('*, instructor:instructors(id, name)')
       .order('sort_order')
       .order('created_at', { ascending: false })
-    if (type) query = query.eq('course_type', type)
+    // 'free' 카테고리에는 pre_alert (사전 알림 신청) 강의도 포함 — 무료강의와 동일 분류, 알림톡만 분기.
+    if (type === 'free') query = query.in('course_type', ['free', 'pre_alert'])
+    else if (type) query = query.eq('course_type', type)
     const { data, error } = await query
     if (error) throw error
     return setCache(key, data as CourseWithInstructor[])
@@ -27,11 +29,21 @@ export const courseService = {
       .from('courses')
       .select('*, instructor:instructors(id, name)')
       .eq('is_published', true)
-      .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
       .order('scheduled_at', { ascending: false, nullsFirst: false })
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
-    if (type) query = query.eq('course_type', type)
+    if (type === 'free') {
+      // 무료 카테고리에 pre_alert 도 포함. pre_alert 는 enrollment_start 가 미래여도 노출(오픈 전 신청 받기 의도).
+      query = query
+        .in('course_type', ['free', 'pre_alert'])
+        .or(`course_type.eq.pre_alert,enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
+    } else if (type) {
+      query = query
+        .eq('course_type', type)
+        .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
+    } else {
+      query = query.or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
+    }
     const { data, error } = await query
     if (error) throw error
     return setCache(key, data as CourseWithInstructor[])

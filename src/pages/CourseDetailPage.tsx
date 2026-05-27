@@ -247,6 +247,7 @@ function CourseDetailPage() {
   const countdownText = isExpired ? '00:00:00' : `${pad(timeLeft.hours)}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
 
   const isFree = course?.course_type === 'free'
+  const isPreAlert = course?.course_type === 'pre_alert'
   const now = Date.now()
   const discountActive = !!course && !isFree && (
     !course.discount_start && !course.discount_end ? true :
@@ -300,7 +301,8 @@ function CourseDetailPage() {
       return
     }
 
-    if (isFree) {
+    if (isFree || isPreAlert) {
+      // 사전 알림 신청 강의는 무료강의와 동일한 enrollment 흐름 — 알림톡만 다르게 발송됨.
       handleEnrollFree()
       return
     }
@@ -343,13 +345,13 @@ function CourseDetailPage() {
       navigate('/my-classroom')
       return
     }
-    if (isFree) {
+    if (isFree || isPreAlert) {
       handleEnrollFree()
     } else {
       setConfirmOpen(true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingAutoPurchase, user, isFree, owned])
+  }, [pendingAutoPurchase, user, isFree, isPreAlert, owned])
 
 
   const handleEnrollFree = async () => {
@@ -364,8 +366,9 @@ function CourseDetailPage() {
         course.enrollment_deadline || null,
       )
       // 무료 구매 알림톡 + D-N 예약 알림톡 큐 적재
-      // ('purchase' built-in event 는 legacy 라 호출하지 않음 — purchase_free custom event 가 대체)
-      webhookService.fireCustomEvent('purchase_free', {
+      // ('purchase' built-in event 는 legacy 라 호출하지 않음 — purchase_free / course_pre_alert custom event 가 대체)
+      // 사전 알림 신청 강의는 동일 흐름이지만 알림톡 코드만 별도(course_pre_alert) 로 분기.
+      webhookService.fireCustomEvent(isPreAlert ? 'course_pre_alert' : 'purchase_free', {
         course_type: course.course_type,
         price: 0,
         original_price: course.original_price ?? course.sale_price ?? 0,
@@ -507,7 +510,10 @@ function CourseDetailPage() {
     )
   }
 
-  const notYetOpen = course.enrollment_start ? new Date(course.enrollment_start).getTime() > Date.now() : false
+  // 사전 알림 신청 강의는 enrollment_start 가 미래여도 정상 진입을 허용 — 의도가 '오픈 전 강의에 대한 신청 받기'.
+  const notYetOpen = course.enrollment_start && course.course_type !== 'pre_alert'
+    ? new Date(course.enrollment_start).getTime() > Date.now()
+    : false
   if (notYetOpen && !isAdmin) {
     return (
       <section className="w-full bg-white py-10">
@@ -584,7 +590,7 @@ function CourseDetailPage() {
         disabled={purchasing}
         className="w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {purchasing ? '처리 중...' : isFree ? '무료로 구매하기' : '선착순 마감 전에 신청하기'}
+        {purchasing ? '처리 중...' : isPreAlert ? '사전 알림 신청하기' : isFree ? '무료로 구매하기' : '선착순 마감 전에 신청하기'}
       </button>
     )
   }
@@ -833,7 +839,7 @@ function CourseDetailPage() {
                   </p>
                   <p className="text-xs text-gray-500">
                     {(() => {
-                      if (rc.course_type === 'free' || rc.sale_price === 0) return '무료'
+                      if (rc.course_type === 'free' || rc.course_type === 'pre_alert' || rc.sale_price === 0) return '무료'
                       const price = (rc.sale_price && rc.sale_price > 0) ? rc.sale_price : rc.original_price
                       if (price == null) return '-'
                       return `${price.toLocaleString()}원`

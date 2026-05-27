@@ -90,7 +90,7 @@ export default function AdminCourses() {
   const [page, setPage] = useSessionState('admin:courses:page', 1)
   const PER_PAGE = 10
 
-  type TypeFilter = 'all' | 'free' | 'premium'
+  type TypeFilter = 'all' | 'free' | 'premium' | 'pre_alert'
   type PriceFilter = 'all' | 'free' | 'lt200' | '200to400' | '400to600' | 'gte600'
   type RatingFilter = 'all' | 'gte4_5' | 'gte4' | 'gte3' | 'noreview'
   type ScheduleFilter = 'all' | 'upcoming' | 'past' | 'none'
@@ -123,7 +123,7 @@ export default function AdminCourses() {
   }
 
   const effectivePrice = (c: CourseWithInstructor): number | null => {
-    if (c.course_type === 'free' || c.sale_price === 0) return 0
+    if (c.course_type === 'free' || c.course_type === 'pre_alert' || c.sale_price === 0) return 0
     const p = (c.sale_price && c.sale_price > 0) ? c.sale_price : c.original_price
     return p ?? null
   }
@@ -256,6 +256,7 @@ export default function AdminCourses() {
           <option value="all">유형: 전체</option>
           <option value="free">유형: 무료</option>
           <option value="premium">유형: 프리미엄</option>
+          <option value="pre_alert">유형: 사전 알림</option>
         </select>
         <select value={instructorFilter} onChange={(e) => { setInstructorFilter(e.target.value); setPage(1) }}
           className={`py-2 px-3 bg-white border rounded-lg text-sm outline-none cursor-pointer ${instructorFilter !== 'all' ? 'border-[#2ED573] text-[#2ED573] font-medium' : 'border-gray-200 text-gray-600'}`}>
@@ -360,13 +361,14 @@ export default function AdminCourses() {
                       <td className="px-4 py-3 font-medium">{course.title}</td>
                       <td className="px-4 py-3 text-gray-500 max-sm:hidden">{course.instructor?.name || '-'}</td>
                       <td className="px-4 py-3 text-center">
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${course.course_type === 'free' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>
-                          {course.course_type === 'free' ? '무료' : '프리미엄'}
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${course.course_type === 'free' ? 'bg-blue-100 text-blue-700' : course.course_type === 'pre_alert' ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'}`}>
+                          {course.course_type === 'free' ? '무료' : course.course_type === 'pre_alert' ? '사전 알림' : '프리미엄'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center text-gray-500 max-md:hidden">
                         {(() => {
-                          if (course.course_type === 'free' || course.sale_price === 0) return '무료'
+                          // pre_alert 은 무료강의와 동일 동작 — 가격 표시도 '무료' 로 통일.
+                          if (course.course_type === 'free' || course.course_type === 'pre_alert' || course.sale_price === 0) return '무료'
                           const price = (course.sale_price && course.sale_price > 0) ? course.sale_price : course.original_price
                           if (price == null) return '-'
                           return `${price.toLocaleString()}원`

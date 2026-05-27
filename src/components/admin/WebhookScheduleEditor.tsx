@@ -113,7 +113,7 @@ interface Props {
   scopeId: number
 }
 
-type CourseType = 'free' | 'premium' | null
+type CourseType = 'free' | 'premium' | 'pre_alert' | null
 
 interface DefaultTemplateState {
   code: string
@@ -206,15 +206,17 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
   }, [scope, scopeId])
 
   // 전자책은 강의와 카카오 템플릿 변수 세트가 달라서 별도 event_code 로 분리.
-  // - 강의: purchase_free / purchase_premium
+  // - 강의: purchase_free / purchase_premium / course_pre_alert (사전 알림 신청 — 동작은 무료강의와 동일, 알림톡만 분기)
   // - 전자책: purchase_ebook_free / purchase_ebook_premium
-  type PurchaseEventCode = 'purchase_free' | 'purchase_premium' | 'purchase_ebook_free' | 'purchase_ebook_premium'
+  type PurchaseEventCode = 'purchase_free' | 'purchase_premium' | 'purchase_ebook_free' | 'purchase_ebook_premium' | 'course_pre_alert'
   const purchaseEventCode: PurchaseEventCode | null =
     courseType == null
       ? null
       : scope === 'ebook'
         ? (courseType === 'free' ? 'purchase_ebook_free' : 'purchase_ebook_premium')
-        : (courseType === 'free' ? 'purchase_free' : 'purchase_premium')
+        : courseType === 'pre_alert'
+          ? 'course_pre_alert'
+          : (courseType === 'free' ? 'purchase_free' : 'purchase_premium')
 
   const fetchConfigs = useCallback(async () => {
     if (!scopeId || !purchaseEventCode) return
@@ -296,15 +298,18 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
       let type: CourseType = null
       if (scope === 'course') {
         const { data } = await supabase.from('courses').select('course_type').eq('id', scopeId).maybeSingle()
-        type = (data as { course_type?: 'free' | 'premium' } | null)?.course_type ?? null
+        type = (data as { course_type?: CourseType } | null)?.course_type ?? null
       } else {
         const { data } = await supabase.from('ebooks').select('is_free').eq('id', scopeId).maybeSingle()
         type = (data as { is_free?: boolean } | null)?.is_free ? 'free' : 'premium'
       }
       // 전자책은 강의와 분리된 글로벌 기본 (purchase_ebook_*) 사용.
+      // pre_alert 강의는 별도 코드 (course_pre_alert) — 동작은 무료강의지만 알림톡만 분기.
       const code = scope === 'ebook'
         ? (type === 'free' ? 'purchase_ebook_free' : 'purchase_ebook_premium')
-        : (type === 'free' ? 'purchase_free' : 'purchase_premium')
+        : type === 'pre_alert'
+          ? 'course_pre_alert'
+          : (type === 'free' ? 'purchase_free' : 'purchase_premium')
       const { data: evt } = await supabase.from('webhook_custom_events')
         .select('code, label, template, enabled')
         .eq('code', code)
@@ -710,7 +715,9 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
           <div className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded p-3 space-y-1">
             {(() => {
               const prefix = scope === 'ebook' ? '전자책 ' : ''
-              const typeLabel = courseType === 'free' ? `${prefix}무료 구매` : courseType === 'premium' ? `${prefix}유료 구매` : `${prefix}구매`
+              const typeLabel = courseType === 'pre_alert'
+                ? '사전 알림 신청'
+                : courseType === 'free' ? `${prefix}무료 구매` : courseType === 'premium' ? `${prefix}유료 구매` : `${prefix}구매`
               const hasDefault = !!(defaultPurchaseEvent?.template?.trim()) && defaultPurchaseEvent.enabled !== false
               return (
                 <>

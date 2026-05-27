@@ -42,7 +42,9 @@ async function fetchHomeData(year: number, month: number): Promise<HomeData> {
   const queries = [
     supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order').then((r) => r),
     supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
-    supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'free').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
+    // 무료 클래스 목록에는 pre_alert (사전 알림 신청) 강의도 함께 노출 — 무료강의와 동일 카테고리, 알림톡만 분기.
+    // pre_alert 강의는 enrollment_start 가 미래여도 노출해야 함 (오픈 전 신청 받기 의도) → OR 절에 pre_alert 우회 추가.
+    supabase.from('courses').select('*, instructor:instructors(id, name)').in('course_type', ['free', 'pre_alert']).eq('is_published', true).or(`course_type.eq.pre_alert,enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
     supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'premium').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
     supabase.from('instructors').select('*').order('sort_order').then((r) => r),
     supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(20).then((r) => r),
