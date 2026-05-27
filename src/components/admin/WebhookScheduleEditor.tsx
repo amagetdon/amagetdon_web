@@ -164,10 +164,20 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
   const [openRunsFor, setOpenRunsFor] = useState<number | null>(null)
 
   // 구매 알림톡 (per-scope override)
+  // 글로벌 webhook_configs 는 URL 안내 표시 + 연결 정보 폴백용으로만 유지.
+  // 실제 발송은 webhook-send 의 custom-event 분기에서 결정되므로
+  // 전용 템플릿은 webhook_custom_event_overrides (event_code = purchase_free|purchase_premium) 에 저장한다.
   const [globalConfig, setGlobalConfig] = useState<WebhookConfig | null>(null)
-  const [scopedConfig, setScopedConfig] = useState<WebhookConfig | null>(null)
+  type OverrideRow = {
+    id: number
+    event_code: string
+    template: string
+    enabled: boolean
+    variable_aliases: Record<string, string>
+  }
+  const [overrideRow, setOverrideRow] = useState<OverrideRow | null>(null)
   const [purchaseTemplate, setPurchaseTemplate] = useState('')
-  const [overrideEnabled, setOverrideEnabled] = useState(true)
+  const [overrideEnabled, setOverrideEnabled] = useState(false)
   const [savingPurchase, setSavingPurchase] = useState(false)
 
   // scope(강의/전자책) 정보 — 자동 채움 배너 + 미리보기용
@@ -195,18 +205,35 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
     setSchedules(data)
   }, [scope, scopeId])
 
+  // 전자책은 강의와 카카오 템플릿 변수 세트가 달라서 별도 event_code 로 분리.
+  // - 강의: purchase_free / purchase_premium
+  // - 전자책: purchase_ebook_free / purchase_ebook_premium
+  type PurchaseEventCode = 'purchase_free' | 'purchase_premium' | 'purchase_ebook_free' | 'purchase_ebook_premium'
+  const purchaseEventCode: PurchaseEventCode | null =
+    courseType == null
+      ? null
+      : scope === 'ebook'
+        ? (courseType === 'free' ? 'purchase_ebook_free' : 'purchase_ebook_premium')
+        : (courseType === 'free' ? 'purchase_free' : 'purchase_premium')
+
   const fetchConfigs = useCallback(async () => {
-    if (!scopeId) return
-    const [g, s] = await Promise.all([
-      webhookService.getConfig('global', null),
-      webhookService.getConfig(scope, scopeId),
-    ])
+    if (!scopeId || !purchaseEventCode) return
+    const g = await webhookService.getConfig('global', null)
     setGlobalConfig(g)
-    setScopedConfig(s.id ? s : null)
-    // 토글 상태 = scoped 가 존재하고 enabled === true. 그 외 (없거나 disabled) 는 OFF (기본 웹훅 사용).
-    setPurchaseTemplate(s.purchase_template || '')
-    setOverrideEnabled(s.id ? s.enabled !== false : false)
-  }, [scope, scopeId])
+    // override 테이블에서 (event_code, scope, scope_id) 로 row 조회 — 실제 발송 경로와 일치.
+    const { data: ov } = await supabase
+      .from('webhook_custom_event_overrides')
+      .select('id, event_code, template, enabled, variable_aliases')
+      .eq('event_code', purchaseEventCode)
+      .eq('scope', scope)
+      .eq('scope_id', scopeId)
+      .maybeSingle()
+    const row = ov as OverrideRow | null
+    setOverrideRow(row)
+    setPurchaseTemplate(row?.template || '')
+    // 토글 상태 = override 가 존재하고 enabled === true. 그 외 (없거나 disabled) 는 OFF (글로벌 기본 사용).
+    setOverrideEnabled(row ? row.enabled !== false : false)
+  }, [scope, scopeId, purchaseEventCode])
 
   const fetchScopeInfo = useCallback(async () => {
     if (!scopeId) return
@@ -274,7 +301,10 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
         const { data } = await supabase.from('ebooks').select('is_free').eq('id', scopeId).maybeSingle()
         type = (data as { is_free?: boolean } | null)?.is_free ? 'free' : 'premium'
       }
-      const code = type === 'free' ? 'purchase_free' : 'purchase_premium'
+      // 전자책은 강의와 분리된 글로벌 기본 (purchase_ebook_*) 사용.
+      const code = scope === 'ebook'
+        ? (type === 'free' ? 'purchase_ebook_free' : 'purchase_ebook_premium')
+        : (type === 'free' ? 'purchase_free' : 'purchase_premium')
       const { data: evt } = await supabase.from('webhook_custom_events')
         .select('code, label, template, enabled')
         .eq('code', code)
@@ -355,21 +385,21 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
   } | null>(null)
 
   const performSavePurchase = async (templateToSave: string, aliases: Record<string, string>) => {
-    if (!globalConfig) return
+    if (!purchaseEventCode) {
+      toast.error('이 상품의 유료/무료 구분을 확인할 수 없습니다.')
+      return
+    }
     setSavingPurchase(true)
     try {
-      const extConfig = (scopedConfig || {}) as WebhookConfig & { purchase_variable_aliases?: Record<string, string> }
-      await webhookService.saveConfig({
-        ...globalConfig,
-        ...(scopedConfig || {}),
-        id: scopedConfig?.id,
+      await webhookService.upsertCustomEventOverride({
+        id: overrideRow?.id,
+        event_code: purchaseEventCode,
         scope,
         scope_id: scopeId,
+        template: templateToSave,
         enabled: true,
-        purchase_template: templateToSave,
-        label: scopedConfig?.label || `${scope === 'course' ? '강의' : '전자책'}#${scopeId} 전용`,
-        purchase_variable_aliases: { ...(extConfig.purchase_variable_aliases ?? {}), ...aliases },
-      } as WebhookConfig)
+        variable_aliases: { ...(overrideRow?.variable_aliases ?? {}), ...aliases },
+      })
       toast.success(`이 ${scope === 'course' ? '강의' : '전자책'} 전용 구매 알림톡 저장됨`)
       setPurchaseAliasConfirm(null)
       fetchConfigs()
@@ -385,11 +415,19 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
   const handleToggleOverride = async () => {
     const next = !overrideEnabled
     setOverrideEnabled(next)
-    if (!scopedConfig?.id) return // 아직 저장된 전용 설정이 없으면 DB 작업 불필요
+    if (!overrideRow?.id || !purchaseEventCode) return // 아직 저장된 전용 override 가 없으면 DB 작업 불필요
     setSavingPurchase(true)
     try {
-      await webhookService.saveConfig({ ...scopedConfig, enabled: next } as WebhookConfig)
-      toast.success(next ? '전용 설정 활성화' : '기본 웹훅 설정으로 전환됨 (전용 템플릿은 보존)')
+      await webhookService.upsertCustomEventOverride({
+        id: overrideRow.id,
+        event_code: purchaseEventCode,
+        scope,
+        scope_id: scopeId,
+        template: overrideRow.template,
+        enabled: next,
+        variable_aliases: overrideRow.variable_aliases ?? {},
+      })
+      toast.success(next ? '전용 설정 활성화' : '글로벌 기본 알림톡으로 전환됨 (전용 템플릿은 보존)')
       fetchConfigs()
     } catch {
       // 실패 시 토글 롤백
@@ -671,7 +709,8 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
         ) : (
           <div className="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded p-3 space-y-1">
             {(() => {
-              const typeLabel = courseType === 'free' ? '무료 구매' : courseType === 'premium' ? '유료 구매' : '구매'
+              const prefix = scope === 'ebook' ? '전자책 ' : ''
+              const typeLabel = courseType === 'free' ? `${prefix}무료 구매` : courseType === 'premium' ? `${prefix}유료 구매` : `${prefix}구매`
               const hasDefault = !!(defaultPurchaseEvent?.template?.trim()) && defaultPurchaseEvent.enabled !== false
               return (
                 <>
@@ -693,7 +732,7 @@ export default function WebhookScheduleEditor({ scope, scopeId }: Props) {
                 </>
               )
             })()}
-            {scopedConfig?.id && (
+            {overrideRow?.id && (
               <div className="text-[11px] text-gray-400 mt-1">
                 이전에 작성한 전용 템플릿은 보존되어 있어요. 다시 토글 ON 하면 살아납니다.
               </div>

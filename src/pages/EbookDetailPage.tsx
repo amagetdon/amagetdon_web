@@ -189,8 +189,9 @@ function EbookDetailPage() {
         ebook.title,
         ebook.duration_days
       )
-      // 무료 구매 알림톡 ('purchase' built-in event 는 legacy 라 호출하지 않음 — purchase_free custom event 가 대체)
-      webhookService.fireCustomEvent('purchase_free', {
+      // 무료 구매 알림톡 ('purchase' built-in event 는 legacy 라 호출하지 않음 — purchase_ebook_free custom event 가 대체)
+      // 강의용 purchase_free 와 분리되어 전자책 전용 카카오 템플릿코드/변수를 글로벌 기본으로 관리 가능.
+      webhookService.fireCustomEvent('purchase_ebook_free', {
         is_free: ebook.is_free,
         price: 0,
         original_price: ebook.original_price ?? ebook.sale_price ?? 0,
@@ -252,8 +253,9 @@ function EbookDetailPage() {
       )
       if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
       // 무료/유료 분기 알림톡 (ebook.is_free 기준)
-      // ('purchase' built-in event 는 더 이상 호출하지 않음 — purchase_free/premium custom event 가 대체)
-      webhookService.fireCustomEvent(ebook.is_free ? 'purchase_free' : 'purchase_premium', {
+      // ('purchase' built-in event 는 더 이상 호출하지 않음 — purchase_ebook_free/premium custom event 가 대체)
+      // 강의용 purchase_free/premium 과 별도 코드 — 전자책 카카오 템플릿이 강의와 변수 세트가 달라 분리.
+      webhookService.fireCustomEvent(ebook.is_free ? 'purchase_ebook_free' : 'purchase_ebook_premium', {
         is_free: ebook.is_free,
         price: finalPrice,
         original_price: ebook.original_price ?? ebook.sale_price ?? 0,
