@@ -333,6 +333,11 @@ CREATE POLICY "Admin read all courses" ON courses
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
   );
+-- 본인이 구매/수기부여 받은 강의는 미공개여도 읽기 허용 (내 강의실 노출용)
+CREATE POLICY "Users can read purchased courses" ON courses
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM purchases WHERE purchases.course_id = courses.id AND purchases.user_id = auth.uid())
+  );
 CREATE POLICY "Admin manage courses" ON courses
   FOR ALL USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
@@ -354,6 +359,11 @@ CREATE POLICY "Public read ebooks" ON ebooks
 CREATE POLICY "Admin read all ebooks" ON ebooks
   FOR SELECT USING (
     EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+-- 본인이 구매/수기부여 받은 전자책은 미공개여도 읽기 허용 (내 강의실 노출용)
+CREATE POLICY "Users can read purchased ebooks" ON ebooks
+  FOR SELECT USING (
+    EXISTS (SELECT 1 FROM purchases WHERE purchases.ebook_id = ebooks.id AND purchases.user_id = auth.uid())
   );
 CREATE POLICY "Admin manage ebooks" ON ebooks
   FOR ALL USING (

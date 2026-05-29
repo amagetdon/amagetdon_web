@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { toLocalDateStr } from '../../lib/dateUtils'
 import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
-import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react'
+import { Dialog, DialogPanel, DialogTitle, Combobox, ComboboxInput, ComboboxButton, ComboboxOptions, ComboboxOption } from '@headlessui/react'
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { supabase } from '../../lib/supabase'
@@ -40,8 +40,16 @@ export default function AdminMembers() {
   const [grantOpen, setGrantOpen] = useState(false)
   const [grantType, setGrantType] = useState<'course' | 'ebook'>('course')
   const [grantItemId, setGrantItemId] = useState('')
+  const [grantQuery, setGrantQuery] = useState('')
   const [grantDays, setGrantDays] = useState('365')
+  // 수강 기간 산정 방식: deadline=강의 마감일 기준 / days=일(day) / date=만료 날짜 직접 지정
+  const [grantMode, setGrantMode] = useState<'deadline' | 'days' | 'date'>('deadline')
+  const [grantDate, setGrantDate] = useState('')
   const [grantSaving, setGrantSaving] = useState(false)
+  // 일괄 부여(여러 회원 선택)
+  const [bulkGrantOpen, setBulkGrantOpen] = useState(false)
+  const [bulkMemberQuery, setBulkMemberQuery] = useState('')
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set())
   const [allCourses, setAllCourses] = useState<{ id: number; title: string; duration_days: number; enrollment_deadline: string | null }[]>([])
   const [allEbooks, setAllEbooks] = useState<{ id: number; title: string; duration_days: number }[]>([])
   const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null } | null>(null)
@@ -157,40 +165,81 @@ export default function AdminMembers() {
     setMemberReviews((reviewRes.data as typeof memberReviews) || [])
   }
 
-  // 수기 부여 모달 열 때 강의/전자책 목록 로드
+  // 강의/전자책 목록 로드 (최초 1회)
+  const loadGrantItems = async () => {
+    if (allCourses.length > 0) return
+    const [c, e] = await Promise.all([
+      supabase.from('courses').select('id, title, duration_days, enrollment_deadline').order('sort_order'),
+      supabase.from('ebooks').select('id, title, duration_days').order('sort_order'),
+    ])
+    setAllCourses((c.data ?? []) as { id: number; title: string; duration_days: number; enrollment_deadline: string | null }[])
+    setAllEbooks((e.data ?? []) as { id: number; title: string; duration_days: number }[])
+  }
+
+  // 강의/전자책·기간 선택 상태 초기화 (모달 공통)
+  const resetGrantFields = () => {
+    setGrantType('course')
+    setGrantItemId('')
+    setGrantQuery('')
+    setGrantDays('365')
+    setGrantMode('deadline')
+    setGrantDate('')
+  }
+
+  // 수기 부여 모달(1인) 열기
   const openGrantModal = async () => {
     setGrantOpen(true)
-    setGrantItemId('')
-    setGrantDays('365')
-    if (allCourses.length === 0) {
-      const [c, e] = await Promise.all([
-        supabase.from('courses').select('id, title, duration_days, enrollment_deadline').order('sort_order'),
-        supabase.from('ebooks').select('id, title, duration_days').order('sort_order'),
-      ])
-      setAllCourses((c.data ?? []) as { id: number; title: string; duration_days: number; enrollment_deadline: string | null }[])
-      setAllEbooks((e.data ?? []) as { id: number; title: string; duration_days: number }[])
+    resetGrantFields()
+    await loadGrantItems()
+  }
+
+  // 일괄 부여 모달(여러 회원) 열기
+  const openBulkGrantModal = async () => {
+    setBulkGrantOpen(true)
+    setBulkSelectedIds(new Set())
+    setBulkMemberQuery('')
+    resetGrantFields()
+    await loadGrantItems()
+  }
+
+  const toggleBulkMember = (id: string) => {
+    setBulkSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // 선택된 모드에 따라 expires_at(ISO) 계산. null = 무제한.
+  const computeGrantExpiry = (): string | null => {
+    const itemId = Number(grantItemId)
+    const items = grantType === 'course' ? allCourses : allEbooks
+    const item = items.find((i) => i.id === itemId)
+    if (grantMode === 'deadline') {
+      const courseItem = item as { duration_days?: number; enrollment_deadline?: string | null } | undefined
+      if (courseItem?.enrollment_deadline && courseItem?.duration_days && courseItem.duration_days > 0) {
+        return new Date(new Date(courseItem.enrollment_deadline).getTime() + courseItem.duration_days * 86400000).toISOString()
+      }
+      return null
     }
+    if (grantMode === 'days') {
+      const days = Number(grantDays)
+      return days > 0 ? new Date(Date.now() + days * 86400000).toISOString() : null
+    }
+    // date: 지정 날짜의 그날 끝(23:59:59)까지 유효
+    return grantDate ? new Date(`${grantDate}T23:59:59`).toISOString() : null
   }
 
   const handleGrant = async () => {
     if (!viewing || !grantItemId) { toast.error('항목을 선택해주세요.'); return }
+    if (grantMode === 'date' && !grantDate) { toast.error('만료 날짜를 선택해주세요.'); return }
     setGrantSaving(true)
     try {
       const itemId = Number(grantItemId)
       const items = grantType === 'course' ? allCourses : allEbooks
       const item = items.find((i) => i.id === itemId)
-      let expiresAt: string | null = null
-      if (grantType === 'ebook') {
-        const days = Number(grantDays)
-        expiresAt = days > 0
-          ? new Date(Date.now() + days * 86400000).toISOString()
-          : null
-      } else if (grantType === 'course') {
-        const courseItem = item as { duration_days?: number; enrollment_deadline?: string | null } | undefined
-        if (courseItem?.enrollment_deadline && courseItem?.duration_days && courseItem.duration_days > 0) {
-          expiresAt = new Date(new Date(courseItem.enrollment_deadline).getTime() + courseItem.duration_days * 86400000).toISOString()
-        }
-      }
+      const expiresAt = computeGrantExpiry()
 
       const { error } = await supabase.from('purchases').insert({
         user_id: viewing.id,
@@ -205,6 +254,55 @@ export default function AdminMembers() {
       toast.success(`${item?.title} 수강권이 부여되었습니다.`)
       setGrantOpen(false)
       await handleViewMember(viewing)
+    } catch {
+      toast.error('부여에 실패했습니다.')
+    } finally {
+      setGrantSaving(false)
+    }
+  }
+
+  // 여러 회원에게 한 번에 부여 (이미 보유한 회원은 중복 부여하지 않고 건너뜀)
+  const handleBulkGrant = async () => {
+    if (bulkSelectedIds.size === 0) { toast.error('회원을 선택해주세요.'); return }
+    if (!grantItemId) { toast.error('항목을 선택해주세요.'); return }
+    if (grantMode === 'date' && !grantDate) { toast.error('만료 날짜를 선택해주세요.'); return }
+    setGrantSaving(true)
+    try {
+      const itemId = Number(grantItemId)
+      const items = grantType === 'course' ? allCourses : allEbooks
+      const item = items.find((i) => i.id === itemId)
+      const expiresAt = computeGrantExpiry()
+      const idsArr = Array.from(bulkSelectedIds)
+
+      // 이미 같은 강의/전자책을 보유한 회원 제외
+      const { data: existing } = await supabase
+        .from('purchases')
+        .select('user_id')
+        .eq(grantType === 'course' ? 'course_id' : 'ebook_id', itemId)
+        .in('user_id', idsArr)
+      const already = new Set(((existing ?? []) as { user_id: string }[]).map((r) => r.user_id))
+      const targets = idsArr.filter((uid) => !already.has(uid))
+
+      if (targets.length === 0) {
+        toast('선택한 회원 모두 이미 보유 중입니다.')
+        return
+      }
+
+      const rows = targets.map((uid) => ({
+        user_id: uid,
+        course_id: grantType === 'course' ? itemId : null,
+        ebook_id: grantType === 'ebook' ? itemId : null,
+        title: item?.title || '',
+        price: 0,
+        expires_at: expiresAt,
+      }))
+      const { error } = await supabase.from('purchases').insert(rows as never)
+      if (error) throw error
+
+      const skipped = idsArr.length - targets.length
+      toast.success(`${targets.length}명에게 "${item?.title}" 수강권 부여 완료${skipped > 0 ? ` (${skipped}명 보유 중 제외)` : ''}`)
+      setBulkGrantOpen(false)
+      await fetchData()
     } catch {
       toast.error('부여에 실패했습니다.')
     } finally {
@@ -564,6 +662,141 @@ export default function AdminMembers() {
   const formatDate = (d: string) => new Date(d).toLocaleDateString('ko-KR')
   const formatGender = (g: string | null) => g === 'male' ? '남' : g === 'female' ? '여' : '-'
 
+  // 수강권 부여 모달: 검색어로 필터링한 강의/전자책 목록
+  const grantItems = grantType === 'course' ? allCourses : allEbooks
+  const grantFilteredItems = grantQuery.trim()
+    ? grantItems.filter((i) => i.title.toLowerCase().includes(grantQuery.trim().toLowerCase()))
+    : grantItems
+
+  // 수강권 부여 모달: 현재 선택 기준으로 만료일 미리보기 문구
+  const grantExpiry = (grantOpen || bulkGrantOpen) && grantItemId ? computeGrantExpiry() : null
+  const grantExpiryPreview = !grantItemId
+    ? ''
+    : grantExpiry
+      ? `만료일: ${formatDate(grantExpiry)}`
+      : grantMode === 'deadline'
+        ? '무제한 (강의에 마감일·수강 기간 미설정)'
+        : grantMode === 'days'
+          ? '무제한 (0일 또는 미입력)'
+          : '날짜를 선택하세요'
+
+  // 일괄 부여 모달: 검색어로 필터링한 회원 목록
+  const bulkFilteredMembers = members.filter((m) => {
+    const q = bulkMemberQuery.trim().toLowerCase()
+    if (!q) return true
+    return (m.name || '').toLowerCase().includes(q)
+      || (m.email || '').toLowerCase().includes(q)
+      || (m.phone || '').includes(bulkMemberQuery.trim())
+  })
+
+  // 강의/전자책 + 기간 선택 UI (1인·일괄 부여 모달 공통)
+  const renderGrantFields = () => (
+    <>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => { setGrantType('course'); setGrantItemId(''); setGrantQuery(''); setGrantMode('deadline') }}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${grantType === 'course' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+          강의
+        </button>
+        <button type="button" onClick={() => { setGrantType('ebook'); setGrantItemId(''); setGrantQuery(''); setGrantMode('days') }}
+          className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${grantType === 'ebook' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+          전자책
+        </button>
+      </div>
+
+      <Combobox
+        value={grantItemId}
+        onChange={(val: string | null) => {
+          const next = val ?? ''
+          setGrantItemId(next)
+          const item = grantItems.find((i) => String(i.id) === next)
+          if (item) setGrantDays(String(item.duration_days ?? 0))
+        }}
+        onClose={() => setGrantQuery('')}
+      >
+        <div className="relative">
+          <ComboboxInput
+            className="w-full border border-gray-200 rounded-lg pl-3 pr-9 py-2.5 text-sm outline-none focus:border-[#2ED573] bg-white"
+            placeholder={grantType === 'course' ? '강의 검색 또는 선택' : '전자책 검색 또는 선택'}
+            autoComplete="off"
+            displayValue={(id: string) => grantItems.find((i) => String(i.id) === id)?.title ?? ''}
+            onChange={(e) => setGrantQuery(e.target.value)}
+          />
+          <ComboboxButton className="absolute inset-y-0 right-0 flex items-center pr-2.5 bg-transparent border-none cursor-pointer">
+            <i className="ti ti-chevron-down text-gray-400 text-sm" />
+          </ComboboxButton>
+          <ComboboxOptions
+            anchor="bottom start"
+            className="z-[70] w-[var(--input-width)] max-h-60 overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg [--anchor-gap:4px]"
+          >
+            {grantFilteredItems.length === 0 ? (
+              <div className="px-3 py-2 text-sm text-gray-400">검색 결과가 없습니다.</div>
+            ) : grantFilteredItems.map((item) => (
+              <ComboboxOption
+                key={item.id}
+                value={String(item.id)}
+                className="cursor-pointer px-3 py-2 text-sm text-gray-700 data-[focus]:bg-[#2ED573]/10 data-[selected]:font-bold data-[selected]:text-[#2ED573]"
+              >
+                {item.title}
+              </ComboboxOption>
+            ))}
+          </ComboboxOptions>
+        </div>
+      </Combobox>
+
+      <div>
+        <label className="text-xs font-bold text-gray-600 block mb-1.5">
+          {grantType === 'course' ? '수강 기간' : '열람 기간'}
+        </label>
+        <div className="flex gap-1 mb-2">
+          {grantType === 'course' && (
+            <button type="button" onClick={() => setGrantMode('deadline')}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${grantMode === 'deadline' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+              강의 마감일 기준
+            </button>
+          )}
+          <button type="button" onClick={() => setGrantMode('days')}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${grantMode === 'days' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+            일(day)
+          </button>
+          <button type="button" onClick={() => setGrantMode('date')}
+            className={`flex-1 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${grantMode === 'date' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+            날짜 지정
+          </button>
+        </div>
+
+        {grantMode === 'deadline' && (
+          <input
+            type="text"
+            disabled
+            value=""
+            placeholder="강의 마감일 + 수강 기간으로 자동 설정"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none bg-gray-100 text-gray-400"
+          />
+        )}
+        {grantMode === 'days' && (
+          <input
+            type="number"
+            min={0}
+            value={grantDays}
+            onChange={(e) => setGrantDays(e.target.value)}
+            placeholder="0 = 무제한"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573]"
+          />
+        )}
+        {grantMode === 'date' && (
+          <input
+            type="date"
+            value={grantDate}
+            onChange={(e) => setGrantDate(e.target.value)}
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573]"
+          />
+        )}
+
+        {grantExpiryPreview && <p className="text-[11px] text-gray-400 mt-1.5">{grantExpiryPreview}</p>}
+      </div>
+    </>
+  )
+
   return (
     <AdminLayout>
       <div className="flex items-center justify-between mb-6">
@@ -618,6 +851,12 @@ export default function AdminMembers() {
               )
             })}
           </div>
+          <button
+            onClick={openBulkGrantModal}
+            className="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold cursor-pointer border-none hover:bg-gray-800 transition-colors flex items-center gap-1.5"
+          >
+            <i className="ti ti-ticket text-sm" /> 수강권 부여
+          </button>
           <button
             onClick={() => {
               setAddForm({ name: '', email: '', phone: '', password: generatePassword() })
@@ -1125,47 +1364,7 @@ export default function AdminMembers() {
             <p className="text-xs text-gray-400 mb-4">{viewing?.name || '회원'}에게 강의/전자책 수강권을 부여합니다.</p>
 
             <div className="space-y-3">
-              <div className="flex gap-2">
-                <button type="button" onClick={() => { setGrantType('course'); setGrantItemId('') }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${grantType === 'course' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
-                  강의
-                </button>
-                <button type="button" onClick={() => { setGrantType('ebook'); setGrantItemId('') }}
-                  className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${grantType === 'ebook' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
-                  전자책
-                </button>
-              </div>
-
-              <select
-                value={grantItemId}
-                onChange={(e) => {
-                  setGrantItemId(e.target.value)
-                  const items = grantType === 'course' ? allCourses : allEbooks
-                  const item = items.find((i) => i.id === Number(e.target.value))
-                  if (item) setGrantDays(String(item.duration_days ?? 0))
-                }}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] bg-white cursor-pointer"
-              >
-                <option value="">{grantType === 'course' ? '강의를 선택하세요' : '전자책을 선택하세요'}</option>
-                {(grantType === 'course' ? allCourses : allEbooks).map((item) => (
-                  <option key={item.id} value={item.id}>{item.title}</option>
-                ))}
-              </select>
-
-              <div>
-                <label className="text-xs font-bold text-gray-600 block mb-1">
-                  {grantType === 'course' ? '수강 기간 (강의 마감일까지)' : '열람 기간 (일)'}
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={grantType === 'course' ? '' : grantDays}
-                  onChange={(e) => setGrantDays(e.target.value)}
-                  disabled={grantType === 'course'}
-                  placeholder={grantType === 'course' ? '강의 마감일 기준' : '0 = 무제한'}
-                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] disabled:bg-gray-100 disabled:text-gray-400"
-                />
-              </div>
+              {renderGrantFields()}
 
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setGrantOpen(false)}
@@ -1175,6 +1374,93 @@ export default function AdminMembers() {
                 <button onClick={handleGrant} disabled={grantSaving || !grantItemId}
                   className="flex-1 py-2.5 text-sm font-medium text-white bg-[#2ED573] rounded-lg border-none cursor-pointer hover:bg-[#25B866] disabled:opacity-50">
                   {grantSaving ? '처리 중...' : '부여하기'}
+                </button>
+              </div>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* 수강권 일괄 부여 (여러 회원 선택) */}
+      <Dialog open={bulkGrantOpen} onClose={() => setBulkGrantOpen(false)} className="relative z-[60]">
+        <div className="fixed inset-0 bg-black/30" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-white rounded-xl p-6 max-w-md w-full shadow-xl max-h-[90vh] overflow-y-auto">
+            <DialogTitle className="text-base font-bold text-gray-900 mb-1">수강권 일괄 부여</DialogTitle>
+            <p className="text-xs text-gray-400 mb-4">선택한 회원들에게 강의/전자책 수강권을 한 번에 부여합니다.</p>
+
+            <div className="space-y-3">
+              {/* 회원 선택 */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-gray-600">회원 선택 ({bulkSelectedIds.size}명)</label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBulkSelectedIds((prev) => {
+                        const next = new Set(prev)
+                        bulkFilteredMembers.forEach((m) => next.add(m.id))
+                        return next
+                      })}
+                      className="text-[11px] text-[#2ED573] font-medium bg-transparent border-none cursor-pointer hover:underline"
+                    >
+                      검색결과 전체선택
+                    </button>
+                    {bulkSelectedIds.size > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setBulkSelectedIds(new Set())}
+                        className="text-[11px] text-gray-400 font-medium bg-transparent border-none cursor-pointer hover:underline"
+                      >
+                        선택 해제
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <input
+                  value={bulkMemberQuery}
+                  onChange={(e) => setBulkMemberQuery(e.target.value)}
+                  placeholder="이름·이메일·전화번호 검색"
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] mb-2"
+                />
+                <div className="max-h-44 overflow-auto border border-gray-200 rounded-lg divide-y divide-gray-100">
+                  {bulkFilteredMembers.length === 0 ? (
+                    <div className="px-3 py-3 text-sm text-gray-400 text-center">검색 결과가 없습니다.</div>
+                  ) : bulkFilteredMembers.slice(0, 100).map((m) => {
+                    const checked = bulkSelectedIds.has(m.id)
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleBulkMember(m.id)}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-left border-none cursor-pointer transition-colors ${checked ? 'bg-[#2ED573]/5' : 'bg-transparent hover:bg-gray-50'}`}
+                      >
+                        <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${checked ? 'bg-[#2ED573] border-[#2ED573]' : 'border-gray-300'}`}>
+                          {checked && <i className="ti ti-check text-white text-[10px]" />}
+                        </span>
+                        <span className="flex-1 min-w-0 truncate text-sm text-gray-700">
+                          {m.name || '이름없음'}
+                          <span className="text-gray-400 text-xs ml-1.5">{m.email || m.phone || ''}</span>
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {bulkFilteredMembers.length > 100 && (
+                  <p className="text-[11px] text-gray-400 mt-1">상위 100명만 표시됩니다. 검색으로 좁혀주세요.</p>
+                )}
+              </div>
+
+              {renderGrantFields()}
+
+              <div className="flex gap-2 pt-2">
+                <button onClick={() => setBulkGrantOpen(false)}
+                  className="flex-1 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg border-none cursor-pointer hover:bg-gray-200">
+                  취소
+                </button>
+                <button onClick={handleBulkGrant} disabled={grantSaving || !grantItemId || bulkSelectedIds.size === 0}
+                  className="flex-1 py-2.5 text-sm font-medium text-white bg-[#2ED573] rounded-lg border-none cursor-pointer hover:bg-[#25B866] disabled:opacity-50">
+                  {grantSaving ? '처리 중...' : `${bulkSelectedIds.size || ''}${bulkSelectedIds.size ? '명에게 ' : ''}부여하기`}
                 </button>
               </div>
             </div>
