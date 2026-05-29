@@ -81,8 +81,13 @@ function LoginPage() {
           .eq('id', user.id)
           .single<{ name: string | null; phone: string | null; gender: string | null; birth_date: string | null }>()
         const isIncomplete = !profile?.name || !profile?.phone || !profile?.gender || !profile?.birth_date
+        // 특정 페이지(게시판 공유글 등)에서 로그인 버튼을 누른 경우 그 페이지로 복귀
+        const redirect = sessionStorage.getItem('postLoginRedirect')
+        sessionStorage.removeItem('postLoginRedirect')
         if (isIncomplete) {
           navigate('/mypage', { replace: true })
+        } else if (redirect) {
+          navigate(redirect, { replace: true })
         } else if (from !== '/') {
           navigate(from, { replace: true })
         } else {

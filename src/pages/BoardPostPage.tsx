@@ -117,6 +117,7 @@ export default function BoardPostPage() {
               <Link
                 to="/login"
                 state={{ from: { pathname: location.pathname } }}
+                onClick={() => sessionStorage.setItem('postLoginRedirect', location.pathname)}
                 className="block w-full max-w-md mx-auto mt-8 py-4 bg-[#2ED573] text-white text-center font-bold rounded-xl no-underline hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
               >
                 {buttonText}

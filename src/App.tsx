@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useRef } from 'react'
-import { BrowserRouter, Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { AuthProvider } from './contexts/AuthContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Header from './components/Header'
 import LoadingBar from './components/LoadingBar'
 import Footer from './components/Footer'
@@ -114,6 +114,26 @@ function UtmCapture() {
   return null
 }
 
+// 특정 페이지(게시판 공유글 등)에서 로그인 버튼을 눌러 OAuth(카카오/구글)로 로그인하면
+// 외부 리다이렉트로 라우터 state 가 사라지고 홈(/)으로 돌아온다. sessionStorage 에 저장해둔
+// 복귀 경로를 로그인 완료(user 세팅) 시점에 소비해 원래 글로 돌려보낸다.
+// (이메일 로그인은 LoginPage 가 직접 처리하므로 여기선 /, /login 에서만 동작시켜 충돌을 피한다.)
+function PostLoginRedirect() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const { pathname } = useLocation()
+  useEffect(() => {
+    if (!user) return
+    if (pathname !== '/' && pathname !== '/login') return
+    const target = sessionStorage.getItem('postLoginRedirect')
+    if (target && target !== pathname) {
+      sessionStorage.removeItem('postLoginRedirect')
+      navigate(target, { replace: true })
+    }
+  }, [user, pathname, navigate])
+  return null
+}
+
 // 라우트 변경 시 스크롤 최상단으로. 뒤로/앞으로(POP) 는 브라우저가 위치 복원하도록 둠.
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -145,6 +165,7 @@ function App() {
         <div className="w-full font-sans bg-white min-h-screen flex flex-col">
           <LoadingBar />
           <ScrollToTop />
+          <PostLoginRedirect />
           <UtmCapture />
           <DynamicMeta />
           <SeoHead />
