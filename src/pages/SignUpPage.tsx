@@ -521,7 +521,7 @@ function SignUpPage() {
             onKeyDown={handleKeyDown}
             maxLength={4}
             placeholder="0000"
-            className="flex-1 border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-xl text-center outline-none transition-colors placeholder:text-gray-300"
+            className="flex-1 min-w-0 border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-xl text-center outline-none transition-colors placeholder:text-gray-300"
           />
           <span className="text-gray-300">-</span>
           <input
@@ -532,7 +532,7 @@ function SignUpPage() {
             onKeyDown={handleKeyDown}
             maxLength={4}
             placeholder="0000"
-            className="flex-1 border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-xl text-center outline-none transition-colors placeholder:text-gray-300"
+            className="flex-1 min-w-0 border-b-2 border-gray-200 focus:border-[#2ED573] py-3 text-xl text-center outline-none transition-colors placeholder:text-gray-300"
           />
         </div>
       )}
