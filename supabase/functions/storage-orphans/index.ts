@@ -226,6 +226,9 @@ async function collectReferencedUrls(
   await required('landing_categories', 'seo, content_html', (r) => { addJson(r.seo); addJson(r.content_html) })
   await optional('refund_policy_templates', 'content', (r) => { addJson(r.content) })
   await optional('site_settings', 'value', (r) => { addJson(r.value) })
+  // 관리자 게시판 본문/가입유도 제목(RichTextEditor) 안의 <img src> 도 banners 버킷에 올라가므로 참조로 등록.
+  // 누락 시 게시판 이미지가 orphan 으로 잡혀 삭제될 수 있다.
+  await optional('board_posts', 'content, cta_title', (r) => { addJson(r.content); addJson(r.cta_title) })
 
   return { supabase: supabaseRefs, r2: r2Refs }
 }

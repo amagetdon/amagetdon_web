@@ -16,6 +16,8 @@ export type {
   Schedule,
   ScheduleWithDetails,
   Faq,
+  BoardPost,
+  BoardPostPublic,
   Purchase,
   PurchaseWithDetails,
   Banner,

@@ -66,6 +66,8 @@ const AdminPerformance = lazy(() => import('./pages/admin/AdminPerformance'))
 const AdminCourseDetail = lazy(() => import('./pages/admin/AdminCourseDetail'))
 const AdminEbookDetail = lazy(() => import('./pages/admin/AdminEbookDetail'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
+const AdminBoard = lazy(() => import('./pages/admin/AdminBoard'))
+const BoardPostPage = lazy(() => import('./pages/BoardPostPage'))
 
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
 const PaymentFailPage = lazy(() => import('./pages/PaymentFailPage'))
@@ -168,6 +170,10 @@ function App() {
                 <Route path="/ebooks/secret" element={<EbooksSecretPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/landing/:slug" element={<LandingPage />} />
+
+                {/* 관리자 전용 숨김 게시판: /board 는 관리자만, /board/p/:token 은 링크로 누구나 열람 */}
+                <Route path="/board" element={<AdminRoute><AdminBoard /></AdminRoute>} />
+                <Route path="/board/p/:token" element={<BoardPostPage />} />
 
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
                 <Route path="/payment/fail" element={<PaymentFailPage />} />

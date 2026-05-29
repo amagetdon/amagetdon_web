@@ -46,6 +46,11 @@ export interface Database {
         Insert: Omit<Faq, 'id' | 'created_at' | 'updated_at'>
         Update: Partial<Omit<Faq, 'id' | 'created_at'>>
       }
+      board_posts: {
+        Row: BoardPost
+        Insert: Omit<BoardPost, 'id' | 'share_token' | 'created_at' | 'updated_at'> & { share_token?: string }
+        Update: Partial<Omit<BoardPost, 'id' | 'created_at'>>
+      }
       purchases: {
         Row: Purchase
         Insert: Omit<Purchase, 'id' | 'purchased_at'> & { purchased_at?: string }
@@ -383,6 +388,39 @@ export interface Faq {
   file_name: string | null
   sort_order: number
   is_published: boolean
+  created_at: string
+  updated_at: string
+}
+
+// 관리자 전용 숨김 게시판. 목록은 관리자만, 개별 글은 share_token 링크로 누구나 열람.
+export interface BoardPost {
+  id: number
+  title: string
+  content: string
+  share_token: string
+  is_published: boolean
+  // 공유 페이지 티저(미리보기 + 가입 유도 CTA) 설정
+  preview_height: number       // 본문 미리보기 높이(px)
+  cta_enabled: boolean         // 티저 모드 on/off (off 면 본문 전체 노출)
+  cta_locked_text: string      // 본문 아래 안내문
+  cta_title: string            // 가입 유도 제목(HTML)
+  cta_subtitle: string         // 부제목(평문)
+  cta_button_text: string      // 버튼 라벨 (링크는 /login 고정)
+  created_at: string
+  updated_at: string
+}
+
+// 공유 링크(토큰)로 받아오는 공개 단건. share_token/is_published 은 노출하지 않음.
+export interface BoardPostPublic {
+  id: number
+  title: string
+  content: string
+  preview_height: number
+  cta_enabled: boolean
+  cta_locked_text: string
+  cta_title: string
+  cta_subtitle: string
+  cta_button_text: string
   created_at: string
   updated_at: string
 }

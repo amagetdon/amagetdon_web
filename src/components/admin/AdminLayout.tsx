@@ -34,6 +34,7 @@ const NAV_GROUPS = [
     items: [
       { path: '/admin/reviews', label: '후기', icon: 'ti-message-star' },
       { path: '/admin/achievements', label: '수강 성과', icon: 'ti-trophy' },
+      { path: '/board', label: '게시판', icon: 'ti-clipboard-text' },
     ],
   },
   {
