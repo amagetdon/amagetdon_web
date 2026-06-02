@@ -80,10 +80,10 @@ function CourseDetailPage() {
   const [applicantsModalOpen, setApplicantsModalOpen] = useState(false)
   // ViewContent(view_item) 전환 이벤트 — 강의별 1회만 발화
   const viewItemFiredRef = useRef<number | null>(null)
-  // content_subcategory 용 랜딩 카테고리명 (주제 분류). 대표 카테고리 우선, 없으면 첫 번째.
-  const [landingCategoryName, setLandingCategoryName] = useState<string | null>(null)
-  // 랜딩 카테고리 조회 완료 여부 — view_item 을 subcategory 확정 후 발화하기 위한 gate.
-  const [landingResolved, setLandingResolved] = useState(false)
+  // content_subcategory 용 랜딩 카테고리명(주제 분류) + 조회 완료된 강의 id.
+  // name 과 resolvedFor 를 한 객체로 묶어 원자적으로 갱신 — 강의 A→B 이동 시 이전 강의의
+  // 카테고리로 view_item 이 잘못 발화되는 stale 문제를 방지한다.
+  const [landingInfo, setLandingInfo] = useState<{ name: string | null; resolvedFor: number | null }>({ name: null, resolvedFor: null })
 
   // 가짜 신청자 목록 — courseId 시드 기반 deterministic
   const fakeApplicants = useMemo(() => {
@@ -285,34 +285,33 @@ function CourseDetailPage() {
   const finalPrice = Math.max(0, price - couponDiscount)
 
   // content_subcategory(랜딩 카테고리명) 조회 — 대표(landing_category_id) 우선, 없으면 첫 번째.
+  // 조회가 끝나면 name 과 resolvedFor(=강의 id)를 함께 set 해, view_item 이 항상 해당 강의의 값으로만 발화되게 한다.
   useEffect(() => {
     if (!course) return
-    setLandingResolved(false)
-    setLandingCategoryName(null)
+    const courseId = course.id
     const catId = course.landing_category_id ?? course.landing_category_ids?.[0] ?? null
-    if (catId == null) { setLandingResolved(true); return }
+    if (catId == null) { setLandingInfo({ name: null, resolvedFor: courseId }); return }
     let cancelled = false
     landingCategoryService.getPublished()
-      .then((cats) => { if (!cancelled) setLandingCategoryName(cats.find((c) => c.id === catId)?.name ?? null) })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setLandingResolved(true) })
+      .then((cats) => { if (!cancelled) setLandingInfo({ name: cats.find((c) => c.id === catId)?.name ?? null, resolvedFor: courseId }) })
+      .catch(() => { if (!cancelled) setLandingInfo({ name: null, resolvedFor: courseId }) })
     return () => { cancelled = true }
   }, [course])
 
-  // ViewContent — 강의 상세 진입 시 1회 (전환이벤트설계서 #2). subcategory 확정 후 발화.
+  // ViewContent — 강의 상세 진입 시 1회 (전환이벤트설계서 #2). 현재 강의의 subcategory 확정 후에만 발화.
   useEffect(() => {
-    if (!course || !landingResolved || viewItemFiredRef.current === course.id) return
+    if (!course || landingInfo.resolvedFor !== course.id || viewItemFiredRef.current === course.id) return
     viewItemFiredRef.current = course.id
     trackViewItem({
       contentId: buildContentId('course', course.id),
       contentName: course.title,
       contentCategory: courseCategoryLabel(course.course_type),
-      contentSubcategory: landingCategoryName,
+      contentSubcategory: landingInfo.name,
       instructorName: course.instructor?.name ?? null,
       value: displayedPrice,
       user: { email: profile?.email, phone: profile?.phone },
     })
-  }, [course, landingResolved, landingCategoryName, displayedPrice, profile?.email, profile?.phone])
+  }, [course, landingInfo, displayedPrice, profile?.email, profile?.phone])
 
   const handlePurchaseClick = () => {
     if (!user) {
@@ -427,7 +426,7 @@ function CourseDetailPage() {
         contentId: buildContentId('course', course.id),
         contentName: course.title,
         contentCategory: courseCategoryLabel(course.course_type),
-        contentSubcategory: landingCategoryName,
+        contentSubcategory: landingInfo.name,
         instructorName: course.instructor?.name ?? null,
         user: { email: profile?.email, phone: profile?.phone },
       })
@@ -491,7 +490,7 @@ function CourseDetailPage() {
             contentId,
             contentName: course.title,
             contentCategory,
-            contentSubcategory: landingCategoryName,
+            contentSubcategory: landingInfo.name,
             instructorName: course.instructor?.name ?? null,
             value: finalPrice,
             coupon: selectedCoupon?.code ?? '',
@@ -503,7 +502,7 @@ function CourseDetailPage() {
             contentId,
             contentName: course.title,
             contentCategory,
-            contentSubcategory: landingCategoryName,
+            contentSubcategory: landingInfo.name,
             instructorName: course.instructor?.name ?? null,
             user: contact,
           })
@@ -543,7 +542,7 @@ function CourseDetailPage() {
         contentId: buildContentId('course', courseIdVal),
         contentName: title,
         contentCategory: courseCategoryLabel(course?.course_type),
-        contentSubcategory: landingCategoryName,
+        contentSubcategory: landingInfo.name,
         instructorName: course?.instructor?.name ?? null,
         value: price,
         user: { email: profile?.email, phone: profile?.phone },

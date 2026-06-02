@@ -39,7 +39,10 @@ function pushToDataLayer(payload: DataLayerObject): void {
     window.dataLayer = window.dataLayer || []
     const clean: DataLayerObject = {}
     for (const [key, val] of Object.entries(payload)) {
-      if (val !== undefined && val !== null && val !== '') clean[key] = val
+      if (val === undefined || val === null || val === '') continue
+      // NaN/Infinity 가 value 등 숫자 필드로 새는 것을 차단 (GA4/Meta 매출 오염 방지).
+      if (typeof val === 'number' && !Number.isFinite(val)) continue
+      clean[key] = val
     }
     window.dataLayer.push(clean)
   } catch {
@@ -112,6 +115,8 @@ export function trackFreeEnroll(params: {
   instructorName?: string | null
   user?: UserContact
 }): void {
+  // orderId 가 결정적(free_course_{id}_{userId}) 이라 더블클릭/재트리거 시 1회만 발화.
+  if (alreadyFired(`tracked_free_${params.orderId}`)) return
   pushToDataLayer({
     event: 'free_enroll_complete',
     content_id: params.contentId,

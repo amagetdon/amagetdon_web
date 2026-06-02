@@ -102,7 +102,7 @@ Deno.serve(async (req: Request) => {
     if (itemType === 'course') {
       const { data: course } = await supabase
         .from('courses')
-        .select('title, original_price, sale_price, course_type, reward_points, duration_days, enrollment_deadline, after_purchase_url, landing_category_id, instructor:instructors(name)')
+        .select('title, original_price, sale_price, course_type, reward_points, duration_days, enrollment_deadline, after_purchase_url, landing_category_id, landing_category_ids, instructor:instructors(name)')
         .eq('id', itemId)
         .maybeSingle()
       if (!course) return json({ error: '강의를 찾을 수 없습니다.' }, 404)
@@ -118,14 +118,19 @@ Deno.serve(async (req: Request) => {
         const inst = (course as { instructor?: { name?: string } | { name?: string }[] | null }).instructor
         instructorName = (Array.isArray(inst) ? inst[0]?.name : inst?.name) ?? null
       }
-      // 대표 랜딩 카테고리명 → content_subcategory(주제 분류)
-      if (course.landing_category_id) {
-        const { data: lc } = await supabase
-          .from('landing_categories')
-          .select('name')
-          .eq('id', course.landing_category_id)
-          .maybeSingle()
-        contentSubcategory = lc?.name ?? null
+      // 대표 랜딩 카테고리명 → content_subcategory(주제 분류).
+      // 클라이언트(CourseDetailPage)와 동일하게 대표(landing_category_id) 우선, 없으면 첫 번째.
+      {
+        const ids = course.landing_category_ids as number[] | null | undefined
+        const catId = course.landing_category_id ?? (Array.isArray(ids) ? ids[0] : null)
+        if (catId) {
+          const { data: lc } = await supabase
+            .from('landing_categories')
+            .select('name')
+            .eq('id', catId)
+            .maybeSingle()
+          contentSubcategory = lc?.name ?? null
+        }
       }
       if (course.enrollment_deadline && course.duration_days && course.duration_days > 0) {
         const base = new Date(course.enrollment_deadline)
