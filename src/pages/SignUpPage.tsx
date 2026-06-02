@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { authService } from '../services/authService'
 import { webhookService } from '../services/webhookService'
+import { trackSignUp } from '../lib/tracking'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import Turnstile from '../components/Turnstile'
@@ -222,6 +223,13 @@ function SignUpPage() {
         birth_date: birthDate || null,
         ...utmParams,
       }, webhookService.captureContext()).catch(() => {})
+
+      // CompleteRegistration — 이메일 회원가입 완료 (전환이벤트설계서 #5)
+      trackSignUp({
+        method: 'email',
+        userId: newUser?.id ?? null,
+        user: { email: form.email.trim(), phone },
+      })
 
       setSuccess(true)
     } catch (err) {

@@ -3,10 +3,12 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import AfterPurchaseLinkModal from '../components/AfterPurchaseLinkModal'
+import { trackPurchase } from '../lib/tracking'
 
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams()
-  const { loading: authLoading, refreshProfile } = useAuth()
+  const { loading: authLoading, profile, refreshProfile } = useAuth()
+  const [purchaseContentId, setPurchaseContentId] = useState<string | null>(null)
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
   const [orderTitle, setOrderTitle] = useState('')
@@ -58,6 +60,24 @@ export default function PaymentSuccessPage() {
         setIsCharge(data?.type === 'charge')
         setStatus('success')
         setMessage(data?.type === 'charge' ? '포인트가 충전되었습니다.' : '결제가 완료되었습니다.')
+
+        // Purchase — 카드 결제 승인 완료 (전환이벤트설계서 #7). 포인트 충전(charge)은 제외.
+        // orderId 형식: `{생성ID}_{itemType}_{itemId}` → content_id 복원에 사용.
+        if (data?.type !== 'charge') {
+          const parts = orderId.split('_')
+          const itemType = parts[3]
+          const itemId = parts[4]
+          const contentId = itemType && itemId ? `${itemType}_${itemId}` : orderId
+          setPurchaseContentId(contentId)
+          trackPurchase({
+            orderId,
+            contentId,
+            contentName: data?.title || '상품',
+            value: Number(amount),
+            user: { email: profile?.email, phone: profile?.phone },
+          })
+        }
+
         const link = (data?.after_purchase_url as string | null | undefined) ?? null
         if (link) {
           setAfterPurchaseUrl(link)
@@ -73,6 +93,8 @@ export default function PaymentSuccessPage() {
 
     confirmPayment()
     return () => { mounted = false }
+    // profile 은 트래킹 보강용으로만 읽으며, deps 에 넣으면 profile 로드 시 confirm-payment 가 재호출되므로 제외.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, authLoading, refreshProfile])
 
   return (
@@ -145,6 +167,12 @@ export default function PaymentSuccessPage() {
           url={afterPurchaseUrl}
           onClose={() => setAfterPurchaseUrl(null)}
           itemLabel="강의/전자책"
+          tracking={{
+            contentId: purchaseContentId,
+            contentName: orderTitle,
+            email: profile?.email,
+            phone: profile?.phone,
+          }}
         />
       )}
     </section>

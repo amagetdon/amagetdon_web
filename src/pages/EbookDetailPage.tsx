@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Fragment } from 'react'
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
@@ -14,6 +14,7 @@ import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
 import type { EbookWithInstructor, Coupon } from '../types'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
+import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId } from '../lib/tracking'
 
 function EbookDetailPage() {
   const { id } = useParams()
@@ -54,6 +55,8 @@ function EbookDetailPage() {
   const [payMethod, setPayMethod] = useState<'points' | 'toss'>('toss')
   const [tossLoading, setTossLoading] = useState(false)
   const [relatedEbooks, setRelatedEbooks] = useState<Array<{ id: number; title: string; thumbnail_url: string | null; sale_price: number | null; is_free: boolean; close_date: string | null }>>([])
+  // ViewContent(view_item) 전환 이벤트 — 전자책별 1회만 발화
+  const viewItemFiredRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!ebook?.related_ebook_ids || ebook.related_ebook_ids.length === 0) {
@@ -149,6 +152,18 @@ function EbookDetailPage() {
     : 0
   const finalPrice = Math.max(0, price - couponDiscount)
 
+  // ViewContent — 전자책 상세 진입 시 1회 (전환이벤트설계서 #2)
+  useEffect(() => {
+    if (!ebook || viewItemFiredRef.current === ebook.id) return
+    viewItemFiredRef.current = ebook.id
+    trackViewItem({
+      contentId: buildContentId('ebook', ebook.id),
+      contentName: ebook.title,
+      instructorName: ebook.instructor?.name ?? null,
+      value: displayedPrice,
+    })
+  }, [ebook, displayedPrice])
+
   const handlePurchaseClick = () => {
     if (!user) {
       navigate('/login')
@@ -205,6 +220,14 @@ function EbookDetailPage() {
         scope: 'ebook',
         scopeId: ebook.id,
       }).catch(() => {})
+      // Lead — 무료 전자책 신청 완료 (전환이벤트설계서 #3)
+      trackFreeEnroll({
+        orderId: `free_ebook_${ebook.id}_${user.id}`,
+        contentId: buildContentId('ebook', ebook.id),
+        contentName: ebook.title,
+        instructorName: ebook.instructor?.name ?? null,
+        user: { email: profile?.email, phone: profile?.phone },
+      })
       toast.success('전자책이 등록되었습니다!')
       setOwned(true)
       await refreshProfile()
@@ -270,6 +293,31 @@ function EbookDetailPage() {
         scopeId: ebook.id,
       }).catch(() => {})
       webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile.name || '', userPhone: profile.phone || '', userEmail: profile.email || '', scope: 'ebook', scopeId: ebook.id, courseTitle: ebook.title }).catch(() => {})
+      // 포인트(또는 쿠폰 0원) 결제 완료 — 금액 기준으로 Purchase / Lead 분기 (전환이벤트설계서 #7 / #3)
+      {
+        const orderId = `points_ebook_${ebook.id}_${user.id}`
+        const contentId = buildContentId('ebook', ebook.id)
+        const contact = { email: profile.email, phone: profile.phone }
+        if (finalPrice > 0) {
+          trackPurchase({
+            orderId,
+            contentId,
+            contentName: ebook.title,
+            instructorName: ebook.instructor?.name ?? null,
+            value: finalPrice,
+            coupon: selectedCoupon?.code ?? '',
+            user: contact,
+          })
+        } else {
+          trackFreeEnroll({
+            orderId,
+            contentId,
+            contentName: ebook.title,
+            instructorName: ebook.instructor?.name ?? null,
+            user: contact,
+          })
+        }
+      }
       toast.success('전자책을 구매했습니다!')
       setOwned(true)
       setConfirmOpen(false)
@@ -294,6 +342,16 @@ function EbookDetailPage() {
       const tossPayments = await loadTossPayments(clientKey)
       const payment = tossPayments.payment({ customerKey: user!.id })
       const orderId = paymentService.generateOrderId() + `_ebook_${ebookIdVal}`
+
+      // InitiateCheckout — 결제창 호출 직전 (전환이벤트설계서 #6)
+      trackBeginCheckout({
+        orderId,
+        contentId: buildContentId('ebook', ebookIdVal),
+        contentName: title,
+        instructorName: ebook?.instructor?.name ?? null,
+        value: price,
+        user: { email: profile?.email, phone: profile?.phone },
+      })
 
       setConfirmOpen(false)
       await payment.requestPayment({

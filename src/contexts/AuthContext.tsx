@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import type { Profile } from '../types'
 import { webhookService } from '../services/webhookService'
 import { profileService } from '../services/profileService'
+import { trackSignUp, type SignupMethod } from '../lib/tracking'
 
 interface AuthContextType {
   user: User | null
@@ -193,6 +194,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   .eq('event_type', 'signup')
                   .then(({ count }) => {
                     if ((count ?? 0) > 0) return
+                    // CompleteRegistration — OAuth(카카오/구글) 신규 가입 완료 (전환이벤트설계서 #5)
+                    trackSignUp({
+                      method: (provider === 'kakao' || provider === 'google' ? provider : 'email') as SignupMethod,
+                      userId: newSession.user.id,
+                      user: { email: newSession.user.email, phone: prof?.phone },
+                    })
                     webhookService.fireSignup({
                       userId: newSession.user.id,
                       name: prof?.name || (newSession.user.user_metadata?.name as string) || (newSession.user.user_metadata?.full_name as string) || '',

@@ -150,6 +150,13 @@ export const authService = {
         phone: input.phone,
         provider: 'guest',
       }, webhookService.captureContext()).catch(() => { /* fire-and-forget */ })
+      // CompleteRegistration — 비회원(게스트) 가입 완료 (전환이벤트설계서 #5)
+      const { trackSignUp } = await import('../lib/tracking')
+      trackSignUp({
+        method: 'guest',
+        userId: signInData.user.id,
+        user: { email: input.email, phone: input.phone },
+      })
     }
 
     return signInData

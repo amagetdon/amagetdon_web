@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Fragment } from 'react'
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useCourse } from '../hooks/useCourses'
@@ -22,6 +22,7 @@ import { supabase } from '../lib/supabase'
 import type { Coupon } from '../types'
 import { textToHtml } from '../utils/richText'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
+import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId } from '../lib/tracking'
 
 function CourseDetailPage() {
   const { id } = useParams()
@@ -77,6 +78,8 @@ function CourseDetailPage() {
   // 지금 N명 신청 중 — 세션스토리지 캐싱 + 새로고침시 변동폭 적용
   const [applicantCount, setApplicantCount] = useState<number | null>(null)
   const [applicantsModalOpen, setApplicantsModalOpen] = useState(false)
+  // ViewContent(view_item) 전환 이벤트 — 강의별 1회만 발화
+  const viewItemFiredRef = useRef<number | null>(null)
 
   // 가짜 신청자 목록 — courseId 시드 기반 deterministic
   const fakeApplicants = useMemo(() => {
@@ -277,6 +280,18 @@ function CourseDetailPage() {
     : 0
   const finalPrice = Math.max(0, price - couponDiscount)
 
+  // ViewContent — 강의 상세 진입 시 1회 (전환이벤트설계서 #2)
+  useEffect(() => {
+    if (!course || viewItemFiredRef.current === course.id) return
+    viewItemFiredRef.current = course.id
+    trackViewItem({
+      contentId: buildContentId('course', course.id),
+      contentName: course.title,
+      instructorName: course.instructor?.name ?? null,
+      value: displayedPrice,
+    })
+  }, [course, displayedPrice])
+
   const handlePurchaseClick = () => {
     if (!user) {
       // 비회원 구매 허용 랜딩을 통해 진입한 경우 간편가입 모달 오픈
@@ -384,6 +399,14 @@ function CourseDetailPage() {
       }).catch(() => {})
       webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile?.name || '', userPhone: profile?.phone || '', userEmail: profile?.email || '', scope: 'course', scopeId: course.id, courseTitle: course.title }).catch(() => {})
       webhookScheduleService.triggerEnrollmentFullIfReached('course', course.id, enrollmentCount + 1, course.max_enrollments).catch(() => {})
+      // Lead — 무료 신청 완료 (전환이벤트설계서 #3)
+      trackFreeEnroll({
+        orderId: `free_course_${course.id}_${user.id}`,
+        contentId: buildContentId('course', course.id),
+        contentName: course.title,
+        instructorName: course.instructor?.name ?? null,
+        user: { email: profile?.email, phone: profile?.phone },
+      })
       toast.success('강의가 등록되었습니다!')
       setOwned(true)
       if (course.after_purchase_url) {
@@ -432,6 +455,31 @@ function CourseDetailPage() {
       webhookScheduleService.enqueueForPurchase({ userId: user.id, userName: profile.name || '', userPhone: profile.phone || '', userEmail: profile.email || '', scope: 'course', scopeId: course.id, courseTitle: course.title }).catch(() => {})
       // 정원 도달 시 enrollment_full 자동 트리거
       webhookScheduleService.triggerEnrollmentFullIfReached('course', course.id, enrollmentCount + 1, course.max_enrollments).catch(() => {})
+      // 포인트(또는 쿠폰 0원) 결제 완료 — 금액 기준으로 Purchase / Lead 분기 (전환이벤트설계서 #7 / #3)
+      {
+        const orderId = `points_course_${course.id}_${user.id}`
+        const contentId = buildContentId('course', course.id)
+        const contact = { email: profile.email, phone: profile.phone }
+        if (finalPrice > 0) {
+          trackPurchase({
+            orderId,
+            contentId,
+            contentName: course.title,
+            instructorName: course.instructor?.name ?? null,
+            value: finalPrice,
+            coupon: selectedCoupon?.code ?? '',
+            user: contact,
+          })
+        } else {
+          trackFreeEnroll({
+            orderId,
+            contentId,
+            contentName: course.title,
+            instructorName: course.instructor?.name ?? null,
+            user: contact,
+          })
+        }
+      }
       toast.success('강의를 구매했습니다!')
       setOwned(true)
       setConfirmOpen(false)
@@ -459,6 +507,16 @@ function CourseDetailPage() {
       const tossPayments = await loadTossPayments(clientKey)
       const payment = tossPayments.payment({ customerKey: user!.id })
       const orderId = paymentService.generateOrderId() + `_course_${courseIdVal}`
+
+      // InitiateCheckout — 결제창 호출 직전 (전환이벤트설계서 #6)
+      trackBeginCheckout({
+        orderId,
+        contentId: buildContentId('course', courseIdVal),
+        contentName: title,
+        instructorName: course?.instructor?.name ?? null,
+        value: price,
+        user: { email: profile?.email, phone: profile?.phone },
+      })
 
       setConfirmOpen(false)
       await payment.requestPayment({
@@ -1093,6 +1151,13 @@ function CourseDetailPage() {
         url={afterPurchaseLink}
         onClose={() => setAfterPurchaseLink(null)}
         itemLabel="강의"
+        tracking={{
+          contentId: buildContentId('course', course.id),
+          contentName: course.title,
+          instructorName: course.instructor?.name ?? null,
+          email: profile?.email,
+          phone: profile?.phone,
+        }}
       />
     </>
   )
