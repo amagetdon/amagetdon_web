@@ -50,6 +50,33 @@ function pushToDataLayer(payload: DataLayerObject): void {
   }
 }
 
+/**
+ * Meta 픽셀 직접 발화 (fbq). GTM 안에 Meta 이벤트 태그를 따로 만들지 않아도 픽셀로 바로 전송된다.
+ * - 직접 주입된 window.fbq 가 있을 때만 동작(없으면 무음).
+ * - eventId 를 eventID 옵션으로 넘겨 향후 Meta CAPI(서버 이벤트)와 중복 제거되게 한다.
+ * - custom=true 면 표준 이벤트가 아닌 trackCustom 으로 전송(OpenChatJoin 등).
+ */
+function fireMeta(
+  eventName: string,
+  params: Record<string, unknown>,
+  opts?: { eventId?: string; custom?: boolean },
+): void {
+  try {
+    if (typeof window === 'undefined' || typeof window.fbq !== 'function') return
+    const clean: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(params)) {
+      if (v === undefined || v === null || v === '') continue
+      if (typeof v === 'number' && !Number.isFinite(v)) continue
+      clean[k] = v
+    }
+    const method = opts?.custom ? 'trackCustom' : 'track'
+    if (opts?.eventId) window.fbq(method, eventName, clean, { eventID: opts.eventId })
+    else window.fbq(method, eventName, clean)
+  } catch {
+    // 트래킹 실패는 무시
+  }
+}
+
 /** 세션 단위 1회 발화 보장 (새로고침 / 리렌더 중복 방지). 이미 발화됐으면 true. */
 function alreadyFired(key: string): boolean {
   try {
@@ -101,6 +128,15 @@ export function trackViewItem(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
+  // Meta 픽셀 직접 발화 (ViewContent)
+  fireMeta('ViewContent', {
+    content_ids: [params.contentId],
+    content_name: params.contentName,
+    content_type: 'product',
+    content_category: params.contentCategory,
+    value: params.value,
+    currency: CURRENCY,
+  })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -131,6 +167,14 @@ export function trackFreeEnroll(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
+  // Meta 픽셀 직접 발화 (Lead) — eventID 로 CAPI 중복 제거 대비
+  fireMeta('Lead', {
+    content_ids: [params.contentId],
+    content_name: params.contentName,
+    content_category: params.contentCategory,
+    value: 0,
+    currency: CURRENCY,
+  }, { eventId: params.orderId })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -159,6 +203,15 @@ export function trackBeginCheckout(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
+  // Meta 픽셀 직접 발화 (InitiateCheckout) — eventID 로 CAPI 중복 제거 대비
+  fireMeta('InitiateCheckout', {
+    content_ids: [params.contentId],
+    content_name: params.contentName,
+    content_category: params.contentCategory,
+    value: params.value,
+    currency: CURRENCY,
+    num_items: 1,
+  }, { eventId: params.orderId })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -202,6 +255,16 @@ export function trackPurchase(params: {
       quantity: 1,
     }],
   })
+  // Meta 픽셀 직접 발화 (Purchase) — eventID(=orderId) 로 CAPI 중복 제거 대비
+  fireMeta('Purchase', {
+    content_ids: [params.contentId],
+    content_name: params.contentName,
+    content_type: 'product',
+    content_category: params.contentCategory,
+    value: params.value,
+    currency: CURRENCY,
+    contents: [{ id: params.contentId, quantity: 1 }],
+  }, { eventId: params.orderId })
   return true
 }
 
@@ -224,6 +287,11 @@ export function trackSignUp(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
+  // Meta 픽셀 직접 발화 (CompleteRegistration)
+  fireMeta('CompleteRegistration', {
+    status: true,
+    registration_method: params.method,
+  }, { eventId: params.userId ? `signup_${params.userId}` : undefined })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -249,4 +317,11 @@ export function trackOpenChatJoin(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
+  // Meta 픽셀 직접 발화 (OpenChatJoin — 표준 이벤트가 아니라 trackCustom)
+  fireMeta('OpenChatJoin', {
+    content_ids: params.contentId ? [params.contentId] : undefined,
+    content_name: params.contentName,
+    instructor_name: params.instructorName,
+    campaign_id: resolveCampaignId(params.campaignId),
+  }, { eventId: `openchat_${params.dedupeKey}`, custom: true })
 }
