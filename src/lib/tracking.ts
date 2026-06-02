@@ -17,6 +17,21 @@ export type ContentKind = 'course' | 'ebook'
 
 export const buildContentId = (kind: ContentKind, id: number | string): string => `${kind}_${id}`
 
+/** content_category(상품 유형) 라벨 — 무료→유료 전환 분석용. 강의 course_type 기준. */
+export function courseCategoryLabel(courseType: string | null | undefined): string {
+  switch (courseType) {
+    case 'free': return '무료강의'
+    case 'pre_alert': return '사전알림'
+    case 'premium': return '유료강의'
+    default: return '강의'
+  }
+}
+
+/** content_category(상품 유형) 라벨 — 전자책 is_free 기준. */
+export function ebookCategoryLabel(isFree: boolean | null | undefined): string {
+  return isFree ? '무료전자책' : '유료전자책'
+}
+
 /** null/undefined/'' 값을 제거한 뒤 dataLayer 에 push. */
 function pushToDataLayer(payload: DataLayerObject): void {
   try {
@@ -65,6 +80,7 @@ export function trackViewItem(params: {
   contentId: string
   contentName: string
   contentCategory?: string | null
+  contentSubcategory?: string | null
   instructorName?: string | null
   value: number
   user?: UserContact
@@ -74,6 +90,7 @@ export function trackViewItem(params: {
     content_id: params.contentId,
     content_name: params.contentName,
     content_category: params.contentCategory,
+    content_subcategory: params.contentSubcategory,
     content_type: 'product',
     instructor_name: params.instructorName,
     value: params.value,
@@ -91,6 +108,7 @@ export function trackFreeEnroll(params: {
   contentId: string
   contentName: string
   contentCategory?: string | null
+  contentSubcategory?: string | null
   instructorName?: string | null
   user?: UserContact
 }): void {
@@ -99,6 +117,7 @@ export function trackFreeEnroll(params: {
     content_id: params.contentId,
     content_name: params.contentName,
     content_category: params.contentCategory,
+    content_subcategory: params.contentSubcategory,
     instructor_name: params.instructorName,
     value: 0,
     currency: CURRENCY,
@@ -117,6 +136,7 @@ export function trackBeginCheckout(params: {
   contentId: string
   contentName: string
   contentCategory?: string | null
+  contentSubcategory?: string | null
   instructorName?: string | null
   value: number
   user?: UserContact
@@ -126,6 +146,7 @@ export function trackBeginCheckout(params: {
     content_id: params.contentId,
     content_name: params.contentName,
     content_category: params.contentCategory,
+    content_subcategory: params.contentSubcategory,
     instructor_name: params.instructorName,
     value: params.value,
     currency: CURRENCY,
@@ -145,6 +166,7 @@ export function trackPurchase(params: {
   contentId: string
   contentName: string
   contentCategory?: string | null
+  contentSubcategory?: string | null
   instructorName?: string | null
   value: number
   coupon?: string | null
@@ -158,6 +180,7 @@ export function trackPurchase(params: {
     content_id: params.contentId,
     content_name: params.contentName,
     content_category: params.contentCategory,
+    content_subcategory: params.contentSubcategory,
     content_type: 'product',
     instructor_name: params.instructorName,
     value: params.value,
@@ -169,6 +192,7 @@ export function trackPurchase(params: {
       item_id: params.contentId,
       item_name: params.contentName,
       item_category: params.contentCategory ?? undefined,
+      item_category2: params.contentSubcategory ?? undefined,
       price: params.value,
       quantity: 1,
     }],

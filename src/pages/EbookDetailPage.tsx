@@ -14,7 +14,7 @@ import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
 import type { EbookWithInstructor, Coupon } from '../types'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
-import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId } from '../lib/tracking'
+import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId, ebookCategoryLabel } from '../lib/tracking'
 
 function EbookDetailPage() {
   const { id } = useParams()
@@ -159,6 +159,7 @@ function EbookDetailPage() {
     trackViewItem({
       contentId: buildContentId('ebook', ebook.id),
       contentName: ebook.title,
+      contentCategory: ebookCategoryLabel(ebook.is_free),
       instructorName: ebook.instructor?.name ?? null,
       value: displayedPrice,
       user: { email: profile?.email, phone: profile?.phone },
@@ -226,6 +227,7 @@ function EbookDetailPage() {
         orderId: `free_ebook_${ebook.id}_${user.id}`,
         contentId: buildContentId('ebook', ebook.id),
         contentName: ebook.title,
+        contentCategory: ebookCategoryLabel(ebook.is_free),
         instructorName: ebook.instructor?.name ?? null,
         user: { email: profile?.email, phone: profile?.phone },
       })
@@ -298,12 +300,14 @@ function EbookDetailPage() {
       {
         const orderId = `points_ebook_${ebook.id}_${user.id}`
         const contentId = buildContentId('ebook', ebook.id)
+        const contentCategory = ebookCategoryLabel(ebook.is_free)
         const contact = { email: profile.email, phone: profile.phone }
         if (finalPrice > 0) {
           trackPurchase({
             orderId,
             contentId,
             contentName: ebook.title,
+            contentCategory,
             instructorName: ebook.instructor?.name ?? null,
             value: finalPrice,
             coupon: selectedCoupon?.code ?? '',
@@ -314,6 +318,7 @@ function EbookDetailPage() {
             orderId,
             contentId,
             contentName: ebook.title,
+            contentCategory,
             instructorName: ebook.instructor?.name ?? null,
             user: contact,
           })
@@ -349,6 +354,7 @@ function EbookDetailPage() {
         orderId,
         contentId: buildContentId('ebook', ebookIdVal),
         contentName: title,
+        contentCategory: ebookCategoryLabel(ebook?.is_free),
         instructorName: ebook?.instructor?.name ?? null,
         value: price,
         user: { email: profile?.email, phone: profile?.phone },

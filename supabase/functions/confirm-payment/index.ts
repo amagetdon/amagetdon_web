@@ -94,13 +94,15 @@ Deno.serve(async (req: Request) => {
     let maxPrice = 0
     let isFreeItem = false
     let afterPurchaseUrl: string | null = null
-    // 전환 추적(Purchase 이벤트)의 강사별 퍼널 분석용 — 결제 완료 페이지로 내려보낸다.
+    // 전환 추적(Purchase 이벤트)용 — 결제 완료 페이지로 내려보낸다.
     let instructorName: string | null = null
+    let contentCategory: string | null = null    // 상품 유형(무료/유료 라벨)
+    let contentSubcategory: string | null = null  // 랜딩 카테고리명(주제)
 
     if (itemType === 'course') {
       const { data: course } = await supabase
         .from('courses')
-        .select('title, original_price, sale_price, course_type, reward_points, duration_days, enrollment_deadline, after_purchase_url, instructor:instructors(name)')
+        .select('title, original_price, sale_price, course_type, reward_points, duration_days, enrollment_deadline, after_purchase_url, landing_category_id, instructor:instructors(name)')
         .eq('id', itemId)
         .maybeSingle()
       if (!course) return json({ error: '강의를 찾을 수 없습니다.' }, 404)
@@ -110,10 +112,20 @@ Deno.serve(async (req: Request) => {
       isFreeItem = course.course_type === 'free'
       maxPrice = Math.max(course.original_price ?? 0, course.sale_price ?? 0)
       afterPurchaseUrl = course.after_purchase_url ?? null
+      contentCategory = course.course_type === 'free' ? '무료강의' : course.course_type === 'pre_alert' ? '사전알림' : '유료강의'
       // to-one 관계라 객체로 오지만, 일부 환경에서 배열로 직렬화되는 경우까지 방어.
       {
         const inst = (course as { instructor?: { name?: string } | { name?: string }[] | null }).instructor
         instructorName = (Array.isArray(inst) ? inst[0]?.name : inst?.name) ?? null
+      }
+      // 대표 랜딩 카테고리명 → content_subcategory(주제 분류)
+      if (course.landing_category_id) {
+        const { data: lc } = await supabase
+          .from('landing_categories')
+          .select('name')
+          .eq('id', course.landing_category_id)
+          .maybeSingle()
+        contentSubcategory = lc?.name ?? null
       }
       if (course.enrollment_deadline && course.duration_days && course.duration_days > 0) {
         const base = new Date(course.enrollment_deadline)
@@ -132,6 +144,7 @@ Deno.serve(async (req: Request) => {
       rewardPoints = ebook.reward_points ?? 0
       isFreeItem = !!ebook.is_free
       maxPrice = Math.max(ebook.original_price ?? 0, ebook.sale_price ?? 0)
+      contentCategory = ebook.is_free ? '무료전자책' : '유료전자책'
       {
         const inst = (ebook as { instructor?: { name?: string } | { name?: string }[] | null }).instructor
         instructorName = (Array.isArray(inst) ? inst[0]?.name : inst?.name) ?? null
@@ -212,7 +225,7 @@ Deno.serve(async (req: Request) => {
       } catch { /* 포인트 지급 실패는 구매 흐름에 영향 없음 */ }
     }
 
-    return json({ success: true, title, after_purchase_url: afterPurchaseUrl, instructor_name: instructorName })
+    return json({ success: true, title, after_purchase_url: afterPurchaseUrl, instructor_name: instructorName, content_category: contentCategory, content_subcategory: contentSubcategory })
   } catch (err) {
     return json(
       { error: err instanceof Error ? err.message : '서버 오류가 발생했습니다.' },

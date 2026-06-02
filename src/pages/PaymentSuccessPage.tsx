@@ -70,12 +70,16 @@ export default function PaymentSuccessPage() {
           const itemId = parts[4]
           const contentId = itemType && itemId ? `${itemType}_${itemId}` : orderId
           const instructor = (data?.instructor_name as string | null | undefined) ?? null
+          const contentCategory = (data?.content_category as string | null | undefined) ?? null
+          const contentSubcategory = (data?.content_subcategory as string | null | undefined) ?? null
           setPurchaseContentId(contentId)
           setInstructorName(instructor)
           trackPurchase({
             orderId,
             contentId,
             contentName: data?.title || '상품',
+            contentCategory,
+            contentSubcategory,
             instructorName: instructor,
             value: Number(amount),
             user: { email: profile?.email, phone: profile?.phone },
