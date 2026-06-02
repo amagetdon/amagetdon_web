@@ -48,6 +48,16 @@ interface UserContact {
   phone?: string | null
 }
 
+/** 광고 캠페인 식별자 — 명시값이 없으면 UTM campaign(sessionStorage)을 fallback 으로 사용. */
+function resolveCampaignId(explicit?: string | null): string | undefined {
+  if (explicit) return explicit
+  try {
+    return sessionStorage.getItem('utm_campaign') ?? undefined
+  } catch {
+    return undefined
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // 2. ViewContent — 강의 / 전자책 상세 페이지 조회
 // ─────────────────────────────────────────────────────────────
@@ -57,6 +67,7 @@ export function trackViewItem(params: {
   contentCategory?: string | null
   instructorName?: string | null
   value: number
+  user?: UserContact
 }): void {
   pushToDataLayer({
     event: 'view_item',
@@ -67,6 +78,8 @@ export function trackViewItem(params: {
     instructor_name: params.instructorName,
     value: params.value,
     currency: CURRENCY,
+    user_email: params.user?.email,
+    user_phone: params.user?.phone,
   })
 }
 
@@ -202,7 +215,7 @@ export function trackOpenChatJoin(params: {
     content_id: params.contentId,
     content_name: params.contentName,
     instructor_name: params.instructorName,
-    campaign_id: params.campaignId,
+    campaign_id: resolveCampaignId(params.campaignId),
     event_id: `openchat_${params.dedupeKey}`,
     user_email: params.user?.email,
     user_phone: params.user?.phone,

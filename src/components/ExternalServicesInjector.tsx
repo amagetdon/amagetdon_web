@@ -163,6 +163,11 @@ export default function ExternalServicesInjector() {
   }, [settings.NAVER_SEARCH_ADVISOR?.enabled, settings.NAVER_SEARCH_ADVISOR?.code])
 
   useEffect(() => {
+    const meta = settings.META_DOMAIN_VERIFICATION
+    upsertMeta('facebook-domain-verification', 'facebook-domain-verification', meta?.enabled ? (meta.code || '') : '')
+  }, [settings.META_DOMAIN_VERIFICATION?.enabled, settings.META_DOMAIN_VERIFICATION?.code])
+
+  useEffect(() => {
     const google = settings.GOOGLE_SEARCH_CONSOLE
     upsertMeta('google-verification', 'google-site-verification', google?.enabled ? (google.code || '') : '')
   }, [settings.GOOGLE_SEARCH_CONSOLE?.enabled, settings.GOOGLE_SEARCH_CONSOLE?.code])

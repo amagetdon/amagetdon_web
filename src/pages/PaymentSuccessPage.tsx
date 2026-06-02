@@ -9,6 +9,7 @@ export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams()
   const { loading: authLoading, profile, refreshProfile } = useAuth()
   const [purchaseContentId, setPurchaseContentId] = useState<string | null>(null)
+  const [instructorName, setInstructorName] = useState<string | null>(null)
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [message, setMessage] = useState('')
   const [orderTitle, setOrderTitle] = useState('')
@@ -68,11 +69,14 @@ export default function PaymentSuccessPage() {
           const itemType = parts[3]
           const itemId = parts[4]
           const contentId = itemType && itemId ? `${itemType}_${itemId}` : orderId
+          const instructor = (data?.instructor_name as string | null | undefined) ?? null
           setPurchaseContentId(contentId)
+          setInstructorName(instructor)
           trackPurchase({
             orderId,
             contentId,
             contentName: data?.title || '상품',
+            instructorName: instructor,
             value: Number(amount),
             user: { email: profile?.email, phone: profile?.phone },
           })
@@ -170,6 +174,7 @@ export default function PaymentSuccessPage() {
           tracking={{
             contentId: purchaseContentId,
             contentName: orderTitle,
+            instructorName,
             email: profile?.email,
             phone: profile?.phone,
           }}

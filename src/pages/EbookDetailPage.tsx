@@ -161,8 +161,9 @@ function EbookDetailPage() {
       contentName: ebook.title,
       instructorName: ebook.instructor?.name ?? null,
       value: displayedPrice,
+      user: { email: profile?.email, phone: profile?.phone },
     })
-  }, [ebook, displayedPrice])
+  }, [ebook, displayedPrice, profile?.email, profile?.phone])
 
   const handlePurchaseClick = () => {
     if (!user) {

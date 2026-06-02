@@ -289,8 +289,9 @@ function CourseDetailPage() {
       contentName: course.title,
       instructorName: course.instructor?.name ?? null,
       value: displayedPrice,
+      user: { email: profile?.email, phone: profile?.phone },
     })
-  }, [course, displayedPrice])
+  }, [course, displayedPrice, profile?.email, profile?.phone])
 
   const handlePurchaseClick = () => {
     if (!user) {

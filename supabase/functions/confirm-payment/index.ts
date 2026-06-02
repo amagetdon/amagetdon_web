@@ -94,11 +94,13 @@ Deno.serve(async (req: Request) => {
     let maxPrice = 0
     let isFreeItem = false
     let afterPurchaseUrl: string | null = null
+    // 전환 추적(Purchase 이벤트)의 강사별 퍼널 분석용 — 결제 완료 페이지로 내려보낸다.
+    let instructorName: string | null = null
 
     if (itemType === 'course') {
       const { data: course } = await supabase
         .from('courses')
-        .select('title, original_price, sale_price, course_type, reward_points, duration_days, enrollment_deadline, after_purchase_url')
+        .select('title, original_price, sale_price, course_type, reward_points, duration_days, enrollment_deadline, after_purchase_url, instructor:instructors(name)')
         .eq('id', itemId)
         .maybeSingle()
       if (!course) return json({ error: '강의를 찾을 수 없습니다.' }, 404)
@@ -108,6 +110,11 @@ Deno.serve(async (req: Request) => {
       isFreeItem = course.course_type === 'free'
       maxPrice = Math.max(course.original_price ?? 0, course.sale_price ?? 0)
       afterPurchaseUrl = course.after_purchase_url ?? null
+      // to-one 관계라 객체로 오지만, 일부 환경에서 배열로 직렬화되는 경우까지 방어.
+      {
+        const inst = (course as { instructor?: { name?: string } | { name?: string }[] | null }).instructor
+        instructorName = (Array.isArray(inst) ? inst[0]?.name : inst?.name) ?? null
+      }
       if (course.enrollment_deadline && course.duration_days && course.duration_days > 0) {
         const base = new Date(course.enrollment_deadline)
         base.setDate(base.getDate() + course.duration_days)
@@ -116,7 +123,7 @@ Deno.serve(async (req: Request) => {
     } else if (itemType === 'ebook') {
       const { data: ebook } = await supabase
         .from('ebooks')
-        .select('title, original_price, sale_price, is_free, duration_days, reward_points')
+        .select('title, original_price, sale_price, is_free, duration_days, reward_points, instructor:instructors(name)')
         .eq('id', itemId)
         .maybeSingle()
       if (!ebook) return json({ error: '전자책을 찾을 수 없습니다.' }, 404)
@@ -125,6 +132,10 @@ Deno.serve(async (req: Request) => {
       rewardPoints = ebook.reward_points ?? 0
       isFreeItem = !!ebook.is_free
       maxPrice = Math.max(ebook.original_price ?? 0, ebook.sale_price ?? 0)
+      {
+        const inst = (ebook as { instructor?: { name?: string } | { name?: string }[] | null }).instructor
+        instructorName = (Array.isArray(inst) ? inst[0]?.name : inst?.name) ?? null
+      }
       if (ebook.duration_days && ebook.duration_days > 0) {
         const expires = new Date()
         expires.setDate(expires.getDate() + ebook.duration_days)
@@ -201,7 +212,7 @@ Deno.serve(async (req: Request) => {
       } catch { /* 포인트 지급 실패는 구매 흐름에 영향 없음 */ }
     }
 
-    return json({ success: true, title, after_purchase_url: afterPurchaseUrl })
+    return json({ success: true, title, after_purchase_url: afterPurchaseUrl, instructor_name: instructorName })
   } catch (err) {
     return json(
       { error: err instanceof Error ? err.message : '서버 오류가 발생했습니다.' },

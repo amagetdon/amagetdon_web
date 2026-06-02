@@ -8,6 +8,7 @@ export type ExternalServiceId =
   | 'CHANNEL_TALK'
   | 'KAKAO_SHARE'
   | 'META_PIXEL'
+  | 'META_DOMAIN_VERIFICATION'
 
 export interface ExternalServiceDefinition {
   id: ExternalServiceId
@@ -78,6 +79,12 @@ export const EXTERNAL_SERVICE_DEFINITIONS: ExternalServiceDefinition[] = [
     name: '메타 픽셀',
     description: '메타(페이스북) 픽셀 ID를 입력해주세요.',
     placeholder: '예) 1234567890123456',
+  },
+  {
+    id: 'META_DOMAIN_VERIFICATION',
+    name: '메타 도메인 인증',
+    description: '메타 비즈니스에서 발급받은 도메인 인증 코드(meta content 값)를 입력해주세요.',
+    placeholder: '예) abcd1234efgh5678ijkl...',
   },
 ]
 
