@@ -33,7 +33,7 @@ function VideoPromo() {
           {/* 실시간 구매 현황 - 오른쪽.
               데스크탑: absolute inset-0 으로 영상 높이만큼만 차지 → 마퀴 컨테이너가 정확히 영상 높이로 클리핑.
               모바일: 세로 스택일 때는 고정 높이 400px. */}
-          <div className="flex-1 relative max-md:h-[400px] min-w-0">
+          <div className="md:flex-1 relative max-md:h-[400px] min-w-0">
             <div className="md:absolute md:inset-0 h-full">
               <PurchaseFeed />
             </div>

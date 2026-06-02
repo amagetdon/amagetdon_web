@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -133,9 +133,14 @@ function generateDummies(products: { link: string; title: string }[], count: num
   return items
 }
 
+// 항목 수와 무관하게 일정한 롤링 속도를 유지하기 위한 기준 속도 (픽셀/초)
+const ROLL_SPEED_PX_PER_SEC = 100
+
 export default function PurchaseFeed() {
   const [items, setItems] = useState<FeedItem[]>([])
   const [loading, setLoading] = useState(true)
+  const rollRef = useRef<HTMLDivElement>(null)
+  const [rollDuration, setRollDuration] = useState(25)
 
   useEffect(() => {
     let alive = true
@@ -211,6 +216,22 @@ export default function PurchaseFeed() {
     }
   }, [])
 
+  // 항목 높이(=총량)에 비례해 애니메이션 시간을 조정 → 항목 수와 무관하게 일정한 속도(px/초) 유지.
+  // 기존엔 고정 25s 였기에 항목이 많을수록 더 긴 거리를 같은 시간에 이동해 빨라지는 문제가 있었다.
+  useEffect(() => {
+    const el = rollRef.current
+    if (!el || items.length === 0) return
+    const measure = () => {
+      // el 은 동일 세트를 2번 담으므로(loop) 한 세트 높이 = 전체 높이 / 2
+      const oneSetHeight = el.scrollHeight / 2
+      if (oneSetHeight > 0) setRollDuration(oneSetHeight / ROLL_SPEED_PX_PER_SEC)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [items])
+
   // 무한 루프를 위한 복제 (animate-applicants-roll 이 -50% 까지 이동)
   const loop = items.length > 0 ? [...items, ...items] : []
 
@@ -240,7 +261,11 @@ export default function PurchaseFeed() {
             WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 24px, black calc(100% - 24px), transparent 100%)',
           }}
         >
-          <div className="animate-applicants-roll">
+          <div
+            ref={rollRef}
+            className="animate-applicants-roll"
+            style={{ animationDuration: `${rollDuration}s` }}
+          >
             {loop.map((p, i) => (
               <Link
                 key={`${p.key}-${i}`}
