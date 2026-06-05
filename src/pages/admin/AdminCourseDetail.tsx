@@ -613,6 +613,8 @@ export default function AdminCourseDetail() {
 
   if (!courseId && !isNew) return null
   const visibleTabs = isNew ? TABS.filter((t) => t.key === 'info') : TABS
+  // 상세(detail) 타입 랜딩은 강의를 노출하지 않으므로 강의 카테고리 선택지에서 제외한다.
+  const courseLandingCategories = landingCategories.filter((lc) => lc.type !== 'detail')
 
   return (
     <AdminLayout>
@@ -700,11 +702,11 @@ export default function AdminCourseDetail() {
             <div className="flex flex-wrap gap-4">
               <div className="w-full">
                 <label className="text-sm font-bold block mb-1">랜딩 카테고리 (복수 선택)</label>
-                {landingCategories.length === 0 ? (
-                  <p className="text-xs text-gray-400 py-2">등록된 랜딩 페이지가 없습니다.</p>
+                {courseLandingCategories.length === 0 ? (
+                  <p className="text-xs text-gray-400 py-2">등록된 강의 랜딩 페이지가 없습니다.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2 p-3 border border-gray-200 rounded-xl bg-gray-50">
-                    {landingCategories.map((lc) => {
+                    {courseLandingCategories.map((lc) => {
                       const ids = (editing.landing_category_ids as number[]) || []
                       const checked = ids.includes(lc.id)
                       return (
