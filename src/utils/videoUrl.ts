@@ -35,32 +35,65 @@ function extractVimeoInfo(url: string): { id: string; hash: string | null } | nu
   return null
 }
 
+// 원본 URL 의 쿼리 파라미터(autoplay, mute, start 등)를 수집한다.
+// '?' 가 정상이지만 'youtu.be/ID&autoplay=1' 처럼 '&' 로 잘못 붙인 경우도 관대하게 처리한다.
+function extractQueryParams(url: string): URLSearchParams {
+  const params = new URLSearchParams()
+  const match = url.match(/[?&](.+)$/)
+  if (match) {
+    new URLSearchParams(match[1]).forEach((value, key) => {
+      if (key !== 'v') params.set(key, value) // watch?v=ID 의 v 는 embed 경로에 이미 포함
+    })
+  }
+  return params
+}
+
+// 자동재생은 브라우저 정책상 음소거가 필수 → autoplay 만 있고 mute 가 없으면 자동으로 켜준다.
+function ensureMutedAutoplay(params: URLSearchParams, muteKey: 'mute' | 'muted'): void {
+  if (params.get('autoplay') === '1' && !params.has(muteKey)) {
+    params.set(muteKey, '1')
+  }
+}
+
+function appendQuery(base: string, params: URLSearchParams): string {
+  const qs = params.toString()
+  return qs ? `${base}?${qs}` : base
+}
+
 export function parseVideoUrl(url: string): VideoInfo | null {
   if (!url || !url.trim()) return null
 
+  // 'youtu.be/...' 처럼 스킴(https://) 없이 입력해도 인식되도록 보정한다.
+  // 스킴이 없으면 new URL() 이 예외를 던져 영상이 아예 렌더링되지 않으므로 https:// 를 붙인다.
+  const normalizedUrl = /^https?:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`
+
   try {
-    new URL(url)
+    new URL(normalizedUrl)
   } catch {
     return null
   }
 
-  const youtubeId = extractYouTubeId(url)
+  const youtubeId = extractYouTubeId(normalizedUrl)
   if (youtubeId) {
+    const params = extractQueryParams(normalizedUrl)
+    ensureMutedAutoplay(params, 'mute')
     return {
       provider: 'youtube',
       videoId: youtubeId,
-      embedUrl: `https://www.youtube.com/embed/${youtubeId}`,
+      embedUrl: appendQuery(`https://www.youtube.com/embed/${youtubeId}`, params),
       thumbnailUrl: `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`,
     }
   }
 
-  const vimeoInfo = extractVimeoInfo(url)
+  const vimeoInfo = extractVimeoInfo(normalizedUrl)
   if (vimeoInfo) {
-    const hashParam = vimeoInfo.hash ? `?h=${vimeoInfo.hash}` : ''
+    const params = extractQueryParams(normalizedUrl)
+    if (vimeoInfo.hash) params.set('h', vimeoInfo.hash)
+    ensureMutedAutoplay(params, 'muted')
     return {
       provider: 'vimeo',
       videoId: vimeoInfo.id,
-      embedUrl: `https://player.vimeo.com/video/${vimeoInfo.id}${hashParam}`,
+      embedUrl: appendQuery(`https://player.vimeo.com/video/${vimeoInfo.id}`, params),
       thumbnailUrl: null,
     }
   }
@@ -68,7 +101,7 @@ export function parseVideoUrl(url: string): VideoInfo | null {
   return {
     provider: 'direct',
     videoId: null,
-    embedUrl: url,
+    embedUrl: normalizedUrl,
     thumbnailUrl: null,
   }
 }

@@ -13,19 +13,24 @@ export default function VideoEmbed({ url, className = '', aspectRatio = 'aspect-
 
   if (!videoInfo) return null
 
-  // 자동재생/루프 파라미터를 embedUrl 에 덧붙임 (provider 별 키가 다름).
+  // 자동재생/루프 파라미터를 embedUrl 에 병합 (provider 별 키가 다름).
+  // embedUrl 에 이미 들어온 파라미터(URL 로 전달된 autoplay 등)와 중복되지 않게 set 으로 합친다.
   const buildSrc = (): string => {
     if (!autoLoop) return videoInfo.embedUrl
-    const url = videoInfo.embedUrl
-    const sep = url.includes('?') ? '&' : '?'
+    if (videoInfo.provider !== 'youtube' && videoInfo.provider !== 'vimeo') return videoInfo.embedUrl
+    const [base, existing] = videoInfo.embedUrl.split('?')
+    const params = new URLSearchParams(existing || '')
+    params.set('autoplay', '1')
+    params.set('loop', '1')
+    params.set('playsinline', '1')
     if (videoInfo.provider === 'youtube') {
+      params.set('mute', '1')
       // YouTube 는 단일 영상 loop 시 playlist 에 같은 videoId 를 줘야 동작
-      return `${url}${sep}autoplay=1&mute=1&loop=1&playlist=${videoInfo.videoId ?? ''}&playsinline=1`
+      params.set('playlist', videoInfo.videoId ?? '')
+    } else {
+      params.set('muted', '1')
     }
-    if (videoInfo.provider === 'vimeo') {
-      return `${url}${sep}autoplay=1&muted=1&loop=1&playsinline=1`
-    }
-    return url
+    return `${base}?${params.toString()}`
   }
 
   if (videoInfo.provider === 'youtube' || videoInfo.provider === 'vimeo') {
