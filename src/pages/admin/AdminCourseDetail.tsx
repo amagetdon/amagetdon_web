@@ -334,6 +334,7 @@ export default function AdminCourseDetail() {
         is_published: true,
         is_on_sale: true,
         reviews_enabled: true,
+        allow_guest_purchase: false,
         landing_category_ids: [],
         related_course_ids: [],
         landing_image_urls: [],
@@ -465,6 +466,7 @@ export default function AdminCourseDetail() {
         is_published: editing.is_published !== false,
         is_on_sale: editing.is_on_sale !== false,
         reviews_enabled: editing.reviews_enabled !== false,
+        allow_guest_purchase: editing.allow_guest_purchase === true,
         search_keywords: editing.search_keywords ?? null,
         strengths: ((editing.strengths as string[]) || []).filter((s) => s.trim()),
         features: ((editing.features as string[]) || []).filter((s) => s.trim()),
@@ -1012,8 +1014,9 @@ export default function AdminCourseDetail() {
                   <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" /> 공개</label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_on_sale !== false} onChange={(e) => setEditing({ ...editing, is_on_sale: e.target.checked })} className="accent-[#2ED573]" /> 판매 중</label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.reviews_enabled !== false} onChange={(e) => setEditing({ ...editing, reviews_enabled: e.target.checked })} className="accent-[#2ED573]" /> 후기 사용</label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.allow_guest_purchase === true} onChange={(e) => setEditing({ ...editing, allow_guest_purchase: e.target.checked })} className="accent-[#2ED573]" /> 비회원 구매 가능</label>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">판매 중지 시 결제 버튼이 비활성화됩니다. 후기 미사용 시 후기 섹션이 숨겨집니다.</p>
+                <p className="text-xs text-gray-400 mt-1">판매 중지 시 결제 버튼이 비활성화됩니다. 후기 미사용 시 후기 섹션이 숨겨집니다. 비회원 구매 가능 시 로그인 없이도 신청할 수 있습니다.</p>
               </div>
             </div>
 

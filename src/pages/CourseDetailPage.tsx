@@ -166,6 +166,8 @@ function CourseDetailPage() {
   }, [course])
 
   useEffect(() => {
+    // 강의 자체가 비회원 구매 허용이면 랜딩 진입 여부와 무관하게 허용한다.
+    if (course?.allow_guest_purchase) { setGuestPurchaseAllowed(true); return }
     if (!fromSlug) { setGuestPurchaseAllowed(false); return }
     let cancelled = false
     landingCategoryService.getBySlug(fromSlug).then((cat) => {
@@ -173,7 +175,7 @@ function CourseDetailPage() {
       setGuestPurchaseAllowed(!!cat?.allow_guest_purchase)
     }).catch(() => setGuestPurchaseAllowed(false))
     return () => { cancelled = true }
-  }, [fromSlug])
+  }, [fromSlug, course?.allow_guest_purchase])
 
   // 마감된 강의 직접 URL 접근 차단 — 어드민/미리보기/이미 보유한 사용자는 우회
   useRedirectIfClosed({

@@ -185,6 +185,8 @@ export interface Course {
   is_published: boolean
   is_on_sale: boolean
   reviews_enabled: boolean
+  // true 면 랜딩 설정과 무관하게 이 강의는 로그인 없이 신청(비회원 구매) 가능
+  allow_guest_purchase: boolean
   search_keywords: string | null
   strengths: string[] | null
   features: string[] | null
