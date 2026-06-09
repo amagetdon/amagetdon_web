@@ -66,7 +66,7 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[70] p-4"
+      className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto overscroll-contain p-4 flex justify-center items-start sm:items-center"
       onMouseDown={(e) => { if (e.target === e.currentTarget && !submitting) onClose() }}
     >
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
