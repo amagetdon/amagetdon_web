@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { authService } from '../services/authService'
 import Turnstile from './Turnstile'
@@ -28,6 +28,29 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
   const [agree, setAgree] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
+  const overlayRef = useRef<HTMLDivElement>(null)
+
+  // 인앱 브라우저(특히 iOS WebView)에서는 키보드가 올라와도 position:fixed 영역이 줄지 않아
+  // 하단 입력칸이 키보드에 가린다. VisualViewport API 로 "키보드 위 실제 보이는 영역"에
+  // 오버레이 높이를 맞춰, 키보드 위 공간에서 정상적으로 스크롤·입력되도록 한다.
+  useEffect(() => {
+    if (!isOpen) return
+    const vv = window.visualViewport
+    if (!vv) return
+    const fit = () => {
+      const el = overlayRef.current
+      if (!el) return
+      el.style.height = `${vv.height}px`
+      el.style.transform = `translateY(${vv.offsetTop}px)`
+    }
+    fit()
+    vv.addEventListener('resize', fit)
+    vv.addEventListener('scroll', fit)
+    return () => {
+      vv.removeEventListener('resize', fit)
+      vv.removeEventListener('scroll', fit)
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -66,6 +89,7 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
 
   return (
     <div
+      ref={overlayRef}
       className="fixed inset-0 bg-black/50 z-[70] overflow-y-auto overscroll-contain p-4 flex justify-center items-start sm:items-center"
       onMouseDown={(e) => { if (e.target === e.currentTarget && !submitting) onClose() }}
     >
@@ -88,13 +112,6 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
           >
             <i className="ti ti-x text-xl" />
           </button>
-        </div>
-
-        <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 mb-3 text-[11px] text-emerald-800 leading-relaxed">
-          <i className="ti ti-info-circle mr-1" />
-          비밀번호 없이 아래 정보만으로 바로 구매하세요.
-          <br />
-          다음 접속 시에는 <strong>이메일로 받는 로그인 링크</strong>로 들어와 구매한 강의를 시청하실 수 있습니다.
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">
@@ -144,6 +161,13 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
               <strong>서비스 이용약관</strong> 및 <strong>개인정보 처리방침</strong>에 동의합니다.
             </span>
           </label>
+
+          <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 text-[11px] text-emerald-800 leading-relaxed">
+            <i className="ti ti-info-circle mr-1" />
+            비밀번호 없이 위 정보만으로 바로 구매하세요.
+            <br />
+            다음 접속 시에는 <strong>이메일로 받는 로그인 링크</strong>로 들어와 구매한 강의를 시청하실 수 있습니다.
+          </div>
 
           <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} className="flex justify-center" />
 
