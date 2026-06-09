@@ -52,8 +52,8 @@ export function buildUrlWithStoredUtm(): string {
 
 // 외부 브라우저로 유도한다.
 // - Android: intent:// 스킴으로 크롬을 강제로 연다(URL=UTM 포함 → 보존). 성공 시 true.
-// - iOS: WebView 에서 사파리로의 강제 리다이렉트는 애플이 차단 → false 를 반환해
-//        호출부가 "외부 브라우저로 열기" 안내 UI 를 띄우도록 한다.
+// - iOS: WebView 에서 사파리로의 강제 리다이렉트는 애플이 차단되어 불가능하므로 false 를 반환한다.
+//        (호출부는 isAndroid 일 때만 호출하며, iOS 인앱은 개입 없이 기존 로그인 흐름을 그대로 둔다)
 export function openExternalBrowser(): boolean {
   const { isAndroid } = detectInAppBrowser()
   const target = buildUrlWithStoredUtm()
