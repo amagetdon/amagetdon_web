@@ -78,6 +78,19 @@ function CourseDetailPage() {
   // 지금 N명 신청 중 — 세션스토리지 캐싱 + 새로고침시 변동폭 적용
   const [applicantCount, setApplicantCount] = useState<number | null>(null)
   const [applicantsModalOpen, setApplicantsModalOpen] = useState(false)
+  // 모바일 하단 고정 CTA — 카드 안의 신청 버튼이 스크롤로 화면을 벗어나면 노출한다.
+  const ctaRef = useRef<HTMLDivElement>(null)
+  const [showStickyCta, setShowStickyCta] = useState(false)
+  useEffect(() => {
+    const el = ctaRef.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyCta(!entry.isIntersecting),
+      { threshold: 0 },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [course])
   // ViewContent(view_item) 전환 이벤트 — 강의별 1회만 발화
   const viewItemFiredRef = useRef<number | null>(null)
   // content_subcategory 용 랜딩 카테고리명(주제 분류) + 조회 완료된 강의 id.
@@ -678,7 +691,7 @@ function CourseDetailPage() {
         disabled={purchasing}
         className="w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {purchasing ? '처리 중...' : isPreAlert ? '사전 알림 신청하기' : isFree ? '무료로 구매하기' : '선착순 마감 전에 신청하기'}
+        {purchasing ? '처리 중...' : isPreAlert ? '사전 알림 신청하기' : isFree ? '강의 신청하기' : '선착순 마감 전에 신청하기'}
       </button>
     )
   }
@@ -705,13 +718,16 @@ function CourseDetailPage() {
       }} />
       <section className="w-full bg-white py-10">
         <div className="max-w-[1200px] mx-auto px-5">
-          <div className="flex gap-8 max-md:flex-col">
-            <div className="flex-1">
+          <div className="grid grid-cols-[1fr_340px] gap-x-8 max-md:grid-cols-1 max-md:gap-y-6">
+            <div className="md:col-start-1 md:row-start-1 min-w-0 max-md:order-1">
               {course.video_url ? (
                 <VideoEmbed url={course.video_url} className="w-full" />
               ) : course.promo_image_url ? (
                 <img src={course.promo_image_url} alt={course.title} className="w-full rounded-xl block" loading="lazy" />
               ) : null}
+            </div>
+
+            <div className="md:col-start-1 md:row-start-2 min-w-0 max-md:order-3">
               {(() => {
                 const hasPromo = !!(course.video_url || course.promo_image_url)
                 const urls = (course.landing_image_urls && course.landing_image_urls.length > 0)
@@ -785,8 +801,8 @@ function CourseDetailPage() {
               ) : null}
             </div>
 
-            <div className="w-[340px] max-md:w-full shrink-0">
-              <div className="sticky top-4">
+            <div className="md:col-start-2 md:row-start-1 md:row-span-2 max-md:order-2">
+              <div className="md:sticky md:top-4">
                 <p className="text-sm text-[#2ED573] font-medium">{course.instructor?.name} 강사</p>
                 <h1 className="text-xl font-bold text-gray-900 mt-1">{course.title}</h1>
 
@@ -833,7 +849,7 @@ function CourseDetailPage() {
                   </div>
                 )}
 
-                {renderActionButton()}
+                <div ref={ctaRef}>{renderActionButton()}</div>
                 {isAdmin && !owned && (
                   <button
                     onClick={handleAdminGrant}
@@ -1071,7 +1087,7 @@ function CourseDetailPage() {
                         disabled={purchasing}
                         className="flex-1 rounded-xl bg-[#2ED573] py-3 text-sm font-bold text-white cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {purchasing ? '처리 중...' : '무료로 구매하기'}
+                        {purchasing ? '처리 중...' : '강의 신청하기'}
                       </button>
                     ) : payMethod === 'toss' ? (
                       <button
@@ -1189,6 +1205,13 @@ function CourseDetailPage() {
           phone: profile?.phone,
         }}
       />
+
+      {/* 모바일 전용 하단 고정 CTA — 스크롤로 본문 신청 버튼이 사라지면 노출 */}
+      {showStickyCta && (
+        <div className="md:hidden fixed left-0 right-0 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 px-4 [&>*]:!mt-0 [&>*+*]:mt-2 [&>*]:shadow-[0_8px_24px_rgba(0,0,0,0.22)]">
+          {renderActionButton()}
+        </div>
+      )}
     </>
   )
 }
