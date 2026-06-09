@@ -4,6 +4,9 @@ import { authService } from '../services/authService'
 import { supabase } from '../lib/supabase'
 import { useExternalServices } from '../hooks/useExternalServices'
 import Turnstile from '../components/Turnstile'
+import { detectInAppBrowser } from '../lib/inAppBrowser'
+import { useInAppEscape } from '../hooks/useInAppEscape'
+import InAppBrowserGuideModal from '../components/InAppBrowserGuideModal'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -31,6 +34,9 @@ function LoginPage() {
   const [guestEmail, setGuestEmail] = useState('')
   const [guestSending, setGuestSending] = useState(false)
   const [guestMessage, setGuestMessage] = useState('')
+
+  // 인앱 브라우저(인스타/페북) — 소셜 로그인이 막히므로 외부 브라우저 유도 (iOS 안내 모달)
+  const { escapeToExternalBrowser, guideOpen, guideUrl, closeGuide } = useInAppEscape()
 
   const handleSendLoginLink = async () => {
     if (!guestEmail.trim()) { setGuestMessage('이메일을 입력해주세요.'); return }
@@ -163,6 +169,14 @@ function LoginPage() {
   }
 
   const handleOAuth = async (provider: 'google' | 'kakao') => {
+    // 인스타/페북 인앱 브라우저에서는 소셜 로그인이 정상 동작하지 않는다.
+    // (카카오는 "카카오톡으로 로그인" 버튼이 숨겨지고, 구글은 WebView OAuth 자체를 차단)
+    // → 외부 브라우저로 유도. UTM 은 buildUrlWithStoredUtm 으로 URL 에 다시 실어 보존한다.
+    if (detectInAppBrowser().isInApp) {
+      escapeToExternalBrowser()
+      return
+    }
+
     try {
       sessionStorage.setItem('pendingSignIn', '1')
       await authService.signInWithOAuth(provider)
@@ -416,6 +430,9 @@ function LoginPage() {
           </div>
         </div>
       )}
+
+      {/* 인앱 브라우저(iOS) — 외부 브라우저로 열기 안내 모달 */}
+      <InAppBrowserGuideModal open={guideOpen} url={guideUrl} onClose={closeGuide} />
     </>
   )
 }
