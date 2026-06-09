@@ -23,9 +23,7 @@ import type { Coupon } from '../types'
 import { textToHtml } from '../utils/richText'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
 import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId, courseCategoryLabel } from '../lib/tracking'
-import { detectInAppBrowser } from '../lib/inAppBrowser'
-import { useInAppEscape } from '../hooks/useInAppEscape'
-import InAppBrowserGuideModal from '../components/InAppBrowserGuideModal'
+import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
 
 function CourseDetailPage() {
   const { id } = useParams()
@@ -94,8 +92,6 @@ function CourseDetailPage() {
     observer.observe(el)
     return () => observer.disconnect()
   }, [course])
-  // 인앱 브라우저(인스타/페북) — 소셜 로그인이 막히므로 외부 브라우저 유도 (iOS 안내 모달)
-  const { escapeToExternalBrowser, guideOpen, guideUrl, closeGuide } = useInAppEscape()
   // ViewContent(view_item) 전환 이벤트 — 강의별 1회만 발화
   const viewItemFiredRef = useRef<number | null>(null)
   // content_subcategory 용 랜딩 카테고리명(주제 분류) + 조회 완료된 강의 id.
@@ -338,10 +334,12 @@ function CourseDetailPage() {
         setGuestModalOpen(true)
         return
       }
-      // 인스타/페북 인앱 브라우저면 카카오 로그인이 막히므로, 강의 URL+UTM 을 보존한 채
-      // 외부 브라우저로 유도한다. (외부 브라우저에서 강의 → 신청 → 카카오 로그인까지 정상 진행)
-      if (detectInAppBrowser().isInApp) {
-        escapeToExternalBrowser()
+      // 안드로이드 인앱 브라우저(인스타/페북)면 카카오 로그인이 막히므로, 강의 URL+UTM 을
+      // 보존한 채 크롬으로 자동 전환한다. iOS 는 강제 전환 불가 + 안내 화면이 이탈을 키우므로
+      // 개입하지 않고 기존 로그인 흐름(아래)으로 진행한다.
+      const inApp = detectInAppBrowser()
+      if (inApp.isInApp && inApp.isAndroid) {
+        openExternalBrowser()
         return
       }
       // 로그인 후 다시 이 강의로 돌아오도록 복귀 경로 저장.
@@ -1226,9 +1224,6 @@ function CourseDetailPage() {
           {renderActionButton()}
         </div>
       )}
-
-      {/* 인앱 브라우저(iOS) — 외부 브라우저로 열기 안내 모달 */}
-      <InAppBrowserGuideModal open={guideOpen} url={guideUrl} onClose={closeGuide} />
     </>
   )
 }

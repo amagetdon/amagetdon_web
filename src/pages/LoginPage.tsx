@@ -4,9 +4,7 @@ import { authService } from '../services/authService'
 import { supabase } from '../lib/supabase'
 import { useExternalServices } from '../hooks/useExternalServices'
 import Turnstile from '../components/Turnstile'
-import { detectInAppBrowser } from '../lib/inAppBrowser'
-import { useInAppEscape } from '../hooks/useInAppEscape'
-import InAppBrowserGuideModal from '../components/InAppBrowserGuideModal'
+import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -34,9 +32,6 @@ function LoginPage() {
   const [guestEmail, setGuestEmail] = useState('')
   const [guestSending, setGuestSending] = useState(false)
   const [guestMessage, setGuestMessage] = useState('')
-
-  // 인앱 브라우저(인스타/페북) — 소셜 로그인이 막히므로 외부 브라우저 유도 (iOS 안내 모달)
-  const { escapeToExternalBrowser, guideOpen, guideUrl, closeGuide } = useInAppEscape()
 
   const handleSendLoginLink = async () => {
     if (!guestEmail.trim()) { setGuestMessage('이메일을 입력해주세요.'); return }
@@ -169,11 +164,12 @@ function LoginPage() {
   }
 
   const handleOAuth = async (provider: 'google' | 'kakao') => {
-    // 인스타/페북 인앱 브라우저에서는 소셜 로그인이 정상 동작하지 않는다.
-    // (카카오는 "카카오톡으로 로그인" 버튼이 숨겨지고, 구글은 WebView OAuth 자체를 차단)
-    // → 외부 브라우저로 유도. UTM 은 buildUrlWithStoredUtm 으로 URL 에 다시 실어 보존한다.
-    if (detectInAppBrowser().isInApp) {
-      escapeToExternalBrowser()
+    // 안드로이드 인앱 브라우저(인스타/페북)에서만 카카오/구글 로그인이 막히므로 크롬으로 자동 전환한다.
+    // (UTM 은 URL 에 실어 보존) iOS 는 강제 전환이 불가하고 안내 화면이 오히려 이탈을 키우므로
+    // 개입하지 않고 기존 OAuth 흐름 그대로 진행한다.
+    const inApp = detectInAppBrowser()
+    if (inApp.isInApp && inApp.isAndroid) {
+      openExternalBrowser()
       return
     }
 
@@ -430,9 +426,6 @@ function LoginPage() {
           </div>
         </div>
       )}
-
-      {/* 인앱 브라우저(iOS) — 외부 브라우저로 열기 안내 모달 */}
-      <InAppBrowserGuideModal open={guideOpen} url={guideUrl} onClose={closeGuide} />
     </>
   )
 }
