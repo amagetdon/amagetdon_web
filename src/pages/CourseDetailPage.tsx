@@ -344,6 +344,9 @@ function CourseDetailPage() {
         escapeToExternalBrowser()
         return
       }
+      // 로그인 후 다시 이 강의로 돌아오도록 복귀 경로 저장.
+      // 이메일 로그인은 LoginPage 가, OAuth(카카오/구글)는 App 의 PostLoginRedirect 가 소비한다.
+      sessionStorage.setItem('postLoginRedirect', window.location.pathname + window.location.search)
       navigate('/login')
       return
     }
