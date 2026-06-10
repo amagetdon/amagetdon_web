@@ -124,9 +124,8 @@ function CourseDetailPage() {
 
   useEffect(() => {
     if (!course) { setApplicantCount(null); return }
-    const baseMin = course.applicants_min
-    const baseMax = course.applicants_max
-    if (baseMin == null || baseMax == null || baseMin < 0 || baseMax < 0 || baseMin > baseMax) {
+    const baseInitial = course.applicants_initial
+    if (baseInitial == null || baseInitial < 0) {
       setApplicantCount(null); return
     }
     const dailyGrowth = Math.max(0, course.applicants_daily_growth ?? 0)
@@ -140,26 +139,20 @@ function CourseDetailPage() {
         growth = Math.floor((hoursElapsed * dailyGrowth) / 24)
       }
     }
-    const min = baseMin + growth
-    const max = baseMax + growth
+    // 시간 경과가 반영된 현재 하한 — 새로고침 변동은 이 값 이상에서만 위로 누적된다.
+    const base = baseInitial + growth
+    const step = Math.min(3, Math.max(1, course.applicants_refresh_step ?? 1))
     const key = `course-applicants-${course.id}`
     const stored = sessionStorage.getItem(key)
     const randInt = (lo: number, hi: number) => Math.floor(Math.random() * (hi - lo + 1)) + lo
-    const clamp = (n: number) => Math.max(min, Math.min(max, n))
-    let next: number
     const prev = stored == null ? NaN : Number(stored)
-    if (!Number.isFinite(prev)) {
-      next = randInt(min, max)
-    } else if (prev < min) {
-      // 하루가 지나 범위가 위로 이동한 경우 — 새 범위 하단 근처로 끌어올림
-      next = randInt(min, Math.min(max, min + Math.max(1, Math.ceil((max - min) / 4))))
+    let next: number
+    if (!Number.isFinite(prev) || prev < base) {
+      // 최초 진입 또는 하루가 지나 하한이 위로 이동한 경우 — 하한에서 다시 시작
+      next = base
     } else {
-      const rMinRaw = course.applicants_refresh_min ?? -1
-      const rMaxRaw = course.applicants_refresh_max ?? 2
-      const rMin = Math.min(rMinRaw, rMaxRaw)
-      const rMax = Math.max(rMinRaw, rMaxRaw)
-      const delta = randInt(rMin, rMax)
-      next = clamp(prev + delta)
+      // 새로고침마다 +1~step 만큼 위로만 증가
+      next = prev + randInt(1, step)
     }
     sessionStorage.setItem(key, String(next))
     setApplicantCount(next)

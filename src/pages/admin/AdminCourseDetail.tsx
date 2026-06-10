@@ -345,10 +345,8 @@ export default function AdminCourseDetail() {
         reward_points: 0,
         refund_policy: '',
         duration_days: 40,
-        applicants_min: null,
-        applicants_max: null,
-        applicants_refresh_min: -1,
-        applicants_refresh_max: 2,
+        applicants_initial: null,
+        applicants_refresh_step: 1,
         applicants_daily_growth: null,
         scheduled_at: null,
         webhook_variables: {},
@@ -483,10 +481,8 @@ export default function AdminCourseDetail() {
         refund_policy: ((editing.refund_policy as string) || '').trim() || null,
         after_purchase_url: ((editing.after_purchase_url as string) || '').trim() || null,
         duration_days: editing.duration_days ?? 40,
-        applicants_min: editing.applicants_min ?? null,
-        applicants_max: editing.applicants_max ?? null,
-        applicants_refresh_min: editing.applicants_refresh_min ?? null,
-        applicants_refresh_max: editing.applicants_refresh_max ?? null,
+        applicants_initial: editing.applicants_initial ?? null,
+        applicants_refresh_step: editing.applicants_refresh_step ?? null,
         applicants_daily_growth: editing.applicants_daily_growth ?? null,
       }
       if (isNew) {
@@ -807,51 +803,21 @@ export default function AdminCourseDetail() {
                 <label className="text-sm font-bold block mb-1">신청자 수 표시 (지금 N명 신청 중)</label>
                 <div className="flex flex-wrap gap-3">
                   <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
-                    <input type="number" min={0} value={(editing.applicants_min as number) ?? ''}
-                      onChange={(e) => setEditing({ ...editing, applicants_min: e.target.value === '' ? null : Number(e.target.value) })}
-                      onBlur={(e) => {
-                        // 최소값을 최대값보다 크게 올리면 최대값을 최소값까지 끌어올려 invariant 유지
-                        if (e.target.value === '') return
-                        const v = Number(e.target.value)
-                        const maxV = editing.applicants_max as number | null
-                        if (maxV != null && v > maxV) setEditing({ ...editing, applicants_min: v, applicants_max: v })
-                      }}
-                      placeholder="최소"
+                    <input type="number" min={0} value={(editing.applicants_initial as number) ?? ''}
+                      onChange={(e) => setEditing({ ...editing, applicants_initial: e.target.value === '' ? null : Number(e.target.value) })}
+                      placeholder="예: 20"
                       className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">신청자 최소 수</p>
+                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">최초 신청자 수</p>
                   </div>
                   <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
-                    {(() => {
-                      const minV = editing.applicants_min as number | null
-                      const maxV = editing.applicants_max as number | null
-                      const warn = minV != null && maxV != null && maxV - minV >= 10
-                      return (
-                        <input type="number" min={minV ?? 0} value={(editing.applicants_max as number) ?? ''}
-                          onChange={(e) => setEditing({ ...editing, applicants_max: e.target.value === '' ? null : Number(e.target.value) })}
-                          onBlur={(e) => {
-                            // 최대값이 최소값보다 작으면 최소값으로 자동 보정 (최대 < 최소 입력 방지)
-                            if (e.target.value === '' || minV == null) return
-                            if (Number(e.target.value) < minV) setEditing({ ...editing, applicants_max: minV })
-                          }}
-                          placeholder="최대"
-                          className={`w-full border rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${warn ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 bg-red-50' : 'border-gray-300 focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
-                      )
-                    })()}
-                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">신청자 최대 수</p>
-                  </div>
-                  <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
-                    <input type="number" value={(editing.applicants_refresh_min as number) ?? ''}
-                      onChange={(e) => setEditing({ ...editing, applicants_refresh_min: e.target.value === '' ? null : Number(e.target.value) })}
-                      placeholder="-1"
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">새로고침 변동 최소 (음수 가능)</p>
-                  </div>
-                  <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
-                    <input type="number" value={(editing.applicants_refresh_max as number) ?? ''}
-                      onChange={(e) => setEditing({ ...editing, applicants_refresh_max: e.target.value === '' ? null : Number(e.target.value) })}
-                      placeholder="2"
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">새로고침 변동 최대</p>
+                    <select value={(editing.applicants_refresh_step as number) ?? 1}
+                      onChange={(e) => setEditing({ ...editing, applicants_refresh_step: Number(e.target.value) })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all bg-white">
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                      <option value={3}>3</option>
+                    </select>
+                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">새로고침 변동 (회당 +1~선택값)</p>
                   </div>
                   <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
                     <input type="number" min={0} value={(editing.applicants_daily_growth as number) ?? ''}
@@ -861,19 +827,7 @@ export default function AdminCourseDetail() {
                     <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">매일 증가량 (오픈일 기준)</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">최소~최대 사이 랜덤 표시, 새로고침마다 변동폭(±)만큼 가감. 매일 오픈일 기준 (증가량 × 경과 일수)만큼 위로 시프트. 비우면 미표시.</p>
-                {(() => {
-                  const minV = editing.applicants_min as number | null
-                  const maxV = editing.applicants_max as number | null
-                  if (minV == null || maxV == null) return null
-                  if (maxV - minV < 10) return null
-                  return (
-                    <p className="text-xs text-amber-600 mt-1 flex items-start gap-1">
-                      <i className="ti ti-alert-triangle mt-px shrink-0" />
-                      <span>신청자 수는 현재 매일 증가량으로 인해 순차적으로 자연스럽게 올라갑니다.<br />현재 최소/최대값 차이가 커 브라우저를 열고 닫을 때 값이 크게 튈 수 있으므로 두 값의 차이를 낮추시는걸 권장드립니다.</span>
-                    </p>
-                  )
-                })()}
+                <p className="text-xs text-gray-400 mt-1">최초 신청자 수에서 시작해 새로고침마다 +1~변동값 만큼 위로만 증가. 매일 오픈일 기준 (증가량 × 경과 일수)만큼 추가로 상승. 비우면 미표시.</p>
               </div>
               <div className="flex gap-3 max-sm:w-full max-sm:flex-col">
                 <div className="w-[220px] max-sm:w-full">
