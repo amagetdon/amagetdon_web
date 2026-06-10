@@ -817,7 +817,7 @@ export default function AdminCourseDetail() {
                       <option value={2}>2</option>
                       <option value={3}>3</option>
                     </select>
-                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">새로고침 변동 (회당 +1~선택값)</p>
+                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">새로고침 변동 (1~선택값)</p>
                   </div>
                   <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
                     <input type="number" min={0} value={(editing.applicants_daily_growth as number) ?? ''}
