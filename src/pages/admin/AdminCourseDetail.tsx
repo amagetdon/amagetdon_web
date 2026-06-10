@@ -809,6 +809,13 @@ export default function AdminCourseDetail() {
                   <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
                     <input type="number" min={0} value={(editing.applicants_min as number) ?? ''}
                       onChange={(e) => setEditing({ ...editing, applicants_min: e.target.value === '' ? null : Number(e.target.value) })}
+                      onBlur={(e) => {
+                        // 최소값을 최대값보다 크게 올리면 최대값을 최소값까지 끌어올려 invariant 유지
+                        if (e.target.value === '') return
+                        const v = Number(e.target.value)
+                        const maxV = editing.applicants_max as number | null
+                        if (maxV != null && v > maxV) setEditing({ ...editing, applicants_min: v, applicants_max: v })
+                      }}
                       placeholder="최소"
                       className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                     <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">신청자 최소 수</p>
@@ -819,8 +826,13 @@ export default function AdminCourseDetail() {
                       const maxV = editing.applicants_max as number | null
                       const warn = minV != null && maxV != null && maxV - minV >= 10
                       return (
-                        <input type="number" min={0} value={(editing.applicants_max as number) ?? ''}
+                        <input type="number" min={minV ?? 0} value={(editing.applicants_max as number) ?? ''}
                           onChange={(e) => setEditing({ ...editing, applicants_max: e.target.value === '' ? null : Number(e.target.value) })}
+                          onBlur={(e) => {
+                            // 최대값이 최소값보다 작으면 최소값으로 자동 보정 (최대 < 최소 입력 방지)
+                            if (e.target.value === '' || minV == null) return
+                            if (Number(e.target.value) < minV) setEditing({ ...editing, applicants_max: minV })
+                          }}
                           placeholder="최대"
                           className={`w-full border rounded-xl px-3 py-2.5 text-sm outline-none transition-all ${warn ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-500/10 bg-red-50' : 'border-gray-300 focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10'}`} />
                       )
