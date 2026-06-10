@@ -139,23 +139,12 @@ function CourseDetailPage() {
         growth = Math.floor((hoursElapsed * dailyGrowth) / 24)
       }
     }
-    // 시간 경과가 반영된 현재 하한 — 새로고침 변동은 이 값 이상에서만 위로 누적된다.
+    // 매일 증가량(시간 경과)으로만 상승하는 기준값. 새로고침 변동은 이 값 주변에서 흔들 뿐 누적되지 않는다.
     const base = baseInitial + growth
     const step = Math.min(3, Math.max(1, course.applicants_refresh_step ?? 1))
-    const key = `course-applicants-${course.id}`
-    const stored = sessionStorage.getItem(key)
     const randInt = (lo: number, hi: number) => Math.floor(Math.random() * (hi - lo + 1)) + lo
-    const prev = stored == null ? NaN : Number(stored)
-    let next: number
-    if (!Number.isFinite(prev) || prev < base) {
-      // 최초 진입 또는 하루가 지나 하한이 위로 이동한 경우 — 하한에서 다시 시작
-      next = base
-    } else {
-      // 새로고침마다 +1~step 만큼 위로만 증가
-      next = prev + randInt(1, step)
-    }
-    sessionStorage.setItem(key, String(next))
-    setApplicantCount(next)
+    // 매번 base ±step 범위에서 새로 흔든다 — 이전 값을 누적하지 않으므로 새로고침을 반복해도 불어나지 않는다.
+    setApplicantCount(Math.max(1, base + randInt(-step, step)))
   }, [course])
 
   useEffect(() => {

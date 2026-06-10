@@ -817,7 +817,7 @@ export default function AdminCourseDetail() {
                       <option value={2}>2</option>
                       <option value={3}>3</option>
                     </select>
-                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">새로고침 변동 (1~선택값)</p>
+                    <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">새로고침 변동 (±선택값)</p>
                   </div>
                   <div className="w-[140px] max-sm:w-[calc(50%-6px)]">
                     <input type="number" min={0} value={(editing.applicants_daily_growth as number) ?? ''}
@@ -827,7 +827,7 @@ export default function AdminCourseDetail() {
                     <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">매일 증가량 (오픈일 기준)</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">최초 신청자 수에서 시작해 새로고침마다 +1~변동값 만큼 위로만 증가. 매일 오픈일 기준 (증가량 × 경과 일수)만큼 추가로 상승. 비우면 미표시.</p>
+                <p className="text-xs text-gray-400 mt-1">최초 신청자 수 + 매일 증가량(오픈일 기준 × 경과)만큼 시간에 따라 상승. 새로고침 시 그 값 주변에서 ±변동값만큼 흔들릴 뿐 누적되지 않음(F5 반복해도 안 불어남). 비우면 미표시.</p>
               </div>
               <div className="flex gap-3 max-sm:w-full max-sm:flex-col">
                 <div className="w-[220px] max-sm:w-full">
