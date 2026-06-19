@@ -3,14 +3,15 @@ import { getCached, setCache, clearCache } from '../lib/cache'
 import type { ScheduleWithDetails } from '../types'
 
 export const scheduleService = {
-  async getByMonth(year: number, month: number) {
-    const key = `schedules:${year}-${month}`
+  // includeHidden: 어드민 일정 관리에서는 숨김 일정도 포함, 공개 캘린더(기본값 false)에서는 제외.
+  async getByMonth(year: number, month: number, includeHidden = false) {
+    const key = `schedules:${year}-${month}${includeHidden ? ':all' : ''}`
     const cached = getCached<ScheduleWithDetails[]>(key)
     if (cached) return cached
     const startDate = new Date(year, month - 1, 1).toISOString()
     const endDate = new Date(year, month, 0, 23, 59, 59).toISOString()
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('schedules')
       .select(`
         *,
@@ -19,14 +20,15 @@ export const scheduleService = {
       `)
       .gte('scheduled_at', startDate)
       .lte('scheduled_at', endDate)
-      .order('scheduled_at')
+    if (!includeHidden) query = query.eq('is_hidden', false)
+    const { data, error } = await query.order('scheduled_at')
     if (error) throw error
     return setCache(key, data as ScheduleWithDetails[])
   },
 
   invalidate() { clearCache('schedules') },
 
-  async create(schedule: { course_id?: number; instructor_id?: number; scheduled_at: string; title: string }) {
+  async create(schedule: { course_id?: number; instructor_id?: number; scheduled_at: string; title: string; is_hidden?: boolean }) {
     const { data, error } = await supabase
       .from('schedules')
       .insert(schedule as never)

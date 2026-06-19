@@ -414,7 +414,8 @@ export default function AdminCourseDetail() {
   }
 
   // 강의일시(scheduled_at)를 schedules 테이블에도 1:1 동기화. 홈/캘린더·예약 알림톡이 기존처럼 동작하도록.
-  const syncCourseSchedule = async (cid: number, scheduledAt: string | null, title: string, instructorId: number | null) => {
+  // hidden: 유료(premium) 강의는 공개 캘린더에 자동 노출되지 않도록 숨김으로 등록.
+  const syncCourseSchedule = async (cid: number, scheduledAt: string | null, title: string, instructorId: number | null, hidden: boolean) => {
     if (!scheduledAt) {
       await supabase.from('schedules').delete().eq('course_id', cid)
       scheduleService.invalidate()
@@ -426,12 +427,15 @@ export default function AdminCourseDetail() {
       .eq('course_id', cid)
       .limit(1)
       .maybeSingle()
-    const row = { course_id: cid, scheduled_at: scheduledAt, title, instructor_id: instructorId }
     const existingId = (existing as { id?: number } | null)?.id
     if (existingId) {
+      // 유료 강의는 항상 숨김 강제. 비유료는 어드민이 일정 관리에서 수동 토글한 표시 상태를 보존(is_hidden 미포함).
+      const row: Record<string, unknown> = { course_id: cid, scheduled_at: scheduledAt, title, instructor_id: instructorId }
+      if (hidden) row.is_hidden = true
       await supabase.from('schedules').update(row as never).eq('id', existingId)
     } else {
-      await supabase.from('schedules').insert(row as never)
+      // 신규: 유료 강의는 숨김으로 등록.
+      await supabase.from('schedules').insert({ course_id: cid, scheduled_at: scheduledAt, title, instructor_id: instructorId, is_hidden: hidden } as never)
     }
     // 홈 캘린더가 즉시 새 일시를 보여주도록 캐시 무효화
     scheduleService.invalidate()
@@ -487,14 +491,14 @@ export default function AdminCourseDetail() {
       }
       if (isNew) {
         const created = await courseService.create(courseData as never) as { id: number }
-        await syncCourseSchedule(created.id, courseData.scheduled_at as string | null, courseData.title, courseData.instructor_id as number | null)
+        await syncCourseSchedule(created.id, courseData.scheduled_at as string | null, courseData.title, courseData.instructor_id as number | null, courseData.course_type === 'premium')
         toast.success('새 강의가 등록되었습니다.')
         navigate(`/admin/courses/${created.id}`, { replace: true })
         return
       }
       if (!courseId) return
       await courseService.update(courseId, courseData)
-      await syncCourseSchedule(courseId, courseData.scheduled_at as string | null, courseData.title, courseData.instructor_id as number | null)
+      await syncCourseSchedule(courseId, courseData.scheduled_at as string | null, courseData.title, courseData.instructor_id as number | null, courseData.course_type === 'premium')
       toast.success('강의가 수정되었습니다.')
       await loadCourse()
     } catch (err) {

@@ -26,7 +26,7 @@ export default function AdminSchedules() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [s, c, i] = await withTimeout(Promise.all([scheduleService.getByMonth(year, month), courseService.getAll(), instructorService.getAll()]))
+      const [s, c, i] = await withTimeout(Promise.all([scheduleService.getByMonth(year, month, true), courseService.getAll(), instructorService.getAll()]))
       setSchedules(s); setCourses(c); setInstructors(i)
     } catch { toast.error('데이터를 불러오는데 실패했습니다.') } finally { setLoading(false) }
   }
@@ -41,7 +41,7 @@ export default function AdminSchedules() {
         const { id, course, instructor, created_at, ...updates } = editing; void course; void instructor; void created_at
         await scheduleService.update(id as number, updates); toast.success('일정이 수정되었습니다.')
       } else {
-        await scheduleService.create(editing as { title: string; scheduled_at: string; course_id?: number; instructor_id?: number })
+        await scheduleService.create(editing as { title: string; scheduled_at: string; course_id?: number; instructor_id?: number; is_hidden?: boolean })
         toast.success('새 일정이 등록되었습니다.')
       }
       setEditing(null); await fetchData()
@@ -52,6 +52,15 @@ export default function AdminSchedules() {
     if (!deleteTarget) return
     try { await scheduleService.delete(deleteTarget); toast.success('일정이 삭제되었습니다.'); setDeleteTarget(null); await fetchData() }
     catch { toast.error('삭제에 실패했습니다.') }
+  }
+
+  // 공개 캘린더 노출 여부 토글. 유료 강의는 등록 시 자동 숨김되며, 여기서 수동으로 표시/숨김 전환 가능.
+  const handleToggleHidden = async (s: ScheduleWithDetails) => {
+    try {
+      await scheduleService.update(s.id, { is_hidden: !s.is_hidden })
+      toast.success(s.is_hidden ? '일정을 공개로 전환했습니다.' : '일정을 숨김 처리했습니다.')
+      await fetchData()
+    } catch { toast.error('변경에 실패했습니다.') }
   }
 
   const prevMonth = () => { if (month === 1) { setYear(year - 1); setMonth(12) } else setMonth(month - 1) }
@@ -87,12 +96,18 @@ export default function AdminSchedules() {
               {schedules.length === 0 ? (
                 <tr><td colSpan={4} className="px-4 py-12 text-center text-gray-400">{year}년 {month}월 일정이 없습니다.</td></tr>
               ) : schedules.map((s) => (
-                <tr key={s.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-medium">{s.title}</td>
+                <tr key={s.id} className={`hover:bg-gray-50 ${s.is_hidden ? 'bg-gray-50/60' : ''}`}>
+                  <td className="px-4 py-3 font-medium">
+                    <div className="flex items-center gap-2">
+                      <span className={s.is_hidden ? 'text-gray-400' : ''}>{s.title}</span>
+                      {s.is_hidden && <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 text-[11px] font-bold"><i className="ti ti-eye-off text-xs" /> 숨김</span>}
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-gray-500 max-sm:hidden">{s.instructor?.name || '-'}</td>
                   <td className="px-4 py-3 text-center text-gray-500 text-xs">{new Date(s.scheduled_at).toLocaleString('ko-KR')}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => handleToggleHidden(s)} className={`w-8 h-8 flex items-center justify-center rounded-lg bg-transparent border-none cursor-pointer transition-colors ${s.is_hidden ? 'text-gray-400 hover:text-[#2ED573] hover:bg-green-50' : 'text-[#2ED573] hover:text-gray-500 hover:bg-gray-100'}`} aria-label={s.is_hidden ? '공개로 전환' : '숨김 처리'} title={s.is_hidden ? '공개로 전환' : '숨김 처리'}><i className={`ti ${s.is_hidden ? 'ti-eye-off' : 'ti-eye'} text-sm`} /></button>
                       <button onClick={() => setEditing(s as unknown as Record<string, unknown>)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
                       <button onClick={() => setDeleteTarget(s.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="삭제"><i className="ti ti-trash text-sm" /></button>
                     </div>
@@ -188,6 +203,14 @@ export default function AdminSchedules() {
                   })()}
                 </div>
               </div>
+            </div>
+            <div className="col-span-2 max-sm:col-span-1">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" checked={editing.is_hidden === true} onChange={(e) => setEditing({ ...editing, is_hidden: e.target.checked })}
+                  className="w-4 h-4 accent-[#2ED573] cursor-pointer" />
+                <span className="text-sm font-bold text-gray-700">숨김 (공개 캘린더에 노출하지 않음)</span>
+              </label>
+              <p className="text-xs text-gray-400 mt-1">유료 강의는 등록 시 자동으로 숨김 처리됩니다.</p>
             </div>
           </div>
         )}

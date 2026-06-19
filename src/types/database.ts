@@ -371,6 +371,7 @@ export interface Schedule {
   instructor_id: number | null
   scheduled_at: string
   title: string
+  is_hidden: boolean
   created_at: string
 }
 
