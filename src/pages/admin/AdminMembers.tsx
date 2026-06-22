@@ -25,6 +25,7 @@ export default function AdminMembers() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [memberTab, setMemberTab] = useState<'all' | 'email' | 'kakao' | 'google' | 'guest'>('all')
+  const [page, setPage] = useState(0)
   const [viewing, setViewing] = useState<MemberWithPurchases | null>(null)
   const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null }[]>([])
   const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; newRole: 'user' | 'admin' } | null>(null)
@@ -621,7 +622,18 @@ export default function AdminMembers() {
     guest: members.filter((m) => resolveProvider(m) === 'guest').length,
   }
 
-  const exportToExcel = (data: MemberWithPurchases[]) => {
+  // 검색어 또는 탭(가입방법) 필터가 적용된 상태인지
+  const hasFilter = search.trim() !== '' || memberTab !== 'all'
+
+  // 목록은 페이지 단위로만 표시 (엑셀 내보내기는 filtered 전체를 대상으로 함)
+  const PER_PAGE = 20
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const pageClamped = Math.min(page, totalPages - 1)
+  const paged = filtered.slice(pageClamped * PER_PAGE, (pageClamped + 1) * PER_PAGE)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(0) }, [search, memberTab])
+
+  const exportToExcel = (data: MemberWithPurchases[], filteredExport = false) => {
     const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', 'utm_source', 'utm_medium', 'utm_campaign', '가입일', '마지막 접속']
     const rows = data.map((m) => {
       const provider = (m as unknown as Record<string, unknown>).provider as string | undefined || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
@@ -654,13 +666,18 @@ export default function AdminMembers() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `회원목록_${toLocalDateStr(new Date())}.csv`
+    a.download = `회원목록${filteredExport ? '_검색결과' : ''}_${toLocalDateStr(new Date())}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('ko-KR')
   const formatGender = (g: string | null) => g === 'male' ? '남' : g === 'female' ? '여' : '-'
+  // 이름이 6글자를 넘으면 …로 축약 (전체 이름은 title 툴팁으로 확인)
+  const truncateName = (name: string | null) => {
+    const n = name || '-'
+    return n.length > 6 ? `${n.slice(0, 6)}…` : n
+  }
 
   // 수강권 부여 모달: 검색어로 필터링한 강의/전자책 목록
   const grantItems = grantType === 'course' ? allCourses : allEbooks
@@ -813,12 +830,18 @@ export default function AdminMembers() {
             <i className="ti ti-refresh text-sm" />
           </button>
           <button
-            onClick={() => exportToExcel(filtered)}
+            onClick={() => exportToExcel(filtered, hasFilter)}
             disabled={filtered.length === 0}
+            title={hasFilter
+              ? `검색·필터 결과 ${filtered.length}명을 내보냅니다`
+              : `전체 회원 ${filtered.length}명을 내보냅니다`}
             className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <i className="ti ti-file-spreadsheet text-sm" />
             엑셀 내보내기
+            <span className="text-xs text-gray-400">
+              {hasFilter ? `검색결과 ${filtered.length}` : `전체 ${filtered.length}`}
+            </span>
           </button>
         </div>
       </div>
@@ -879,29 +902,29 @@ export default function AdminMembers() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600">이름</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">이메일</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">전화번호</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">성별</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">생년월일</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">주소</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600">권한</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">포인트</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">구매</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">총 결제</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">UTM</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">가입일</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">마지막 접속</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">이름</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">이메일</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">전화번호</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">성별</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">생년월일</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">주소</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">권한</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">포인트</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">구매</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">총 결제</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">UTM</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">가입일</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">마지막 접속</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr><td colSpan={14} className="px-4 py-12 text-center text-gray-400">{search ? '검색 결과가 없습니다.' : '등록된 회원이 없습니다.'}</td></tr>
-                ) : filtered.map((m) => (
+                ) : paged.map((m) => (
                   <tr key={m.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewMember(m)}>
-                    <td className="px-4 py-3 text-center font-medium">
-                      <span>{m.name || '-'}</span>
+                    <td className="px-4 py-3 text-center font-medium whitespace-nowrap">
+                      <span title={m.name || ''}>{truncateName(m.name)}</span>
                       {(() => {
                         const p = (m as unknown as Record<string, unknown>).provider as string | undefined
                         const provider = p || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
@@ -912,9 +935,9 @@ export default function AdminMembers() {
                       })()}
                     </td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs">{m.email || '-'}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{m.phone || '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden whitespace-nowrap">{m.phone || '-'}</td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{formatGender(m.gender)}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs">{m.birth_date ? formatDate(m.birth_date) : '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs whitespace-nowrap">{m.birth_date ? formatDate(m.birth_date) : '-'}</td>
                     <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs max-w-[150px] truncate">{m.address ? m.address.split('|').slice(1).join(' ') : '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
@@ -937,8 +960,8 @@ export default function AdminMembers() {
                         </span>
                       ) : '-'}
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{formatDate(m.created_at)}</td>
-                    <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{m.last_active_at ? formatDate(m.last_active_at) : '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden whitespace-nowrap">{formatDate(m.created_at)}</td>
+                    <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden whitespace-nowrap">{m.last_active_at ? formatDate(m.last_active_at) : '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
@@ -981,6 +1004,41 @@ export default function AdminMembers() {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-1 px-4 py-4 border-t border-gray-100">
+              <button
+                onClick={() => setPage(Math.max(0, pageClamped - 1))}
+                disabled={pageClamped === 0}
+                className="px-3 py-1.5 rounded-lg text-sm text-gray-500 bg-white border border-gray-200 cursor-pointer hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                이전
+              </button>
+              {Array.from({ length: totalPages }, (_, i) => i)
+                .filter((i) => Math.abs(i - pageClamped) <= 2 || i === 0 || i === totalPages - 1)
+                .map((i, idx, arr) => (
+                  <span key={i} className="flex items-center">
+                    {idx > 0 && arr[idx - 1] !== i - 1 && <span className="px-1 text-gray-300 text-sm">…</span>}
+                    <button
+                      onClick={() => setPage(i)}
+                      className={`min-w-[32px] px-2 py-1.5 rounded-lg text-sm cursor-pointer border ${
+                        i === pageClamped
+                          ? 'bg-[#2ED573] text-white border-[#2ED573] font-bold'
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  </span>
+                ))}
+              <button
+                onClick={() => setPage(Math.min(totalPages - 1, pageClamped + 1))}
+                disabled={pageClamped >= totalPages - 1}
+                className="px-3 py-1.5 rounded-lg text-sm text-gray-500 bg-white border border-gray-200 cursor-pointer hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                다음
+              </button>
+            </div>
+          )}
         </div>
       )}
 
