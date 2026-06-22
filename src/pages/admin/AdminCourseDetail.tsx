@@ -194,6 +194,44 @@ export default function AdminCourseDetail() {
     return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('ko-KR')
   }
 
+  // 결제수단 라벨 (링크페이 포함) — 화면 표시 규칙과 동일하되 linkpay 구분 추가
+  const memberPaymentLabel = (m: MemberRow) =>
+    m.payment_method === 'toss' ? '카드'
+      : m.payment_method === 'linkpay' ? '링크페이'
+        : m.price > 0 ? '포인트'
+          : '무료/부여'
+
+  // 수강생 목록 엑셀(CSV) 내보내기 — 검색으로 필터된 결과를 그대로 내보냄
+  const exportMembersToExcel = () => {
+    const header = ['이름', '이메일', '전화번호', '결제일', '결제수단', '결제금액', '정가', '진도율(%)', '수강만료일']
+    const rows = filteredMembers.map((m) => [
+      m.user_name || '',
+      m.user_email || '',
+      m.user_phone || '',
+      formatKoDate(m.purchased_at),
+      memberPaymentLabel(m),
+      m.price > 0 ? m.price : '무료',
+      m.original_price ?? '',
+      m.completion_rate,
+      m.expires_at ? formatKoDate(m.expires_at) : '무제한',
+    ])
+
+    const BOM = '﻿'
+    const csv = BOM + [header, ...rows].map((row) =>
+      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+    ).join('\n')
+
+    const safeTitle = (course?.title ?? `course-${courseId}`).replace(/[\\/:*?"<>|]/g, '_').slice(0, 60)
+    const today = new Date().toISOString().slice(0, 10)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `수강생_${safeTitle}_${today}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   // 수강 후기
   const REVIEWS_PER_PAGE = 8
   const [reviews, setReviews] = useState<Review[]>([])
@@ -1435,14 +1473,24 @@ export default function AdminCourseDetail() {
             <p className="text-sm text-gray-500">
               전체 수강생 {members.length}명{membersSearch && ` · 검색 결과 ${filteredMembers.length}명`}
             </p>
-            <div className="relative max-w-xs">
-              <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-              <input
-                value={membersSearch}
-                onChange={(e) => { setMembersSearch(e.target.value); setMembersPage(1) }}
-                placeholder="이름/이메일/전화 검색..."
-                className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573] w-[280px]"
-              />
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative max-w-xs">
+                <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                <input
+                  value={membersSearch}
+                  onChange={(e) => { setMembersSearch(e.target.value); setMembersPage(1) }}
+                  placeholder="이름/이메일/전화 검색..."
+                  className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573] w-[280px]"
+                />
+              </div>
+              <button
+                onClick={exportMembersToExcel}
+                disabled={filteredMembers.length === 0}
+                className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <i className="ti ti-file-spreadsheet text-sm" />
+                엑셀 내보내기
+              </button>
             </div>
           </div>
 
