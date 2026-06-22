@@ -48,6 +48,7 @@ export default function AdminLinkpay() {
   const [courseSearch, setCourseSearch] = useState('')
   const [courseSort, setCourseSort] = useState<{ key: CourseSortKey; dir: 'asc' | 'desc' }>({ key: 'created', dir: 'desc' })
   const [deleteLinkId, setDeleteLinkId] = useState<number | null>(null)
+  const [linkInfoCourseId, setLinkInfoCourseId] = useState<number | null>(null)
 
   // 수동 부여 모달
   const [grantTarget, setGrantTarget] = useState<LinkpayPayment | null>(null)
@@ -340,7 +341,17 @@ export default function AdminLinkpay() {
                       </td>
                       <td className="px-3 py-2 text-gray-800">
                         {c.title}
-                        {mappedCount > 0 && <span className="ml-1.5 text-[11px] text-emerald-600 whitespace-nowrap"><i className="ti ti-link" />{mappedCount}</span>}
+                        {mappedCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setLinkInfoCourseId(c.id)}
+                            aria-label={`연동된 링크페이 상품 ${mappedCount}개 보기`}
+                            title="연동된 링크페이 상품 보기"
+                            className="ml-1.5 text-[11px] text-emerald-600 whitespace-nowrap bg-transparent border-none cursor-pointer hover:underline inline-flex items-center gap-0.5"
+                          >
+                            <i className="ti ti-link" />{mappedCount}
+                          </button>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-gray-500 max-sm:hidden whitespace-nowrap">{c.instructor?.name || '-'}</td>
                       <td className="px-3 py-2 text-right text-gray-600 max-sm:hidden whitespace-nowrap">{coursePrice(c).toLocaleString()}원</td>
@@ -536,6 +547,58 @@ export default function AdminLinkpay() {
         title="링크 매핑 삭제"
         message="이 매핑을 삭제하시겠습니까? 이후 이 링크로 결제하면 강의가 자동 식별되지 않습니다."
       />
+
+      {/* 강의에 연동된 링크페이 상품 목록 */}
+      {linkInfoCourseId != null && (() => {
+        const course = courses.find((c) => c.id === linkInfoCourseId)
+        const linked = links.filter((l) => l.course_id === linkInfoCourseId)
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+            onClick={() => setLinkInfoCourseId(null)}
+            role="dialog"
+            aria-modal="true"
+            aria-label="연동된 링크페이 상품"
+          >
+            <div className="bg-white rounded-2xl w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                <h3 className="font-bold text-gray-900">연동된 링크페이 상품 <span className="text-gray-400 font-normal">({linked.length})</span></h3>
+                <button
+                  onClick={() => setLinkInfoCourseId(null)}
+                  aria-label="닫기"
+                  className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 bg-transparent border-none cursor-pointer transition-colors"
+                >
+                  <i className="ti ti-x" />
+                </button>
+              </div>
+              <p className="px-5 pt-3 text-xs text-gray-500 truncate">강의: <span className="text-gray-800 font-medium">{course?.title ?? `#${linkInfoCourseId}`}</span></p>
+              <div className="p-5 pt-3">
+                {linked.length === 0 ? (
+                  <p className="text-sm text-gray-400 text-center py-6">연동된 상품이 없습니다.</p>
+                ) : (
+                  <div className="border border-gray-200 rounded-xl divide-y divide-gray-100 overflow-hidden">
+                    {linked.map((l) => (
+                      <div key={l.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                        <div className="min-w-0">
+                          <p className="text-sm text-gray-800 truncate">{l.label || '(이름 없음)'}</p>
+                          <p className="font-mono text-[11px] text-gray-400 truncate">{l.product_key}</p>
+                        </div>
+                        <button
+                          onClick={() => { setLinkInfoCourseId(null); setDeleteLinkId(l.id) }}
+                          aria-label="이 매핑 삭제"
+                          className="shrink-0 w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors"
+                        >
+                          <i className="ti ti-trash text-sm" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </AdminLayout>
   )
 }
