@@ -21,6 +21,7 @@ interface PurchaseRow {
   title: string
   price: number
   purchased_at: string
+  payment_method: string | null
 }
 
 interface CourseRow {
@@ -58,6 +59,22 @@ interface PointLogRow {
 
 const formatKRW = (v: number) => `${v.toLocaleString()}원`
 
+// 결제수단 분류 — purchases.payment_method 기준
+//  'toss' = 카드(일반결제) · 'linkpay' = 링크페이 · null = 포인트 결제 · 그 외('admin' 등) = 기타
+const PAYMENT_METHODS = [
+  { key: 'toss', label: '카드결제', color: '#3b82f6' },
+  { key: 'linkpay', label: '링크페이', color: '#2ED573' },
+  { key: 'point', label: '포인트', color: '#a855f7' },
+  { key: 'etc', label: '기타', color: '#9ca3af' },
+] as const
+type PaymentMethodKey = (typeof PAYMENT_METHODS)[number]['key']
+const paymentMethodKey = (pm: string | null): PaymentMethodKey => {
+  if (pm === 'toss') return 'toss'
+  if (pm === 'linkpay') return 'linkpay'
+  if (pm == null || pm === '') return 'point'
+  return 'etc'
+}
+
 export default function AdminRevenueAnalytics() {
   const [period, setPeriod] = useState<Period>('30d')
   const [customFrom, setCustomFrom] = useState('')
@@ -76,7 +93,7 @@ export default function AdminRevenueAnalytics() {
       try {
         setLoading(true)
         const [purchaseRes, courseRes, ebookRes, instructorRes, pointRes, profileRes] = await withTimeout(Promise.all([
-          supabase.from('purchases').select('id, user_id, course_id, ebook_id, title, price, purchased_at'),
+          supabase.from('purchases').select('id, user_id, course_id, ebook_id, title, price, purchased_at, payment_method'),
           supabase.from('courses').select('id, title, instructor_id, course_type'),
           supabase.from('ebooks').select('id, title, instructor_id'),
           supabase.from('instructors').select('id, name'),
@@ -222,6 +239,37 @@ export default function AdminRevenueAnalytics() {
       { name: '전자책', value: ebook },
     ].filter((d) => d.value > 0)
   }, [filteredPurchases])
+
+  // 결제수단별 매출 (카드결제 / 링크페이 / 포인트 / 기타) — 기간 내
+  const paymentMethodStats = useMemo(() => {
+    const agg = new Map<PaymentMethodKey, { revenue: number; count: number; users: Set<string> }>()
+    for (const m of PAYMENT_METHODS) agg.set(m.key, { revenue: 0, count: 0, users: new Set() })
+    for (const p of filteredPurchases) {
+      const e = agg.get(paymentMethodKey(p.payment_method))!
+      e.revenue += p.price
+      e.count += 1
+      if (p.user_id) e.users.add(p.user_id)
+    }
+    return PAYMENT_METHODS.map((m) => {
+      const e = agg.get(m.key)!
+      return { key: m.key, label: m.label, color: m.color, revenue: e.revenue, count: e.count, buyers: e.users.size }
+    })
+  }, [filteredPurchases])
+  const paymentMethodActive = paymentMethodStats.filter((m) => m.revenue > 0)
+
+  // 결제수단별 월별 매출 추이 (최근 12개월, 누적 막대)
+  const revenueByMonthByMethod = useMemo(() => {
+    const map = new Map<string, Record<PaymentMethodKey, number>>()
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      map.set(toLocalMonthStr(d), { toss: 0, linkpay: 0, point: 0, etc: 0 })
+    }
+    for (const p of paidPurchases) {
+      const row = map.get(toLocalMonthStr(new Date(p.purchased_at)))
+      if (row) row[paymentMethodKey(p.payment_method)] += p.price
+    }
+    return Array.from(map.entries()).map(([k, v]) => ({ month: k.slice(5), ...v }))
+  }, [paidPurchases, now])
 
   // 강의별 매출 TOP 10
   const courseMap = useMemo(() => new Map(courses.map((c) => [c.id, c])), [courses])
@@ -473,6 +521,82 @@ export default function AdminRevenueAnalytics() {
           sub={`환불 ${formatKRW(refundTotal)}`}
           color="#f59e0b"
         />
+      </div>
+
+      {/* 결제수단별 매출 (링크페이 / 카드 / 포인트 분리 집계) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">결제수단별 매출 비중</h3>
+          {paymentMethodActive.length > 0 ? (
+            <>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={paymentMethodActive} cx="50%" cy="50%" innerRadius={45} outerRadius={75} dataKey="revenue" nameKey="label" paddingAngle={3}>
+                    {paymentMethodActive.map((m) => <Cell key={m.key} fill={m.color} />)}
+                  </Pie>
+                  <Tooltip formatter={(v: unknown) => formatKRW(Number(v))} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="flex justify-center gap-3 mt-1 flex-wrap">
+                {paymentMethodActive.map((m) => (
+                  <span key={m.key} className="text-[11px] text-gray-500 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full" style={{ background: m.color }} />
+                    {m.label} {formatKRW(m.revenue)}
+                  </span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400 text-center py-12">데이터 없음</p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-5 lg:col-span-2">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-sm font-bold text-gray-900">결제수단별 상세</h3>
+            <span className="text-[11px] text-gray-400">기간 내 총 매출 {formatKRW(totalRevenue)}</span>
+          </div>
+          <div className="space-y-3">
+            {paymentMethodStats.map((m) => {
+              const pct = totalRevenue > 0 ? Math.round((m.revenue / totalRevenue) * 100) : 0
+              return (
+                <div key={m.key} className="flex items-center gap-3">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: m.color }} />
+                  <span className="text-xs font-medium text-gray-700 w-16 shrink-0">{m.label}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <span className="text-[11px] text-gray-500">{m.count.toLocaleString()}건 · 결제자 {m.buyers.toLocaleString()}명</span>
+                      <span className="text-xs font-bold text-gray-900 shrink-0">
+                        {formatKRW(m.revenue)} <span className="text-gray-400 font-normal">({pct}%)</span>
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, background: m.color }} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 결제수단별 월별 매출 추이 */}
+      <div className="bg-white rounded-xl shadow-sm p-5 mb-6">
+        <h3 className="text-sm font-bold text-gray-900 mb-3">결제수단별 월별 매출 (최근 12개월)</h3>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={revenueByMonthByMethod} barSize={24}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+            <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round((v as number) / 10000)}만`} />
+            <Tooltip formatter={(v: unknown, name: unknown) => [formatKRW(Number(v)), String(name)]} />
+            <Legend />
+            <Bar dataKey="toss" stackId="m" name="카드결제" fill="#3b82f6" />
+            <Bar dataKey="linkpay" stackId="m" name="링크페이" fill="#2ED573" />
+            <Bar dataKey="point" stackId="m" name="포인트" fill="#a855f7" />
+            <Bar dataKey="etc" stackId="m" name="기타" fill="#9ca3af" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
 
       {/* 일별 + 월별 매출 */}
