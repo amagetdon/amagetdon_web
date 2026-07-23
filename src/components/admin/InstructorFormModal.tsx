@@ -22,7 +22,8 @@ function normalizeHex(v: string | null | undefined, fallback: string): string {
 export function newInstructor(): Partial<Instructor> {
   return {
     name: '', title: '', headline: '', bio: '', careers: [], image_url: null,
-    has_active_course: false, is_published: true, newsletter_price: null, newsletter_days: 30,
+    has_active_course: false, is_published: true,
+    newsletter_price: null, newsletter_days: 30, newsletter_subscribers_base: 0,
   }
 }
 
@@ -155,6 +156,19 @@ export default function InstructorFormModal({ editing, onChange, onClose, onSave
                 </div>
               </div>
               <p className="text-[10px] text-gray-400 mt-1">구독료를 설정하면 구독자는 기간 동안 이 강사의 모든 유료 뉴스레터 글을 볼 수 있습니다. (30일 = 월 구독, 재구매 시 잔여 기간에 이어서 연장)</p>
+              <div className="mt-2">
+                <label className="text-xs font-bold block mb-1 text-gray-600">구독자 수 기본값</label>
+                <div className="relative w-40">
+                  <input
+                    type="number" min={0} step={1}
+                    value={editing.newsletter_subscribers_base ?? 0}
+                    onChange={(e) => onChange({ ...editing, newsletter_subscribers_base: Math.max(0, Number(e.target.value) || 0) })}
+                    className="w-full border border-gray-300 rounded-lg pl-3 pr-8 py-2 text-sm outline-none focus:border-[#2ED573] bg-white"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">명</span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-1">뉴스레터에 표시되는 구독자 수 = <span className="font-bold">기본값 + 실제 구독자 수</span>. 실제 구독이 늘면 표시도 함께 늘어납니다.</p>
+              </div>
             </div>
           </div>
 

@@ -134,6 +134,8 @@ export interface Instructor {
   // 뉴스레터 월 구독 상품 (강의와 무관한 자체 상품) — null/0 이면 구독 상품 없음
   newsletter_price: number | null
   newsletter_days: number // 구독 기간(일), 기본 30
+  // 구독자 수 표시 기본값 — 표시 구독자 수 = 기본값 + 실제 유효 구독자 수
+  newsletter_subscribers_base: number
   // 홈 히어로 카드 (왼쪽 텍스트 + 오른쪽 누끼 이미지)
   hero_enabled: boolean
   hero_title: string | null
