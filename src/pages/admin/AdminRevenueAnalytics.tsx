@@ -794,8 +794,8 @@ export default function AdminRevenueAnalytics() {
         </div>
       </div>
 
-      {/* 강의 / 전자책 / 강사 매출 TOP 10 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      {/* 강의 / 전자책 / 뉴스레터 / 강사 매출 TOP 10 */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow-sm p-5">
           <h3 className="text-sm font-bold text-gray-900 mb-3">강의 매출 TOP 10</h3>
           {courseRevenueTop.length === 0 ? (
