@@ -4,6 +4,7 @@ import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
 import { boardService } from '../services/boardService'
 import { useAuth } from '../contexts/AuthContext'
+import { trackBeginCheckout, trackPurchase } from '../lib/tracking'
 
 // 뉴스레터 결제 모달 — 글 단건(kind: 'post', 영구 열람) / 강사 구독(kind: 'subscription', 기간제).
 // 카드: 토스 orderId 접미사 _bpost_{id} / _bsub_{id} → confirm-payment 가 분기 처리.
@@ -14,6 +15,7 @@ export interface BoardCheckoutItem {
   title: string
   price: number
   subDays?: number | null
+  instructorName?: string | null // 전환 이벤트(begin_checkout/purchase)용
 }
 
 interface BoardCheckoutModalProps {
@@ -39,6 +41,18 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
       const tossPayments = await loadTossPayments(clientKey)
       const payment = tossPayments.payment({ customerKey: user.id })
       const orderId = paymentService.generateOrderId() + (isSub ? `_bsub_${item.id}` : `_bpost_${item.id}`)
+
+      // InitiateCheckout — 결제창 호출 직전 (강의/전자책 결제와 동일 규약)
+      trackBeginCheckout({
+        orderId,
+        contentId: isSub ? `bsub_${item.id}` : `bpost_${item.id}`,
+        contentName: item.title,
+        contentCategory: '뉴스레터',
+        instructorName: item.instructorName ?? null,
+        value: item.price,
+        user: { email: profile?.email, phone: profile?.phone },
+      })
+
       await payment.requestPayment({
         method: 'CARD',
         amount: { currency: 'KRW', value: item.price },
@@ -68,6 +82,16 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
         item.price,
         item.subDays,
       )
+      // Purchase — 포인트 결제 완료 (강의/전자책 포인트 결제와 동일 규약)
+      trackPurchase({
+        orderId: paymentService.generateOrderId() + (isSub ? `_bsub_${item.id}` : `_bpost_${item.id}`),
+        contentId: isSub ? `bsub_${item.id}` : `bpost_${item.id}`,
+        contentName: item.title,
+        contentCategory: '뉴스레터',
+        instructorName: item.instructorName ?? null,
+        value: item.price,
+        user: { email: profile?.email, phone: profile?.phone },
+      })
       toast.success(isSub ? '구독이 시작되었습니다.' : '구매가 완료되었습니다.')
       refreshProfile()
       onPurchased()

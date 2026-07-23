@@ -123,6 +123,7 @@ export default function BoardInstructorPage() {
       title: `${instructor.name} 뉴스레터 구독`,
       price: instructor.sub_price,
       subDays: instructor.sub_days,
+      instructorName: instructor.name,
     })
   }
 

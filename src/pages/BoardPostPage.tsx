@@ -106,7 +106,7 @@ export default function BoardPostPage() {
   const openCheckout = (kind: 'post' | 'subscription') => {
     if (!user) { goLogin(); return }
     if (kind === 'post') {
-      setCheckout({ kind: 'post', id: post.id, title: post.title, price: post.post_price })
+      setCheckout({ kind: 'post', id: post.id, title: post.title, price: post.post_price, instructorName: post.instructor_name })
     } else if (post.instructor_id && post.sub_price) {
       setCheckout({
         kind: 'subscription',
@@ -114,6 +114,7 @@ export default function BoardPostPage() {
         title: `${post.instructor_name ?? '강사'} 뉴스레터 구독`,
         price: post.sub_price,
         subDays: post.sub_days,
+        instructorName: post.instructor_name,
       })
     }
   }

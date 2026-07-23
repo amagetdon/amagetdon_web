@@ -47,6 +47,7 @@ interface DashboardData {
   // 인기 콘텐츠
   topCourses: { title: string; count: number }[]
   topEbooks: { title: string; count: number }[]
+  topNewsletters: { title: string; count: number }[]
   // 평점
   avgRating: number
   ratingDist: { stars: number; count: number }[]
@@ -65,7 +66,7 @@ const defaultData: DashboardData = {
   totalEbooks: 0, totalInstructors: 0, totalReviews: 0, totalResults: 0, totalFaqs: 0, totalSchedules: 0,
   signupTrend: [], revenueTrend: [], purchaseByType: [],
   recentMembers: [], recentPurchases: [], recentReviews: [],
-  topCourses: [], topEbooks: [],
+  topCourses: [], topEbooks: [], topNewsletters: [],
   avgRating: 0, ratingDist: [],
   genderDist: [], ageDist: [], regionDist: [], providerDist: [], signupMonthly: [],
 }
@@ -137,7 +138,7 @@ export default function AdminDashboard() {
         supabase.from('reviews').select('author_name, title, rating, created_at').order('created_at', { ascending: false }).limit(5),
         supabase.from('profiles').select('created_at').gte('created_at', days30Ago),
         supabase.from('purchases').select('purchased_at, price').gte('purchased_at', days30Ago),
-        supabase.from('purchases').select('title, course_id, ebook_id'),
+        supabase.from('purchases').select('title, course_id, ebook_id, board_post_id, board_instructor_id'),
         supabase.from('reviews').select('rating'),
         supabase.from('profiles').select('gender, birth_date, address, provider, created_at'),
       ]), 15000)
@@ -181,25 +182,35 @@ export default function AdminDashboard() {
       })
 
       // 구매 유형 비율
-      const items = (purchaseItems as { title: string; course_id: number | null; ebook_id: number | null }[] || [])
+      const items = (purchaseItems as { title: string; course_id: number | null; ebook_id: number | null; board_post_id: number | null; board_instructor_id: number | null }[] || [])
       const courseCount = items.filter((p) => p.course_id).length
       const ebookCount = items.filter((p) => p.ebook_id).length
+      const newsletterCount = items.filter((p) => p.board_post_id || p.board_instructor_id).length
       const purchaseByType = [
         { name: '강의', value: courseCount },
         { name: '전자책', value: ebookCount },
+        { name: '뉴스레터', value: newsletterCount },
       ].filter((v) => v.value > 0)
 
       // 인기 콘텐츠
       const courseMap = new Map<string, number>()
       const ebookMap = new Map<string, number>()
+      const newsletterMap = new Map<string, number>()
       for (const p of items) {
         if (p.course_id) courseMap.set(p.title, (courseMap.get(p.title) || 0) + 1)
         if (p.ebook_id) ebookMap.set(p.title, (ebookMap.get(p.title) || 0) + 1)
+        if (p.board_post_id || p.board_instructor_id) {
+          const label = p.title.replace(/^\[뉴스레터( 구독)?\] /, '')
+          newsletterMap.set(label, (newsletterMap.get(label) || 0) + 1)
+        }
       }
       const topCourses = Array.from(courseMap.entries())
         .sort((a, b) => b[1] - a[1]).slice(0, 5)
         .map(([title, count]) => ({ title, count }))
       const topEbooks = Array.from(ebookMap.entries())
+        .sort((a, b) => b[1] - a[1]).slice(0, 5)
+        .map(([title, count]) => ({ title, count }))
+      const topNewsletters = Array.from(newsletterMap.entries())
         .sort((a, b) => b[1] - a[1]).slice(0, 5)
         .map(([title, count]) => ({ title, count }))
 
@@ -293,7 +304,7 @@ export default function AdminDashboard() {
         recentMembers: (recentMembers as DashboardData['recentMembers']) || [],
         recentPurchases: (recentPurchases as DashboardData['recentPurchases']) || [],
         recentReviews: (recentReviews as DashboardData['recentReviews']) || [],
-        topCourses, topEbooks, avgRating, ratingDist,
+        topCourses, topEbooks, topNewsletters, avgRating, ratingDist,
         genderDist, ageDist, regionDist, providerDist, signupMonthly,
       })
     } catch {
@@ -457,7 +468,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* ── 인기 콘텐츠 ── */}
-      {(data.topCourses.length > 0 || data.topEbooks.length > 0) && (
+      {(data.topCourses.length > 0 || data.topEbooks.length > 0 || data.topNewsletters.length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           {data.topCourses.length > 0 && (
             <div className="bg-white rounded-xl shadow-sm p-5">
@@ -479,6 +490,18 @@ export default function AdminDashboard() {
               <div className="space-y-2">
                 {data.topEbooks.map((e, i) => (
                   <RankRow key={e.title} rank={i + 1} label={e.title} value={`${e.count}회`} maxValue={data.topEbooks[0].count} currentValue={e.count} />
+                ))}
+              </div>
+            </div>
+          )}
+          {data.topNewsletters.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                <i className="ti ti-flame text-sm text-orange-500" /> 인기 뉴스레터 TOP 5
+              </h3>
+              <div className="space-y-2">
+                {data.topNewsletters.map((n, i) => (
+                  <RankRow key={n.title} rank={i + 1} label={n.title} value={`${n.count}회`} maxValue={data.topNewsletters[0].count} currentValue={n.count} />
                 ))}
               </div>
             </div>

@@ -89,11 +89,12 @@ Deno.serve(async (req: Request) => {
 
       let bTitle = ''
       let bInsert: Record<string, unknown> = {}
+      let bInstructorName: string | null = null
 
       if (itemType === 'bpost') {
         const { data: post } = await supabase
           .from('board_posts')
-          .select('title, price, is_paid, is_published')
+          .select('title, price, is_paid, is_published, instructor_id')
           .eq('id', bId)
           .maybeSingle()
         if (!post || !post.is_published) return json({ error: '게시글을 찾을 수 없습니다.' }, 404)
@@ -110,6 +111,12 @@ Deno.serve(async (req: Request) => {
         bTitle = `[뉴스레터] ${post.title}`
         // 단건 구매는 영구 열람
         bInsert = { board_post_id: bId, expires_at: null }
+        // 전환 이벤트용 강사명
+        if (post.instructor_id) {
+          const { data: ins } = await supabase
+            .from('instructors').select('name').eq('id', post.instructor_id).maybeSingle()
+          bInstructorName = (ins as { name?: string } | null)?.name ?? null
+        }
       } else {
         const { data: ins } = await supabase
           .from('instructors')
@@ -137,6 +144,7 @@ Deno.serve(async (req: Request) => {
         )
         bTitle = `[뉴스레터 구독] ${ins.name} ${subDays}일`
         bInsert = { board_instructor_id: bId, expires_at: new Date(baseMs + subDays * 86400000).toISOString() }
+        bInstructorName = ins.name
       }
 
       const { data: settingsData2 } = await supabase
@@ -171,7 +179,13 @@ Deno.serve(async (req: Request) => {
       })
       if (bpError) return json({ error: '구매 기록 생성에 실패했습니다.' }, 500)
 
-      return json({ success: true, title: bTitle, board: true })
+      return json({
+        success: true,
+        title: bTitle,
+        board: true,
+        content_category: '뉴스레터',
+        instructor_name: bInstructorName,
+      })
     }
 
     // ───── 강의 / 전자책 ─────
