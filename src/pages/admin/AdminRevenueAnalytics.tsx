@@ -89,18 +89,20 @@ export default function AdminRevenueAnalytics() {
   const [instructors, setInstructors] = useState<InstructorRow[]>([])
   const [pointLogs, setPointLogs] = useState<PointLogRow[]>([])
   const [profiles, setProfiles] = useState<ProfileRow[]>([])
+  const [boardPosts, setBoardPosts] = useState<{ id: number; instructor_id: number | null }[]>([])
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true)
-        const [purchaseRes, courseRes, ebookRes, instructorRes, pointRes, profileRes] = await withTimeout(Promise.all([
+        const [purchaseRes, courseRes, ebookRes, instructorRes, pointRes, profileRes, boardPostRes] = await withTimeout(Promise.all([
           supabase.from('purchases').select('id, user_id, course_id, ebook_id, board_post_id, board_instructor_id, title, price, purchased_at, payment_method'),
           supabase.from('courses').select('id, title, instructor_id, course_type'),
           supabase.from('ebooks').select('id, title, instructor_id'),
           supabase.from('instructors').select('id, name'),
           supabase.from('point_logs').select('amount, type, created_at'),
           supabase.from('profiles').select('id, name, email, utm_source, utm_medium, utm_campaign'),
+          supabase.from('board_posts').select('id, instructor_id'),
         ]), 15000)
         setPurchases((purchaseRes.data ?? []) as PurchaseRow[])
         setCourses((courseRes.data ?? []) as CourseRow[])
@@ -108,6 +110,7 @@ export default function AdminRevenueAnalytics() {
         setInstructors((instructorRes.data ?? []) as InstructorRow[])
         setPointLogs((pointRes.data ?? []) as PointLogRow[])
         setProfiles((profileRes.data ?? []) as ProfileRow[])
+        setBoardPosts((boardPostRes.data ?? []) as { id: number; instructor_id: number | null }[])
       } catch { /* ignore */ } finally {
         setLoading(false)
       }
@@ -310,14 +313,16 @@ export default function AdminRevenueAnalytics() {
 
   // 강사별 매출 TOP 10
   const instructorMap = useMemo(() => new Map(instructors.map((i) => [i.id, i])), [instructors])
+  const boardPostInstructorMap = useMemo(() => new Map(boardPosts.map((b) => [b.id, b.instructor_id])), [boardPosts])
   const instructorRevenueTop = useMemo(() => {
     const map = new Map<number, { name: string; revenue: number; count: number }>()
     for (const p of filteredPurchases) {
       let instructorId: number | null = null
       if (p.course_id) instructorId = courseMap.get(p.course_id)?.instructor_id ?? null
       else if (p.ebook_id) instructorId = ebookMap.get(p.ebook_id)?.instructor_id ?? null
-      // 뉴스레터 구독 매출은 해당 강사 매출로 집계 (글 단건은 강사 매핑 정보가 없어 제외)
+      // 뉴스레터 매출 — 구독은 강사 직접, 글 단건은 글의 작성 강사로 집계
       else if (p.board_instructor_id) instructorId = p.board_instructor_id
+      else if (p.board_post_id) instructorId = boardPostInstructorMap.get(p.board_post_id) ?? null
       if (instructorId == null) continue
       const name = instructorMap.get(instructorId)?.name ?? `강사 #${instructorId}`
       const existing = map.get(instructorId) ?? { name, revenue: 0, count: 0 }
@@ -326,7 +331,7 @@ export default function AdminRevenueAnalytics() {
       map.set(instructorId, existing)
     }
     return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 10)
-  }, [filteredPurchases, courseMap, ebookMap, instructorMap])
+  }, [filteredPurchases, courseMap, ebookMap, instructorMap, boardPostInstructorMap])
 
   // 시간대별 매출
   const hourDist = useMemo(() => {
