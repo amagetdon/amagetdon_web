@@ -8,6 +8,7 @@ export interface NavVisibility {
   academy: boolean
   instructors: boolean
   reviews: boolean
+  newsletter: boolean
   results: boolean
   faq: boolean
 }
@@ -17,6 +18,7 @@ export const DEFAULT_NAV_VISIBILITY: NavVisibility = {
   academy: true,
   instructors: true,
   reviews: true,
+  newsletter: true,
   results: true,
   faq: true,
 }

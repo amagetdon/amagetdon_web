@@ -22,7 +22,7 @@ function normalizeHex(v: string | null | undefined, fallback: string): string {
 export function newInstructor(): Partial<Instructor> {
   return {
     name: '', title: '', headline: '', bio: '', careers: [], image_url: null,
-    has_active_course: false, is_published: true,
+    has_active_course: false, is_published: true, newsletter_price: null, newsletter_days: 30,
   }
 }
 
@@ -130,6 +130,31 @@ export default function InstructorFormModal({ editing, onChange, onClose, onSave
             <label className="text-sm font-bold block mb-1">옵션</label>
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published ?? true} onChange={(e) => onChange({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" /> 강사소개 페이지 공개 여부</label>
+            </div>
+            <div>
+              <label className="text-xs font-bold block mb-1 text-gray-600">뉴스레터 구독 상품 (강의와 무관)</label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="number" min={0} step={100}
+                    value={editing.newsletter_price ?? ''}
+                    onChange={(e) => onChange({ ...editing, newsletter_price: e.target.value ? Math.max(0, Number(e.target.value)) : null })}
+                    placeholder="구독료 (비우면 구독 없음)"
+                    className="w-full border border-gray-300 rounded-lg pl-3 pr-8 py-2 text-sm outline-none focus:border-[#2ED573] bg-white"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">원</span>
+                </div>
+                <div className="relative w-28 shrink-0">
+                  <input
+                    type="number" min={1} step={1}
+                    value={editing.newsletter_days ?? 30}
+                    onChange={(e) => onChange({ ...editing, newsletter_days: Math.max(1, Number(e.target.value) || 30) })}
+                    className="w-full border border-gray-300 rounded-lg pl-3 pr-8 py-2 text-sm outline-none focus:border-[#2ED573] bg-white"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">일</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-1">구독료를 설정하면 구독자는 기간 동안 이 강사의 모든 유료 뉴스레터 글을 볼 수 있습니다. (30일 = 월 구독, 재구매 시 잔여 기간에 이어서 연장)</p>
             </div>
           </div>
 

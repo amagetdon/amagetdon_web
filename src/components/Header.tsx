@@ -31,6 +31,7 @@ function Header() {
     { label: '아카데미', path: '/academy', key: 'academy' },
     { label: '강사소개', path: '/instructors', key: 'instructors' },
     { label: '수강 후기', path: '/reviews', key: 'reviews' },
+    { label: '아마겟돈 뉴스레터', path: '/board', key: 'newsletter' },
     { label: '수강 성과', path: '/results', key: 'results' },
     { label: 'FAQ', path: '/faq', key: 'faq' },
   ]
@@ -46,6 +47,7 @@ function Header() {
     if (itemPath === '/instructors') return currentPath.startsWith('/instructors')
     if (itemPath === '/results') return currentPath === '/results'
     if (itemPath === '/reviews') return currentPath === '/reviews'
+    if (itemPath === '/board') return currentPath.startsWith('/board')
     if (itemPath === '/faq') return currentPath === '/faq'
     if (itemPath.startsWith('/landing/')) return currentPath === itemPath
     return currentPath === itemPath

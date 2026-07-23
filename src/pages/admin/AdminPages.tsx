@@ -42,7 +42,7 @@ const emptyForm: EditingForm = {
 }
 
 type PageTab = 'landing' | 'academy' | 'hero' | 'results' | 'visibility'
-type BannerSubTab = 'hero' | 'academy_hero' | 'reviews' | 'results' | 'faq' | 'ebooks_free_hero' | 'ebooks_secret_hero' | 'academy_free_hero' | 'academy_premium_hero'
+type BannerSubTab = 'hero' | 'academy_hero' | 'reviews' | 'results' | 'faq' | 'ebooks_free_hero' | 'ebooks_secret_hero' | 'academy_free_hero' | 'academy_premium_hero' | 'board_hero'
 
 const PAGE_TABS: { key: PageTab; label: string }[] = [
   { key: 'landing', label: '랜딩 페이지' },
@@ -57,6 +57,7 @@ const NAV_VISIBILITY_ITEMS: Array<{ key: keyof NavVisibility; label: string; pat
   { key: 'academy', label: '아카데미', path: '/academy' },
   { key: 'instructors', label: '강사소개', path: '/instructors' },
   { key: 'reviews', label: '수강 후기', path: '/reviews' },
+  { key: 'newsletter', label: '아마겟돈 뉴스레터', path: '/board' },
   { key: 'results', label: '수강 성과', path: '/results' },
   { key: 'faq', label: 'FAQ', path: '/faq' },
 ]
@@ -90,7 +91,8 @@ export default function AdminPages() {
         p === 'hero' || p === 'academy_hero' ||
         p === 'reviews' || p === 'results' || p === 'faq' ||
         p === 'ebooks_free_hero' || p === 'ebooks_secret_hero' ||
-        p === 'academy_free_hero' || p === 'academy_premium_hero'
+        p === 'academy_free_hero' || p === 'academy_premium_hero' ||
+        p === 'board_hero'
       )) {
         setBannerSubTab(p as BannerSubTab)
       }
@@ -119,6 +121,7 @@ export default function AdminPages() {
   const [allBanners, setAllBanners] = useState<Record<string, Banner[]>>({
     hero: [], academy_hero: [], reviews: [], results: [], faq: [],
     ebooks_free_hero: [], ebooks_secret_hero: [], academy_free_hero: [], academy_premium_hero: [],
+    board_hero: [],
     reviews_event: [], results_event: [], faq_event: [],
   })
   const [bannerEditing, setBannerEditing] = useState<Record<string, unknown> | null>(null)
@@ -163,7 +166,7 @@ export default function AdminPages() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [data, promoRes, heroBanners, academyHeroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, ebooksFreeHeroBanners, ebooksSecretHeroBanners, academyFreeHeroBanners, academyPremiumHeroBanners, resultData, settingsData, academyRes, navRes] = await Promise.all([
+      const [data, promoRes, heroBanners, academyHeroBanners, reviewsBanners, resultsBanners, faqBanners, reviewsEvent, resultsEvent, faqEvent, ebooksFreeHeroBanners, ebooksSecretHeroBanners, academyFreeHeroBanners, academyPremiumHeroBanners, boardHeroBanners, resultData, settingsData, academyRes, navRes] = await Promise.all([
         landingCategoryService.getAll(),
         supabase.from('site_settings').select('value').eq('key', 'promo_video').maybeSingle(),
         bannerService.getAllByPage('hero'),
@@ -178,6 +181,7 @@ export default function AdminPages() {
         bannerService.getAllByPage('ebooks_secret_hero'),
         bannerService.getAllByPage('academy_free_hero'),
         bannerService.getAllByPage('academy_premium_hero'),
+        bannerService.getAllByPage('board_hero'),
         resultService.getAll({ perPage: 50 }),
         supabase.from('site_settings').select('*').eq('key', 'banner_settings').maybeSingle(),
         supabase.from('site_settings').select('value').eq('key', 'academy_settings').maybeSingle(),
@@ -198,6 +202,7 @@ export default function AdminPages() {
         ebooks_secret_hero: ebooksSecretHeroBanners,
         academy_free_hero: academyFreeHeroBanners,
         academy_premium_hero: academyPremiumHeroBanners,
+        board_hero: boardHeroBanners,
       })
       setResults(resultData.data)
       const settingsValue = (settingsData.data as { value?: Record<string, { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }> } | null)?.value
@@ -593,6 +598,7 @@ export default function AdminPages() {
                 ['academy_free_hero', '무료 강의'],
                 ['ebooks_free_hero', '무료 전자책'],
                 ['ebooks_secret_hero', '시크릿 북'],
+                ['board_hero', '뉴스레터'],
               ] as const).map(([key, label]) => (
                 <button
                   key={key}

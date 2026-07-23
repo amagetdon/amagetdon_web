@@ -82,6 +82,98 @@ Deno.serve(async (req: Request) => {
       return json({ success: true, title: `포인트 ${amount.toLocaleString()}P 충전`, type: 'charge' })
     }
 
+    // ───── 뉴스레터: 글 단건(bpost) / 강사 구독(bsub) ─────
+    if (itemType === 'bpost' || itemType === 'bsub') {
+      const bId = Number(orderParts[4])
+      if (!bId || isNaN(bId)) return json({ error: '잘못된 주문번호입니다.' }, 400)
+
+      let bTitle = ''
+      let bInsert: Record<string, unknown> = {}
+
+      if (itemType === 'bpost') {
+        const { data: post } = await supabase
+          .from('board_posts')
+          .select('title, price, is_paid, is_published')
+          .eq('id', bId)
+          .maybeSingle()
+        if (!post || !post.is_published) return json({ error: '게시글을 찾을 수 없습니다.' }, 404)
+        if (!post.is_paid || !post.price || post.price <= 0) {
+          return json({ error: '단건 구매가 불가능한 글입니다.' }, 400)
+        }
+        if (amount !== post.price) {
+          return json({ error: '결제 금액이 상품 가격과 일치하지 않습니다.' }, 400)
+        }
+        const { data: dup } = await supabase
+          .from('purchases').select('id')
+          .eq('user_id', user.id).eq('board_post_id', bId).maybeSingle()
+        if (dup) return json({ error: '이미 구매한 글입니다.', title: post.title }, 400)
+        bTitle = `[뉴스레터] ${post.title}`
+        // 단건 구매는 영구 열람
+        bInsert = { board_post_id: bId, expires_at: null }
+      } else {
+        const { data: ins } = await supabase
+          .from('instructors')
+          .select('name, newsletter_price, newsletter_days')
+          .eq('id', bId)
+          .maybeSingle()
+        if (!ins) return json({ error: '강사를 찾을 수 없습니다.' }, 404)
+        const subPrice = ins.newsletter_price ?? 0
+        const subDays = ins.newsletter_days && ins.newsletter_days > 0 ? ins.newsletter_days : 30
+        if (subPrice <= 0) return json({ error: '구독 상품이 없는 강사입니다.' }, 400)
+        if (amount !== subPrice) {
+          return json({ error: '결제 금액이 상품 가격과 일치하지 않습니다.' }, 400)
+        }
+        // 유효 구독이 남아 있으면 그 만료일부터 이어서 연장
+        const { data: cur } = await supabase
+          .from('purchases')
+          .select('expires_at')
+          .eq('user_id', user.id).eq('board_instructor_id', bId)
+          .not('expires_at', 'is', null)
+          .order('expires_at', { ascending: false })
+          .limit(1).maybeSingle()
+        const baseMs = Math.max(
+          Date.now(),
+          cur?.expires_at ? new Date(cur.expires_at as string).getTime() : 0,
+        )
+        bTitle = `[뉴스레터 구독] ${ins.name} ${subDays}일`
+        bInsert = { board_instructor_id: bId, expires_at: new Date(baseMs + subDays * 86400000).toISOString() }
+      }
+
+      const { data: settingsData2 } = await supabase
+        .from('site_settings')
+        .select('value')
+        .eq('key', 'toss_payments')
+        .maybeSingle()
+      const secretKey2 = (settingsData2?.value as Record<string, string>)?.secretKey
+      if (!secretKey2) return json({ error: '결제 설정이 완료되지 않았습니다.' }, 500)
+
+      const confirmRes = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${btoa(secretKey2 + ':')}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ paymentKey, orderId, amount }),
+      })
+      const confirmBody = await confirmRes.json()
+      if (!confirmRes.ok) {
+        return json({ error: confirmBody.message || '결제 승인에 실패했습니다.' }, 400)
+      }
+
+      const { error: bpError } = await supabase.from('purchases').insert({
+        user_id: user.id,
+        title: bTitle,
+        original_price: amount,
+        price: amount,
+        payment_key: paymentKey,
+        payment_method: 'toss',
+        ...bInsert,
+      })
+      if (bpError) return json({ error: '구매 기록 생성에 실패했습니다.' }, 500)
+
+      return json({ success: true, title: bTitle, board: true })
+    }
+
     // ───── 강의 / 전자책 ─────
     const itemId = Number(orderParts[4])
     if (!itemId || isNaN(itemId)) return json({ error: '잘못된 주문번호입니다.' }, 400)

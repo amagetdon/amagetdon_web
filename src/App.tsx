@@ -68,6 +68,8 @@ const AdminEbookDetail = lazy(() => import('./pages/admin/AdminEbookDetail'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const AdminBoard = lazy(() => import('./pages/admin/AdminBoard'))
 const BoardPostPage = lazy(() => import('./pages/BoardPostPage'))
+const BoardListPage = lazy(() => import('./pages/BoardListPage'))
+const BoardInstructorPage = lazy(() => import('./pages/BoardInstructorPage'))
 
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
 const PaymentFailPage = lazy(() => import('./pages/PaymentFailPage'))
@@ -192,9 +194,12 @@ function App() {
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/landing/:slug" element={<LandingPage />} />
 
-                {/* 관리자 전용 숨김 게시판: /board 는 관리자만, /board/p/:token 은 링크로 누구나 열람 */}
-                <Route path="/board" element={<AdminRoute><AdminBoard /></AdminRoute>} />
+                {/* 아마겟돈 뉴스레터: /board 목록·/board/:id 글은 공개(잠금은 서버 RPC 판정),
+                    /board/p/:token 은 비밀 공유 링크. 관리 화면은 /admin/board */}
+                <Route path="/board" element={<BoardListPage />} />
+                <Route path="/board/instructor/:id" element={<BoardInstructorPage />} />
                 <Route path="/board/p/:token" element={<BoardPostPage />} />
+                <Route path="/board/:id" element={<BoardPostPage />} />
 
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
                 <Route path="/payment/fail" element={<PaymentFailPage />} />
@@ -222,6 +227,7 @@ function App() {
                 <Route path="/admin/members" element={<AdminRoute><AdminMembers /></AdminRoute>} />
                 <Route path="/admin/linkpay" element={<AdminRoute><AdminLinkpay /></AdminRoute>} />
                 <Route path="/admin/achievements" element={<AdminRoute><AdminAchievements /></AdminRoute>} />
+                <Route path="/admin/board" element={<AdminRoute><AdminBoard /></AdminRoute>} />
                 <Route path="/admin/site-settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
                 <Route path="/admin/external-services" element={<AdminRoute><AdminExternalServices /></AdminRoute>} />
                 <Route path="/admin/external-services/:id" element={<AdminRoute><AdminExternalServiceDetail /></AdminRoute>} />

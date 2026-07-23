@@ -18,6 +18,8 @@ export type {
   Faq,
   BoardPost,
   BoardPostPublic,
+  BoardPostListItem,
+  BoardInstructor,
   Purchase,
   PurchaseWithDetails,
   Banner,

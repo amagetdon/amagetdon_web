@@ -34,6 +34,30 @@ async function verifyPayment(paymentKey: string, expectedAmount: number | null):
   }
 }
 
+// 뉴스레터 구독 만료일 계산 — 유효 구독이 남아 있으면 그 만료일부터 이어서 연장
+async function computeBoardSubExpiry(
+  supabase: SupabaseClient,
+  instructorId: number,
+  userId: string,
+): Promise<string> {
+  const { data } = await supabase
+    .from('instructors')
+    .select('newsletter_days')
+    .eq('id', instructorId)
+    .maybeSingle()
+  const days = (data as { newsletter_days: number | null } | null)?.newsletter_days || 30
+  const { data: cur } = await supabase
+    .from('purchases')
+    .select('expires_at')
+    .eq('user_id', userId).eq('board_instructor_id', instructorId)
+    .not('expires_at', 'is', null)
+    .order('expires_at', { ascending: false })
+    .limit(1).maybeSingle()
+  const curMs = (cur as { expires_at: string | null } | null)?.expires_at
+    ? new Date((cur as { expires_at: string }).expires_at).getTime() : 0
+  return new Date(Math.max(Date.now(), curMs) + days * 86400000).toISOString()
+}
+
 // 강의/전자책 수강권 만료일 계산 (AdminMembers 수동 부여와 동일 규칙)
 async function computeExpiry(
   supabase: SupabaseClient,
@@ -105,18 +129,22 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
     .maybeSingle()
   const prev = existing as { id: number; granted: boolean; purchase_id: number | null } | null
 
-  // productKey → 강의/전자책
+  // productKey → 강의/전자책/뉴스레터(글 단건·강사 구독)
   let courseId: number | null = null
   let ebookId: number | null = null
+  let boardPostId: number | null = null
+  let boardInstructorId: number | null = null
   if (productKey) {
     const { data: link } = await supabase
       .from('linkpay_links')
-      .select('course_id, ebook_id')
+      .select('course_id, ebook_id, board_post_id, board_instructor_id')
       .eq('product_key', productKey)
       .maybeSingle()
-    const l = link as { course_id: number | null; ebook_id: number | null } | null
+    const l = link as { course_id: number | null; ebook_id: number | null; board_post_id: number | null; board_instructor_id: number | null } | null
     courseId = l?.course_id ?? null
     ebookId = l?.ebook_id ?? null
+    boardPostId = l?.board_post_id ?? null
+    boardInstructorId = l?.board_instructor_id ?? null
   }
 
   // 전화번호 → 회원
@@ -134,7 +162,9 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
     await supabase.from('linkpay_payments').upsert({
       order_key: orderKey, payment_key: paymentKey, product_key: productKey, order_name: orderName,
       customer_name: customerName, customer_phone: customerPhone, amount, status,
-      course_id: courseId, ebook_id: ebookId, matched_user_id: matchedUserId,
+      course_id: courseId, ebook_id: ebookId,
+      board_post_id: boardPostId, board_instructor_id: boardInstructorId,
+      matched_user_id: matchedUserId,
       granted: false, purchase_id: null, approved_at: approvedAt, raw: data,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'order_key' })
@@ -144,19 +174,26 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
   // 이미 부여 완료면 기록만 갱신
   if (prev?.granted) return
 
-  // 결제 완료 + 검증 + 강의 식별 + 회원 매칭이 모두 되면 수강권 부여
+  // 결제 완료 + 검증 + 상품 식별 + 회원 매칭이 모두 되면 이용권 부여
   let granted = false
   let purchaseId: number | null = null
-  if (status === 'DONE' && paymentKey && matchedUserId && (courseId || ebookId)) {
+  if (status === 'DONE' && paymentKey && matchedUserId && (courseId || ebookId || boardPostId || boardInstructorId)) {
     const verified = await verifyPayment(paymentKey, amount)
     if (verified) {
-      const expiresAt = await computeExpiry(supabase, courseId, ebookId)
+      // 뉴스레터: 글 단건은 영구, 강사 구독은 기간제(잔여 구독 연장)
+      const expiresAt = boardPostId
+        ? null
+        : boardInstructorId
+          ? await computeBoardSubExpiry(supabase, boardInstructorId, matchedUserId)
+          : await computeExpiry(supabase, courseId, ebookId)
       const { data: purchase, error } = await supabase
         .from('purchases')
         .insert({
           user_id: matchedUserId,
           course_id: courseId,
           ebook_id: ebookId,
+          board_post_id: boardPostId,
+          board_instructor_id: boardInstructorId,
           title: orderName ?? '링크페이 결제',
           price: amount ?? 0,
           payment_key: paymentKey,
@@ -179,7 +216,9 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
   await supabase.from('linkpay_payments').upsert({
     order_key: orderKey, payment_key: paymentKey, product_key: productKey, order_name: orderName,
     customer_name: customerName, customer_phone: customerPhone, amount, status,
-    course_id: courseId, ebook_id: ebookId, matched_user_id: matchedUserId,
+    course_id: courseId, ebook_id: ebookId,
+    board_post_id: boardPostId, board_instructor_id: boardInstructorId,
+    matched_user_id: matchedUserId,
     granted, purchase_id: purchaseId, approved_at: approvedAt, raw: data,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'order_key' })

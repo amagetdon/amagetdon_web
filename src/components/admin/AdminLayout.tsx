@@ -25,6 +25,7 @@ const NAV_GROUPS = [
       { path: '/admin/instructors', label: '강사', icon: 'ti-users' },
       { path: '/admin/courses', label: '강의', icon: 'ti-book-2' },
       { path: '/admin/ebooks', label: '전자책', icon: 'ti-notebook' },
+      { path: '/admin/board', label: '뉴스레터 게시판', icon: 'ti-clipboard-text' },
       { path: '/admin/schedules', label: '일정', icon: 'ti-calendar-event' },
       { path: '/admin/coupons', label: '쿠폰', icon: 'ti-ticket' },
     ],
@@ -34,7 +35,6 @@ const NAV_GROUPS = [
     items: [
       { path: '/admin/reviews', label: '후기', icon: 'ti-message-star' },
       { path: '/admin/achievements', label: '수강 성과', icon: 'ti-trophy' },
-      { path: '/board', label: '게시판', icon: 'ti-clipboard-text' },
     ],
   },
   {

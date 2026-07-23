@@ -14,6 +14,7 @@ export default function PaymentSuccessPage() {
   const [message, setMessage] = useState('')
   const [orderTitle, setOrderTitle] = useState('')
   const [isCharge, setIsCharge] = useState(false)
+  const [isBoard, setIsBoard] = useState(false)
   const [afterPurchaseUrl, setAfterPurchaseUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function PaymentSuccessPage() {
 
         setOrderTitle(data?.title || '상품')
         setIsCharge(data?.type === 'charge')
+        setIsBoard(!!data?.board)
         setStatus('success')
         setMessage(data?.type === 'charge' ? '포인트가 충전되었습니다.' : '결제가 완료되었습니다.')
 
@@ -142,6 +144,10 @@ export default function PaymentSuccessPage() {
               {isCharge ? (
                 <Link to="/mypage" className="px-6 py-2.5 bg-[#2ED573] text-white rounded-lg text-sm font-bold no-underline hover:bg-[#25B866] transition-colors">
                   마이페이지
+                </Link>
+              ) : isBoard ? (
+                <Link to="/board" className="px-6 py-2.5 bg-[#2ED573] text-white rounded-lg text-sm font-bold no-underline hover:bg-[#25B866] transition-colors">
+                  뉴스레터 보러가기
                 </Link>
               ) : (
                 <Link to="/my-classroom" className="px-6 py-2.5 bg-[#2ED573] text-white rounded-lg text-sm font-bold no-underline hover:bg-[#25B866] transition-colors">

@@ -131,6 +131,9 @@ export interface Instructor {
   has_active_course: boolean
   sort_order: number
   is_published: boolean
+  // 뉴스레터 월 구독 상품 (강의와 무관한 자체 상품) — null/0 이면 구독 상품 없음
+  newsletter_price: number | null
+  newsletter_days: number // 구독 기간(일), 기본 30
   // 홈 히어로 카드 (왼쪽 텍스트 + 오른쪽 누끼 이미지)
   hero_enabled: boolean
   hero_title: string | null
@@ -393,25 +396,32 @@ export interface Faq {
   updated_at: string
 }
 
-// 관리자 전용 숨김 게시판. 목록은 관리자만, 개별 글은 share_token 링크로 누구나 열람.
+// 뉴스레터 게시판. 관리(직접 SELECT)는 관리자만. 열람은 RPC 경유 —
+// share_token 링크(비밀 공유) 또는 is_listed=TRUE 글의 id(공개 목록 /board).
 export interface BoardPost {
   id: number
   title: string
   content: string
   share_token: string
   is_published: boolean
+  // 강사별 뉴스레터 + 자체 판매 (강의와 무관)
+  instructor_id: number | null // 글 작성 강사
+  is_listed: boolean           // 공개 목록(/board) 노출 여부. false 면 share 링크 전용
+  is_paid: boolean             // 유료 글 — 단건 구매 또는 강사 구독으로만 전체 열람
+  price: number                // 단건 판매가 (0 = 단건 판매 없음, 구독 전용)
   // 공유 페이지 티저(미리보기 + 가입 유도 CTA) 설정
   preview_height: number       // 본문 미리보기 높이(px)
-  cta_enabled: boolean         // 티저 모드 on/off (off 면 본문 전체 노출)
+  cta_enabled: boolean         // 티저 모드 on/off (off 면 본문 전체 노출 — 무료 글에만 적용)
   cta_locked_text: string      // 본문 아래 안내문
   cta_title: string            // 가입 유도 제목(HTML)
   cta_subtitle: string         // 부제목(평문)
-  cta_button_text: string      // 버튼 라벨 (링크는 /login 고정)
+  cta_button_text: string      // 버튼 라벨
   created_at: string
   updated_at: string
 }
 
-// 공유 링크(토큰)로 받아오는 공개 단건. share_token/is_published 은 노출하지 않음.
+// 공개 단건(RPC get_board_post_public). share_token/is_published 은 노출하지 않음.
+// is_locked=TRUE 면 content 는 서버에서 미리보기 분량만 잘라 내려온 상태다.
 export interface BoardPostPublic {
   id: number
   title: string
@@ -422,8 +432,51 @@ export interface BoardPostPublic {
   cta_title: string
   cta_subtitle: string
   cta_button_text: string
+  instructor_id: number | null
+  instructor_name: string | null
+  is_paid: boolean               // 유료 글 여부
+  post_price: number             // 단건 판매가 (0 = 단건 구매 없음)
+  sub_price: number | null       // 강사 월 구독료 (null = 구독 상품 없음)
+  sub_days: number | null        // 구독 기간(일)
+  is_purchased: boolean          // 내가 이 글을 단건 구매함
+  is_subscribed: boolean         // 내가 이 강사를 구독 중
+  is_locked: boolean
   created_at: string
   updated_at: string
+}
+
+// 공개 목록 행(RPC get_board_posts_listed). excerpt 는 서버에서 만든 200자 평문 발췌.
+// is_paid 는 글 자체의 유료(멤버십 연결) 여부, is_locked 는 "지금 나에게 잠겼는지".
+export interface BoardPostListItem {
+  id: number
+  title: string
+  excerpt: string
+  instructor_id: number | null
+  instructor_name: string | null
+  instructor_image: string | null
+  is_locked: boolean
+  is_paid: boolean
+  price: number            // 단건 판매가 (목록 "유료 · N원" 표시용, 0 = 구독 전용)
+  thumbnail: string | null // 본문 첫 이미지 (없으면 null)
+  seq: number              // 강사 내 발행 순번 (오래된 글이 1) — №표기용
+  created_at: string
+  total_count: number
+}
+
+// 강사 카드/히어로(RPC get_board_instructors). 공개 글이 있는 강사만.
+export interface BoardInstructor {
+  id: number
+  name: string
+  image_url: string | null
+  title: string | null
+  headline: string | null
+  bio: string | null
+  careers: string[] | null
+  post_count: number
+  subscriber_count: number
+  sub_price: number | null // 월 구독료 (null = 구독 상품 없음)
+  sub_days: number | null  // 구독 기간(일)
+  is_subscribed: boolean
 }
 
 export interface Purchase {
@@ -431,6 +484,9 @@ export interface Purchase {
   user_id: string
   course_id: number | null
   ebook_id: number | null
+  // 뉴스레터 상품 — 글 단건 구매(영구) 또는 강사 구독(expires_at 기간제)
+  board_post_id: number | null
+  board_instructor_id: number | null
   coupon_id: number | null
   title: string
   original_price: number | null
