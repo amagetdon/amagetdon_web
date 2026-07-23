@@ -18,6 +18,8 @@ interface PurchaseRow {
   user_id: string | null
   course_id: number | null
   ebook_id: number | null
+  board_post_id: number | null
+  board_instructor_id: number | null
   title: string
   price: number
   purchased_at: string
@@ -93,7 +95,7 @@ export default function AdminRevenueAnalytics() {
       try {
         setLoading(true)
         const [purchaseRes, courseRes, ebookRes, instructorRes, pointRes, profileRes] = await withTimeout(Promise.all([
-          supabase.from('purchases').select('id, user_id, course_id, ebook_id, title, price, purchased_at, payment_method'),
+          supabase.from('purchases').select('id, user_id, course_id, ebook_id, board_post_id, board_instructor_id, title, price, purchased_at, payment_method'),
           supabase.from('courses').select('id, title, instructor_id, course_type'),
           supabase.from('ebooks').select('id, title, instructor_id'),
           supabase.from('instructors').select('id, name'),
@@ -226,17 +228,20 @@ export default function AdminRevenueAnalytics() {
     }))
   }, [purchases, now])
 
-  // 상품 유형 분포 (강의 vs 전자책)
+  // 상품 유형 분포 (강의 / 전자책 / 뉴스레터)
   const typeDist = useMemo(() => {
     let course = 0
     let ebook = 0
+    let newsletter = 0
     for (const p of filteredPurchases) {
       if (p.course_id) course += p.price
       else if (p.ebook_id) ebook += p.price
+      else if (p.board_post_id || p.board_instructor_id) newsletter += p.price
     }
     return [
       { name: '강의', value: course },
       { name: '전자책', value: ebook },
+      { name: '뉴스레터', value: newsletter },
     ].filter((d) => d.value > 0)
   }, [filteredPurchases])
 
@@ -311,6 +316,8 @@ export default function AdminRevenueAnalytics() {
       let instructorId: number | null = null
       if (p.course_id) instructorId = courseMap.get(p.course_id)?.instructor_id ?? null
       else if (p.ebook_id) instructorId = ebookMap.get(p.ebook_id)?.instructor_id ?? null
+      // 뉴스레터 구독 매출은 해당 강사 매출로 집계 (글 단건은 강사 매핑 정보가 없어 제외)
+      else if (p.board_instructor_id) instructorId = p.board_instructor_id
       if (instructorId == null) continue
       const name = instructorMap.get(instructorId)?.name ?? `강사 #${instructorId}`
       const existing = map.get(instructorId) ?? { name, revenue: 0, count: 0 }
