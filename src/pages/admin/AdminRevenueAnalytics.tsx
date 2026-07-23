@@ -311,6 +311,21 @@ export default function AdminRevenueAnalytics() {
     return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 10)
   }, [filteredPurchases, ebookMap])
 
+  // 뉴스레터 매출 TOP 10 — 글 단건은 글 단위, 구독은 강사 단위로 집계
+  const newsletterRevenueTop = useMemo(() => {
+    const map = new Map<string, { title: string; revenue: number; count: number }>()
+    for (const p of filteredPurchases) {
+      if (!p.board_post_id && !p.board_instructor_id) continue
+      const key = p.board_post_id ? `post_${p.board_post_id}` : `sub_${p.board_instructor_id}`
+      const title = p.title.replace(/^\[뉴스레터( 구독)?\] /, '')
+      const existing = map.get(key) ?? { title, revenue: 0, count: 0 }
+      existing.revenue += p.price
+      existing.count += 1
+      map.set(key, existing)
+    }
+    return Array.from(map.values()).sort((a, b) => b.revenue - a.revenue).slice(0, 10)
+  }, [filteredPurchases])
+
   // 강사별 매출 TOP 10
   const instructorMap = useMemo(() => new Map(instructors.map((i) => [i.id, i])), [instructors])
   const boardPostInstructorMap = useMemo(() => new Map(boardPosts.map((b) => [b.id, b.instructor_id])), [boardPosts])
@@ -796,6 +811,15 @@ export default function AdminRevenueAnalytics() {
             <p className="text-sm text-gray-400 text-center py-12">해당 기간 전자책 매출 없음</p>
           ) : (
             <RankList items={ebookRevenueTop.map((e) => ({ label: e.title, value: e.revenue, sub: `${e.count}건` }))} />
+          )}
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-900 mb-3">뉴스레터 매출 TOP 10</h3>
+          {newsletterRevenueTop.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-12">해당 기간 뉴스레터 매출 없음</p>
+          ) : (
+            <RankList items={newsletterRevenueTop.map((n) => ({ label: n.title, value: n.revenue, sub: `${n.count}건` }))} />
           )}
         </div>
 
