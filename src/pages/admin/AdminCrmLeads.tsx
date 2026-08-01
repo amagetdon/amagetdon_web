@@ -111,6 +111,8 @@ function presetRange(days: number): { start: string; end: string } {
 
 function csvEscape(v: unknown): string {
   const s = v == null ? '' : String(v)
+  // 광고 캠페인 ID 같은 12자리 이상 숫자·앞자리 0 숫자는 엑셀이 지수표기(1.2E+17)로 바꿔 값을 깨뜨리므로 텍스트 수식으로 강제
+  if (/^\d{12,}$/.test(s) || /^0\d+$/.test(s)) return `"=""${s}"""`
   if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`
   return s
 }

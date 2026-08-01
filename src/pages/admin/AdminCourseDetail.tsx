@@ -109,6 +109,12 @@ export default function AdminCourseDetail() {
     user_name: string | null
     user_email: string | null
     user_phone: string | null
+    utm_source: string | null
+    utm_medium: string | null
+    utm_campaign: string | null
+    utm_content: string | null
+    utm_term: string | null
+    signup_referrer: string | null
     completion_rate: number
   }
   const MEMBERS_PER_PAGE = 10
@@ -124,7 +130,7 @@ export default function AdminCourseDetail() {
       const [purchaseRes, progressRes, itemsRes] = await Promise.all([
         supabase
           .from('purchases')
-          .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, profile:profiles(id, name, email, phone)')
+          .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, profile:profiles(id, name, email, phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term, signup_referrer)')
           .eq('course_id', courseId)
           .order('purchased_at', { ascending: false }),
         supabase
@@ -149,7 +155,11 @@ export default function AdminCourseDetail() {
         const purchase = p as unknown as {
           id: number; purchased_at: string; expires_at: string | null; price: number
           original_price: number | null; payment_method: string | null; user_id: string
-          profile: { id: string; name: string | null; email: string | null; phone: string | null } | null
+          profile: {
+            id: string; name: string | null; email: string | null; phone: string | null
+            utm_source: string | null; utm_medium: string | null; utm_campaign: string | null
+            utm_content: string | null; utm_term: string | null; signup_referrer: string | null
+          } | null
         }
         const completed = completedByUser.get(purchase.user_id) ?? 0
         return {
@@ -163,6 +173,12 @@ export default function AdminCourseDetail() {
           user_name: purchase.profile?.name ?? null,
           user_email: purchase.profile?.email ?? null,
           user_phone: purchase.profile?.phone ?? null,
+          utm_source: purchase.profile?.utm_source ?? null,
+          utm_medium: purchase.profile?.utm_medium ?? null,
+          utm_campaign: purchase.profile?.utm_campaign ?? null,
+          utm_content: purchase.profile?.utm_content ?? null,
+          utm_term: purchase.profile?.utm_term ?? null,
+          signup_referrer: purchase.profile?.signup_referrer ?? null,
           completion_rate: totalItems > 0 ? Math.round((completed / totalItems) * 100) : 0,
         }
       })
@@ -203,7 +219,7 @@ export default function AdminCourseDetail() {
 
   // 수강생 목록 엑셀(CSV) 내보내기 — 검색으로 필터된 결과를 그대로 내보냄
   const exportMembersToExcel = () => {
-    const header = ['이름', '이메일', '전화번호', '결제일', '결제수단', '결제금액', '정가', '진도율(%)', '수강만료일']
+    const header = ['이름', '이메일', '전화번호', '결제일', '결제수단', '결제금액', '정가', '진도율(%)', '수강만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로']
     const rows = filteredMembers.map((m) => [
       m.user_name || '',
       m.user_email || '',
@@ -214,12 +230,21 @@ export default function AdminCourseDetail() {
       m.original_price ?? '',
       m.completion_rate,
       m.expires_at ? formatKoDate(m.expires_at) : '무제한',
+      m.utm_source || '',
+      m.utm_medium || '',
+      m.utm_campaign || '',
+      m.utm_content || '',
+      m.utm_term || '',
+      m.signup_referrer || '',
     ])
 
+    // 광고 캠페인 ID 같은 12자리 이상 숫자·앞자리 0 숫자는 엑셀이 지수표기(1.2E+17)로 바꿔 값을 깨뜨리므로 텍스트 수식으로 강제
+    const csvCell = (cell: unknown) => {
+      const s = String(cell).replace(/"/g, '""')
+      return /^\d{12,}$/.test(s) || /^0\d+$/.test(s) ? `"=""${s}"""` : `"${s}"`
+    }
     const BOM = '﻿'
-    const csv = BOM + [header, ...rows].map((row) =>
-      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-    ).join('\n')
+    const csv = BOM + [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n')
 
     const safeTitle = (course?.title ?? `course-${courseId}`).replace(/[\\/:*?"<>|]/g, '_').slice(0, 60)
     const today = new Date().toISOString().slice(0, 10)

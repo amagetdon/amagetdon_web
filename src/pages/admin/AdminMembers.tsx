@@ -634,7 +634,7 @@ export default function AdminMembers() {
   useEffect(() => { setPage(0) }, [search, memberTab])
 
   const exportToExcel = (data: MemberWithPurchases[], filteredExport = false) => {
-    const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', 'utm_source', 'utm_medium', 'utm_campaign', '가입일', '마지막 접속']
+    const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로', '가입일', '마지막 접속']
     const rows = data.map((m) => {
       const provider = (m as unknown as Record<string, unknown>).provider as string | undefined || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
       return [
@@ -652,15 +652,21 @@ export default function AdminMembers() {
         m.utm_source || '',
         m.utm_medium || '',
         m.utm_campaign || '',
+        m.utm_content || '',
+        m.utm_term || '',
+        m.signup_referrer || '',
         new Date(m.created_at).toLocaleDateString('ko-KR'),
         m.last_active_at ? new Date(m.last_active_at).toLocaleDateString('ko-KR') : '',
       ]
     })
 
+    // \uAD11\uACE0 \uCEA0\uD398\uC778 ID \uAC19\uC740 12\uC790\uB9AC \uC774\uC0C1 \uC22B\uC790\u00B7\uC55E\uC790\uB9AC 0 \uC22B\uC790\uB294 \uC5D1\uC140\uC774 \uC9C0\uC218\uD45C\uAE30(1.2E+17)\uB85C \uBC14\uAFD4 \uAC12\uC744 \uAE68\uB728\uB9AC\uBBC0\uB85C \uD14D\uC2A4\uD2B8 \uC218\uC2DD\uC73C\uB85C \uAC15\uC81C
+    const csvCell = (cell: unknown) => {
+      const s = String(cell).replace(/"/g, '""')
+      return /^\d{12,}$/.test(s) || /^0\d+$/.test(s) ? `"=""${s}"""` : `"${s}"`
+    }
     const BOM = '\uFEFF'
-    const csv = BOM + [header, ...rows].map((row) =>
-      row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-    ).join('\n')
+    const csv = BOM + [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n')
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)

@@ -75,6 +75,12 @@ export default function AdminEbookDetail() {
     user_name: string | null
     user_email: string | null
     user_phone: string | null
+    utm_source: string | null
+    utm_medium: string | null
+    utm_campaign: string | null
+    utm_content: string | null
+    utm_term: string | null
+    signup_referrer: string | null
   }
   const BUYERS_PER_PAGE = 10
   const [buyers, setBuyers] = useState<BuyerRow[]>([])
@@ -171,7 +177,7 @@ export default function AdminEbookDetail() {
     try {
       const { data, error } = await supabase
         .from('purchases')
-        .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, profile:profiles(id, name, email, phone)')
+        .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, profile:profiles(id, name, email, phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term, signup_referrer)')
         .eq('ebook_id', ebookId)
         .order('purchased_at', { ascending: false })
       if (error) throw error
@@ -180,7 +186,11 @@ export default function AdminEbookDetail() {
         const purchase = p as unknown as {
           id: number; purchased_at: string; expires_at: string | null; price: number
           original_price: number | null; payment_method: string | null; user_id: string
-          profile: { id: string; name: string | null; email: string | null; phone: string | null } | null
+          profile: {
+            id: string; name: string | null; email: string | null; phone: string | null
+            utm_source: string | null; utm_medium: string | null; utm_campaign: string | null
+            utm_content: string | null; utm_term: string | null; signup_referrer: string | null
+          } | null
         }
         return {
           purchase_id: purchase.id,
@@ -193,6 +203,12 @@ export default function AdminEbookDetail() {
           user_name: purchase.profile?.name ?? null,
           user_email: purchase.profile?.email ?? null,
           user_phone: purchase.profile?.phone ?? null,
+          utm_source: purchase.profile?.utm_source ?? null,
+          utm_medium: purchase.profile?.utm_medium ?? null,
+          utm_campaign: purchase.profile?.utm_campaign ?? null,
+          utm_content: purchase.profile?.utm_content ?? null,
+          utm_term: purchase.profile?.utm_term ?? null,
+          signup_referrer: purchase.profile?.signup_referrer ?? null,
         }
       })
       setBuyers(rows)
@@ -221,6 +237,52 @@ export default function AdminEbookDetail() {
     if (!iso) return '-'
     const d = new Date(iso)
     return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('ko-KR')
+  }
+
+  // 결제수단 라벨 (링크페이 포함) — 화면 표시 규칙과 동일하되 linkpay 구분 추가
+  const buyerPaymentLabel = (b: BuyerRow) =>
+    b.payment_method === 'toss' ? '카드'
+      : b.payment_method === 'linkpay' ? '링크페이'
+        : b.price > 0 ? '포인트'
+          : '무료/부여'
+
+  // 구매자 목록 엑셀(CSV) 내보내기 — 검색으로 필터된 결과를 그대로 내보냄
+  const exportBuyersToExcel = () => {
+    const header = ['이름', '이메일', '전화번호', '구매일', '결제수단', '결제금액', '정가', '열람만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로']
+    const rows = filteredBuyers.map((b) => [
+      b.user_name || '',
+      b.user_email || '',
+      b.user_phone || '',
+      formatKoDate(b.purchased_at),
+      buyerPaymentLabel(b),
+      b.price > 0 ? b.price : '무료',
+      b.original_price ?? '',
+      b.expires_at ? formatKoDate(b.expires_at) : '무제한',
+      b.utm_source || '',
+      b.utm_medium || '',
+      b.utm_campaign || '',
+      b.utm_content || '',
+      b.utm_term || '',
+      b.signup_referrer || '',
+    ])
+
+    // 광고 캠페인 ID 같은 12자리 이상 숫자·앞자리 0 숫자는 엑셀이 지수표기(1.2E+17)로 바꿔 값을 깨뜨리므로 텍스트 수식으로 강제
+    const csvCell = (cell: unknown) => {
+      const s = String(cell).replace(/"/g, '""')
+      return /^\d{12,}$/.test(s) || /^0\d+$/.test(s) ? `"=""${s}"""` : `"${s}"`
+    }
+    const BOM = '﻿'
+    const csv = BOM + [header, ...rows].map((row) => row.map(csvCell).join(',')).join('\n')
+
+    const safeTitle = (ebook?.title ?? `ebook-${ebookId}`).replace(/[\\/:*?"<>|]/g, '_').slice(0, 60)
+    const today = new Date().toISOString().slice(0, 10)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `구매자_${safeTitle}_${today}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleTypeChange = (val: string) => {
@@ -760,14 +822,24 @@ export default function AdminEbookDetail() {
             <p className="text-sm text-gray-500">
               전체 구매자 {buyers.length}명{buyersSearch && ` · 검색 결과 ${filteredBuyers.length}명`}
             </p>
-            <div className="relative max-w-xs">
-              <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-              <input
-                value={buyersSearch}
-                onChange={(e) => { setBuyersSearch(e.target.value); setBuyersPage(1) }}
-                placeholder="이름/이메일/전화 검색..."
-                className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573] w-[280px]"
-              />
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative max-w-xs">
+                <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                <input
+                  value={buyersSearch}
+                  onChange={(e) => { setBuyersSearch(e.target.value); setBuyersPage(1) }}
+                  placeholder="이름/이메일/전화 검색..."
+                  className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573] w-[280px]"
+                />
+              </div>
+              <button
+                onClick={exportBuyersToExcel}
+                disabled={filteredBuyers.length === 0}
+                className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer hover:bg-gray-50 transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <i className="ti ti-file-spreadsheet text-sm" />
+                엑셀 내보내기
+              </button>
             </div>
           </div>
 
