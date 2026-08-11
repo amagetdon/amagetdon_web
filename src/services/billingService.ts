@@ -41,10 +41,11 @@ export const billingService = {
     })
   },
 
-  // 자동갱신 해지 — 이미 결제된 기간은 만료일까지 이용 가능
-  async cancelSubscription(instructorId: number): Promise<void> {
+  // 자동갱신 해지 — 이미 결제된 기간은 만료일까지 이용 가능.
+  // targetUserId 를 주면 그 회원의 구독을 해지 (관리자 전용 — 서버에서 권한 검사)
+  async cancelSubscription(instructorId: number, targetUserId?: string): Promise<void> {
     const response = await supabase.functions.invoke('billing-cancel', {
-      body: { instructorId },
+      body: { instructorId, ...(targetUserId ? { targetUserId } : {}) },
     })
     const data = response.data as { error?: string } | null
     if (response.error) {

@@ -11,6 +11,8 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../contexts/AuthContext'
 import { webhookService } from '../../services/webhookService'
 import { webhookScheduleService } from '../../services/webhookScheduleService'
+import { billingService, type NewsletterSubscription } from '../../services/billingService'
+import { addMonthsKst } from '../../utils/period'
 import type { Profile, PointLog, Coupon } from '../../types'
 
 interface MemberWithPurchases extends Profile {
@@ -38,9 +40,16 @@ export default function AdminMembers() {
   const [pointForm, setPointForm] = useState({ amount: '', memo: '', type: 'charge' as 'charge' | 'deduct' })
   const [pointSubmitting, setPointSubmitting] = useState(false)
   const [memberCoupons, setMemberCoupons] = useState<{ claim_id: number; coupon: Coupon; used_at: string | null; claimed_at: string }[]>([])
+  // 뉴스레터 정기구독(빌링) — 환불과 별개로 자동갱신만 끊는 관리자 해지
+  const [memberSubs, setMemberSubs] = useState<NewsletterSubscription[]>([])
+  const [subCancelTarget, setSubCancelTarget] = useState<number | null>(null)
+  const [subCanceling, setSubCanceling] = useState(false)
   const [grantOpen, setGrantOpen] = useState(false)
-  const [grantType, setGrantType] = useState<'course' | 'ebook'>('course')
+  const [grantType, setGrantType] = useState<'course' | 'ebook' | 'board'>('course')
   const [grantItemId, setGrantItemId] = useState('')
+  // 뉴스레터 부여: 강사 구독권(개월, 자동갱신 없음) 또는 글 단건(영구 열람)
+  const [boardGrantKind, setBoardGrantKind] = useState<'sub' | 'post'>('sub')
+  const [grantMonths, setGrantMonths] = useState('1')
   const [grantQuery, setGrantQuery] = useState('')
   const [grantDays, setGrantDays] = useState('365')
   // 수강 기간 산정 방식: deadline=강의 마감일 기준 / days=일(day) / date=만료 날짜 직접 지정
@@ -53,6 +62,8 @@ export default function AdminMembers() {
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set())
   const [allCourses, setAllCourses] = useState<{ id: number; title: string; duration_days: number; enrollment_deadline: string | null }[]>([])
   const [allEbooks, setAllEbooks] = useState<{ id: number; title: string; duration_days: number }[]>([])
+  const [allBoardInstructors, setAllBoardInstructors] = useState<{ id: number; name: string; newsletter_price: number | null; newsletter_months: number }[]>([])
+  const [allBoardPosts, setAllBoardPosts] = useState<{ id: number; title: string; instructor_name: string | null }[]>([])
   const [refundTarget, setRefundTarget] = useState<{ id: number; title: string; price: number; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null } | null>(null)
   const [refundRestoreCoupon, setRefundRestoreCoupon] = useState(true)
   const [refunding, setRefunding] = useState(false)
@@ -123,6 +134,9 @@ export default function AdminMembers() {
     setMemberCoupons([])
     setProgressRecords([])
     setMemberReviews([])
+    setMemberSubs([])
+    setSubCancelTarget(null)
+    billingService.getMySubscriptions(member.id).then(setMemberSubs).catch(() => setMemberSubs([]))
     const [purchaseRes, pointLogRes, couponRes, progressRes, reviewRes] = await Promise.all([
       supabase
         .from('purchases')
@@ -166,15 +180,24 @@ export default function AdminMembers() {
     setMemberReviews((reviewRes.data as typeof memberReviews) || [])
   }
 
-  // 강의/전자책 목록 로드 (최초 1회)
+  // 강의/전자책/뉴스레터 목록 로드 (최초 1회)
   const loadGrantItems = async () => {
     if (allCourses.length > 0) return
-    const [c, e] = await Promise.all([
+    const [c, e, bi, bp] = await Promise.all([
       supabase.from('courses').select('id, title, duration_days, enrollment_deadline').order('sort_order'),
       supabase.from('ebooks').select('id, title, duration_days').order('sort_order'),
+      supabase.from('instructors').select('id, name, newsletter_price, newsletter_months').order('sort_order'),
+      // 유료 글만 — 무료 글은 부여할 열람권이 없다. (board_posts 직접 SELECT 는 관리자 전용 RLS)
+      supabase.from('board_posts').select('id, title, instructor:instructors(name)').eq('is_published', true).eq('is_paid', true).order('created_at', { ascending: false }),
     ])
     setAllCourses((c.data ?? []) as { id: number; title: string; duration_days: number; enrollment_deadline: string | null }[])
     setAllEbooks((e.data ?? []) as { id: number; title: string; duration_days: number }[])
+    setAllBoardInstructors((bi.data ?? []) as { id: number; name: string; newsletter_price: number | null; newsletter_months: number }[])
+    setAllBoardPosts(((bp.data ?? []) as { id: number; title: string; instructor: { name: string } | { name: string }[] | null }[]).map((p) => ({
+      id: p.id,
+      title: p.title,
+      instructor_name: (Array.isArray(p.instructor) ? p.instructor[0]?.name : p.instructor?.name) ?? null,
+    })))
   }
 
   // 강의/전자책·기간 선택 상태 초기화 (모달 공통)
@@ -185,6 +208,8 @@ export default function AdminMembers() {
     setGrantDays('365')
     setGrantMode('deadline')
     setGrantDate('')
+    setBoardGrantKind('sub')
+    setGrantMonths('1')
   }
 
   // 수기 부여 모달(1인) 열기
@@ -234,10 +259,56 @@ export default function AdminMembers() {
 
   const handleGrant = async () => {
     if (!viewing || !grantItemId) { toast.error('항목을 선택해주세요.'); return }
-    if (grantMode === 'date' && !grantDate) { toast.error('만료 날짜를 선택해주세요.'); return }
+    if (grantType !== 'board' && grantMode === 'date' && !grantDate) { toast.error('만료 날짜를 선택해주세요.'); return }
     setGrantSaving(true)
     try {
       const itemId = Number(grantItemId)
+
+      // ── 뉴스레터: 강사 구독권(개월, 자동갱신 없음) 또는 글 단건(영구) ──
+      if (grantType === 'board') {
+        if (boardGrantKind === 'sub') {
+          const ins = allBoardInstructors.find((i) => i.id === itemId)
+          if (!ins) { toast.error('강사를 선택해주세요.'); return }
+          const months = Math.max(1, Number(grantMonths) || 1)
+          // 유효 구독이 남아 있으면 그 만료일부터 이어서 연장 (결제 흐름과 동일 규칙)
+          const { data: cur } = await supabase
+            .from('purchases')
+            .select('expires_at')
+            .eq('user_id', viewing.id)
+            .eq('board_instructor_id', ins.id)
+            .not('expires_at', 'is', null)
+            .order('expires_at', { ascending: false })
+            .limit(1)
+            .maybeSingle<{ expires_at: string | null }>()
+          const curMs = cur?.expires_at ? new Date(cur.expires_at).getTime() : 0
+          const expiresAt = addMonthsKst(new Date(Math.max(Date.now(), curMs)), months).toISOString()
+          const { error } = await supabase.from('purchases').insert({
+            user_id: viewing.id,
+            board_instructor_id: ins.id,
+            title: `[뉴스레터 구독] ${ins.name} ${months}개월`,
+            price: 0,
+            expires_at: expiresAt,
+          } as never)
+          if (error) throw error
+          toast.success(`${ins.name} 뉴스레터 구독권 ${months}개월이 부여되었습니다. (~${formatDate(expiresAt)})`)
+        } else {
+          const post = allBoardPosts.find((p) => p.id === itemId)
+          if (!post) { toast.error('글을 선택해주세요.'); return }
+          const { error } = await supabase.from('purchases').insert({
+            user_id: viewing.id,
+            board_post_id: post.id,
+            title: `[뉴스레터] ${post.title}`,
+            price: 0,
+            expires_at: null,
+          } as never)
+          if (error) throw error
+          toast.success(`"${post.title}" 글 열람권(영구)이 부여되었습니다.`)
+        }
+        setGrantOpen(false)
+        await handleViewMember(viewing)
+        return
+      }
+
       const items = grantType === 'course' ? allCourses : allEbooks
       const item = items.find((i) => i.id === itemId)
       const expiresAt = computeGrantExpiry()
@@ -308,6 +379,23 @@ export default function AdminMembers() {
       toast.error('부여에 실패했습니다.')
     } finally {
       setGrantSaving(false)
+    }
+  }
+
+  // 정기결제(자동갱신) 해지 — 환불과 별개. 이미 결제된 기간의 열람권은 만료일까지 유지된다.
+  const handleCancelMemberSub = async (sub: NewsletterSubscription) => {
+    if (!viewing || subCanceling) return
+    try {
+      setSubCanceling(true)
+      await billingService.cancelSubscription(sub.instructor_id, viewing.id)
+      toast.success('정기결제가 해지되었습니다. 이미 결제된 기간은 만료일까지 유지됩니다.')
+      setSubCancelTarget(null)
+      const fresh = await billingService.getMySubscriptions(viewing.id).catch(() => [] as NewsletterSubscription[])
+      setMemberSubs(fresh)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '해지에 실패했습니다.')
+    } finally {
+      setSubCanceling(false)
     }
   }
 
@@ -686,13 +774,22 @@ export default function AdminMembers() {
   }
 
   // 수강권 부여 모달: 검색어로 필터링한 강의/전자책 목록
-  const grantItems = grantType === 'course' ? allCourses : allEbooks
+  const grantItems = grantType === 'course' ? allCourses : grantType === 'ebook' ? allEbooks : []
   const grantFilteredItems = grantQuery.trim()
     ? grantItems.filter((i) => i.title.toLowerCase().includes(grantQuery.trim().toLowerCase()))
     : grantItems
 
+  // 뉴스레터 부여: 검색어로 필터링한 강사/유료 글 목록
+  const boardGrantQ = grantQuery.trim().toLowerCase()
+  const boardFilteredInstructors = boardGrantQ
+    ? allBoardInstructors.filter((i) => i.name.toLowerCase().includes(boardGrantQ))
+    : allBoardInstructors
+  const boardFilteredPosts = boardGrantQ
+    ? allBoardPosts.filter((p) => p.title.toLowerCase().includes(boardGrantQ) || (p.instructor_name ?? '').toLowerCase().includes(boardGrantQ))
+    : allBoardPosts
+
   // 수강권 부여 모달: 현재 선택 기준으로 만료일 미리보기 문구
-  const grantExpiry = (grantOpen || bulkGrantOpen) && grantItemId ? computeGrantExpiry() : null
+  const grantExpiry = (grantOpen || bulkGrantOpen) && grantItemId && grantType !== 'board' ? computeGrantExpiry() : null
   const grantExpiryPreview = !grantItemId
     ? ''
     : grantExpiry
@@ -712,8 +809,8 @@ export default function AdminMembers() {
       || (m.phone || '').includes(bulkMemberQuery.trim())
   })
 
-  // 강의/전자책 + 기간 선택 UI (1인·일괄 부여 모달 공통)
-  const renderGrantFields = () => (
+  // 강의/전자책(+뉴스레터) + 기간 선택 UI (1인·일괄 부여 모달 공통 — 뉴스레터는 1인 부여만)
+  const renderGrantFields = (includeBoard = false) => (
     <>
       <div className="flex gap-2">
         <button type="button" onClick={() => { setGrantType('course'); setGrantItemId(''); setGrantQuery(''); setGrantMode('deadline') }}
@@ -724,8 +821,116 @@ export default function AdminMembers() {
           className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${grantType === 'ebook' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
           전자책
         </button>
+        {includeBoard && (
+          <button type="button" onClick={() => { setGrantType('board'); setGrantItemId(''); setGrantQuery(''); setBoardGrantKind('sub'); setGrantMonths('1') }}
+            className={`flex-1 py-2 rounded-lg text-sm font-medium border cursor-pointer transition-colors ${grantType === 'board' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+            뉴스레터
+          </button>
+        )}
       </div>
 
+      {grantType === 'board' ? (
+        <>
+          {/* 구독권(강사·개월) / 글 단건(영구) 선택 */}
+          <div className="flex gap-1">
+            <button type="button" onClick={() => { setBoardGrantKind('sub'); setGrantItemId(''); setGrantQuery('') }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${boardGrantKind === 'sub' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+              강사 구독권 (개월)
+            </button>
+            <button type="button" onClick={() => { setBoardGrantKind('post'); setGrantItemId(''); setGrantQuery('') }}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${boardGrantKind === 'post' ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-500 border-gray-200'}`}>
+              글 단건 (영구)
+            </button>
+          </div>
+
+          <Combobox
+            value={grantItemId}
+            onChange={(val: string | null) => {
+              const next = val ?? ''
+              setGrantItemId(next)
+              if (boardGrantKind === 'sub') {
+                const ins = allBoardInstructors.find((i) => String(i.id) === next)
+                if (ins) setGrantMonths(String(ins.newsletter_months > 0 ? ins.newsletter_months : 1))
+              }
+            }}
+            onClose={() => setGrantQuery('')}
+          >
+            <div className="relative">
+              <ComboboxInput
+                className="w-full border border-gray-200 rounded-lg pl-3 pr-9 py-2.5 text-sm outline-none focus:border-[#2ED573] bg-white"
+                placeholder={boardGrantKind === 'sub' ? '강사 검색 또는 선택' : '유료 글 검색 또는 선택'}
+                autoComplete="off"
+                displayValue={(id: string) => boardGrantKind === 'sub'
+                  ? allBoardInstructors.find((i) => String(i.id) === id)?.name ?? ''
+                  : allBoardPosts.find((p) => String(p.id) === id)?.title ?? ''}
+                onChange={(e) => setGrantQuery(e.target.value)}
+              />
+              <ComboboxButton className="absolute inset-y-0 right-0 flex items-center pr-2.5 bg-transparent border-none cursor-pointer">
+                <i className="ti ti-chevron-down text-gray-400 text-sm" />
+              </ComboboxButton>
+              <ComboboxOptions
+                anchor="bottom start"
+                className="z-[70] w-[var(--input-width)] max-h-60 overflow-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg [--anchor-gap:4px]"
+              >
+                {boardGrantKind === 'sub' ? (
+                  boardFilteredInstructors.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-400">검색 결과가 없습니다.</div>
+                  ) : boardFilteredInstructors.map((ins) => (
+                    <ComboboxOption
+                      key={ins.id}
+                      value={String(ins.id)}
+                      className="cursor-pointer px-3 py-2 text-sm text-gray-700 data-[focus]:bg-[#2ED573]/10 data-[selected]:font-bold data-[selected]:text-[#2ED573]"
+                    >
+                      {ins.name}
+                      {ins.newsletter_price ? <span className="text-xs text-gray-400 ml-1.5">{ins.newsletter_price.toLocaleString()}원/{ins.newsletter_months > 0 ? ins.newsletter_months : 1}개월</span> : <span className="text-xs text-gray-300 ml-1.5">구독 상품 없음</span>}
+                    </ComboboxOption>
+                  ))
+                ) : (
+                  boardFilteredPosts.length === 0 ? (
+                    <div className="px-3 py-2 text-sm text-gray-400">유료 글이 없습니다.</div>
+                  ) : boardFilteredPosts.map((post) => (
+                    <ComboboxOption
+                      key={post.id}
+                      value={String(post.id)}
+                      className="cursor-pointer px-3 py-2 text-sm text-gray-700 data-[focus]:bg-[#2ED573]/10 data-[selected]:font-bold data-[selected]:text-[#2ED573]"
+                    >
+                      {post.title}
+                      {post.instructor_name && <span className="text-xs text-gray-400 ml-1.5">{post.instructor_name}</span>}
+                    </ComboboxOption>
+                  ))
+                )}
+              </ComboboxOptions>
+            </div>
+          </Combobox>
+
+          {boardGrantKind === 'sub' ? (
+            <div>
+              <label className="text-xs font-bold text-gray-600 block mb-1.5">구독 기간 (개월)</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={grantMonths}
+                  onChange={(e) => setGrantMonths(e.target.value)}
+                  className="w-full border border-gray-200 rounded-lg pl-3 pr-10 py-2 text-sm outline-none focus:border-[#2ED573]"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">개월</span>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                {(() => {
+                  const m = Math.max(1, Number(grantMonths) || 1)
+                  return `지금 기준 ~${formatDate(addMonthsKst(new Date(), m).toISOString())} (유효 구독이 남아 있으면 그 만료일부터 연장)`
+                })()}
+                <br />결제 없는 수기 부여라 자동갱신은 되지 않습니다.
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-gray-400">글 단건 열람권은 기간 제한 없이 영구 열람입니다.</p>
+          )}
+        </>
+      ) : (
+      <>
       <Combobox
         value={grantItemId}
         onChange={(val: string | null) => {
@@ -817,6 +1022,8 @@ export default function AdminMembers() {
 
         {grantExpiryPreview && <p className="text-[11px] text-gray-400 mt-1.5">{grantExpiryPreview}</p>}
       </div>
+      </>
+      )}
     </>
   )
 
@@ -1274,6 +1481,73 @@ export default function AdminMembers() {
                   )}
                 </div>
 
+                {/* 뉴스레터 정기구독(빌링) — 자동갱신 해지는 환불과 별개 (열람권은 만료일까지 유지) */}
+                {memberSubs.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-sm font-bold text-gray-900 mb-2">뉴스레터 정기구독 ({memberSubs.length}건)</h3>
+                    <div className="space-y-2">
+                      {memberSubs.map((sub) => {
+                        const months = sub.period_months > 0 ? sub.period_months : 1
+                        return (
+                          <div key={sub.id} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sm text-gray-700 truncate">{sub.instructor?.name ?? '강사'} 뉴스레터</span>
+                                {sub.status === 'active' ? (
+                                  <span className="text-[9px] px-1 py-0.5 bg-green-50 text-green-600 rounded shrink-0">자동갱신 중</span>
+                                ) : sub.status === 'failed' ? (
+                                  <span className="text-[9px] px-1 py-0.5 bg-red-50 text-red-500 rounded shrink-0">결제 실패</span>
+                                ) : (
+                                  <span className="text-[9px] px-1 py-0.5 bg-gray-100 text-gray-500 rounded shrink-0">해지됨</span>
+                                )}
+                              </div>
+                              <span className="text-[10px] text-gray-400">
+                                {months === 1 ? '매월' : `${months}개월마다`} {sub.price.toLocaleString()}원
+                                {sub.card_company && sub.card_number && ` · ${sub.card_company} ${sub.card_number}`}
+                                {sub.status === 'active' && sub.next_charge_at && ` · 다음 결제 ${formatDate(sub.next_charge_at)}`}
+                                {sub.status !== 'active' && sub.current_expires_at && ` · ~${formatDate(sub.current_expires_at)}`}
+                              </span>
+                            </div>
+                            {(sub.status === 'active' || sub.status === 'failed') && (
+                              <div className="flex items-center gap-1 shrink-0 ml-3">
+                                {subCancelTarget === sub.id ? (
+                                  <>
+                                    <span className="text-[10px] text-gray-500">해지할까요?</span>
+                                    <button
+                                      onClick={() => handleCancelMemberSub(sub)}
+                                      disabled={subCanceling}
+                                      className="px-2 py-1 text-[10px] font-medium text-white bg-red-500 rounded border-none cursor-pointer hover:bg-red-600 transition-colors whitespace-nowrap disabled:opacity-50"
+                                    >
+                                      {subCanceling ? '처리 중...' : '해지'}
+                                    </button>
+                                    <button
+                                      onClick={() => setSubCancelTarget(null)}
+                                      disabled={subCanceling}
+                                      className="px-2 py-1 text-[10px] font-medium text-gray-500 bg-gray-100 rounded border-none cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
+                                    >
+                                      취소
+                                    </button>
+                                  </>
+                                ) : (
+                                  <button
+                                    onClick={() => setSubCancelTarget(sub.id)}
+                                    className="px-2 py-1 text-[10px] font-medium text-red-500 bg-red-50 rounded border-none cursor-pointer hover:bg-red-100 transition-colors whitespace-nowrap"
+                                  >
+                                    자동갱신 해지
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1.5">
+                      해지는 다음 자동결제만 중단합니다. 이미 결제된 열람권 회수·환불은 위 구매 내역의 환불 버튼을 이용하세요.
+                    </p>
+                  </div>
+                )}
+
                 {/* 쿠폰 발급 내역 */}
                 {memberCoupons.length > 0 && (() => {
                   const perPage = 5
@@ -1425,10 +1699,10 @@ export default function AdminMembers() {
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <DialogPanel className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
             <DialogTitle className="text-base font-bold text-gray-900 mb-4">수강권 수기 부여</DialogTitle>
-            <p className="text-xs text-gray-400 mb-4">{viewing?.name || '회원'}에게 강의/전자책 수강권을 부여합니다.</p>
+            <p className="text-xs text-gray-400 mb-4">{viewing?.name || '회원'}에게 강의/전자책/뉴스레터 수강권을 부여합니다.</p>
 
             <div className="space-y-3">
-              {renderGrantFields()}
+              {renderGrantFields(true)}
 
               <div className="flex gap-2 pt-2">
                 <button onClick={() => setGrantOpen(false)}

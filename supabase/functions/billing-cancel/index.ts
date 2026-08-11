@@ -1,4 +1,4 @@
-// 뉴스레터 구독 자동갱신 해지 — 본인 구독만 해지 가능
+// 뉴스레터 구독 자동갱신 해지 — 본인 구독, 또는 관리자가 타인 구독(targetUserId) 해지
 // 토스 가이드대로 다음 결제일에 자동결제 승인 API 를 호출하지 않는 방식:
 // 상태를 canceled 로 바꾸고 빌링키를 폐기한다. 이미 결제된 기간(purchases.expires_at)은
 // 만료일까지 그대로 이용 가능하다. 재구독 시 카드 등록(빌링키 발급)부터 다시 진행.
@@ -16,7 +16,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { instructorId } = await req.json()
+    const { instructorId, targetUserId } = await req.json()
     const insId = Number(instructorId)
     if (!insId || isNaN(insId)) return json({ error: '필수 파라미터가 누락되었습니다.' }, 400)
 
@@ -32,6 +32,17 @@ Deno.serve(async (req: Request) => {
       return json({ error: '유효하지 않은 사용자입니다.' }, 401)
     }
 
+    // 기본은 본인 구독 해지. 타인(targetUserId) 해지는 관리자만 가능.
+    let subjectUserId = verified.user.id
+    if (targetUserId && targetUserId !== verified.user.id) {
+      const { data: prof } = await supabase
+        .from('profiles').select('role').eq('id', verified.user.id).maybeSingle()
+      if ((prof as { role?: string } | null)?.role !== 'admin') {
+        return json({ error: '권한이 없습니다.' }, 403)
+      }
+      subjectUserId = String(targetUserId)
+    }
+
     const { data: updated, error } = await supabase
       .from('newsletter_subscriptions')
       .update({
@@ -41,7 +52,7 @@ Deno.serve(async (req: Request) => {
         billing_key: null,
         updated_at: new Date().toISOString(),
       })
-      .eq('user_id', verified.user.id)
+      .eq('user_id', subjectUserId)
       .eq('instructor_id', insId)
       .in('status', ['active', 'failed'])
       .select('id, current_expires_at')
