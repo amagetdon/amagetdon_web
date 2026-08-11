@@ -61,15 +61,26 @@ Deno.serve(async (req: Request) => {
     }
     const token = authHeader.replace('Bearer ', '')
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    const verified = await verifyToken(token, supabaseUrl, anonKey, serviceKey)
-    if (!verified) {
-      return new Response(JSON.stringify({ error: 'Invalid auth' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+    let isServiceRole = token === serviceKey
+    if (!isServiceRole) {
+      // legacy JWT 대응 — env 의 service_role 키(sb_secret_xxx)와 포맷이 다르면 admin API 로 판정
+      // (webhook-schedule-runner 와 동일 패치 — cron 이 보내는 legacy JWT 가 단순 비교로는 어긋난다)
+      try {
+        const probeRes = await fetch(`${supabaseUrl}/auth/v1/admin/users?page=1&per_page=1`, {
+          headers: { 'Authorization': `Bearer ${token}`, 'apikey': token },
+        })
+        if (probeRes.ok) isServiceRole = true
+      } catch { /* ignore */ }
     }
-    if (!verified.isServiceRole) {
+    if (!isServiceRole) {
+      const verified = await verifyToken(token, supabaseUrl, anonKey, serviceKey)
+      if (!verified || !verified.user) {
+        return new Response(JSON.stringify({ error: 'Invalid auth' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
       const adminCheck = createClient(supabaseUrl, serviceKey)
-      const { data: prof } = await adminCheck.from('profiles').select('role').eq('id', verified.user!.id).maybeSingle()
+      const { data: prof } = await adminCheck.from('profiles').select('role').eq('id', verified.user.id).maybeSingle()
       if ((prof as { role?: string } | null)?.role !== 'admin') {
         return new Response(JSON.stringify({ error: 'Admin only' }), {
           status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
