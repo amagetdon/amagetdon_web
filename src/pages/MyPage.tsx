@@ -7,6 +7,7 @@ import { purchaseService } from '../services/purchaseService'
 import toast from 'react-hot-toast'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
+import { billingService, type NewsletterSubscription } from '../services/billingService'
 import type { Purchase } from '../types'
 
 declare global {
@@ -75,6 +76,9 @@ function MyPage() {
   })
   const [errors, setErrors] = useState<FormErrors>({})
   const [purchases, setPurchases] = useState<Purchase[]>([])
+  const [subscriptions, setSubscriptions] = useState<NewsletterSubscription[]>([])
+  const [cancelTarget, setCancelTarget] = useState<number | null>(null) // 해지 확인 대기 중인 구독 id
+  const [canceling, setCanceling] = useState(false)
   const [chargeOpen, setChargeOpen] = useState(false)
   const [chargeLoading, setChargeLoading] = useState(false)
   const [chargeAmount, setChargeAmount] = useState(10000)
@@ -106,8 +110,25 @@ function MyPage() {
   useEffect(() => {
     if (user) {
       purchaseService.getByUser(user.id).then(setPurchases).catch(() => {})
+      billingService.getMySubscriptions(user.id).then(setSubscriptions).catch(() => {})
     }
   }, [user])
+
+  const handleCancelSubscription = async (sub: NewsletterSubscription) => {
+    if (!user || canceling) return
+    try {
+      setCanceling(true)
+      await billingService.cancelSubscription(sub.instructor_id)
+      toast.success('자동갱신이 해지되었습니다. 남은 기간은 만료일까지 이용 가능합니다.')
+      setCancelTarget(null)
+      const fresh = await billingService.getMySubscriptions(user.id)
+      setSubscriptions(fresh)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '해지에 실패했습니다.')
+    } finally {
+      setCanceling(false)
+    }
+  }
 
   const handleChange = (field: keyof FormData, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -668,6 +689,79 @@ function MyPage() {
                   {chargeLoading ? '결제 준비 중...' : `${(chargeAmount || 0).toLocaleString()}원 결제`}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 뉴스레터 정기구독 관리 섹션 */}
+        {subscriptions.length > 0 && (
+          <div className="mt-12">
+            <h2 className="font-bold border-b-2 border-[#2ED573] pb-2">뉴스레터 정기구독</h2>
+            <div className="divide-y">
+              {subscriptions.map((sub) => {
+                const days = sub.period_days > 0 ? sub.period_days : 30
+                return (
+                  <div key={sub.id} className="py-4 flex items-start justify-between gap-4 max-sm:flex-col">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-bold text-gray-900">
+                          {sub.instructor?.name ?? '강사'} 뉴스레터
+                        </p>
+                        {sub.status === 'active' ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">자동갱신 중</span>
+                        ) : sub.status === 'failed' ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-bold">결제 실패</span>
+                        ) : (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-bold">해지됨</span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {days}일마다 {sub.price.toLocaleString()}원
+                        {sub.card_company && sub.card_number && ` · ${sub.card_company} ${sub.card_number}`}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {sub.status === 'active' && sub.next_charge_at
+                          ? `다음 결제일: ${new Date(sub.next_charge_at).toLocaleDateString('ko-KR')}`
+                          : sub.current_expires_at
+                            ? `이용 만료일: ${new Date(sub.current_expires_at).toLocaleDateString('ko-KR')}`
+                            : null}
+                        {sub.status === 'failed' && ' · 카드 확인 후 뉴스레터 페이지에서 다시 구독해 주세요.'}
+                      </p>
+                    </div>
+                    {(sub.status === 'active' || sub.status === 'failed') && (
+                      cancelTarget === sub.id ? (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-xs text-gray-500">해지할까요?</span>
+                          <button
+                            type="button"
+                            onClick={() => handleCancelSubscription(sub)}
+                            disabled={canceling}
+                            className="px-3 py-1.5 bg-red-500 text-white text-xs font-bold rounded-lg border-none cursor-pointer hover:bg-red-600 transition-colors disabled:opacity-50"
+                          >
+                            {canceling ? '처리 중...' : '해지'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setCancelTarget(null)}
+                            disabled={canceling}
+                            className="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-lg border-none cursor-pointer hover:bg-gray-200 transition-colors"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setCancelTarget(sub.id)}
+                          className="px-3 py-1.5 bg-white text-gray-500 text-xs font-medium rounded-lg border border-gray-200 cursor-pointer hover:border-gray-400 transition-colors shrink-0"
+                        >
+                          자동갱신 해지
+                        </button>
+                      )
+                    )}
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}

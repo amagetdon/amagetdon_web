@@ -103,8 +103,11 @@ export default function AdminSiteSettings() {
   // 토스 페이먼츠
   const [tossClientKey, setTossClientKey] = useState('')
   const [tossSecretKey, setTossSecretKey] = useState('')
+  const [tossBillingClientKey, setTossBillingClientKey] = useState('')
+  const [tossBillingSecretKey, setTossBillingSecretKey] = useState('')
   const [tossSaving, setTossSaving] = useState(false)
   const [showSecretKey, setShowSecretKey] = useState(false)
+  const [showBillingSecretKey, setShowBillingSecretKey] = useState(false)
 
   // 약관
   const [termsHtml, setTermsHtml] = useState('')
@@ -160,6 +163,8 @@ export default function AdminSiteSettings() {
           if (s.key === 'toss_payments') {
             setTossClientKey((s.value as unknown as Record<string, string>)?.clientKey || '')
             setTossSecretKey((s.value as unknown as Record<string, string>)?.secretKey || '')
+            setTossBillingClientKey((s.value as unknown as Record<string, string>)?.billingClientKey || '')
+            setTossBillingSecretKey((s.value as unknown as Record<string, string>)?.billingSecretKey || '')
           }
           if (s.key === 'seo_settings') {
             setSeoSettings({ ...defaultSeoSettings, ...(s.value as unknown as SeoSettingsForm) })
@@ -200,9 +205,22 @@ export default function AdminSiteSettings() {
   const handleTossSave = async () => {
     if (!tossClientKey.trim()) { toast.error('클라이언트 키를 입력해주세요.'); return }
     if (!tossSecretKey.trim()) { toast.error('시크릿 키를 입력해주세요.'); return }
+    // 빌링 키는 선택 사항이지만, 한쪽만 입력된 상태는 오설정이므로 막는다
+    if (!!tossBillingClientKey.trim() !== !!tossBillingSecretKey.trim()) {
+      toast.error('자동결제(빌링) 키는 클라이언트/시크릿 키를 모두 입력하거나 모두 비워주세요.')
+      return
+    }
     try {
       setTossSaving(true)
-      await supabase.from('site_settings').upsert({ key: 'toss_payments', value: { clientKey: tossClientKey, secretKey: tossSecretKey } } as never, { onConflict: 'key' })
+      await supabase.from('site_settings').upsert({
+        key: 'toss_payments',
+        value: {
+          clientKey: tossClientKey,
+          secretKey: tossSecretKey,
+          billingClientKey: tossBillingClientKey.trim(),
+          billingSecretKey: tossBillingSecretKey.trim(),
+        },
+      } as never, { onConflict: 'key' })
       toast.success('토스 페이먼츠 설정이 저장되었습니다.')
     } catch {
       toast.error('저장에 실패했습니다.')
@@ -758,6 +776,52 @@ export default function AdminSiteSettings() {
               </button>
             </div>
             <p className="text-xs text-gray-400 mt-1">시크릿 키는 서버에서만 사용되며 클라이언트에 노출되지 않습니다.</p>
+          </div>
+
+          {/* 자동결제(빌링) 키 — 뉴스레터 정기구독용 */}
+          <div className="border-t border-gray-100 pt-5 space-y-5">
+            <div>
+              <h3 className="text-sm font-bold text-gray-700">자동결제(빌링) 키</h3>
+              <p className="text-xs text-gray-400 mt-1">
+                뉴스레터 정기구독(자동결제)에 사용하는 별도 키입니다. 토스페이먼츠와 자동결제(빌링) 추가 계약 후 발급받은 키를 입력하세요.
+                비워두면 위의 일반 결제 키로 자동결제를 시도합니다.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-600 mb-1 block">
+                빌링 클라이언트 키
+              </label>
+              <input
+                value={tossBillingClientKey}
+                onChange={(e) => setTossBillingClientKey(e.target.value)}
+                placeholder="test_ck_... (빌링 전용)"
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-gray-600 mb-1 block">
+                빌링 시크릿 키
+              </label>
+              <div className="relative">
+                <input
+                  type={showBillingSecretKey ? 'text' : 'password'}
+                  value={tossBillingSecretKey}
+                  onChange={(e) => setTossBillingSecretKey(e.target.value)}
+                  placeholder="test_sk_... (빌링 전용)"
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 pr-10 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowBillingSecretKey((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer"
+                >
+                  <i className={`ti ${showBillingSecretKey ? 'ti-eye-off' : 'ti-eye'} text-sm`} />
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">빌링키 발급·자동결제 승인은 서버(엣지 함수)에서만 수행됩니다.</p>
+            </div>
           </div>
 
           <button

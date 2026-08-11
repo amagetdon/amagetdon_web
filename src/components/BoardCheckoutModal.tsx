@@ -7,8 +7,10 @@ import { useAuth } from '../contexts/AuthContext'
 import { trackBeginCheckout, trackPurchase } from '../lib/tracking'
 
 // 뉴스레터 결제 모달 — 글 단건(kind: 'post', 영구 열람) / 강사 구독(kind: 'subscription', 기간제).
-// 카드: 토스 orderId 접미사 _bpost_{id} / _bsub_{id} → confirm-payment 가 분기 처리.
-// 포인트: boardService.purchaseWithPoints 로 즉시 부여 후 onPurchased 콜백.
+// 글 단건 카드: 토스 orderId 접미사 _bpost_{id} → confirm-payment 가 분기 처리.
+// 강사 구독 카드: 자동결제(빌링) — requestBillingAuth 로 카드 등록 후
+//   /payment/billing-success 에서 billing-issue 가 빌링키 발급 + 1회차 결제. 이후 자동 갱신.
+// 포인트: boardService.purchaseWithPoints 로 즉시 부여 후 onPurchased 콜백 (구독은 1회권, 자동갱신 없음).
 export interface BoardCheckoutItem {
   kind: 'post' | 'subscription'
   id: number
@@ -36,13 +38,9 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
     if (!user || paying) return
     try {
       setPaying('card')
-      const clientKey = await paymentService.getClientKey()
-      if (!clientKey) { toast.error('결제 설정이 완료되지 않았습니다.'); return }
-      const tossPayments = await loadTossPayments(clientKey)
-      const payment = tossPayments.payment({ customerKey: user.id })
       const orderId = paymentService.generateOrderId() + (isSub ? `_bsub_${item.id}` : `_bpost_${item.id}`)
 
-      // InitiateCheckout — 결제창 호출 직전 (강의/전자책 결제와 동일 규약)
+      // InitiateCheckout — 결제창(빌링 인증창) 호출 직전 (강의/전자책 결제와 동일 규약)
       trackBeginCheckout({
         orderId,
         contentId: isSub ? `bsub_${item.id}` : `bpost_${item.id}`,
@@ -53,6 +51,27 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
         user: { email: profile?.email, phone: profile?.phone },
       })
 
+      if (isSub) {
+        // 구독은 자동결제(빌링) — 카드 등록 인증창을 띄우고, 성공 시
+        // /payment/billing-success 로 authKey/customerKey 가 전달된다.
+        const billingClientKey = await paymentService.getBillingClientKey()
+        if (!billingClientKey) { toast.error('자동결제(빌링) 설정이 완료되지 않았습니다.'); return }
+        const tossPayments = await loadTossPayments(billingClientKey)
+        const payment = tossPayments.payment({ customerKey: user.id })
+        await payment.requestBillingAuth({
+          method: 'CARD',
+          successUrl: `${window.location.origin}/payment/billing-success?instructorId=${item.id}`,
+          failUrl: `${window.location.origin}/payment/fail`,
+          customerEmail: profile?.email || undefined,
+          customerName: profile?.name || undefined,
+        })
+        return
+      }
+
+      const clientKey = await paymentService.getClientKey()
+      if (!clientKey) { toast.error('결제 설정이 완료되지 않았습니다.'); return }
+      const tossPayments = await loadTossPayments(clientKey)
+      const payment = tossPayments.payment({ customerKey: user.id })
       await payment.requestPayment({
         method: 'CARD',
         amount: { currency: 'KRW', value: item.price },
@@ -124,6 +143,12 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
               : '구매한 글은 기간 제한 없이 계속 볼 수 있습니다.'}
           </p>
           <p className="text-2xl font-bold text-gray-900 mt-4">{item.price.toLocaleString()}원</p>
+          {isSub && (
+            <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
+              카드 결제 시 {item.subDays && item.subDays > 0 ? item.subDays : 30}일마다 {item.price.toLocaleString()}원이
+              자동 결제됩니다. 마이페이지에서 언제든 해지할 수 있으며, 남은 기간은 만료일까지 이용 가능합니다.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-2">
@@ -133,7 +158,9 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
             className="w-full py-3.5 bg-[#2ED573] text-white text-sm font-bold rounded-xl border-none cursor-pointer hover:bg-[#25B866] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             <i className="ti ti-credit-card text-base" />
-            {paying === 'card' ? '결제창 여는 중...' : '카드로 결제하기'}
+            {paying === 'card'
+              ? (isSub ? '카드 등록창 여는 중...' : '결제창 여는 중...')
+              : (isSub ? '카드로 정기구독 시작하기' : '카드로 결제하기')}
           </button>
           <button
             onClick={payWithPoints}
@@ -143,6 +170,9 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
             <i className="ti ti-coin text-base" />
             {paying === 'points' ? '처리 중...' : `포인트로 결제 (보유 ${points.toLocaleString()}P)`}
           </button>
+          {isSub && (
+            <p className="text-[11px] text-gray-400 text-center">포인트 결제는 자동갱신 없는 1회 이용권입니다.</p>
+          )}
           {points < item.price && (
             <p className="text-[11px] text-gray-400 text-center">보유 포인트가 부족하면 카드 결제를 이용해 주세요.</p>
           )}

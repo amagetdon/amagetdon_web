@@ -73,6 +73,7 @@ const BoardInstructorPage = lazy(() => import('./pages/BoardInstructorPage'))
 
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
 const PaymentFailPage = lazy(() => import('./pages/PaymentFailPage'))
+const BillingSuccessPage = lazy(() => import('./pages/BillingSuccessPage'))
 
 function PageLoader() {
   return (
@@ -202,6 +203,7 @@ function App() {
                 <Route path="/board/:id" element={<BoardPostPage />} />
 
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
+                <Route path="/payment/billing-success" element={<BillingSuccessPage />} />
                 <Route path="/payment/fail" element={<PaymentFailPage />} />
                 <Route path="/faq" element={<FAQPage />} />
                 <Route path="/notice" element={<NoticePage />} />

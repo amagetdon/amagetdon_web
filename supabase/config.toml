@@ -18,3 +18,12 @@ verify_jwt = false
 
 [functions.linkpay-webhook]
 verify_jwt = false
+
+[functions.billing-issue]
+verify_jwt = false
+
+[functions.billing-charge]
+verify_jwt = false
+
+[functions.billing-cancel]
+verify_jwt = false
