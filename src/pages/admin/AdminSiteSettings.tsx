@@ -210,6 +210,17 @@ export default function AdminSiteSettings() {
       toast.error('자동결제(빌링) 키는 클라이언트/시크릿 키를 모두 입력하거나 모두 비워주세요.')
       return
     }
+    // 자동결제(빌링)는 API 개별 연동 키(test_ck_/live_ck_)만 지원 — 결제위젯 키(gck/gsk)는 SDK가 거부한다
+    const bck = tossBillingClientKey.trim()
+    const bsk = tossBillingSecretKey.trim()
+    if (bck && !/^(test|live)_ck_/.test(bck)) {
+      toast.error('빌링 클라이언트 키는 API 개별 연동 키(test_ck_… 또는 live_ck_…)여야 합니다. 결제위젯 연동 키(gck)는 자동결제에 사용할 수 없습니다.')
+      return
+    }
+    if (bsk && !/^(test|live)_sk_/.test(bsk)) {
+      toast.error('빌링 시크릿 키는 API 개별 연동 키(test_sk_… 또는 live_sk_…)여야 합니다. 결제위젯 연동 키(gsk)는 자동결제에 사용할 수 없습니다.')
+      return
+    }
     try {
       setTossSaving(true)
       await supabase.from('site_settings').upsert({
@@ -783,7 +794,9 @@ export default function AdminSiteSettings() {
             <div>
               <h3 className="text-sm font-bold text-gray-700">자동결제(빌링) 키</h3>
               <p className="text-xs text-gray-400 mt-1">
-                뉴스레터 정기구독(자동결제)에 사용하는 별도 키입니다. 토스페이먼츠와 자동결제(빌링) 추가 계약 후 발급받은 키를 입력하세요.
+                뉴스레터 정기구독(자동결제)에 사용하는 별도 키입니다. 토스페이먼츠와 자동결제(빌링) 추가 계약 후,
+                개발자센터의 <b>API 개별 연동 키</b>(test_ck_/live_ck_)를 입력하세요.
+                <span className="text-red-400"> 결제위젯 연동 키(gck/gsk)는 자동결제를 지원하지 않습니다.</span>{' '}
                 비워두면 위의 일반 결제 키로 자동결제를 시도합니다.
               </p>
             </div>
@@ -795,7 +808,7 @@ export default function AdminSiteSettings() {
               <input
                 value={tossBillingClientKey}
                 onChange={(e) => setTossBillingClientKey(e.target.value)}
-                placeholder="test_ck_... (빌링 전용)"
+                placeholder="test_ck_... (API 개별 연동 키)"
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all font-mono"
               />
             </div>
@@ -809,7 +822,7 @@ export default function AdminSiteSettings() {
                   type={showBillingSecretKey ? 'text' : 'password'}
                   value={tossBillingSecretKey}
                   onChange={(e) => setTossBillingSecretKey(e.target.value)}
-                  placeholder="test_sk_... (빌링 전용)"
+                  placeholder="test_sk_... (API 개별 연동 키)"
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 pr-10 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all font-mono"
                 />
                 <button

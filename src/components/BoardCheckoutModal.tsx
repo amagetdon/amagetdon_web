@@ -10,7 +10,8 @@ import { trackBeginCheckout, trackPurchase } from '../lib/tracking'
 // 글 단건 카드: 토스 orderId 접미사 _bpost_{id} → confirm-payment 가 분기 처리.
 // 강사 구독 카드: 자동결제(빌링) — requestBillingAuth 로 카드 등록 후
 //   /payment/billing-success 에서 billing-issue 가 빌링키 발급 + 1회차 결제. 이후 자동 갱신.
-// 포인트: boardService.purchaseWithPoints 로 즉시 부여 후 onPurchased 콜백 (구독은 1회권, 자동갱신 없음).
+// 포인트: 글 단건만 허용 (boardService.purchaseWithPoints 로 즉시 부여 후 onPurchased 콜백).
+//   구독은 포인트 결제 금지 — 카드 자동결제만 가능.
 export interface BoardCheckoutItem {
   kind: 'post' | 'subscription'
   id: number
@@ -57,6 +58,11 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
         // /payment/billing-success 로 authKey/customerKey 가 전달된다.
         const billingClientKey = await paymentService.getBillingClientKey()
         if (!billingClientKey) { toast.error('자동결제(빌링) 설정이 완료되지 않았습니다.'); return }
+        // 결제위젯 연동 키(gck)는 requestBillingAuth 를 지원하지 않음 — SDK 의 영문 혼용 에러 대신 명확히 안내
+        if (billingClientKey.includes('_gck_')) {
+          toast.error('자동결제(빌링)는 API 개별 연동 키가 필요합니다. 관리자 사이트 설정 > 토스 페이먼츠에서 빌링 키를 확인해 주세요.')
+          return
+        }
         const tossPayments = await loadTossPayments(billingClientKey)
         const payment = tossPayments.payment({ customerKey: user.id })
         await payment.requestBillingAuth({
@@ -92,6 +98,8 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
 
   const payWithPoints = async () => {
     if (!user || paying) return
+    // 정기결제(구독)는 포인트 결제 금지 — 카드 자동결제만 허용
+    if (isSub) { toast.error('구독은 카드 정기결제만 가능합니다.'); return }
     if (points < item.price) { toast.error('포인트가 부족합니다.'); return }
     try {
       setPaying('points')
@@ -163,19 +171,21 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
               ? (isSub ? '카드 등록창 여는 중...' : '결제창 여는 중...')
               : (isSub ? '카드로 정기구독 시작하기' : '카드로 결제하기')}
           </button>
-          <button
-            onClick={payWithPoints}
-            disabled={!!paying || points < item.price}
-            className="w-full py-3.5 bg-gray-900 text-white text-sm font-bold rounded-xl border-none cursor-pointer hover:bg-gray-700 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
-          >
-            <i className="ti ti-coin text-base" />
-            {paying === 'points' ? '처리 중...' : `포인트로 결제 (보유 ${points.toLocaleString()}P)`}
-          </button>
-          {isSub && (
-            <p className="text-[11px] text-gray-400 text-center">포인트 결제는 자동갱신 없는 1회 이용권입니다.</p>
-          )}
-          {points < item.price && (
-            <p className="text-[11px] text-gray-400 text-center">보유 포인트가 부족하면 카드 결제를 이용해 주세요.</p>
+          {/* 정기결제(구독)는 포인트 결제 금지 — 글 단건 구매만 포인트 허용 */}
+          {!isSub && (
+            <>
+              <button
+                onClick={payWithPoints}
+                disabled={!!paying || points < item.price}
+                className="w-full py-3.5 bg-gray-900 text-white text-sm font-bold rounded-xl border-none cursor-pointer hover:bg-gray-700 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                <i className="ti ti-coin text-base" />
+                {paying === 'points' ? '처리 중...' : `포인트로 결제 (보유 ${points.toLocaleString()}P)`}
+              </button>
+              {points < item.price && (
+                <p className="text-[11px] text-gray-400 text-center">보유 포인트가 부족하면 카드 결제를 이용해 주세요.</p>
+              )}
+            </>
           )}
         </div>
       </div>
