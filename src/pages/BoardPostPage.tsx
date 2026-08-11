@@ -96,7 +96,7 @@ export default function BoardPostPage() {
   const ctaTitle = post.cta_title?.trim() || defaults.title
   const ctaSubtitle = post.cta_subtitle?.trim() || defaults.subtitle
   const buttonText = post.cta_button_text?.trim() || BOARD_CTA_DEFAULTS.buttonText
-  const subLabel = post.sub_price ? membershipPriceLabel(post.sub_price, post.sub_days) : null
+  const subLabel = post.sub_price ? membershipPriceLabel(post.sub_price, post.sub_months) : null
 
   const goLogin = () => {
     sessionStorage.setItem('postLoginRedirect', location.pathname)
@@ -113,7 +113,7 @@ export default function BoardPostPage() {
         id: post.instructor_id,
         title: `${post.instructor_name ?? '강사'} 뉴스레터 구독`,
         price: post.sub_price,
-        subDays: post.sub_days,
+        subMonths: post.sub_months,
         instructorName: post.instructor_name,
       })
     }

@@ -4,6 +4,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyToken } from '../_shared/auth.ts'
+import { addMonthsKst } from '../_shared/period.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -122,11 +123,11 @@ Deno.serve(async (req: Request) => {
       // 강사의 현재 구독료로 갱신 결제 — 가격이 바뀌면 다음 회차부터 자동 반영
       const { data: ins } = await supabase
         .from('instructors')
-        .select('name, newsletter_price, newsletter_days')
+        .select('name, newsletter_price, newsletter_months')
         .eq('id', sub.instructor_id)
         .maybeSingle()
       const price = ins?.newsletter_price ?? 0
-      const days = ins?.newsletter_days && ins.newsletter_days > 0 ? ins.newsletter_days : 30
+      const months = ins?.newsletter_months && ins.newsletter_months > 0 ? ins.newsletter_months : 1
       if (!ins || price <= 0) {
         // 구독 상품이 내려간 강사 — 더 이상 결제하지 않고 종료
         await supabase
@@ -145,7 +146,7 @@ Deno.serve(async (req: Request) => {
       }
 
       const orderId = generateOrderId(`_bsub_${sub.instructor_id}`)
-      const title = `[뉴스레터 구독] ${ins.name} ${days}일`
+      const title = `[뉴스레터 구독] ${ins.name} ${months}개월`
       let chargeData: Record<string, unknown>
       try {
         const chargeRes = await fetch(`${TOSS_API}/billing/${sub.billing_key}`, {
@@ -179,7 +180,7 @@ Deno.serve(async (req: Request) => {
         .limit(1)
         .maybeSingle()
       const baseMs = Math.max(Date.now(), cur?.expires_at ? new Date(cur.expires_at as string).getTime() : 0)
-      const expiresAt = new Date(baseMs + days * 86400_000).toISOString()
+      const expiresAt = addMonthsKst(new Date(baseMs), months).toISOString()
 
       await supabase.from('purchases').insert({
         user_id: sub.user_id,
@@ -196,7 +197,8 @@ Deno.serve(async (req: Request) => {
         .from('newsletter_subscriptions')
         .update({
           price,
-          period_days: days,
+          period_days: months * 30, // 구버전 호환용 근사값 — 실제 주기는 period_months
+          period_months: months,
           current_expires_at: expiresAt,
           next_charge_at: new Date(new Date(expiresAt).getTime() - RENEW_BEFORE_MS).toISOString(),
           fail_count: 0,

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { addMonthsKst } from '../utils/period'
 import type { BoardPost, BoardPostPublic, BoardPostListItem, BoardInstructor } from '../types'
 
 // 관리자가 작성/수정 시 보내는 편집 가능 필드 (id/share_token/타임스탬프 제외)
@@ -106,13 +107,13 @@ export const boardService = {
   },
 
   // 포인트로 뉴스레터 상품 구매 — 글 단건(영구 열람) 또는 강사 구독(기간제, 잔여 구독 연장).
-  // purchaseService.purchaseWithPoints 와 동일한 차감/롤백 규칙.
+  // purchaseService.purchaseWithPoints 와 동일한 차감/롤백 규칙. 구독 기간은 달력 월 단위.
   async purchaseWithPoints(
     userId: string,
     item: { postId?: number; instructorId?: number },
     title: string,
     price: number,
-    subDays?: number | null,
+    subMonths?: number | null,
   ): Promise<void> {
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -131,8 +132,8 @@ export const boardService = {
         .eq('board_post_id', item.postId)
       if ((count ?? 0) > 0) throw new Error('이미 구매한 글입니다.')
     } else if (item.instructorId) {
-      // 유효 구독이 남아 있으면 그 만료일부터 이어서 연장
-      const days = subDays && subDays > 0 ? subDays : 30
+      // 유효 구독이 남아 있으면 그 만료일부터 이어서 연장 (달력 월 단위)
+      const months = subMonths && subMonths > 0 ? subMonths : 1
       const { data: cur } = await supabase
         .from('purchases')
         .select('expires_at')
@@ -143,7 +144,7 @@ export const boardService = {
         .limit(1)
         .maybeSingle<{ expires_at: string | null }>()
       const curMs = cur?.expires_at ? new Date(cur.expires_at).getTime() : 0
-      expiresAt = new Date(Math.max(Date.now(), curMs) + days * 86400000).toISOString()
+      expiresAt = addMonthsKst(new Date(Math.max(Date.now(), curMs)), months).toISOString()
     } else {
       throw new Error('잘못된 상품입니다.')
     }

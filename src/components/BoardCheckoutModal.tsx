@@ -16,7 +16,7 @@ export interface BoardCheckoutItem {
   id: number
   title: string
   price: number
-  subDays?: number | null
+  subMonths?: number | null // 구독 주기(개월, 달력 월 기준)
   instructorName?: string | null // 전환 이벤트(begin_checkout/purchase)용
 }
 
@@ -33,6 +33,7 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
   if (!item) return null
   const points = profile?.points ?? 0
   const isSub = item.kind === 'subscription'
+  const subMonths = item.subMonths && item.subMonths > 0 ? item.subMonths : 1
 
   const payWithCard = async () => {
     if (!user || paying) return
@@ -99,7 +100,7 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
         isSub ? { instructorId: item.id } : { postId: item.id },
         item.title,
         item.price,
-        item.subDays,
+        item.subMonths,
       )
       // Purchase — 포인트 결제 완료 (강의/전자책 포인트 결제와 동일 규약)
       trackPurchase({
@@ -139,13 +140,13 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
           <h2 className="text-lg font-bold text-gray-900 leading-snug break-words">{item.title}</h2>
           <p className="text-sm text-gray-500 mt-1.5">
             {isSub
-              ? `${item.subDays && item.subDays > 0 ? item.subDays : 30}일 동안 이 강사의 모든 글을 볼 수 있습니다.`
+              ? `${subMonths === 1 ? '1개월(다음 달 같은 날짜까지)' : `${subMonths}개월`} 동안 이 강사의 모든 글을 볼 수 있습니다.`
               : '구매한 글은 기간 제한 없이 계속 볼 수 있습니다.'}
           </p>
           <p className="text-2xl font-bold text-gray-900 mt-4">{item.price.toLocaleString()}원</p>
           {isSub && (
             <p className="text-[11px] text-gray-400 mt-2 leading-relaxed">
-              카드 결제 시 {item.subDays && item.subDays > 0 ? item.subDays : 30}일마다 {item.price.toLocaleString()}원이
+              카드 결제 시 {subMonths === 1 ? '매월' : `${subMonths}개월마다`} {item.price.toLocaleString()}원이
               자동 결제됩니다. 마이페이지에서 언제든 해지할 수 있으며, 남은 기간은 만료일까지 이용 가능합니다.
             </p>
           )}

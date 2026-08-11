@@ -4,9 +4,11 @@
 //   2) newsletter_subscriptions 에 빌링키·카드정보 upsert
 //   3) 즉시 1회차 자동결제 승인 → purchases 행 생성 (기존 구독과 동일한 열람권 부여)
 //   4) 다음 자동결제 시각(만료 6시간 전) 기록 — 이후 갱신은 billing-charge(pg_cron)가 수행
+// 기간은 달력 월 단위(newsletter_months) — 8/11 가입 → 9/11 만료, 월말은 클램프.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { verifyToken } from '../_shared/auth.ts'
+import { addMonthsKst } from '../_shared/period.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -51,12 +53,12 @@ Deno.serve(async (req: Request) => {
 
     const { data: ins } = await supabase
       .from('instructors')
-      .select('name, newsletter_price, newsletter_days')
+      .select('name, newsletter_price, newsletter_months')
       .eq('id', insId)
       .maybeSingle()
     if (!ins) return json({ error: '강사를 찾을 수 없습니다.' }, 404)
     const price = ins.newsletter_price ?? 0
-    const days = ins.newsletter_days && ins.newsletter_days > 0 ? ins.newsletter_days : 30
+    const months = ins.newsletter_months && ins.newsletter_months > 0 ? ins.newsletter_months : 1
     if (price <= 0) return json({ error: '구독 상품이 없는 강사입니다.' }, 400)
 
     // 빌링 시크릿 키 — 별도 키가 없으면 일반 시크릿 키로 폴백 (단일 MID 로 빌링 계약한 경우)
@@ -96,7 +98,8 @@ Deno.serve(async (req: Request) => {
         card_number: cardNumber,
         status: 'active',
         price,
-        period_days: days,
+        period_days: months * 30, // 구버전 호환용 근사값 — 실제 주기는 period_months
+        period_months: months,
         fail_count: 0,
         last_error: null,
         canceled_at: null,
@@ -106,7 +109,7 @@ Deno.serve(async (req: Request) => {
 
     // ── 3) 1회차 자동결제 승인 ──
     const orderId = generateOrderId(`_bsub_${insId}`)
-    const title = `[뉴스레터 구독] ${ins.name} ${days}일`
+    const title = `[뉴스레터 구독] ${ins.name} ${months}개월`
     const chargeRes = await fetch(`${TOSS_API}/billing/${billingKey}`, {
       method: 'POST',
       headers: { 'Authorization': basicAuth, 'Content-Type': 'application/json' },
@@ -143,7 +146,7 @@ Deno.serve(async (req: Request) => {
       .limit(1)
       .maybeSingle()
     const baseMs = Math.max(Date.now(), cur?.expires_at ? new Date(cur.expires_at as string).getTime() : 0)
-    const expiresAt = new Date(baseMs + days * 86400_000).toISOString()
+    const expiresAt = addMonthsKst(new Date(baseMs), months).toISOString()
 
     const { error: purchaseError } = await supabase.from('purchases').insert({
       user_id: user.id,
@@ -177,7 +180,7 @@ Deno.serve(async (req: Request) => {
       order_id: orderId,
       instructor_name: ins.name,
       price,
-      period_days: days,
+      period_months: months,
       expires_at: expiresAt,
     })
   } catch (err) {

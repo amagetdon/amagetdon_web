@@ -9,7 +9,8 @@ export interface NewsletterSubscription {
   card_number: string | null
   status: 'active' | 'canceled' | 'failed'
   price: number
-  period_days: number
+  period_days: number // deprecated — 구버전 호환 (= period_months * 30)
+  period_months: number // 구독 주기(개월, 달력 월 기준)
   current_expires_at: string | null
   next_charge_at: string | null
   fail_count: number
@@ -19,7 +20,7 @@ export interface NewsletterSubscription {
 }
 
 const SELECT_COLUMNS =
-  'id, instructor_id, card_company, card_number, status, price, period_days, ' +
+  'id, instructor_id, card_company, card_number, status, price, period_days, period_months, ' +
   'current_expires_at, next_charge_at, fail_count, canceled_at, created_at, ' +
   'instructor:instructors(name)'
 

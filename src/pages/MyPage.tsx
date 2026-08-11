@@ -699,7 +699,7 @@ function MyPage() {
             <h2 className="font-bold border-b-2 border-[#2ED573] pb-2">뉴스레터 정기구독</h2>
             <div className="divide-y">
               {subscriptions.map((sub) => {
-                const days = sub.period_days > 0 ? sub.period_days : 30
+                const months = sub.period_months > 0 ? sub.period_months : 1
                 return (
                   <div key={sub.id} className="py-4 flex items-start justify-between gap-4 max-sm:flex-col">
                     <div className="min-w-0">
@@ -716,7 +716,7 @@ function MyPage() {
                         )}
                       </div>
                       <p className="text-sm text-gray-500 mt-1">
-                        {days}일마다 {sub.price.toLocaleString()}원
+                        {months === 1 ? '매월' : `${months}개월마다`} {sub.price.toLocaleString()}원
                         {sub.card_company && sub.card_number && ` · ${sub.card_company} ${sub.card_number}`}
                       </p>
                       <p className="text-xs text-gray-400 mt-0.5">

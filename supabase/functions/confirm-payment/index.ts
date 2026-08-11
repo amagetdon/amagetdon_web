@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
+import { addMonthsKst } from '../_shared/period.ts'
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -120,17 +121,17 @@ Deno.serve(async (req: Request) => {
       } else {
         const { data: ins } = await supabase
           .from('instructors')
-          .select('name, newsletter_price, newsletter_days')
+          .select('name, newsletter_price, newsletter_months')
           .eq('id', bId)
           .maybeSingle()
         if (!ins) return json({ error: '강사를 찾을 수 없습니다.' }, 404)
         const subPrice = ins.newsletter_price ?? 0
-        const subDays = ins.newsletter_days && ins.newsletter_days > 0 ? ins.newsletter_days : 30
+        const subMonths = ins.newsletter_months && ins.newsletter_months > 0 ? ins.newsletter_months : 1
         if (subPrice <= 0) return json({ error: '구독 상품이 없는 강사입니다.' }, 400)
         if (amount !== subPrice) {
           return json({ error: '결제 금액이 상품 가격과 일치하지 않습니다.' }, 400)
         }
-        // 유효 구독이 남아 있으면 그 만료일부터 이어서 연장
+        // 유효 구독이 남아 있으면 그 만료일부터 이어서 연장 (달력 월 단위)
         const { data: cur } = await supabase
           .from('purchases')
           .select('expires_at')
@@ -142,8 +143,8 @@ Deno.serve(async (req: Request) => {
           Date.now(),
           cur?.expires_at ? new Date(cur.expires_at as string).getTime() : 0,
         )
-        bTitle = `[뉴스레터 구독] ${ins.name} ${subDays}일`
-        bInsert = { board_instructor_id: bId, expires_at: new Date(baseMs + subDays * 86400000).toISOString() }
+        bTitle = `[뉴스레터 구독] ${ins.name} ${subMonths}개월`
+        bInsert = { board_instructor_id: bId, expires_at: addMonthsKst(new Date(baseMs), subMonths).toISOString() }
         bInstructorName = ins.name
       }
 

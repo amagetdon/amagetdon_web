@@ -111,7 +111,7 @@ export default function BoardInstructorPage() {
     )
   }
 
-  const price = membershipPriceLabel(instructor.sub_price, instructor.sub_days)
+  const price = membershipPriceLabel(instructor.sub_price, instructor.sub_months)
   const badges = (instructor.careers ?? []).filter((c) => c.trim())
   const totalPages = Math.ceil(totalCount / PER_PAGE)
 
@@ -122,7 +122,7 @@ export default function BoardInstructorPage() {
       id: instructor.id,
       title: `${instructor.name} 뉴스레터 구독`,
       price: instructor.sub_price,
-      subDays: instructor.sub_days,
+      subMonths: instructor.sub_months,
       instructorName: instructor.name,
     })
   }

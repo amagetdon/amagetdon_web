@@ -133,7 +133,8 @@ export interface Instructor {
   is_published: boolean
   // 뉴스레터 월 구독 상품 (강의와 무관한 자체 상품) — null/0 이면 구독 상품 없음
   newsletter_price: number | null
-  newsletter_days: number // 구독 기간(일), 기본 30
+  newsletter_days: number // deprecated — 구버전 호환용 (= newsletter_months * 30 동기화)
+  newsletter_months: number // 구독 주기(개월, 달력 월 기준), 기본 1
   // 구독자 수 표시 기본값 — 표시 구독자 수 = 기본값 + 실제 유효 구독자 수
   newsletter_subscribers_base: number
   // 홈 히어로 카드 (왼쪽 텍스트 + 오른쪽 누끼 이미지)
@@ -439,7 +440,8 @@ export interface BoardPostPublic {
   is_paid: boolean               // 유료 글 여부
   post_price: number             // 단건 판매가 (0 = 단건 구매 없음)
   sub_price: number | null       // 강사 월 구독료 (null = 구독 상품 없음)
-  sub_days: number | null        // 구독 기간(일)
+  sub_days: number | null        // deprecated — 구버전 호환 (= sub_months * 30)
+  sub_months: number | null      // 구독 주기(개월, 달력 월 기준)
   is_purchased: boolean          // 내가 이 글을 단건 구매함
   is_subscribed: boolean         // 내가 이 강사를 구독 중
   is_locked: boolean
@@ -476,8 +478,9 @@ export interface BoardInstructor {
   careers: string[] | null
   post_count: number
   subscriber_count: number
-  sub_price: number | null // 월 구독료 (null = 구독 상품 없음)
-  sub_days: number | null  // 구독 기간(일)
+  sub_price: number | null   // 월 구독료 (null = 구독 상품 없음)
+  sub_days: number | null    // deprecated — 구버전 호환 (= sub_months * 30)
+  sub_months: number | null  // 구독 주기(개월, 달력 월 기준)
   is_subscribed: boolean
 }
 

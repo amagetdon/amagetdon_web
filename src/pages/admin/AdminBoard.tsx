@@ -246,7 +246,7 @@ export default function AdminBoard() {
                     const price = editing.price ?? 0
                     const sub = editingInstructor?.newsletter_price
                     const subLabel = sub
-                      ? `${editingInstructor.name} 뉴스레터 구독(${sub.toLocaleString()}원/${editingInstructor.newsletter_days || 30}일)`
+                      ? `${editingInstructor.name} 뉴스레터 구독(${sub.toLocaleString()}원/${editingInstructor.newsletter_months || 1}개월)`
                       : null
                     if (price > 0 && subLabel) return <>이 글은 단건 구매({price.toLocaleString()}원, 영구 열람) 또는 {subLabel}으로 열람할 수 있습니다.</>
                     if (price > 0) return <>이 글은 단건 구매({price.toLocaleString()}원, 영구 열람)로 열람할 수 있습니다.</>

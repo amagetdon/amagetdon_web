@@ -5,6 +5,7 @@
 //   → productKey 로 강의 식별(linkpay_links) → 전화번호로 회원 매칭
 //   → 조건 충족 시 purchases 에 수강권 부여, 미매칭은 linkpay_payments 큐에 보관.
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { addMonthsKst } from '../_shared/period.ts'
 
 const json200 = () =>
   new Response(JSON.stringify({ received: true }), {
@@ -34,7 +35,7 @@ async function verifyPayment(paymentKey: string, expectedAmount: number | null):
   }
 }
 
-// 뉴스레터 구독 만료일 계산 — 유효 구독이 남아 있으면 그 만료일부터 이어서 연장
+// 뉴스레터 구독 만료일 계산 — 유효 구독이 남아 있으면 그 만료일부터 이어서 연장 (달력 월 단위)
 async function computeBoardSubExpiry(
   supabase: SupabaseClient,
   instructorId: number,
@@ -42,10 +43,10 @@ async function computeBoardSubExpiry(
 ): Promise<string> {
   const { data } = await supabase
     .from('instructors')
-    .select('newsletter_days')
+    .select('newsletter_months')
     .eq('id', instructorId)
     .maybeSingle()
-  const days = (data as { newsletter_days: number | null } | null)?.newsletter_days || 30
+  const months = (data as { newsletter_months: number | null } | null)?.newsletter_months || 1
   const { data: cur } = await supabase
     .from('purchases')
     .select('expires_at')
@@ -55,7 +56,7 @@ async function computeBoardSubExpiry(
     .limit(1).maybeSingle()
   const curMs = (cur as { expires_at: string | null } | null)?.expires_at
     ? new Date((cur as { expires_at: string }).expires_at).getTime() : 0
-  return new Date(Math.max(Date.now(), curMs) + days * 86400000).toISOString()
+  return addMonthsKst(new Date(Math.max(Date.now(), curMs)), months).toISOString()
 }
 
 // 강의/전자책 수강권 만료일 계산 (AdminMembers 수동 부여와 동일 규칙)

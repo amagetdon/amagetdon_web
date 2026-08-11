@@ -23,7 +23,7 @@ export function newInstructor(): Partial<Instructor> {
   return {
     name: '', title: '', headline: '', bio: '', careers: [], image_url: null,
     has_active_course: false, is_published: true,
-    newsletter_price: null, newsletter_days: 30, newsletter_subscribers_base: 0,
+    newsletter_price: null, newsletter_days: 30, newsletter_months: 1, newsletter_subscribers_base: 0,
   }
 }
 
@@ -148,14 +148,18 @@ export default function InstructorFormModal({ editing, onChange, onClose, onSave
                 <div className="relative w-28 shrink-0">
                   <input
                     type="number" min={1} step={1}
-                    value={editing.newsletter_days ?? 30}
-                    onChange={(e) => onChange({ ...editing, newsletter_days: Math.max(1, Number(e.target.value) || 30) })}
+                    value={editing.newsletter_months ?? 1}
+                    onChange={(e) => {
+                      const months = Math.max(1, Number(e.target.value) || 1)
+                      // newsletter_days 는 구버전 호환용으로 함께 동기화
+                      onChange({ ...editing, newsletter_months: months, newsletter_days: months * 30 })
+                    }}
                     className="w-full border border-gray-300 rounded-lg pl-3 pr-8 py-2 text-sm outline-none focus:border-[#2ED573] bg-white"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">일</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">개월</span>
                 </div>
               </div>
-              <p className="text-[10px] text-gray-400 mt-1">구독료를 설정하면 구독자는 기간 동안 이 강사의 모든 유료 뉴스레터 글을 볼 수 있습니다. (30일 = 월 구독, 재구매 시 잔여 기간에 이어서 연장)</p>
+              <p className="text-[10px] text-gray-400 mt-1">구독료를 설정하면 구독자는 기간 동안 이 강사의 모든 유료 뉴스레터 글을 볼 수 있습니다. (1개월 = 월 구독, 달력 월 기준 — 8/11 구독 시 9/11 만료. 카드 구독은 만료 전 자동 갱신 결제)</p>
               <div className="mt-2">
                 <label className="text-xs font-bold block mb-1 text-gray-600">구독자 수 기본값</label>
                 <div className="relative w-40">

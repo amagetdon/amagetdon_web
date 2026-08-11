@@ -4,14 +4,13 @@ import type { BoardInstructor } from '../types'
 
 // 뉴스레터(/board) 페이지들이 공유하는 조각 — 강사 카드, 아바타, 배지, 가격 라벨.
 
-// 멤버십 상품 가격을 "월 99,000원" 식으로. 30일=월, 365일=연, 그 외 N일, 무기한은 가격만.
-export function membershipPriceLabel(price: number | null, durationDays: number | null): string | null {
+// 멤버십 상품 가격을 "월 99,000원" 식으로. 1개월=월, 12개월=연, 그 외 N개월.
+export function membershipPriceLabel(price: number | null, months: number | null): string | null {
   if (!price) return null
   const p = `${price.toLocaleString()}원`
-  if (durationDays === 30) return `월 ${p}`
-  if (durationDays === 365) return `연 ${p}`
-  if (durationDays) return `${durationDays}일 ${p}`
-  return p
+  if (!months || months === 1) return `월 ${p}`
+  if (months === 12) return `연 ${p}`
+  return `${months}개월 ${p}`
 }
 
 // 강사 이름 옆 인증마크 (lucide shield-check)
@@ -52,7 +51,7 @@ export function PaidBadge({ paid, price }: { paid: boolean; price?: number }) {
 // 강사 카드 — /board 상단 리스트. 강사소개(검색) 카드 디자인을 그대로 쓰되 포인트만 그린.
 // 클릭하면 강사 뉴스레터 페이지로.
 export function InstructorCard({ ins }: { ins: BoardInstructor }) {
-  const price = membershipPriceLabel(ins.sub_price, ins.sub_days)
+  const price = membershipPriceLabel(ins.sub_price, ins.sub_months)
   const chips = (ins.careers ?? []).filter((c) => c.trim())
   const bioText = htmlToPlainText(ins.bio)
   return (
