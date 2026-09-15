@@ -3,15 +3,19 @@ import { getCached, setCache, clearCache } from '../lib/cache'
 import type { Result } from '../types'
 
 export const resultService = {
-  async getAll(options?: { page?: number; perPage?: number }) {
+  // includeUnpublished 는 관리자 목록 전용. 공개 화면은 RLS 의 "관리자 전체 읽기" 정책 때문에 관리자 계정에서
+  // 비공개 성과가 노출되므로 기본값(false)에서 is_published 를 명시 필터.
+  async getAll(options?: { page?: number; perPage?: number; includeUnpublished?: boolean }) {
     const page = options?.page ?? 1
     const perPage = options?.perPage ?? 4
     const from = (page - 1) * perPage
     const to = from + perPage - 1
 
-    const { data, error, count } = await supabase
+    let query = supabase
       .from('results')
       .select('*', { count: 'exact' })
+    if (!options?.includeUnpublished) query = query.eq('is_published', true)
+    const { data, error, count } = await query
       .order('created_at', { ascending: false })
       .range(from, to)
     if (error) throw error
@@ -25,6 +29,7 @@ export const resultService = {
     const { data, error } = await supabase
       .from('results')
       .select('*')
+      .eq('is_published', true)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
       .limit(limit)

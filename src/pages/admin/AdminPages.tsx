@@ -182,7 +182,7 @@ export default function AdminPages() {
         bannerService.getAllByPage('academy_free_hero'),
         bannerService.getAllByPage('academy_premium_hero'),
         bannerService.getAllByPage('board_hero'),
-        resultService.getAll({ perPage: 50 }),
+        resultService.getAll({ perPage: 50, includeUnpublished: true }),
         supabase.from('site_settings').select('*').eq('key', 'banner_settings').maybeSingle(),
         supabase.from('site_settings').select('value').eq('key', 'academy_settings').maybeSingle(),
         supabase.from('site_settings').select('value').eq('key', 'nav_visibility').maybeSingle(),

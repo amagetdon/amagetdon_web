@@ -41,13 +41,15 @@ async function fetchHomeData(year: number, month: number): Promise<HomeData> {
 
   const queries = [
     supabase.from('banners').select('*').eq('page_key', 'hero').eq('is_published', true).order('sort_order').then((r) => r),
-    supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
+    // 전자책·리얼 성과는 RLS 에 "관리자 전체 읽기" 정책이 공개 정책과 OR 로 합쳐져 있어 프론트에서 is_published 를
+    // 걸지 않으면 관리자 계정에서만 비공개 항목이 노출됨 → 강의·후기·배너와 동일하게 명시 필터.
+    supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_free', true).eq('is_published', true).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
     // 무료 클래스 목록에는 pre_alert (사전 알림 신청) 강의도 함께 노출 — 무료강의와 동일 카테고리, 알림톡만 분기.
     // pre_alert 강의는 enrollment_start 가 미래여도 노출해야 함 (오픈 전 신청 받기 의도) → OR 절에 pre_alert 우회 추가.
     supabase.from('courses').select('*, instructor:instructors(id, name)').in('course_type', ['free', 'pre_alert']).eq('is_published', true).or(`course_type.eq.pre_alert,enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
     supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'premium').eq('is_published', true).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
     supabase.from('instructors').select('*').order('sort_order').then((r) => r),
-    supabase.from('results').select('*').order('sort_order').order('created_at', { ascending: false }).limit(20).then((r) => r),
+    supabase.from('results').select('*').eq('is_published', true).order('sort_order').order('created_at', { ascending: false }).limit(20).then((r) => r),
     supabase.from('reviews').select('*, course:courses(id, title)').eq('is_published', true).eq('rating', 5).order('created_at', { ascending: false }).limit(30).then((r) => r),
     supabase.from('schedules').select('*, course:courses(id, title), instructor:instructors(id, name, image_url, thumbnail_url)').eq('is_hidden', false).gte('scheduled_at', startDate).lte('scheduled_at', endDate).order('scheduled_at').then((r) => r),
     supabase.from('banners').select('*').eq('page_key', 'bottom_links').eq('is_published', true).order('sort_order').then((r) => r),

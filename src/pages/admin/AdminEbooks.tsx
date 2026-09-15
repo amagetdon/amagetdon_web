@@ -28,7 +28,7 @@ export default function AdminEbooks() {
     try {
       setLoading(true)
       const [e, purchaseRes] = await withTimeout(Promise.all([
-        ebookService.getAll(),
+        ebookService.getAll({ includeUnpublished: true }),
         supabase.from('purchases').select('ebook_id').not('ebook_id', 'is', null),
       ]))
       setEbooks(e)
