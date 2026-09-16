@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
@@ -21,6 +21,50 @@ const STANDARD_FONT_DATA_URL = '/standard_fonts/'
 
 const isMobile = () =>
   typeof navigator !== 'undefined' && /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent)
+
+// ── PDF 링크 주석(Link annotation) → 캔버스 위 클릭 오버레이 ─────────────────────────────────────
+// 캔버스는 복제 방지로 pointer-events:none 이고 pdf.js 캔버스 렌더는 링크 주석을 그리지 않으므로, PDF 안의
+// 링크가 뷰어에서 눌리지 않았음. 렌더된 페이지의 링크 주석 사각형을 렌더에 쓴 것과 같은 viewport 로 변환해
+// 투명 <a>/<button> 을 퍼센트 좌표로 얹음. 좌표는 CSS px 공간이라 DPR 클램프·브라우저 줌과 무관하고,
+// 퍼센트라 캔버스 style 폭 내림(floor) 오차도 흡수함.
+const ANNOT_FLAG_HIDDEN = 0x02
+const ANNOT_FLAG_NOVIEW = 0x20
+const SUPPORTED_NAMED_ACTIONS = new Set(['NextPage', 'PrevPage', 'FirstPage', 'LastPage'])
+
+interface LinkAnnotation {
+  id: string
+  subtype: string
+  rect: number[]
+  annotationFlags?: number
+  url?: string
+  dest?: string | unknown[]
+  action?: string
+}
+
+interface ViewerLink {
+  id: string
+  // 캔버스 박스 기준 퍼센트
+  left: number
+  top: number
+  width: number
+  height: number
+  url?: string
+  dest?: string | unknown[]
+  action?: string
+}
+
+// 링크 주석은 hidden 이 별도 필드로 오지 않아 annotationFlags 비트를 직접 검사. url 은 pdf.js 가
+// http/https/ftp/mailto/tel 만 통과시킨 값(javascript: 등은 unsafeUrl 에만 남음). url·내부 목적지·지원 액션 중
+// 하나는 있어야 채택 — 동작 불가한 클릭 영역(GoToR 상대경로·Launch·JavaScript 등)은 만들지 않음.
+function isUsableLink(a: LinkAnnotation): boolean {
+  if (a.subtype !== 'Link') return false
+  const flags = a.annotationFlags ?? 0
+  if ((flags & (ANNOT_FLAG_HIDDEN | ANNOT_FLAG_NOVIEW)) !== 0) return false
+  if (!Array.isArray(a.rect) || a.rect.length !== 4) return false
+  if (a.url) return true
+  if (a.dest) return true
+  return !!a.action && SUPPORTED_NAMED_ACTIONS.has(a.action)
+}
 
 interface EbookInfo {
   id: number
@@ -48,6 +92,8 @@ function EbookReaderPage() {
   const [rendering, setRendering] = useState(false)
   const [containerWidth, setContainerWidth] = useState(0)
   const [containerHeight, setContainerHeight] = useState(0)
+  // 현재 캔버스에 그려진 페이지의 링크 오버레이 (currentPage state 가 아니라 실제 렌더된 페이지를 따라감)
+  const [links, setLinks] = useState<ViewerLink[]>([])
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const pdfRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null)
@@ -65,6 +111,8 @@ function EbookReaderPage() {
   // 완료 후 마지막 요청만 이어 그림.
   const renderInFlightRef = useRef(false)
   const renderQueuedPageRef = useRef<number | null>(null)
+  // 페이지별 링크 주석 캐시 — getAnnotations 는 호출마다 워커 왕복이라 줌·리사이즈 재렌더 시 재사용. 문서 교체 시 초기화.
+  const linkAnnotationsCacheRef = useRef<Map<number, LinkAnnotation[]>>(new Map())
 
   const watermarkText = profile?.email || profile?.name || user?.id || ''
 
@@ -136,6 +184,8 @@ function EbookReaderPage() {
   // PDF 로드 — 모바일에서는 stream + range 활성화로 큰 파일도 빠르게 시작
   useEffect(() => {
     if (!ebook?.file_url) return
+    // cleanup 에서 ref.current 를 직접 읽지 않도록 effect 시점의 Map 을 변수로 고정 (react-hooks/exhaustive-deps 경고 회피)
+    const linkCache = linkAnnotationsCacheRef.current
 
     const loadPdf = async () => {
       try {
@@ -149,6 +199,8 @@ function EbookReaderPage() {
           useSystemFonts: false,
         }).promise
         pdfRef.current = pdf
+        linkCache.clear()
+        setLinks([])
         setNumPages(pdf.numPages)
         setCurrentPage(1)
       } catch (e) {
@@ -165,6 +217,7 @@ function EbookReaderPage() {
       pdfRef.current = null
       renderInFlightRef.current = false
       renderQueuedPageRef.current = null
+      linkCache.clear()
     }
   }, [ebook?.file_url])
 
@@ -208,6 +261,8 @@ function EbookReaderPage() {
         const pdf = pdfRef.current
         const canvas = canvasRef.current
         if (!pdf || !canvas) break
+        // 이전 페이지의 링크 오버레이가 새 페이지 위에 남지 않도록 렌더 시작 시 비움 (캔버스 비트맵 리셋과 같은 타이밍)
+        setLinks([])
 
         try {
           const page = await pdf.getPage(currentTarget)
@@ -297,6 +352,38 @@ function EbookReaderPage() {
               }
             }
             ctx.restore()
+          }
+
+          // 링크 주석 → 오버레이 좌표 (렌더에 쓴 viewport 와 동일 — latest-wins 큐라 별도 effect 로 계산하면 stale 위험).
+          // 주석 처리 실패는 페이지 표시를 막지 않음.
+          try {
+            let annots = linkAnnotationsCacheRef.current.get(currentTarget)
+            if (!annots) {
+              const all = (await page.getAnnotations({ intent: 'display' })) as LinkAnnotation[]
+              annots = all.filter(isUsableLink)
+              linkAnnotationsCacheRef.current.set(currentTarget, annots)
+            }
+            const nextLinks: ViewerLink[] = []
+            for (const a of annots) {
+              // convertToViewportRectangle 이 페이지 /Rotate 까지 반영. normalizeRect 로 좌상단 기준 정규화.
+              const r = pdfjsLib.Util.normalizeRect(viewport.convertToViewportRectangle(a.rect))
+              const w = r[2] - r[0]
+              const h = r[3] - r[1]
+              if (w <= 0 || h <= 0) continue // 크기 0 사각형은 pdf.js 가 그대로 내려줌 → 제외
+              nextLinks.push({
+                id: a.id,
+                left: (r[0] / viewport.width) * 100,
+                top: (r[1] / viewport.height) * 100,
+                width: (w / viewport.width) * 100,
+                height: (h / viewport.height) * 100,
+                url: a.url,
+                dest: a.dest,
+                action: a.action,
+              })
+            }
+            setLinks(nextLinks)
+          } catch (e) {
+            console.warn('[EbookReader] 링크 주석 처리 실패 (페이지 표시는 정상):', e)
           }
         } catch (e) {
           console.error('[EbookReader] 페이지 렌더 실패:', e)
@@ -409,6 +496,40 @@ function EbookReaderPage() {
   }, [])
 
   const handleClose = () => navigate(-1)
+
+  // 내부 목적지 → 페이지 번호. 이름 목적지는 getDestination 으로 명시 배열로 풀고, 첫 요소가 페이지 Ref 또는 페이지 인덱스.
+  const resolveDestPage = async (dest: string | unknown[]): Promise<number | null> => {
+    const pdf = pdfRef.current
+    if (!pdf) return null
+    const explicit: unknown = typeof dest === 'string' ? await pdf.getDestination(dest) : dest
+    if (!Array.isArray(explicit) || explicit.length === 0) return null
+    const ref: unknown = explicit[0]
+    if (typeof ref === 'number' && Number.isInteger(ref)) return ref + 1
+    if (ref && typeof ref === 'object' && 'num' in ref) {
+      return (await pdf.getPageIndex(ref as { num: number; gen: number })) + 1
+    }
+    return null
+  }
+
+  // 외부 URL 은 순수 <a target=_blank> 로 처리 (iOS 사파리는 비동기 처리 뒤 window.open 을 팝업으로 차단). 여기는 내부 이동만.
+  const handleInternalLink = async (link: ViewerLink) => {
+    const total = pdfRef.current?.numPages ?? numPages
+    if (link.dest) {
+      try {
+        const target = await resolveDestPage(link.dest)
+        if (target && target >= 1 && target <= total) setCurrentPage(target)
+      } catch (e) {
+        console.warn('[EbookReader] 내부 링크 목적지 해석 실패:', e)
+      }
+      return
+    }
+    switch (link.action) {
+      case 'NextPage': setCurrentPage((p) => Math.min(total, p + 1)); break
+      case 'PrevPage': setCurrentPage((p) => Math.max(1, p - 1)); break
+      case 'FirstPage': setCurrentPage(1); break
+      case 'LastPage': setCurrentPage(total); break
+    }
+  }
 
   if (loading) {
     return (
@@ -549,6 +670,48 @@ function EbookReaderPage() {
                 boxShadow: '0 0 0 1px rgba(255, 255, 255, 0.1)',
               }}
             />
+            {/* PDF 링크 오버레이 — 캔버스와 같은 박스에 퍼센트 좌표. 캔버스 pointer-events:none 은 유지하고 링크 요소만
+                클릭 허용. touch-action 은 캔버스의 pan-y 를 따르지 않고 manipulation: 확대 상태에서 링크 위에서 시작한
+                가로 스크롤·핀치를 막지 않으면서 더블탭 확대 지연만 제거. iOS 롱프레스 미리보기는 우클릭 차단과 같은
+                정책으로 끔. 탭 하이라이트는 투명 링크의 유일한 피드백이라 옅게 남김. */}
+            {links.length > 0 && (
+              <div className="absolute inset-0 pointer-events-none">
+                {links.map((link) => {
+                  const style: CSSProperties = {
+                    position: 'absolute',
+                    left: `${link.left}%`,
+                    top: `${link.top}%`,
+                    width: `${link.width}%`,
+                    height: `${link.height}%`,
+                    pointerEvents: 'auto',
+                    touchAction: 'manipulation',
+                    WebkitTouchCallout: 'none',
+                    WebkitTapHighlightColor: 'rgba(46, 213, 115, 0.25)',
+                  }
+                  return link.url ? (
+                    <a
+                      key={link.id}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      draggable={false}
+                      style={style}
+                      className="block rounded-sm cursor-pointer hover:bg-[#2ED573]/15"
+                      aria-label="외부 링크 열기"
+                    />
+                  ) : (
+                    <button
+                      key={link.id}
+                      type="button"
+                      style={style}
+                      className="block rounded-sm cursor-pointer bg-transparent border-none p-0 hover:bg-[#2ED573]/15"
+                      aria-label="문서 내 이동"
+                      onClick={() => handleInternalLink(link)}
+                    />
+                  )
+                })}
+              </div>
+            )}
             {rendering && (
               <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 pointer-events-none">
                 <div className="w-8 h-8 border-2 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
