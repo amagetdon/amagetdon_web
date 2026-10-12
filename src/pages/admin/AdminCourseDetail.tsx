@@ -13,7 +13,7 @@ import CourseWebhookVariablesEditor from '../../components/admin/CourseWebhookVa
 import InstructorFormModal, { newInstructor } from '../../components/admin/InstructorFormModal'
 import { courseService } from '../../services/courseService'
 import { scheduleService } from '../../services/scheduleService'
-import { reviewService } from '../../services/reviewService'
+import { reviewService, REVIEW_PUBLIC_COLUMNS } from '../../services/reviewService'
 import { instructorService } from '../../services/instructorService'
 import { landingCategoryService } from '../../services/landingCategoryService'
 import { refundPolicyTemplateService } from '../../services/refundPolicyTemplateService'
@@ -306,7 +306,7 @@ export default function AdminCourseDetail() {
       const to = from + REVIEWS_PER_PAGE - 1
       const { data, count, error } = await supabase
         .from('reviews')
-        .select('*', { count: 'exact' })
+        .select(REVIEW_PUBLIC_COLUMNS, { count: 'exact' })
         .eq('course_id', courseId)
         .order('created_at', { ascending: false })
         .range(from, to)
