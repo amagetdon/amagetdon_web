@@ -89,6 +89,8 @@ interface Adapter {
   load(row: AdPixelRow): Promise<void>
   /** load 단계에서 첫 페이지뷰를 이미 보내는 매체(네이버 wcs_do, Google Ads config)는 true */
   initialPageViewInLoad?: boolean
+  /** 매체 스크립트가 SPA 주소 변경(history API)을 감지해 PageView 를 스스로 보내는 경우 true — 라우트 이동 시 중복 방지 */
+  vendorTracksSpaPageView?: boolean
   fire(row: AdPixelRow, event: StdEvent, p: PixelPayload): void
 }
 
@@ -97,6 +99,8 @@ const meta: Adapter = {
     injectInline('meta-base', `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');`)
     w().fbq?.('init', row.pixel_id)
   },
+  // fbevents.js 가 pushState 를 감지해 PageView 를 자동 전송(운영 확인: 수동까지 보내면 이동마다 2건)
+  vendorTracksSpaPageView: true,
   fire(row, event, p) {
     const fbq = w().fbq
     if (!fbq) return
@@ -364,5 +368,8 @@ export function dispatchPixelEvent(event: StdEvent, payload: PixelPayload): void
 /** SPA 라우트 이동 시 페이지뷰 재전송 (첫 진입은 setActivePixels 에서) */
 export function dispatchPageView(): void {
   if (!active) return
-  for (const row of active) if (wants(row, 'PageView')) send(row, 'PageView', {})
+  for (const row of active) {
+    if (ADAPTERS[row.media].vendorTracksSpaPageView) continue
+    if (wants(row, 'PageView')) send(row, 'PageView', {})
+  }
 }
