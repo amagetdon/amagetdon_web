@@ -486,6 +486,10 @@ const PASS_THROUGH = [
   /^\/(u|_vercel|\.well-known)(\/.*)?$/,
 ]
 
+/** 관리자 칸에 태그 전체(<meta name=".." content="코드" />)나 "이름=코드" 를 붙여 넣어도 코드만 꺼낸다 */
+const verifyCode = (raw: string, name: string) =>
+  (raw.match(/content\s*=\s*["']([^"']+)["']/i)?.[1] ?? raw.replace(new RegExp(`^${name}=`), '')).trim()
+
 // ── HTML 조립 ──────────────────────────────────────────────────────────────────
 function headTags(page: Page, s: Settings, path: string): string {
   const url = SITE + (path === '/' ? '' : path)
@@ -506,8 +510,8 @@ function headTags(page: Page, s: Settings, path: string): string {
     `<meta name="twitter:title" content="${esc(page.title)}" />`,
     `<meta name="twitter:description" content="${esc(page.description)}" />`,
     image ? `<meta name="twitter:image" content="${esc(image)}" />` : '',
-    s.verify.google ? `<meta name="google-site-verification" content="${esc(s.verify.google.replace(/^google-site-verification=/, ''))}" />` : '',
-    s.verify.naver ? `<meta name="naver-site-verification" content="${esc(s.verify.naver.replace(/^naver-site-verification=/, ''))}" />` : '',
+    s.verify.google ? `<meta name="google-site-verification" content="${esc(verifyCode(s.verify.google, 'google-site-verification'))}" />` : '',
+    s.verify.naver ? `<meta name="naver-site-verification" content="${esc(verifyCode(s.verify.naver, 'naver-site-verification'))}" />` : '',
     // 화면 쪽 SeoHead 가 첫 로드 때 이 값들을 사이트 기본값으로 덮어쓰지 않게 하는 표시
     `<meta name="x-ssr-path" content="${esc(path)}" />`,
     ...(page.jsonld || []).map((j) => `<script type="application/ld+json">${JSON.stringify(j).replace(/</g, '\\u003c')}</script>`),

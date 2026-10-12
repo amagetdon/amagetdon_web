@@ -19,7 +19,9 @@ function removeByMark(mark: string) {
   document.querySelectorAll(`[${MARK_ATTR}="${mark}"]`).forEach((el) => el.remove())
 }
 
-function upsertMeta(mark: string, name: string, content: string) {
+function upsertMeta(mark: string, name: string, raw: string) {
+  // 관리자 칸에 태그 전체(<meta name=".." content="코드" />)나 "이름=코드" 를 붙여 넣어도 코드만 쓴다
+  const content = (raw.match(/content\s*=\s*["']([^"']+)["']/i)?.[1] ?? raw.replace(new RegExp(`^${name}=`), '')).trim()
   const existing = document.head.querySelector<HTMLMetaElement>(`meta[${MARK_ATTR}="${mark}"]`)
   if (!content) {
     if (existing) existing.remove()
