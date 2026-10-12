@@ -26,13 +26,8 @@ export interface ExternalServiceItem {
 
 export type ExternalServiceSettings = Record<ExternalServiceId, ExternalServiceItem>
 
+// GTM · GA4 · 메타 픽셀 · 네이버 전환추적은 관리자 '픽셀 관리'(ad_pixels)로 이전되어 목록에서 제외 (ID 타입은 기존 저장값 호환용으로 유지)
 export const EXTERNAL_SERVICE_DEFINITIONS: ExternalServiceDefinition[] = [
-  {
-    id: 'GOOGLE_TAG_MANAGER',
-    name: 'Google Tag Manager',
-    description: 'Google Tag Manager 컨테이너 ID를 입력해주세요.',
-    placeholder: '예) GTM-XXXXXXX',
-  },
   {
     id: 'NAVER_SEARCH_ADVISOR',
     name: '네이버 서치 어드바이저',
@@ -50,12 +45,6 @@ export const EXTERNAL_SERVICE_DEFINITIONS: ExternalServiceDefinition[] = [
     name: '카카오 플러스친구',
     description: '카카오 플러스친구 홈 URL 또는 ID를 입력해주세요.',
     placeholder: '예) _xabcxb 또는 https://pf.kakao.com/_xabcxb',
-  },
-  {
-    id: 'GOOGLE_ANALYTICS',
-    name: 'Google Analytics 4',
-    description: 'Google Analytics 4 측정 ID를 입력해주세요.',
-    placeholder: '예) G-XXXXXXXXXX',
   },
   {
     id: 'KAKAO_LOGIN',
@@ -76,22 +65,10 @@ export const EXTERNAL_SERVICE_DEFINITIONS: ExternalServiceDefinition[] = [
     placeholder: '예) 1a2b3c4d5e6f7g8h9i',
   },
   {
-    id: 'META_PIXEL',
-    name: '메타 픽셀',
-    description: '메타(페이스북) 픽셀 ID를 입력해주세요.',
-    placeholder: '예) 1234567890123456',
-  },
-  {
     id: 'META_DOMAIN_VERIFICATION',
     name: '메타 도메인 인증',
     description: '메타 비즈니스에서 발급받은 도메인 인증 코드(meta content 값)를 입력해주세요.',
     placeholder: '예) abcd1234efgh5678ijkl...',
-  },
-  {
-    id: 'NAVER_CTS',
-    name: '네이버 전환추적',
-    description: '네이버 광고 전환추적(wcslog) 공통키 AccountId 를 입력해주세요.',
-    placeholder: '예) s_234dfs1423',
   },
 ]
 

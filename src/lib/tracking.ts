@@ -1,15 +1,17 @@
-// 전환 이벤트 추적 (GTM dataLayer 기반)
+// 전환 이벤트 추적
 //
-// 설계: 모든 전환 이벤트는 window.dataLayer.push() 로 발화하고, GTM 이 이를 받아
-// GA4 / Meta Pixel (+ 향후 Meta CAPI) 로 라우팅한다. (참고: 전환이벤트설계서.md)
+// 설계: 모든 전환 이벤트는 (1) window.dataLayer.push() 로 GTM(→GA4)에 전달하고,
+// (2) 관리자 '픽셀 관리'에서 켠 광고 매체(Meta·Google Ads·Kakao·TikTok·Naver·당근·Dable·Taboola)에
+// 픽셀 엔진(lib/pixels/engine)이 매체별 형식으로 변환해 전달한다. 이벤트 발생 지점·중복 방지는 이 파일이 담당.
 //
 // - 모든 이벤트에 event_id 를 포함해 추후 CAPI 중복 제거에 대비한다.
 // - user_email / user_phone 은 가능한 경우 함께 전달해 Meta CAPI 매칭률을 높인다.
 // - value 는 숫자형, currency 는 'KRW' 고정.
 // - 발화 실패는 절대 앱 동작을 막지 않는다 (try-catch 로 무음 처리).
-// - 네이버 전환추적(wcs.trans)도 각 이벤트에서 함께 발화한다 (fireNaver, 개인정보 미전송).
+// - 광고 매체로는 개인정보(이메일·전화)를 보내지 않는다(dataLayer 의 user_email/phone 은 기존 GTM 구성 유지).
 
 import { stampPurchaseTouch } from './attribution'
+import { dispatchPixelEvent } from './pixels/engine'
 
 type DataLayerObject = Record<string, unknown>
 
@@ -50,94 +52,6 @@ function pushToDataLayer(payload: DataLayerObject): void {
     window.dataLayer.push(clean)
   } catch {
     // 트래킹 실패는 무시 — 앱 흐름에 영향 없음
-  }
-}
-
-/**
- * Meta 픽셀 직접 발화 (fbq). GTM 안에 Meta 이벤트 태그를 따로 만들지 않아도 픽셀로 바로 전송된다.
- * - 직접 주입된 window.fbq 가 있을 때만 동작(없으면 무음).
- * - eventId 를 eventID 옵션으로 넘겨 향후 Meta CAPI(서버 이벤트)와 중복 제거되게 한다.
- * - custom=true 면 표준 이벤트가 아닌 trackCustom 으로 전송(OpenChatJoin 등).
- */
-function fireMeta(
-  eventName: string,
-  params: Record<string, unknown>,
-  opts?: { eventId?: string; custom?: boolean },
-): void {
-  try {
-    if (typeof window === 'undefined' || typeof window.fbq !== 'function') return
-    const clean: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(params)) {
-      if (v === undefined || v === null || v === '') continue
-      if (typeof v === 'number' && !Number.isFinite(v)) continue
-      clean[k] = v
-    }
-    const method = opts?.custom ? 'trackCustom' : 'track'
-    if (opts?.eventId) window.fbq(method, eventName, clean, { eventID: opts.eventId })
-    else window.fbq(method, eventName, clean)
-  } catch {
-    // 트래킹 실패는 무시
-  }
-}
-
-/**
- * 네이버 전환추적 직접 발화 (wcs.trans). 공통 스크립트는 ExternalServicesInjector 가 주입(외부 서비스 > 네이버 전환추적).
- * - wcslog.js 로드 전이면 window.__naverQ 에 쌓아 두고 로드 직후 flush 된다.
- * - 개인정보(이메일/전화)는 네이버로 보내지 않는다.
- * - 데이터 타입은 공식 스펙(naver.github.io/conversion-tracking) 기준: value·id·item 문자열 필드는 string,
- *   item.quantity·item.payAmount 는 number. (타입이 다르면 네이버 전환 스크립트 어시스턴트에서 주의/오류)
- * - item.name 의 따옴표는 네이버 스크립트 오류 원인이라 제거한다(공식 WARNING).
- * - type: view_product / lead / sign_up / begin_checkout / purchase / custom001(오픈채팅 입장)
- */
-interface NaverItem {
-  id: string
-  name?: string | null
-  category?: string | null
-  quantity?: number
-  payAmount?: number
-}
-
-function fireNaver(conv: { type: string; value?: number; id?: string; items?: NaverItem[] }): void {
-  try {
-    if (typeof window === 'undefined') return
-    const clean: Record<string, unknown> = { type: conv.type }
-    if (conv.value !== undefined && Number.isFinite(conv.value)) {
-      clean.value = String(conv.value)
-      clean.currency = CURRENCY
-    }
-    if (conv.id) clean.id = String(conv.id)
-    if (conv.items?.length) {
-      clean.items = conv.items.map((item) => {
-        const out: Record<string, string | number> = { id: String(item.id) }
-        const name = item.name?.replace(/["']/g, '').trim()
-        if (name) out.name = name
-        if (item.category) out.category = item.category
-        if (item.quantity !== undefined && Number.isFinite(item.quantity)) out.quantity = item.quantity
-        // 0원(무료 강의·전자책)은 어시스턴트가 오류로 판정 — 선택 항목이라 양수일 때만 전송
-        if (item.payAmount !== undefined && Number.isFinite(item.payAmount) && item.payAmount > 0) out.payAmount = item.payAmount
-        return out
-      })
-    }
-    if (window.wcs?.trans && !window.__naverQ) {
-      window.wcs.trans(clean)
-    } else {
-      // 공통 스크립트 로드 전(또는 미사용) — 대기열 상한을 둬 무한 누적 방지
-      window.__naverQ = window.__naverQ || []
-      if (window.__naverQ.length < 20) window.__naverQ.push(clean)
-    }
-  } catch {
-    // 트래킹 실패는 무시
-  }
-}
-
-/** 단일 상품을 네이버 items 형식으로 변환. */
-function naverItem(p: { contentId: string; contentName: string; contentCategory?: string | null; value?: number }): NaverItem {
-  return {
-    id: p.contentId,
-    name: p.contentName,
-    category: p.contentCategory,
-    quantity: 1,
-    payAmount: p.value,
   }
 }
 
@@ -192,16 +106,13 @@ export function trackViewItem(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
-  // Meta 픽셀 직접 발화 (ViewContent)
-  fireMeta('ViewContent', {
-    content_ids: [params.contentId],
-    content_name: params.contentName,
-    content_type: 'product',
-    content_category: params.contentCategory,
+  dispatchPixelEvent('ViewContent', {
+    contentId: params.contentId,
+    contentName: params.contentName,
+    contentCategory: params.contentCategory,
+    instructorName: params.instructorName,
     value: params.value,
-    currency: CURRENCY,
   })
-  fireNaver({ type: 'view_product', items: [naverItem(params)] })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -234,16 +145,16 @@ export function trackFreeEnroll(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
-  // Meta 픽셀 직접 발화 (Lead) — eventID 로 CAPI 중복 제거 대비
-  fireMeta('Lead', {
-    content_ids: [params.contentId],
-    content_name: params.contentName,
-    content_category: params.contentCategory,
+  // event_id(=orderId) 로 향후 서버 이벤트(CAPI 등)와 중복 제거
+  dispatchPixelEvent('Lead', {
+    contentId: params.contentId,
+    contentName: params.contentName,
+    contentCategory: params.contentCategory,
+    instructorName: params.instructorName,
     value: 0,
-    currency: CURRENCY,
-  }, { eventId: params.orderId })
-  // 네이버 lead 는 items 를 분석하지 않아 type 만 전송
-  fireNaver({ type: 'lead' })
+    orderId: params.orderId,
+    eventId: params.orderId,
+  })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -272,16 +183,15 @@ export function trackBeginCheckout(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
-  // Meta 픽셀 직접 발화 (InitiateCheckout) — eventID 로 CAPI 중복 제거 대비
-  fireMeta('InitiateCheckout', {
-    content_ids: [params.contentId],
-    content_name: params.contentName,
-    content_category: params.contentCategory,
+  dispatchPixelEvent('InitiateCheckout', {
+    contentId: params.contentId,
+    contentName: params.contentName,
+    contentCategory: params.contentCategory,
+    instructorName: params.instructorName,
     value: params.value,
-    currency: CURRENCY,
-    num_items: 1,
-  }, { eventId: params.orderId })
-  fireNaver({ type: 'begin_checkout', items: [naverItem(params)] })
+    orderId: params.orderId,
+    eventId: params.orderId,
+  })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -326,18 +236,16 @@ export function trackPurchase(params: {
       quantity: 1,
     }],
   })
-  // Meta 픽셀 직접 발화 (Purchase) — eventID(=orderId) 로 CAPI 중복 제거 대비
-  fireMeta('Purchase', {
-    content_ids: [params.contentId],
-    content_name: params.contentName,
-    content_type: 'product',
-    content_category: params.contentCategory,
+  // 위 alreadyFired(주문ID) 안쪽이라 모든 매체에 같은 중복 방지가 적용됨(새로고침·뒤로가기 재발화 X)
+  dispatchPixelEvent('Purchase', {
+    contentId: params.contentId,
+    contentName: params.contentName,
+    contentCategory: params.contentCategory,
+    instructorName: params.instructorName,
     value: params.value,
-    currency: CURRENCY,
-    contents: [{ id: params.contentId, quantity: 1 }],
-  }, { eventId: params.orderId })
-  // 네이버 purchase — value(총 구매액) 필수, id 는 주문번호
-  fireNaver({ type: 'purchase', value: params.value, id: params.orderId, items: [naverItem(params)] })
+    orderId: params.orderId,
+    eventId: params.orderId,
+  })
   return true
 }
 
@@ -360,12 +268,10 @@ export function trackSignUp(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
-  // Meta 픽셀 직접 발화 (CompleteRegistration)
-  fireMeta('CompleteRegistration', {
-    status: true,
-    registration_method: params.method,
-  }, { eventId: params.userId ? `signup_${params.userId}` : undefined })
-  fireNaver({ type: 'sign_up' })
+  dispatchPixelEvent('CompleteRegistration', {
+    method: params.method,
+    eventId: params.userId ? `signup_${params.userId}` : undefined,
+  })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -391,13 +297,12 @@ export function trackOpenChatJoin(params: {
     user_email: params.user?.email,
     user_phone: params.user?.phone,
   })
-  // Meta 픽셀 직접 발화 (OpenChatJoin — 표준 이벤트가 아니라 trackCustom)
-  fireMeta('OpenChatJoin', {
-    content_ids: params.contentId ? [params.contentId] : undefined,
-    content_name: params.contentName,
-    instructor_name: params.instructorName,
-    campaign_id: resolveCampaignId(params.campaignId),
-  }, { eventId: `openchat_${params.dedupeKey}`, custom: true })
-  // 네이버엔 표준 유형이 없어 사용자 정의 #1 로 전송 (광고주시스템 전환 신청 시 동일 번호로 등록)
-  fireNaver({ type: 'custom001' })
+  // Meta 는 trackCustom('OpenChatJoin'), 네이버는 사용자 정의 #1(custom001)
+  dispatchPixelEvent('OpenChatJoin', {
+    contentId: params.contentId,
+    contentName: params.contentName,
+    instructorName: params.instructorName,
+    campaignId: resolveCampaignId(params.campaignId),
+    eventId: `openchat_${params.dedupeKey}`,
+  })
 }
