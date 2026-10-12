@@ -12,6 +12,11 @@ declare global {
     Kakao?: { init: (key: string) => void; isInitialized: () => boolean }
     ChannelIO?: ((...args: unknown[]) => void) & { q?: unknown[]; c?: (...args: unknown[]) => void }
     ChannelIOInitialized?: boolean
+    wcs?: { inflow: (domain?: string) => void; trans: (conv: Record<string, unknown>) => void }
+    wcs_add?: Record<string, string>
+    wcs_do?: () => void
+    /** wcslog.js 로드 전에 발화된 네이버 전환 대기열 (tracking.ts 가 push, 로드 시 flush) */
+    __naverQ?: Record<string, unknown>[] | null
   }
 }
 
@@ -82,6 +87,33 @@ function injectMetaPixel(id: string) {
   const script = document.createElement('script')
   script.text = inline
   script.setAttribute(MARK_ATTR, 'meta-pixel')
+  document.head.appendChild(script)
+}
+
+// 네이버 전환추적 공통 스크립트 — 공식 가이드의 동기 <script> 대신 비동기 로드 후
+// inflow(서브도메인 간 NA_SA 쿠키 공유) → wcs_do(PV + 쿠키 생성) → 대기 중 전환 flush 순서로 실행.
+// SPA 라 결제 완료 페이지 직접 진입 시 로드 전에 전환이 먼저 호출될 수 있어 대기열을 둔다.
+function injectNaverCts(accountId: string) {
+  removeByMark('naver-cts')
+  window.wcs_add = window.wcs_add || {}
+  window.wcs_add['wa'] = accountId
+  const script = document.createElement('script')
+  script.src = 'https://wcs.naver.net/wcslog.js'
+  script.async = true
+  script.setAttribute(MARK_ATTR, 'naver-cts')
+  script.addEventListener('load', () => {
+    try {
+      if (!window.wcs || !window.wcs_do) return
+      // 1차 도메인만 (www./m. 제거) — 네이버 가이드 요구사항
+      window.wcs.inflow(window.location.hostname.replace(/^(www|m)\./, ''))
+      window.wcs_do()
+      const pending = window.__naverQ || []
+      window.__naverQ = null
+      for (const conv of pending) window.wcs.trans(conv)
+    } catch {
+      // 트래킹 실패는 무시
+    }
+  })
   document.head.appendChild(script)
 }
 
@@ -156,6 +188,12 @@ export default function ExternalServicesInjector() {
     if (pixel?.enabled && pixel.code) injectMetaPixel(pixel.code)
     else removeByMark('meta-pixel')
   }, [settings.META_PIXEL?.enabled, settings.META_PIXEL?.code])
+
+  useEffect(() => {
+    const cts = settings.NAVER_CTS
+    if (cts?.enabled && cts.code) injectNaverCts(cts.code.trim())
+    else removeByMark('naver-cts')
+  }, [settings.NAVER_CTS?.enabled, settings.NAVER_CTS?.code])
 
   useEffect(() => {
     const naver = settings.NAVER_SEARCH_ADVISOR
