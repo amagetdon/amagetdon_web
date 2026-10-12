@@ -111,7 +111,8 @@ function fireNaver(conv: { type: string; value?: number; id?: string; items?: Na
         if (name) out.name = name
         if (item.category) out.category = item.category
         if (item.quantity !== undefined && Number.isFinite(item.quantity)) out.quantity = item.quantity
-        if (item.payAmount !== undefined && Number.isFinite(item.payAmount)) out.payAmount = item.payAmount
+        // 0원(무료 강의·전자책)은 어시스턴트가 오류로 판정 — 선택 항목이라 양수일 때만 전송
+        if (item.payAmount !== undefined && Number.isFinite(item.payAmount) && item.payAmount > 0) out.payAmount = item.payAmount
         return out
       })
     }
