@@ -1,5 +1,4 @@
 import { supabase } from '../lib/supabase'
-import { addMonthsKst } from '../utils/period'
 import type { BoardPost, BoardPostPublic, BoardPostListItem, BoardInstructor } from '../types'
 
 // 관리자가 작성/수정 시 보내는 편집 가능 필드 (id/share_token/타임스탬프 제외)
@@ -106,87 +105,14 @@ export const boardService = {
     return (data as BoardInstructor[] | null) ?? []
   },
 
-  // 포인트로 뉴스레터 상품 구매 — 글 단건(영구 열람) 또는 강사 구독(기간제, 잔여 구독 연장).
-  // purchaseService.purchaseWithPoints 와 동일한 차감/롤백 규칙. 구독 기간은 달력 월 단위.
-  async purchaseWithPoints(
-    userId: string,
-    item: { postId?: number; instructorId?: number },
-    title: string,
-    price: number,
-    subMonths?: number | null,
-  ): Promise<void> {
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('points')
-      .eq('id', userId)
-      .single<{ points: number }>()
-    if (profileError) throw profileError
-    if (!profile || profile.points < price) throw new Error('포인트가 부족합니다.')
-
-    let expiresAt: string | null = null
-    if (item.postId) {
-      const { count } = await supabase
-        .from('purchases')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', userId)
-        .eq('board_post_id', item.postId)
-      if ((count ?? 0) > 0) throw new Error('이미 구매한 글입니다.')
-    } else if (item.instructorId) {
-      // 유효 구독이 남아 있으면 그 만료일부터 이어서 연장 (달력 월 단위)
-      const months = subMonths && subMonths > 0 ? subMonths : 1
-      const { data: cur } = await supabase
-        .from('purchases')
-        .select('expires_at')
-        .eq('user_id', userId)
-        .eq('board_instructor_id', item.instructorId)
-        .not('expires_at', 'is', null)
-        .order('expires_at', { ascending: false })
-        .limit(1)
-        .maybeSingle<{ expires_at: string | null }>()
-      const curMs = cur?.expires_at ? new Date(cur.expires_at).getTime() : 0
-      expiresAt = addMonthsKst(new Date(Math.max(Date.now(), curMs)), months).toISOString()
-    } else {
-      throw new Error('잘못된 상품입니다.')
-    }
-
-    const newBalance = profile.points - price
-    const { data: updatedRows, error: deductError } = await supabase
-      .from('profiles')
-      .update({ points: newBalance } as never)
-      .eq('id', userId)
-      .gte('points', price)
-      .select('id')
-    if (deductError) throw new Error('포인트 차감에 실패했습니다.')
-    if (!updatedRows || updatedRows.length === 0) throw new Error('포인트가 부족합니다.')
-
-    try {
-      const { error: purchaseError } = await supabase
-        .from('purchases')
-        .insert({
-          user_id: userId,
-          board_post_id: item.postId ?? null,
-          board_instructor_id: item.instructorId ?? null,
-          title,
-          original_price: price,
-          price,
-          expires_at: expiresAt,
-        } as never)
-      if (purchaseError) throw purchaseError
-
-      const { error: logError } = await supabase.rpc('insert_point_log', {
-        p_user_id: userId,
-        p_amount: -price,
-        p_balance: newBalance,
-        p_type: 'use',
-        p_memo: `${title} 구매`,
-      } as never)
-      if (logError) throw logError
-    } catch (err) {
-      // 롤백: 차감한 만큼만 복구
-      await supabase.rpc('add_points', { user_id_input: userId, amount_input: price } as never)
-      throw err
-    }
+  // 포인트로 뉴스레터 글 단건 구매 — 서버 함수 purchase_with_points(board_post)가 가격 검증·포인트 차감·구매 행·로그를
+  // 한 트랜잭션으로 처리. 구독(강사)은 카드 정기결제 전용이라 포인트 구매를 받지 않는다.
+  async purchaseWithPoints(item: { postId?: number; instructorId?: number }): Promise<void> {
+    if (!item.postId) throw new Error('구독은 카드 정기결제만 가능합니다.')
+    const { error } = await supabase.rpc('purchase_with_points' as never, { p_kind: 'board_post', p_id: item.postId, p_coupon_id: null } as never)
+    if (error) throw new Error(error.message || '구매에 실패했습니다.')
   },
+
 }
 
 // 공유 링크 절대 URL 생성

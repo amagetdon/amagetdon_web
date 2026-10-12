@@ -258,16 +258,8 @@ function EbookDetailPage() {
     if (!user || !ebook || !ebookId || !profile) return
     setPurchasing(true)
     try {
-      await purchaseService.purchaseWithPoints(
-        user.id,
-        { ebookId },
-        ebook.title,
-        finalPrice,
-        ebook.duration_days,
-        selectedCoupon?.id,
-        selectedCoupon ? price : undefined
-      )
-      if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
+      await purchaseService.purchaseWithPoints({ ebookId }, selectedCoupon?.id)
+      // 쿠폰 사용 처리는 서버(purchase_with_points)가 함께 수행
       // 무료/유료 분기 알림톡 (ebook.is_free 기준)
       // ('purchase' built-in event 는 더 이상 호출하지 않음 — purchase_ebook_free/premium custom event 가 대체)
       // 강의용 purchase_free/premium 과 별도 코드 — 전자책 카카오 템플릿이 강의와 변수 세트가 달라 분리.

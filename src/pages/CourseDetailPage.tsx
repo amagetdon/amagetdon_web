@@ -446,17 +446,8 @@ function CourseDetailPage() {
     if (!user || !course || !courseId || !profile) return
     setPurchasing(true)
     try {
-      await purchaseService.purchaseWithPoints(
-        user.id,
-        { courseId },
-        course.title,
-        finalPrice,
-        course.enrollment_deadline ? (course.duration_days || null) : null,
-        selectedCoupon?.id,
-        selectedCoupon ? price : undefined,
-        course.enrollment_deadline || null,
-      )
-      if (selectedCoupon) await couponService.useCoupon(selectedCoupon.id, user.id)
+      await purchaseService.purchaseWithPoints({ courseId }, selectedCoupon?.id)
+      // 쿠폰 사용 처리는 서버(purchase_with_points)가 함께 수행
       // 무료/유료 분기 알림톡 (course_type 기준 — 쿠폰으로 0원 결제도 premium은 유료로 분류)
       // ('purchase' built-in event 는 더 이상 호출하지 않음 — purchase_free/premium custom event 가 대체)
       webhookService.fireCustomEvent(course.course_type === 'free' ? 'purchase_free' : 'purchase_premium', {
