@@ -140,14 +140,14 @@ export const profileService = {
       const phone = normalizeKoreanPhone((md.phone_number || md.phone || acc.phone_number || '') as string)
       if (phone) candidate.phone = phone
     }
-    if (!current?.birth_date) {
-      // 1순위: 정확한 birthyear + birthday 조합
-      let birth = combineBirthDate(md.birthyear || acc.birthyear, md.birthday || acc.birthday)
+    // 1순위: 카카오 실제 birthyear + birthday. 비어 있거나, 예전에 연령대로 추정해 넣은 값(YYYY-01-01)이면 실제 값으로 교체.
+    const realBirth = combineBirthDate(md.birthyear || acc.birthyear, md.birthday || acc.birthday)
+    if (realBirth && (!current?.birth_date || (current.birth_date.endsWith('-01-01') && current.birth_date !== realBirth))) {
+      candidate.birth_date = realBirth
+    } else if (!current?.birth_date) {
       // 2순위: age_range 기반 추정 (평균 나이 → YYYY-01-01)
-      if (!birth) {
-        birth = estimateBirthDateFromAgeRange(md.age_range || acc.age_range)
-      }
-      if (birth) candidate.birth_date = birth
+      const est = estimateBirthDateFromAgeRange(md.age_range || acc.age_range)
+      if (est) candidate.birth_date = est
     }
     if (!current?.provider) {
       const provider = user.app_metadata?.provider

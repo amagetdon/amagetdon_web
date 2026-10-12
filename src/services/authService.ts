@@ -40,7 +40,7 @@ export const authService = {
   async signInWithOAuth(provider: Provider) {
     // 카카오 — 콘솔(내 어플리케이션 > 카카오 로그인 > 동의항목) 에 등록된 항목만 scope 로 명시.
     // 미등록 항목을 포함하면 KOE205 에러가 난다.
-    // birthday / birthyear 는 비즈니스 인증이 필요한 항목으로 현재 미등록 — 추후 활성화 시 다시 추가 가능.
+    // birthday / birthyear — 비즈 앱 전환 후 콘솔에서 필수 동의로 활성화됨(2026-10-12 확인). 이전엔 미요청이라 연령대로 연도만 추정했음.
     const kakaoScopes = [
       'account_email',
       'profile_nickname',
@@ -49,6 +49,8 @@ export const authService = {
       'gender',
       'age_range',
       'phone_number',
+      'birthyear',
+      'birthday',
     ].join(' ')
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider,
