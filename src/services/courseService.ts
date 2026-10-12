@@ -2,6 +2,24 @@ import { supabase } from '../lib/supabase'
 import { getCached, setCache, clearCache } from '../lib/cache'
 import type { CourseWithInstructor, CourseWithCurriculum } from '../types'
 
+// 영상 주소(video_url·video_urls)는 공개 조회 권한이 없다 — curriculum_items 는 select('*') 금지.
+// 영상은 withCurriculumVideos(구매자·관리자만 서버 함수로 받음)로 붙인다.
+export const CURRICULUM_PUBLIC_COLUMNS = 'id, course_id, week, label, description, is_redirect, sort_order, created_at'
+
+type CurriculumVideoRow = { id: number; course_id: number; video_url: string | null; video_urls: unknown }
+
+/** 구매자(만료 전)·관리자에게만 영상 주소를 받아 커리큘럼 항목에 합친다. 권한 없는 강의는 영상 없이 그대로 */
+export async function withCurriculumVideos<T extends { id: number }>(courseIds: number[], items: T[]) {
+  if (courseIds.length === 0 || items.length === 0) return items
+  const { data, error } = await supabase.rpc('get_curriculum_videos', { p_course_ids: courseIds } as never)
+  if (error) throw error
+  const byId = new Map(((data ?? []) as CurriculumVideoRow[]).map((v) => [v.id, v]))
+  return items.map((item) => {
+    const v = byId.get(item.id)
+    return { ...item, video_url: v?.video_url ?? null, video_urls: Array.isArray(v?.video_urls) ? v.video_urls : [] }
+  })
+}
+
 export const courseService = {
   async getAll(type?: 'free' | 'premium') {
     const key = `courses:${type || 'all'}`
@@ -69,13 +87,20 @@ export const courseService = {
       .select(`
         *,
         instructor:instructors(id, name),
-        curriculum_items(*)
+        curriculum_items(${CURRICULUM_PUBLIC_COLUMNS})
       `)
       .eq('id', id)
       .order('sort_order', { referencedTable: 'curriculum_items' })
       .single()
     if (error) throw error
-    return data as CourseWithCurriculum
+    return data as unknown as CourseWithCurriculum
+  },
+
+  /** 관리자 편집·복제용 — 커리큘럼에 영상 주소까지 붙여서 반환 */
+  async getByIdWithVideos(id: number) {
+    const course = await this.getById(id)
+    const items = await withCurriculumVideos([id], course.curriculum_items ?? [])
+    return { ...course, curriculum_items: items } as CourseWithCurriculum
   },
 
   invalidate() { clearCache('courses') },
@@ -118,7 +143,7 @@ export const courseService = {
    * options.isPublished 를 명시하면 그 값으로 복제본 공개 여부를 지정 (생략 시 원본 그대로).
    */
   async duplicate(id: number, options?: { isPublished?: boolean }) {
-    const original = await this.getById(id)
+    const original = await this.getByIdWithVideos(id)
 
     const { data: allRows, error: allErr } = await supabase
       .from('courses')

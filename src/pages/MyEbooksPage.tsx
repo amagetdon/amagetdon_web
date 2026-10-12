@@ -13,7 +13,7 @@ function MyEbooksPage() {
       id: number
       title: string
       thumbnail_url: string | null
-      file_url: string | null
+      has_file: boolean
       instructor: { id: number; name: string } | null
     } | null
   }>>([])
@@ -90,7 +90,7 @@ function MyEbooksPage() {
                   <p className="text-sm text-gray-400 mt-1">{ebook.instructor?.name} 강사</p>
                   <button
                     onClick={() => navigate(`/my-ebooks/${ebook.id}/read`)}
-                    disabled={!ebook.file_url || isExpired(purchase.expires_at)}
+                    disabled={!ebook.has_file || isExpired(purchase.expires_at)}
                     className="mt-4 bg-[#2ED573] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition w-fit cursor-pointer disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:brightness-100"
                   >
                     읽기

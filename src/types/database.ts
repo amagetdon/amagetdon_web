@@ -295,7 +295,10 @@ export interface Ebook {
   landing_image_url: string | null
   landing_image_urls: string[] | null
   landing_image_links: string[] | null
-  file_url: string | null
+  // 공개 조회 불가 컬럼 — 관리자 화면에서 ebookService.getFileUrl 로 채울 때만 존재
+  file_url?: string | null
+  // PDF 등록 여부 (file_url 에서 자동 계산되는 DB 컬럼)
+  has_file: boolean
   original_price: number | null
   sale_price: number | null
   is_free: boolean

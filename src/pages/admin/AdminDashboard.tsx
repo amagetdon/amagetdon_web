@@ -122,7 +122,7 @@ export default function AdminDashboard() {
         supabase.from('courses').select('*', { count: 'exact', head: true }),
         supabase.from('courses').select('*', { count: 'exact', head: true }).eq('course_type', 'free'),
         supabase.from('courses').select('*', { count: 'exact', head: true }).eq('course_type', 'premium'),
-        supabase.from('ebooks').select('*', { count: 'exact', head: true }),
+        supabase.from('ebooks').select('id', { count: 'exact', head: true }),
         supabase.from('instructors').select('*', { count: 'exact', head: true }),
         supabase.from('reviews').select('id', { count: 'exact', head: true }),
         supabase.from('results').select('*', { count: 'exact', head: true }),

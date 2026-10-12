@@ -359,7 +359,7 @@ export default function AdminCourseDetail() {
     if (!courseId) return
     setLoading(true)
     try {
-      const data = await courseService.getById(courseId)
+      const data = await courseService.getByIdWithVideos(courseId)
       setCourse(data)
       const raw = data as unknown as { landing_image_urls?: string[] | null; landing_image_links?: string[] | null }
       const rawUrls = Array.isArray(raw.landing_image_urls) ? raw.landing_image_urls : []
