@@ -14,6 +14,7 @@ import { useBusinessInfo } from './hooks/useBusinessInfo'
 import SeoHead from './components/SeoHead'
 import ExternalServicesInjector from './components/ExternalServicesInjector'
 import ExternalCodesInjector from './components/ExternalCodesInjector'
+import { captureLastTouch } from './lib/attribution'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
 const InstructorListPage = lazy(() => import('./pages/InstructorListPage'))
@@ -93,6 +94,8 @@ function UtmCapture() {
   const prevPath = useRef(location.pathname)
 
   useEffect(() => {
+    // 마지막 유입 경로(구매별 '이번 구매 경로' 기록용) — 아래 세션 UTM(가입 시 최초 경로)과 별개
+    captureLastTouch()
     const params = new URLSearchParams(window.location.search)
     const keys = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'] as const
     const hasUtm = keys.some((k) => params.get(k))
