@@ -127,7 +127,7 @@ function FAQPage() {
       {eventBanners.length > 0 && <EventBanner banners={eventBanners} pageKey="faq_event" />}
       <section className="w-full bg-white py-16 max-sm:py-10">
         <div className="max-w-[800px] mx-auto px-5">
-          <h2 className="text-2xl font-bold text-center text-gray-900">자주 묻는 질문 Q&A</h2>
+          <h1 className="text-2xl font-bold text-center text-gray-900">자주 묻는 질문 Q&A</h1>
 
           <div className="max-w-[500px] mx-auto mt-8">
             <div className="relative">

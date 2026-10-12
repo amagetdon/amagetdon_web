@@ -11,7 +11,7 @@ import {
 interface Props {
   sectionKey: SectionKey
   config: SectionConfig
-  as?: 'h2' | 'h3'
+  as?: 'h1' | 'h2' | 'h3'
   className: string
   /** 다크 배경에서 사용할 때 편집 UI 색감을 어둡게 */
   theme?: 'light' | 'dark'

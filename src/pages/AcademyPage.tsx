@@ -9,6 +9,7 @@ import CouponBanner from '../components/CouponBanner'
 function AcademyPage() {
   return (
     <>
+      <h1 className="sr-only">아마겟돈 클래스 강의</h1>
       <VideoPromo />
       <ScheduleCalendar title="이달의 무료강의를 확인하세요" />
       <PremiumCourses sectionKey="academy_tab_premium_courses" />

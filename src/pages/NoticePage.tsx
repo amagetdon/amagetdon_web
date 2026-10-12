@@ -1,6 +1,7 @@
 function NoticePage() {
   return (
     <section className="w-full bg-white py-10 max-sm:py-6">
+      <h1 className="sr-only">공지사항</h1>
       <div className="max-w-[600px] mx-auto px-5 mt-10">
         {/* Profile Card */}
         <div className="bg-gray-50 rounded-xl p-8 max-sm:p-5">

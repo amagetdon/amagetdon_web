@@ -84,10 +84,10 @@ const link = (href: string, text: string) => `<a href="${esc(href)}">${esc(text)
 const maskName = (n: string | null) => (n ? n.slice(0, 1) + '*'.repeat(Math.max(1, n.length - 1)) : '수강생')
 
 type Seo = { title?: string; description?: string; ogTitle?: string; ogDescription?: string; ogImage?: string }
-interface Settings { seo: Seo & { author?: string; keywords?: string }; biz: Record<string, string>; verify: { google?: string; naver?: string } }
+interface Settings { seo: Seo & { author?: string; keywords?: string }; biz: Record<string, string>; verify: { google?: string; naver?: string }; sameAs: string[] }
 
 async function getSettings(): Promise<Settings> {
-  const rows = (await q('site_settings?key=in.(seo_settings,business_info,external_services)&select=key,value')) as
+  const rows = (await q('site_settings?key=in.(seo_settings,business_info,external_services,kakao_link)&select=key,value')) as
     | { key: string; value: Record<string, unknown> }[]
     | null
   const get = (k: string) => (rows?.find((r) => r.key === k)?.value ?? {}) as Record<string, unknown>
@@ -97,6 +97,8 @@ async function getSettings(): Promise<Settings> {
     seo: get('seo_settings') as Settings['seo'],
     biz: get('business_info') as Record<string, string>,
     verify: { google: code('GOOGLE_SEARCH_CONSOLE'), naver: code('NAVER_SEARCH_ADVISOR') },
+    // 회사 공식 채널 (Organization.sameAs) — 관리자에 저장된 카카오 채널
+    sameAs: [get('kakao_link').url].filter((u): u is string => typeof u === 'string' && /^https?:\/\//.test(u)).map((u) => u.replace(/^http:/, 'https:')),
   }
 }
 
@@ -152,8 +154,8 @@ async function openCourses() {
   return ((await q(`courses?${OPEN_COURSE()}&select=${COURSE_COLS}&order=sort_order.asc,id.desc`)) ?? []) as CourseRow[]
 }
 
-interface EbookRow { id: number; title: string; thumbnail_url: string | null; is_free: boolean | null; original_price: number | null; sale_price: number | null; seo: Seo | null; features: unknown; strengths: unknown; instructor: { id: number; name: string } | null }
-const EBOOK_COLS = 'id,title,thumbnail_url,is_free,original_price,sale_price,seo,features,strengths,instructor:instructors(id,name)'
+interface EbookRow { id: number; title: string; thumbnail_url: string | null; is_free: boolean | null; original_price: number | null; sale_price: number | null; seo: Seo | null; features: unknown; strengths: unknown; updated_at: string | null; instructor: { id: number; name: string } | null }
+const EBOOK_COLS = 'id,title,thumbnail_url,is_free,original_price,sale_price,seo,features,strengths,updated_at,instructor:instructors(id,name)'
 const ebookPrice = (e: EbookRow) => (e.is_free || !(e.sale_price ?? e.original_price) ? '무료' : won((e.sale_price ?? e.original_price) as number))
 async function openEbooks() {
   return ((await q(`ebooks?${OPEN_EBOOK()}&select=${EBOOK_COLS}&order=sort_order.asc,id.desc`)) ?? []) as EbookRow[]
@@ -199,6 +201,7 @@ const ROUTES: [RegExp, Handler][] = [
           logo: s.biz.logoUrl || undefined, email: s.biz.email || undefined, telephone: s.biz.phone || undefined,
           address: s.biz.address ? { '@type': 'PostalAddress', streetAddress: s.biz.address, addressCountry: 'KR' } : undefined,
           founder: s.biz.ceoName ? { '@type': 'Person', name: s.biz.ceoName } : undefined,
+          sameAs: s.sameAs.length ? s.sameAs : undefined,
         },
         { '@context': 'https://schema.org', '@type': 'WebSite', name, url: SITE, inLanguage: 'ko-KR' },
       ],
@@ -258,6 +261,7 @@ const ROUTES: [RegExp, Handler][] = [
       jsonld: [
         {
           '@context': 'https://schema.org', '@type': 'Course', name: c.title, description: desc, url: `${SITE}/course/${c.id}`,
+          ...(c.updated_at ? { dateModified: c.updated_at } : {}),
           image: c.thumbnail_url || undefined, inLanguage: 'ko',
           provider: { '@type': 'Organization', name: s.biz.mallName || site(s), sameAs: SITE },
           ...(price.value !== null
@@ -351,6 +355,7 @@ const ROUTES: [RegExp, Handler][] = [
       jsonld: [
         {
           '@context': 'https://schema.org', '@type': 'Book', name: e.title, description: desc, url: `${SITE}/ebook/${e.id}`,
+          ...(e.updated_at ? { dateModified: e.updated_at } : {}),
           image: e.thumbnail_url || undefined, inLanguage: 'ko', bookFormat: 'https://schema.org/EBook',
           ...(who ? { author: { '@type': 'Person', name: who } } : {}),
           publisher: { '@type': 'Organization', name: s.biz.mallName || site(s) },
