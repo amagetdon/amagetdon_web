@@ -9,6 +9,7 @@ import VideoUrlInput from '../../components/admin/VideoUrlInput'
 import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
 import RichTextEditor from '../../components/admin/RichTextEditor'
 import WebhookScheduleEditor from '../../components/admin/WebhookScheduleEditor'
+import ProductDashboard from '../../components/admin/ProductDashboard'
 import CourseWebhookVariablesEditor from '../../components/admin/CourseWebhookVariablesEditor'
 import InstructorFormModal, { newInstructor } from '../../components/admin/InstructorFormModal'
 import { courseService } from '../../services/courseService'
@@ -58,7 +59,7 @@ const toKstDatetimeLocal = (iso: string | null | undefined) => {
   return kst.toISOString().slice(0, 16)
 }
 
-type DetailTab = 'info' | 'curriculum' | 'reviews' | 'members' | 'webhooks'
+type DetailTab = 'info' | 'curriculum' | 'reviews' | 'members' | 'webhooks' | 'dashboard'
 
 const TABS: { key: DetailTab; label: string; icon: string }[] = [
   { key: 'info', label: '기본 정보', icon: 'ti-info-circle' },
@@ -66,6 +67,7 @@ const TABS: { key: DetailTab; label: string; icon: string }[] = [
   { key: 'reviews', label: '수강 후기', icon: 'ti-message-star' },
   { key: 'members', label: '수강생', icon: 'ti-users' },
   { key: 'webhooks', label: '예약 알림톡', icon: 'ti-bell-ringing' },
+  { key: 'dashboard', label: '통합 대시보드', icon: 'ti-chart-bar' },
 ]
 
 export default function AdminCourseDetail() {
@@ -1667,6 +1669,8 @@ export default function AdminCourseDetail() {
         ) : (
           <p className="text-sm text-gray-400 text-center py-12">강의를 먼저 저장한 뒤 예약 알림톡을 설정할 수 있습니다.</p>
         )
+      ) : tab === 'dashboard' && courseId ? (
+        <ProductDashboard kind="course" productId={courseId} />
       ) : null}
 
       <ConfirmDialog

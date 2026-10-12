@@ -5,6 +5,7 @@ import type { Profile } from '../types'
 import { webhookService } from '../services/webhookService'
 import { profileService } from '../services/profileService'
 import { trackSignUp, type SignupMethod } from '../lib/tracking'
+import { linkProductVisitor } from '../lib/attribution'
 
 interface AuthContextType {
   user: User | null
@@ -139,6 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             if (event === 'SIGNED_IN') {
+              linkProductVisitor()
               // UTM/가입경로가 프로필에 없으면 sessionStorage에서 채우기
               if (prof && !prof.utm_source && !prof.signup_referrer) {
                 const utmSource = sessionStorage.getItem('utm_source')
