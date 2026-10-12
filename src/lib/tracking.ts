@@ -81,27 +81,37 @@ function fireMeta(
 /**
  * 네이버 전환추적 직접 발화 (wcs.trans). 공통 스크립트는 ExternalServicesInjector 가 주입(외부 서비스 > 네이버 전환추적).
  * - wcslog.js 로드 전이면 window.__naverQ 에 쌓아 두고 로드 직후 flush 된다.
- * - 개인정보(이메일/전화)는 네이버로 보내지 않는다. 금액은 가이드 샘플대로 문자열.
+ * - 개인정보(이메일/전화)는 네이버로 보내지 않는다.
+ * - 데이터 타입은 공식 스펙(naver.github.io/conversion-tracking) 기준: value·id·item 문자열 필드는 string,
+ *   item.quantity·item.payAmount 는 number. (타입이 다르면 네이버 전환 스크립트 어시스턴트에서 주의/오류)
+ * - item.name 의 따옴표는 네이버 스크립트 오류 원인이라 제거한다(공식 WARNING).
  * - type: view_product / lead / sign_up / begin_checkout / purchase / custom001(오픈채팅 입장)
  */
 interface NaverItem {
   id: string
   name?: string | null
   category?: string | null
-  quantity?: string
-  payAmount?: string
+  quantity?: number
+  payAmount?: number
 }
 
 function fireNaver(conv: { type: string; value?: number; id?: string; items?: NaverItem[] }): void {
   try {
     if (typeof window === 'undefined') return
     const clean: Record<string, unknown> = { type: conv.type }
-    if (conv.value !== undefined && Number.isFinite(conv.value)) clean.value = String(conv.value)
-    if (conv.id) clean.id = conv.id
+    if (conv.value !== undefined && Number.isFinite(conv.value)) {
+      clean.value = String(conv.value)
+      clean.currency = CURRENCY
+    }
+    if (conv.id) clean.id = String(conv.id)
     if (conv.items?.length) {
       clean.items = conv.items.map((item) => {
-        const out: Record<string, string> = {}
-        for (const [k, v] of Object.entries(item)) if (v !== undefined && v !== null && v !== '') out[k] = String(v)
+        const out: Record<string, string | number> = { id: String(item.id) }
+        const name = item.name?.replace(/["']/g, '').trim()
+        if (name) out.name = name
+        if (item.category) out.category = item.category
+        if (item.quantity !== undefined && Number.isFinite(item.quantity)) out.quantity = item.quantity
+        if (item.payAmount !== undefined && Number.isFinite(item.payAmount)) out.payAmount = item.payAmount
         return out
       })
     }
@@ -123,8 +133,8 @@ function naverItem(p: { contentId: string; contentName: string; contentCategory?
     id: p.contentId,
     name: p.contentName,
     category: p.contentCategory,
-    quantity: '1',
-    payAmount: p.value !== undefined && Number.isFinite(p.value) ? String(p.value) : undefined,
+    quantity: 1,
+    payAmount: p.value,
   }
 }
 
