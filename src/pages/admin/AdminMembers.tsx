@@ -421,8 +421,8 @@ export default function AdminMembers() {
 
       // 2. 포인트 환불 (포인트 결제인 경우만)
       if (!isToss && refundTarget.price > 0) {
-        await supabase.rpc('add_points', { user_id_input: viewing.id, amount_input: refundTarget.price } as never)
-        await supabase.rpc('insert_point_log', {
+        await supabase.rpc('admin_add_points', { user_id_input: viewing.id, amount_input: refundTarget.price } as never)
+        await supabase.rpc('admin_insert_point_log', {
           p_user_id: viewing.id,
           p_amount: refundTarget.price,
           p_balance: viewing.points + refundTarget.price,
@@ -449,8 +449,8 @@ export default function AdminMembers() {
           .from(table).select('reward_points').eq('id', targetId).maybeSingle()
         const reward = (row as { reward_points?: number } | null)?.reward_points ?? 0
         if (reward > 0) {
-          await supabase.rpc('add_points', { user_id_input: viewing.id, amount_input: -reward } as never)
-          await supabase.rpc('insert_point_log', {
+          await supabase.rpc('admin_add_points', { user_id_input: viewing.id, amount_input: -reward } as never)
+          await supabase.rpc('admin_insert_point_log', {
             p_user_id: viewing.id,
             p_amount: -reward,
             p_balance: viewing.points + (isToss ? 0 : refundTarget.price) - reward,
@@ -546,14 +546,14 @@ export default function AdminMembers() {
     setPointSubmitting(true)
     try {
       // 1. 포인트 먼저 변경 (SECURITY DEFINER 함수로 RLS 우회)
-      const { error: pointError } = await supabase.rpc('add_points', {
+      const { error: pointError } = await supabase.rpc('admin_add_points', {
         user_id_input: viewing.id,
         amount_input: actualAmount,
       } as never)
       if (pointError) throw pointError
 
       // 2. 로그 기록 (SECURITY DEFINER 함수)
-      await supabase.rpc('insert_point_log', {
+      await supabase.rpc('admin_insert_point_log', {
         p_user_id: viewing.id,
         p_amount: actualAmount,
         p_balance: newBalance,
