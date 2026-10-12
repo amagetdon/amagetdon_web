@@ -39,10 +39,10 @@ export default function SeoHead({ override }: SeoHeadProps = {}) {
 
   useEffect(() => {
     // 공개 페이지는 서버(middleware)가 이 주소에 맞는 제목·설명·OG 를 이미 넣어 보낸다.
-    // 첫 로드 때 사이트 기본값으로 덮어쓰지 않게, 덮어쓸 값(override)이 없으면 건너뛴다.
+    // 첫 로드(서버가 채운 그 주소) 때는 화면 쪽 값으로 덮어쓰지 않는다 — 서버 값이 페이지에 더 맞다.
     const ssrPath = document.head.querySelector<HTMLMetaElement>('meta[name="x-ssr-path"]')?.content
     const here = window.location.pathname.length > 1 ? window.location.pathname.replace(/\/+$/, '') : '/'
-    if (!override && ssrPath === here) return
+    if (ssrPath === here) return
 
     const title = override?.title || seo.title || biz.siteTitle || ''
     const author = override?.author || seo.author || ''
