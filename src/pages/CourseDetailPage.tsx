@@ -22,7 +22,8 @@ import { supabase } from '../lib/supabase'
 import type { Coupon } from '../types'
 import { textToHtml } from '../utils/richText'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
-import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId, courseCategoryLabel } from '../lib/tracking'
+import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, trackOpenChatJoin, buildContentId, courseCategoryLabel } from '../lib/tracking'
+import { logOpenChat } from '../lib/openchatLog'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
 
 function CourseDetailPage() {
@@ -671,6 +672,17 @@ function CourseDetailPage() {
               href={course.after_purchase_url}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => {
+                // 오픈채팅 입장 — 구매 직후 모달과 같은 전환·기록 (dedupeKey=url 로 세션당 1회 발화, DB 는 최초 1회)
+                trackOpenChatJoin({
+                  dedupeKey: course.after_purchase_url!,
+                  contentId: buildContentId('course', course.id),
+                  contentName: course.title,
+                  instructorName: course.instructor?.name ?? null,
+                  user: { email: profile?.email, phone: profile?.phone },
+                })
+                logOpenChat(buildContentId('course', course.id), true)
+              }}
               className="w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-2 cursor-pointer no-underline flex items-center justify-center gap-1.5 hover:bg-[#25B866] transition-colors"
             >
               <i className="ti ti-message-circle text-base" />

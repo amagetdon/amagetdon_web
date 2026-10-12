@@ -116,6 +116,8 @@ export default function AdminCourseDetail() {
     utm_term: string | null
     signup_referrer: string | null
     completion_rate: number
+    openchat_opened_at: string | null
+    openchat_clicked_at: string | null
   }
   const MEMBERS_PER_PAGE = 10
   const [members, setMembers] = useState<MemberRow[]>([])
@@ -130,7 +132,7 @@ export default function AdminCourseDetail() {
       const [purchaseRes, progressRes, itemsRes] = await Promise.all([
         supabase
           .from('purchases')
-          .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, profile:profiles(id, name, email, phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term, signup_referrer)')
+          .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, openchat_opened_at, openchat_clicked_at, profile:profiles(id, name, email, phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term, signup_referrer)')
           .eq('course_id', courseId)
           .order('purchased_at', { ascending: false }),
         supabase
@@ -155,6 +157,7 @@ export default function AdminCourseDetail() {
         const purchase = p as unknown as {
           id: number; purchased_at: string; expires_at: string | null; price: number
           original_price: number | null; payment_method: string | null; user_id: string
+          openchat_opened_at: string | null; openchat_clicked_at: string | null
           profile: {
             id: string; name: string | null; email: string | null; phone: string | null
             utm_source: string | null; utm_medium: string | null; utm_campaign: string | null
@@ -180,6 +183,8 @@ export default function AdminCourseDetail() {
           utm_term: purchase.profile?.utm_term ?? null,
           signup_referrer: purchase.profile?.signup_referrer ?? null,
           completion_rate: totalItems > 0 ? Math.round((completed / totalItems) * 100) : 0,
+          openchat_opened_at: purchase.openchat_opened_at,
+          openchat_clicked_at: purchase.openchat_clicked_at,
         }
       })
       setMembers(rows)
@@ -217,9 +222,18 @@ export default function AdminCourseDetail() {
         : m.price > 0 ? '포인트'
           : '무료/부여'
 
+  // 오픈채팅 진입 상태 — 직접 클릭 > 자동 열림 > 미진입 (카톡방 실제 참여 여부는 알 수 없음)
+  const openchatLabel = (m: MemberRow) =>
+    m.openchat_clicked_at ? '직접 클릭' : m.openchat_opened_at ? '자동 열림' : '미진입'
+  const formatKoDateTime = (iso: string | null | undefined) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    return isNaN(d.getTime()) ? '' : d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  }
+
   // 수강생 목록 엑셀(CSV) 내보내기 — 검색으로 필터된 결과를 그대로 내보냄
   const exportMembersToExcel = () => {
-    const header = ['이름', '이메일', '전화번호', '결제일', '결제수단', '결제금액', '정가', '진도율(%)', '수강만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로']
+    const header = ['이름', '이메일', '전화번호', '결제일', '결제수단', '결제금액', '정가', '진도율(%)', '오픈채팅', '오픈채팅 시각', '수강만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로']
     const rows = filteredMembers.map((m) => [
       m.user_name || '',
       m.user_email || '',
@@ -229,6 +243,8 @@ export default function AdminCourseDetail() {
       m.price > 0 ? m.price : '무료',
       m.original_price ?? '',
       m.completion_rate,
+      openchatLabel(m),
+      formatKoDateTime(m.openchat_clicked_at ?? m.openchat_opened_at),
       m.expires_at ? formatKoDate(m.expires_at) : '무제한',
       m.utm_source || '',
       m.utm_medium || '',
@@ -1540,6 +1556,7 @@ export default function AdminCourseDetail() {
                       <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">결제수단</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600 max-md:hidden">금액</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600">진도율</th>
+                      <th className="px-4 py-3 text-center font-bold text-gray-600" title="구매 직후 안내 링크(오픈채팅) 진입 — 카톡방 실제 참여 여부는 알 수 없음">오픈채팅</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -1577,6 +1594,15 @@ export default function AdminCourseDetail() {
                             </div>
                             <span className="text-xs text-gray-500 w-9 text-right">{m.completion_rate}%</span>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-center" title={formatKoDateTime(m.openchat_clicked_at ?? m.openchat_opened_at)}>
+                          {m.openchat_clicked_at ? (
+                            <span className="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded-full">직접 클릭</span>
+                          ) : m.openchat_opened_at ? (
+                            <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">자동 열림</span>
+                          ) : (
+                            <span className="text-xs text-gray-300">-</span>
+                          )}
                         </td>
                       </tr>
                     ))}
