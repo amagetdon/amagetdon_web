@@ -7,6 +7,7 @@
 // - user_email / user_phone 은 가능한 경우 함께 전달해 Meta CAPI 매칭률을 높인다.
 // - value 는 숫자형, currency 는 'KRW' 고정.
 // - 발화 실패는 절대 앱 동작을 막지 않는다 (try-catch 로 무음 처리).
+// - 네이버 전환추적(wcs.trans)도 각 이벤트에서 함께 발화한다 (fireNaver, 개인정보 미전송).
 
 type DataLayerObject = Record<string, unknown>
 
@@ -77,6 +78,56 @@ function fireMeta(
   }
 }
 
+/**
+ * 네이버 전환추적 직접 발화 (wcs.trans). 공통 스크립트는 ExternalServicesInjector 가 주입(외부 서비스 > 네이버 전환추적).
+ * - wcslog.js 로드 전이면 window.__naverQ 에 쌓아 두고 로드 직후 flush 된다.
+ * - 개인정보(이메일/전화)는 네이버로 보내지 않는다. 금액은 가이드 샘플대로 문자열.
+ * - type: view_product / lead / sign_up / begin_checkout / purchase / custom001(오픈채팅 입장)
+ */
+interface NaverItem {
+  id: string
+  name?: string | null
+  category?: string | null
+  quantity?: string
+  payAmount?: string
+}
+
+function fireNaver(conv: { type: string; value?: number; id?: string; items?: NaverItem[] }): void {
+  try {
+    if (typeof window === 'undefined') return
+    const clean: Record<string, unknown> = { type: conv.type }
+    if (conv.value !== undefined && Number.isFinite(conv.value)) clean.value = String(conv.value)
+    if (conv.id) clean.id = conv.id
+    if (conv.items?.length) {
+      clean.items = conv.items.map((item) => {
+        const out: Record<string, string> = {}
+        for (const [k, v] of Object.entries(item)) if (v !== undefined && v !== null && v !== '') out[k] = String(v)
+        return out
+      })
+    }
+    if (window.wcs?.trans && !window.__naverQ) {
+      window.wcs.trans(clean)
+    } else {
+      // 공통 스크립트 로드 전(또는 미사용) — 대기열 상한을 둬 무한 누적 방지
+      window.__naverQ = window.__naverQ || []
+      if (window.__naverQ.length < 20) window.__naverQ.push(clean)
+    }
+  } catch {
+    // 트래킹 실패는 무시
+  }
+}
+
+/** 단일 상품을 네이버 items 형식으로 변환. */
+function naverItem(p: { contentId: string; contentName: string; contentCategory?: string | null; value?: number }): NaverItem {
+  return {
+    id: p.contentId,
+    name: p.contentName,
+    category: p.contentCategory,
+    quantity: '1',
+    payAmount: p.value !== undefined && Number.isFinite(p.value) ? String(p.value) : undefined,
+  }
+}
+
 /** 세션 단위 1회 발화 보장 (새로고침 / 리렌더 중복 방지). 이미 발화됐으면 true. */
 function alreadyFired(key: string): boolean {
   try {
@@ -137,6 +188,7 @@ export function trackViewItem(params: {
     value: params.value,
     currency: CURRENCY,
   })
+  fireNaver({ type: 'view_product', items: [naverItem(params)] })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -175,6 +227,8 @@ export function trackFreeEnroll(params: {
     value: 0,
     currency: CURRENCY,
   }, { eventId: params.orderId })
+  // 네이버 lead 는 items 를 분석하지 않아 type 만 전송
+  fireNaver({ type: 'lead' })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -212,6 +266,7 @@ export function trackBeginCheckout(params: {
     currency: CURRENCY,
     num_items: 1,
   }, { eventId: params.orderId })
+  fireNaver({ type: 'begin_checkout', items: [naverItem(params)] })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -265,6 +320,8 @@ export function trackPurchase(params: {
     currency: CURRENCY,
     contents: [{ id: params.contentId, quantity: 1 }],
   }, { eventId: params.orderId })
+  // 네이버 purchase — value(총 구매액) 필수, id 는 주문번호
+  fireNaver({ type: 'purchase', value: params.value, id: params.orderId, items: [naverItem(params)] })
   return true
 }
 
@@ -292,6 +349,7 @@ export function trackSignUp(params: {
     status: true,
     registration_method: params.method,
   }, { eventId: params.userId ? `signup_${params.userId}` : undefined })
+  fireNaver({ type: 'sign_up' })
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -324,4 +382,6 @@ export function trackOpenChatJoin(params: {
     instructor_name: params.instructorName,
     campaign_id: resolveCampaignId(params.campaignId),
   }, { eventId: `openchat_${params.dedupeKey}`, custom: true })
+  // 네이버엔 표준 유형이 없어 사용자 정의 #1 로 전송 (광고주시스템 전환 신청 시 동일 번호로 등록)
+  fireNaver({ type: 'custom001' })
 }
