@@ -200,12 +200,7 @@ function EbookDetailPage() {
     if (!user || !ebook || !ebookId) return
     setPurchasing(true)
     try {
-      await purchaseService.enrollFree(
-        user.id,
-        { ebookId },
-        ebook.title,
-        ebook.duration_days
-      )
+      await purchaseService.enrollFree({ ebookId })
       // 무료 구매 알림톡 ('purchase' built-in event 는 legacy 라 호출하지 않음 — purchase_ebook_free custom event 가 대체)
       // 강의용 purchase_free 와 분리되어 전자책 전용 카카오 템플릿코드/변수를 글로벌 기본으로 관리 가능.
       webhookService.fireCustomEvent('purchase_ebook_free', {
@@ -246,12 +241,7 @@ function EbookDetailPage() {
     if (!user || !ebook || !ebookId) return
     setPurchasing(true)
     try {
-      await purchaseService.enrollFree(
-        user.id,
-        { ebookId },
-        ebook.title,
-        ebook.duration_days
-      )
+      await purchaseService.enrollFree({ ebookId })
       // 관리자 테스트 등록이므로 구매 알림톡 발송은 스킵.
       toast.success('관리자 권한으로 전자책이 등록되었습니다.')
       setOwned(true)
