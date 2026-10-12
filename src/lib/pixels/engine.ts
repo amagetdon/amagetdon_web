@@ -289,7 +289,7 @@ const dable: Adapter = {
     const d = w().dablena
     if (!d) return
     if (event === 'Purchase') d('track', 'Purchase', clean({ value: num(p.value), currency: CURRENCY }))
-    else if (event === 'PageView' || event === 'ViewContent' || event === 'CompleteRegistration') d('track', event)
+    else if (event === 'PageView' || event === 'ViewContent' || event === 'Lead' || event === 'CompleteRegistration') d('track', event)
   },
 }
 

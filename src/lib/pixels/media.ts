@@ -96,8 +96,8 @@ export const MEDIA: MediaDef[] = [
   },
   {
     id: 'dable', name: 'Dable', idLabel: '광고 계정 번호', placeholder: '예) 001-000-001',
-    supported: ['PageView', 'ViewContent', 'CompleteRegistration', 'Purchase'],
-    eventNames: { PageView: 'PageView', ViewContent: 'ViewContent', CompleteRegistration: 'CompleteRegistration', Purchase: 'Purchase' },
+    supported: ['PageView', 'ViewContent', 'Lead', 'CompleteRegistration', 'Purchase'],
+    eventNames: { PageView: 'PageView', ViewContent: 'ViewContent', Lead: 'Lead', CompleteRegistration: 'CompleteRegistration', Purchase: 'Purchase' },
     multiple: false,
     note: '데이블 대시보드 > 전환 스크립트의 계정 번호(dablena init 값)를 입력하세요.',
   },
