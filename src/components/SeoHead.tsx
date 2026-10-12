@@ -38,6 +38,12 @@ export default function SeoHead({ override }: SeoHeadProps = {}) {
   const biz = useBusinessInfo()
 
   useEffect(() => {
+    // 공개 페이지는 서버(middleware)가 이 주소에 맞는 제목·설명·OG 를 이미 넣어 보낸다.
+    // 첫 로드 때 사이트 기본값으로 덮어쓰지 않게, 덮어쓸 값(override)이 없으면 건너뛴다.
+    const ssrPath = document.head.querySelector<HTMLMetaElement>('meta[name="x-ssr-path"]')?.content
+    const here = window.location.pathname.length > 1 ? window.location.pathname.replace(/\/+$/, '') : '/'
+    if (!override && ssrPath === here) return
+
     const title = override?.title || seo.title || biz.siteTitle || ''
     const author = override?.author || seo.author || ''
     const description = override?.description || seo.description || ''

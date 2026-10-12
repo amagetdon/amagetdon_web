@@ -1,173 +1,20 @@
 import { next } from '@vercel/edge'
+import { renderPage } from './api/_lib/render-page'
 
 export const config = {
-  matcher: '/((?!api|assets|favicon|logo|.*\\.(?:webp|png|jpg|jpeg|gif|svg|ico|css|js|map|woff2?|ttf|json|txt|xml)$).*)',
+  // .html 은 제외 — 아래에서 /index.html 을 가져올 때 미들웨어가 다시 돌지 않게
+  matcher: '/((?!api|assets|favicon|logo|.*\\.(?:webp|png|jpg|jpeg|gif|svg|ico|css|js|map|woff2?|ttf|json|txt|xml|html)$).*)',
 }
 
-// 링크 미리보기(OG) 크롤러만 매칭 — 검색엔진 로봇(googlebot·yeti·naverbot·bingbot 등)은 제외한다.
-// (2026-10 SEO 점검: 검색엔진도 여기서 본문 없는 1KB HTML 을 받아 자바스크립트 렌더링 기회조차 없이
-//  모든 페이지가 같은 제목·빈 본문으로 수집되고 있었음. 검색엔진은 실제 사이트를 받아야 한다.) 카카오톡 인앱 브라우저는 UA 에 `KAKAOTALK` 토큰이 있지만
-// 실제 사용자이므로 제외 — 크롤러 전용 UA(`kakaotalk-scrap`)만 잡는다. (LINE 도 `line-poker` 로 동일)
-const BOT_UA = /kakaotalk-scrap|facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|slack-imgproxy|discordbot|telegrambot|whatsapp|line-poker/i
-
-const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env
-const SUPABASE_URL = env.SUPABASE_URL || ''
-const SUPABASE_ANON_KEY = env.SUPABASE_ANON_KEY || ''
-
-type Og = {
-  title: string
-  description: string
-  image: string
-  url: string
-  siteName: string
-}
-
-const escapeHtml = (s: string) =>
-  s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-
-async function sbRest<T>(path: string): Promise<T | null> {
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
-  try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-        accept: 'application/json',
-      },
-    })
-    if (!res.ok) return null
-    return (await res.json()) as T
-  } catch {
-    return null
-  }
-}
-
-type SiteSettingsRow = { value: { title?: string; ogTitle?: string; ogDescription?: string; description?: string; ogImage?: string } }
-type CourseRow = { title: string; thumbnail_url: string | null; seo: { title?: string; description?: string; ogTitle?: string; ogDescription?: string; ogImage?: string } | null }
-type EbookRow = { title: string; thumbnail_url: string | null; seo: { title?: string; description?: string; ogTitle?: string; ogDescription?: string; ogImage?: string } | null }
-type LandingRow = { title: string; seo: { title?: string; description?: string; ogTitle?: string; ogDescription?: string; ogImage?: string } | null }
-
-async function getDefaults(siteUrl: string): Promise<Og> {
-  const rows = await sbRest<SiteSettingsRow[]>(
-    `site_settings?key=eq.seo_settings&select=value`
-  )
-  const s = rows?.[0]?.value || {}
-  return {
-    title: s.ogTitle || s.title || '아마겟돈 클래스',
-    description: s.ogDescription || s.description || '',
-    image: s.ogImage || '',
-    url: siteUrl,
-    siteName: s.title || '아마겟돈 클래스',
-  }
-}
-
-async function getCourseOg(id: string, base: Og, fullUrl: string): Promise<Og> {
-  const rows = await sbRest<CourseRow[]>(
-    `courses?id=eq.${encodeURIComponent(id)}&is_published=eq.true&select=title,thumbnail_url,seo&limit=1`
-  )
-  const row = rows?.[0]
-  if (!row) return { ...base, url: fullUrl }
-  const seo = row.seo || {}
-  return {
-    title: seo.ogTitle || seo.title || row.title || base.title,
-    description: seo.ogDescription || seo.description || base.description,
-    image: seo.ogImage || row.thumbnail_url || base.image,
-    url: fullUrl,
-    siteName: base.siteName,
-  }
-}
-
-async function getEbookOg(id: string, base: Og, fullUrl: string): Promise<Og> {
-  const rows = await sbRest<EbookRow[]>(
-    `ebooks?id=eq.${encodeURIComponent(id)}&is_published=eq.true&select=title,thumbnail_url,seo&limit=1`
-  )
-  const row = rows?.[0]
-  if (!row) return { ...base, url: fullUrl }
-  const seo = row.seo || {}
-  return {
-    title: seo.ogTitle || seo.title || row.title || base.title,
-    description: seo.ogDescription || seo.description || base.description,
-    image: seo.ogImage || row.thumbnail_url || base.image,
-    url: fullUrl,
-    siteName: base.siteName,
-  }
-}
-
-async function getLandingOg(slug: string, base: Og, fullUrl: string): Promise<Og> {
-  const rows = await sbRest<LandingRow[]>(
-    `landing_categories?slug=eq.${encodeURIComponent(slug)}&select=title,seo&limit=1`
-  )
-  const row = rows?.[0]
-  if (!row) return { ...base, url: fullUrl }
-  const seo = row.seo || {}
-  return {
-    title: seo.ogTitle || seo.title || row.title || base.title,
-    description: seo.ogDescription || seo.description || base.description,
-    image: seo.ogImage || base.image,
-    url: fullUrl,
-    siteName: base.siteName,
-  }
-}
-
-function renderHtml(og: Og): string {
-  const t = escapeHtml(og.title)
-  const d = escapeHtml(og.description)
-  const img = escapeHtml(og.image)
-  const u = escapeHtml(og.url)
-  const site = escapeHtml(og.siteName)
-  return `<!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8" />
-<title>${t}</title>
-<meta name="description" content="${d}" />
-<meta property="og:type" content="website" />
-<meta property="og:site_name" content="${site}" />
-<meta property="og:title" content="${t}" />
-<meta property="og:description" content="${d}" />
-${img ? `<meta property="og:image" content="${img}" />` : ''}
-<meta property="og:url" content="${u}" />
-<meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="${t}" />
-<meta name="twitter:description" content="${d}" />
-${img ? `<meta name="twitter:image" content="${img}" />` : ''}
-<link rel="canonical" href="${u}" />
-</head>
-<body><p><a href="${u}">${t}</a></p></body>
-</html>`
-}
-
-async function resolveOg(url: URL): Promise<Og> {
-  const fullUrl = url.origin + url.pathname
-  const base = await getDefaults(fullUrl)
-  const segs = url.pathname.split('/').filter(Boolean)
-  if (segs.length === 0) return base
-  if (segs[0] === 'course' && segs[1]) return getCourseOg(segs[1], base, fullUrl)
-  if (segs[0] === 'ebook' && segs[1]) return getEbookOg(segs[1], base, fullUrl)
-  if (segs[0] === 'landing' && segs[1]) return getLandingOg(segs[1], base, fullUrl)
-  return { ...base, url: fullUrl }
-}
-
+// 공개 페이지는 사람·검색엔진·AI·SNS 미리보기 모두 같은 HTML 을 받는다 (SEO 2단계, A′ 방식).
+// 빌드된 index.html 에 페이지별 제목·설명·OG·canonical·JSON-LD 와 본문(#root 안)을 채워 돌려주고,
+// React 가 뜨면 #root 를 앱 화면으로 교체한다. 회원·관리자·결제 경로는 손대지 않는다(next()).
+// 어떤 이유로든 실패하면 next() 로 원래 SPA 를 그대로 내보낸다 — 사이트가 멈추는 일은 없게.
 export default async function middleware(request: Request) {
-  const ua = request.headers.get('user-agent') || ''
-  if (!BOT_UA.test(ua)) return next()
-
+  if (request.method !== 'GET' && request.method !== 'HEAD') return next()
   try {
-    const url = new URL(request.url)
-    const og = await resolveOg(url)
-    const html = renderHtml(og)
-    return new Response(html, {
-      status: 200,
-      headers: {
-        'content-type': 'text/html; charset=utf-8',
-        'cache-control': 'public, max-age=300, s-maxage=600',
-        'x-og-source': 'edge-middleware',
-      },
-    })
+    const res = await renderPage(request)
+    return res ?? next()
   } catch {
     return next()
   }
