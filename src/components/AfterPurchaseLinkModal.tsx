@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { trackOpenChatJoin } from '../lib/tracking'
+import { logOpenChat } from '../lib/openchatLog'
 
 interface Props {
   url: string | null
@@ -62,6 +63,7 @@ export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강�
             try { win.opener = null } catch { /* cross-origin 등 무시 */ }
             setOpened(true)
             fireOpenChatJoin()
+            logOpenChat(tracking?.contentId, false)
           }
         }
         return Math.max(0, next)
@@ -116,7 +118,7 @@ export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강�
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            onClick={() => { fireOpenChatJoin(); setOpened(true); onClose() }}
+            onClick={() => { fireOpenChatJoin(); logOpenChat(tracking?.contentId, true); setOpened(true); onClose() }}
             className={`block w-full py-2.5 px-4 rounded-lg text-sm font-bold no-underline text-center transition-colors ${
               count > 0 ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-[#2ED573] text-white hover:bg-[#25B866]'
             }`}
