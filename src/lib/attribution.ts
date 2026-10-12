@@ -96,3 +96,38 @@ export function formatTouch(t: { source?: string | null; medium?: string | null;
   const head = t.medium ? `${t.source} / ${t.medium}` : t.source
   return t.campaign ? `${head} · ${t.campaign}` : head
 }
+
+// ── 상품 페이지 방문 기록 (관리자 상품 대시보드의 '유입' 단계) ─────────────────────────
+// 브라우저마다 익명 방문자 ID 1개(localStorage). 강의·전자책 상세를 볼 때 1건(서버에서 방문자·상품·하루 1행으로 합침),
+// 로그인하면 이 브라우저의 지난 방문을 회원에 연결해 '방문 → 가입 → 신청 → 결제'를 한 사람 단위로 잇는다.
+const VISITOR_KEY = 'amag_visitor_id'
+
+function visitorId(): string | null {
+  try {
+    let id = localStorage.getItem(VISITOR_KEY)
+    if (!id) {
+      id = crypto.randomUUID()
+      localStorage.setItem(VISITOR_KEY, id)
+    }
+    return id
+  } catch {
+    return null
+  }
+}
+
+/** contentId = course_{id} / ebook_{id} */
+export function logProductVisit(contentId: string): void {
+  const m = contentId.match(/^(course|ebook)_(\d+)$/)
+  const vid = visitorId()
+  if (!m || !vid) return
+  supabase
+    .rpc('log_product_visit', { p_visitor: vid, p_kind: m[1], p_id: Number(m[2]), p_touch: readLastTouch() } as never)
+    .then(() => {}, () => {})
+}
+
+/** 로그인 직후 1회 — 이 브라우저의 비로그인 방문을 회원에 연결 */
+export function linkProductVisitor(): void {
+  const vid = visitorId()
+  if (!vid) return
+  supabase.rpc('link_product_visitor', { p_visitor: vid } as never).then(() => {}, () => {})
+}
