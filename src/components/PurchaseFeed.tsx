@@ -149,11 +149,8 @@ export default function PurchaseFeed() {
       // 더미가 종료/비공개 상품을 가리키지 않도록 "공개 + 판매 중 + 등록기간/오픈기간 유효" 필터링.
       const nowIso = new Date().toISOString()
       const [purchasesRes, coursesRes, ebooksRes] = await Promise.all([
-        supabase
-          .from('purchases')
-          .select('id, title, purchased_at, course_id, ebook_id, payment_method, profile:profiles(name, email, role)')
-          .order('purchased_at', { ascending: false })
-          .limit(100),
+        // 서버에서 마스킹된 이름/이메일만 받음 (회원 프로필을 브라우저에서 직접 읽지 않음)
+        supabase.rpc('get_purchase_feed' as never, { p_limit: 100 } as never),
         supabase
           .from('courses')
           .select('id, title')
@@ -174,24 +171,23 @@ export default function PurchaseFeed() {
       ])
       if (!alive) return
 
-      // 실구매 매핑 — 어드민/관리자 본인 구매 제외
-      const realItems: FeedItem[] = ((purchasesRes.data ?? []) as Array<{
+      // 실구매 매핑 — 관리자 부여·관리자 본인 구매 제외와 마스킹은 RPC(get_purchase_feed)에서 처리
+      const realItems: FeedItem[] = ((purchasesRes.data ?? []) as unknown as Array<{
         id: number
         title: string | null
         purchased_at: string
         course_id: number | null
         ebook_id: number | null
-        payment_method: string | null
-        profile: { name: string | null; email: string | null; role: string | null } | null
+        masked_name: string | null
+        masked_email: string | null
       }>)
-        .filter((r) => r.payment_method !== 'admin' && r.profile?.role !== 'admin')
         .map((r) => ({
           key: `r-${r.id}`,
           title: r.title || '강의/전자책',
           purchasedAt: r.purchased_at,
           link: r.course_id ? `/course/${r.course_id}` : r.ebook_id ? `/ebook/${r.ebook_id}` : '/',
-          maskedName: maskName(r.profile?.name ?? ''),
-          maskedEmail: maskEmail(r.profile?.email ?? ''),
+          maskedName: r.masked_name || '익명',
+          maskedEmail: r.masked_email || '',
         }))
 
       // 더미용 상품 풀 (실제 강의/전자책)
