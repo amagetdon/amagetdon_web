@@ -1,5 +1,7 @@
 import { supabase } from '../lib/supabase'
 import type { Purchase } from '../types'
+import { CURRICULUM_PUBLIC_COLUMNS, withCurriculumVideos } from './courseService'
+import { EBOOK_PUBLIC_COLUMNS } from './ebookService'
 
 export const purchaseService = {
   async getByUser(userId: string) {
@@ -20,14 +22,22 @@ export const purchaseService = {
         course:courses(
           *,
           instructor:instructors(id, name),
-          curriculum_items(*)
+          curriculum_items(${CURRICULUM_PUBLIC_COLUMNS})
         )
       `)
       .eq('user_id', userId)
       .not('course_id', 'is', null)
       .order('purchased_at', { ascending: false })
     if (error) throw error
-    return data
+    // 영상 주소는 서버 함수로 — 만료 전 구매 강의만 받아진다
+    type Row = { course: { id: number; curriculum_items?: { id: number }[] } | null }
+    const rows = (data ?? []) as unknown as Row[]
+    const courseIds = [...new Set(rows.map((r) => r.course?.id).filter((x): x is number => !!x))]
+    const allItems = rows.flatMap((r) => r.course?.curriculum_items ?? [])
+    const merged = new Map((await withCurriculumVideos(courseIds, allItems)).map((i) => [i.id, i]))
+    return rows.map((r) => (r.course
+      ? { ...r, course: { ...r.course, curriculum_items: (r.course.curriculum_items ?? []).map((i) => merged.get(i.id) ?? i) } }
+      : r)) as typeof data
   },
 
   async getMyEbooks(userId: string) {
@@ -36,7 +46,7 @@ export const purchaseService = {
       .select(`
         *,
         ebook:ebooks(
-          *,
+          ${EBOOK_PUBLIC_COLUMNS},
           instructor:instructors(id, name)
         )
       `)

@@ -49,7 +49,7 @@ interface EbookPurchase {
     id: number
     title: string
     thumbnail_url: string | null
-    file_url: string | null
+    has_file: boolean
     instructor: { id: number; name: string } | null
   } | null
 }
@@ -498,10 +498,10 @@ function MyClassroomPage() {
             </button>
             <button
               onClick={() => navigate(`/my-ebooks/${ebook.id}/read`)}
-              disabled={!ebook.file_url || expired}
+              disabled={!ebook.has_file || expired}
               className="bg-white border border-gray-300 text-gray-700 font-medium px-5 py-2 rounded-lg hover:border-[#2ED573] hover:text-[#2ED573] transition cursor-pointer text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200"
             >
-              {!ebook.file_url ? 'PDF 준비중' : expired ? '열람 기간 만료' : '읽기'}
+              {!ebook.has_file ? 'PDF 준비중' : expired ? '열람 기간 만료' : '읽기'}
             </button>
           </div>
         </div>

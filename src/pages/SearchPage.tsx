@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { EBOOK_PUBLIC_COLUMNS } from '../services/ebookService'
 import type { CourseWithInstructor, Instructor, EbookWithInstructor } from '../types'
 import { htmlToPlainText } from '../utils/richText'
 import { useClosedAccessGuard } from '../hooks/useClosedAccessGuard'
@@ -39,7 +40,7 @@ function SearchPage() {
             .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
             .or(`title.ilike.${keyword},description.ilike.${keyword},search_keywords.ilike.${keyword}`),
           supabase.from('instructors').select('*').or(`name.ilike.${keyword},title.ilike.${keyword},bio.ilike.${keyword}`),
-          supabase.from('ebooks').select('*, instructor:instructors(id, name)').eq('is_published', true).or(`title.ilike.${keyword},search_keywords.ilike.${keyword}`),
+          supabase.from('ebooks').select(`${EBOOK_PUBLIC_COLUMNS}, instructor:instructors(id, name)`).eq('is_published', true).or(`title.ilike.${keyword},search_keywords.ilike.${keyword}`),
         ])
 
         if (cancelled) return

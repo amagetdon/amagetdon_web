@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
+import { EBOOK_PUBLIC_COLUMNS } from '../services/ebookService'
 import { Dialog, Transition } from '@headlessui/react'
 import toast from 'react-hot-toast'
 import { couponService } from '../services/couponService'
@@ -84,7 +85,7 @@ function EbookDetailPage() {
       try {
         const { data, error } = await supabase
           .from('ebooks')
-          .select('*, instructor:instructors(id, name)')
+          .select(`${EBOOK_PUBLIC_COLUMNS}, instructor:instructors(id, name)`)
           .eq('id', Number(id))
           .single()
         if (error) throw error

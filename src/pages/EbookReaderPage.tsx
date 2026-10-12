@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, type CSSProperties } from 're
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
+import { ebookService } from '../services/ebookService'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
@@ -131,9 +132,9 @@ function EbookReaderPage() {
         const [ebookResult, purchaseResult] = await Promise.all([
           supabase
             .from('ebooks')
-            .select('id, title, file_url')
+            .select('id, title')
             .eq('id', ebookId)
-            .single<EbookInfo>(),
+            .single<Omit<EbookInfo, 'file_url'>>(),
           supabase
             .from('purchases')
             .select('id, expires_at')
@@ -164,13 +165,15 @@ function EbookReaderPage() {
           }
         }
 
-        if (!ebookResult.data.file_url) {
+        // PDF 주소는 구매자(만료 전)·관리자에게만 서버 함수로 내려온다
+        const fileUrl = await ebookService.getFileUrl(ebookId)
+        if (!fileUrl) {
           setError('PDF 파일이 아직 등록되지 않았습니다.')
           setLoading(false)
           return
         }
 
-        setEbook(ebookResult.data)
+        setEbook({ ...ebookResult.data, file_url: fileUrl })
       } catch {
         setError('데이터를 불러오는 중 오류가 발생했습니다.')
       } finally {

@@ -94,7 +94,8 @@ export default function AdminEbookDetail() {
     if (!ebookId) return
     setLoading(true)
     try {
-      const data = await ebookService.getById(ebookId)
+      const [base, fileUrl] = await Promise.all([ebookService.getById(ebookId), ebookService.getFileUrl(ebookId)])
+      const data = { ...base, file_url: fileUrl }
       setEbook(data)
       const raw = data as unknown as { landing_image_urls?: string[] | null; landing_image_links?: string[] | null }
       const rawUrls = Array.isArray(raw.landing_image_urls) ? raw.landing_image_urls : []
