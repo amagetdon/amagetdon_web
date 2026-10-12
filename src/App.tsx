@@ -74,6 +74,7 @@ const BoardPostPage = lazy(() => import('./pages/BoardPostPage'))
 const BoardListPage = lazy(() => import('./pages/BoardListPage'))
 const BoardInstructorPage = lazy(() => import('./pages/BoardInstructorPage'))
 
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
 const PaymentFailPage = lazy(() => import('./pages/PaymentFailPage'))
 const BillingSuccessPage = lazy(() => import('./pages/BillingSuccessPage'))
@@ -153,6 +154,21 @@ function ScrollToTop() {
   return null
 }
 
+// 페이지별 canonical — 항상 운영 도메인 + 경로(쿼리 제외). 미리보기 주소에서도 운영 주소를 가리킨다.
+function CanonicalLink() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    let link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'canonical'
+      document.head.appendChild(link)
+    }
+    link.href = 'https://amag-class.com' + (pathname === '/' ? '/' : pathname.replace(/\/+$/, ''))
+  }, [pathname])
+  return null
+}
+
 function DynamicMeta() {
   const biz = useBusinessInfo()
   useEffect(() => {
@@ -177,6 +193,7 @@ function App() {
           <UtmCapture />
           <DynamicMeta />
           <SeoHead />
+          <CanonicalLink />
           <ExternalServicesInjector />
           <PixelInjector />
           <ExternalCodesInjector />
@@ -251,6 +268,7 @@ function App() {
                 <Route path="/admin/pages" element={<AdminRoute><AdminPages /></AdminRoute>} />
                 <Route path="/admin/storage-cleanup" element={<AdminRoute><AdminStorageCleanup /></AdminRoute>} />
                 <Route path="/admin/performance" element={<AdminRoute><AdminPerformance /></AdminRoute>} />
+                <Route path="*" element={<NotFoundPage />} />
               </Routes>
             </Suspense>
           </main>

@@ -1,0 +1,17 @@
+# amag-class.com — 검색엔진·AI 검색 봇 모두 허용, 회원·관리자·결제 경로만 제외
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /mypage
+Disallow: /my-classroom
+Disallow: /my-ebooks/
+Disallow: /login
+Disallow: /signup
+Disallow: /reset-password
+Disallow: /onboarding
+Disallow: /payment/
+Disallow: /board/p/
+Disallow: /search
+Disallow: /u/
+
+Sitemap: https://amag-class.com/sitemap.xml
