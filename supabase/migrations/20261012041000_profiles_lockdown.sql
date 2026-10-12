@@ -49,3 +49,10 @@ $$;
 DROP TRIGGER IF EXISTS profiles_protect_role ON profiles;
 CREATE TRIGGER profiles_protect_role BEFORE INSERT OR UPDATE ON profiles
   FOR EACH ROW EXECUTE FUNCTION protect_profile_role();
+
+-- 4) [핫픽스 2026-10-12] 기존 "admin can update any profile" 정책이 USING 안에서 profiles 를 다시 조회해,
+--    SELECT 정책 변경 후 일반 회원 UPDATE 시 "infinite recursion detected in policy for relation profiles"(42P17) 발생
+--    (온보딩 저장 실패·카카오 정보 자동 채움 실패). is_admin() 로 교체 — 운영 트랜잭션 시뮬레이션으로 일반/관리자 모두 확인.
+DROP POLICY IF EXISTS "admin can update any profile" ON profiles;
+CREATE POLICY "admin can update any profile" ON profiles FOR UPDATE
+  USING ((SELECT is_admin())) WITH CHECK (true);
