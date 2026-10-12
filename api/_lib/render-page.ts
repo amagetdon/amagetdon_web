@@ -510,35 +510,50 @@ function assemble(shell: string, page: Page, s: Settings, path: string): string 
 }
 
 /** 공개 페이지면 채운 HTML 응답, 손대지 않을 경로면 null (호출 쪽에서 next()) */
-export async function renderPage(request: Request): Promise<Response | null> {
-  const url = new URL(request.url)
-  const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, '') : '/'
-  if (PASS_THROUGH.some((r) => r.test(path))) return null
+/** 주소 정리: 끝의 / 제거 (루트는 그대로) */
+export const normalizePath = (p: string) => (p.length > 1 ? p.replace(/\/+$/, '') : '/')
+
+/** 이 주소를 채워서 내보낼지 — false 면 미들웨어가 원래 SPA 를 그대로 보낸다 */
+export function shouldRender(path: string): boolean {
+  if (PASS_THROUGH.some((r) => r.test(path))) return false
   // 확장자가 있는 주소는 실제 파일(PDF 뷰어용 .bcmap·.pfb 등) — 손대지 않는다
-  if (/\.[A-Za-z0-9]+$/.test(path.split('/').pop() || '')) return null
+  if (/\.[A-Za-z0-9]+$/.test(path.split('/').pop() || '')) return false
+  return true
+}
+
+const CACHE_OK = 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400'
+
+/** /api/page 에서 호출 — 채운 HTML. 채울 수 없으면 원래 index.html 그대로(사이트는 항상 뜬다) */
+export async function renderPage(request: Request, rawPath: string): Promise<Response> {
+  const path = normalizePath(rawPath)
+  const settingsP = getSettings()
+  const shellP = getShell(request)
 
   let page: Page | null = null
   let matched = false
-  const settingsP = getSettings()
-  for (const [re, handler] of ROUTES) {
-    const m = path.match(re)
-    if (!m) continue
-    matched = true
-    page = await handler(m, await settingsP)
-    break
+  try {
+    for (const [re, handler] of ROUTES) {
+      const m = path.match(re)
+      if (!m) continue
+      matched = true
+      page = await handler(m, await settingsP)
+      break
+    }
+    if (!matched) page = { status: 404, title: '', description: '', noindex: true } // 앱에 없는 주소 → 진짜 404 (화면은 앱의 404 페이지)
+  } catch {
+    page = null
   }
-  if (matched && !page) return null
-  if (!matched) page = { status: 404, title: '', description: '', noindex: true } // 앱에 없는 주소 → 진짜 404 (화면은 앱의 404 페이지)
 
-  const [shell, settings] = await Promise.all([getShell(request), settingsP])
-  if (!shell) return null
-  const html = assemble(shell, page!, settings, path)
+  const shell = await shellP
+  if (!shell) return new Response('일시적인 오류입니다. 새로고침해 주세요.', { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } })
+  const html = page ? assemble(shell, page, await settingsP, path) : shell
   return new Response(request.method === 'HEAD' ? null : html, {
-    status: page!.status || 200,
+    status: page?.status || 200,
     headers: {
       'content-type': 'text/html; charset=utf-8',
-      'cache-control': 'public, max-age=0, must-revalidate',
-      'x-page-render': 'edge',
+      // CDN 이 5분간 보관(그동안은 즉시 응답), 지난 뒤엔 옛 사본을 주면서 뒤에서 새로 만든다
+      'cache-control': page ? CACHE_OK : 'public, max-age=0, s-maxage=30',
+      'x-page-render': page ? 'edge' : 'fallback',
     },
   })
 }
