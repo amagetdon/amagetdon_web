@@ -9,6 +9,8 @@
 // - 발화 실패는 절대 앱 동작을 막지 않는다 (try-catch 로 무음 처리).
 // - 네이버 전환추적(wcs.trans)도 각 이벤트에서 함께 발화한다 (fireNaver, 개인정보 미전송).
 
+import { stampPurchaseTouch } from './attribution'
+
 type DataLayerObject = Record<string, unknown>
 
 const CURRENCY = 'KRW'
@@ -216,6 +218,8 @@ export function trackFreeEnroll(params: {
 }): void {
   // orderId 가 결정적(free_course_{id}_{userId}) 이라 더블클릭/재트리거 시 1회만 발화.
   if (alreadyFired(`tracked_free_${params.orderId}`)) return
+  // 이번 구매 경로(last touch)를 purchases 행에 기록 — 관리자 수강생/구매자 목록 '유입 경로'
+  stampPurchaseTouch(params.contentId)
   pushToDataLayer({
     event: 'free_enroll_complete',
     content_id: params.contentId,
@@ -297,6 +301,7 @@ export function trackPurchase(params: {
   user?: UserContact
 }): boolean {
   if (alreadyFired(`tracked_purchase_${params.orderId}`)) return false
+  stampPurchaseTouch(params.contentId)
   pushToDataLayer({
     event: 'paid_purchase_complete',
     order_id: params.orderId,

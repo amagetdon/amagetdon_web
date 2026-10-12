@@ -17,6 +17,7 @@ import { reviewService } from '../../services/reviewService'
 import { instructorService } from '../../services/instructorService'
 import { landingCategoryService } from '../../services/landingCategoryService'
 import { refundPolicyTemplateService } from '../../services/refundPolicyTemplateService'
+import { formatTouch, type PurchaseTouch } from '../../lib/attribution'
 import { supabase } from '../../lib/supabase'
 import type { CourseWithCurriculum, Review, Instructor, LandingCategory } from '../../types'
 
@@ -118,6 +119,7 @@ export default function AdminCourseDetail() {
     completion_rate: number
     openchat_opened_at: string | null
     openchat_clicked_at: string | null
+    purchase_touch: PurchaseTouch | null
   }
   const MEMBERS_PER_PAGE = 10
   const [members, setMembers] = useState<MemberRow[]>([])
@@ -132,7 +134,7 @@ export default function AdminCourseDetail() {
       const [purchaseRes, progressRes, itemsRes] = await Promise.all([
         supabase
           .from('purchases')
-          .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, openchat_opened_at, openchat_clicked_at, profile:profiles(id, name, email, phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term, signup_referrer)')
+          .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, openchat_opened_at, openchat_clicked_at, purchase_touch, profile:profiles(id, name, email, phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term, signup_referrer)')
           .eq('course_id', courseId)
           .order('purchased_at', { ascending: false }),
         supabase
@@ -158,6 +160,7 @@ export default function AdminCourseDetail() {
           id: number; purchased_at: string; expires_at: string | null; price: number
           original_price: number | null; payment_method: string | null; user_id: string
           openchat_opened_at: string | null; openchat_clicked_at: string | null
+          purchase_touch: PurchaseTouch | null
           profile: {
             id: string; name: string | null; email: string | null; phone: string | null
             utm_source: string | null; utm_medium: string | null; utm_campaign: string | null
@@ -185,6 +188,7 @@ export default function AdminCourseDetail() {
           completion_rate: totalItems > 0 ? Math.round((completed / totalItems) * 100) : 0,
           openchat_opened_at: purchase.openchat_opened_at,
           openchat_clicked_at: purchase.openchat_clicked_at,
+          purchase_touch: purchase.purchase_touch,
         }
       })
       setMembers(rows)
@@ -222,6 +226,10 @@ export default function AdminCourseDetail() {
         : m.price > 0 ? '포인트'
           : '무료/부여'
 
+  // 유입 경로 — 가입(최초, profiles) vs 이번 구매(마지막, purchases.purchase_touch)
+  const firstTouchLabel = (r: MemberRow) =>
+    formatTouch(r.utm_source ? { source: r.utm_source, medium: r.utm_medium, campaign: r.utm_campaign } : r.signup_referrer ? { source: r.signup_referrer } : null)
+
   // 오픈채팅 진입 상태 — 직접 클릭 > 자동 열림 > 미진입 (카톡방 실제 참여 여부는 알 수 없음)
   const openchatLabel = (m: MemberRow) =>
     m.openchat_clicked_at ? '직접 클릭' : m.openchat_opened_at ? '자동 열림' : '미진입'
@@ -233,7 +241,7 @@ export default function AdminCourseDetail() {
 
   // 수강생 목록 엑셀(CSV) 내보내기 — 검색으로 필터된 결과를 그대로 내보냄
   const exportMembersToExcel = () => {
-    const header = ['이름', '이메일', '전화번호', '결제일', '결제수단', '결제금액', '정가', '진도율(%)', '오픈채팅', '오픈채팅 시각', '수강만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로']
+    const header = ['이름', '이메일', '전화번호', '결제일', '결제수단', '결제금액', '정가', '진도율(%)', '오픈채팅', '오픈채팅 시각', '수강만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로', '구매경로_source', '구매경로_medium', '구매경로_campaign', '구매경로_content', '구매경로_term', '구매경로_유입사이트', '구매경로_랜딩']
     const rows = filteredMembers.map((m) => [
       m.user_name || '',
       m.user_email || '',
@@ -252,6 +260,13 @@ export default function AdminCourseDetail() {
       m.utm_content || '',
       m.utm_term || '',
       m.signup_referrer || '',
+      m.purchase_touch?.source || '',
+      m.purchase_touch?.medium || '',
+      m.purchase_touch?.campaign || '',
+      m.purchase_touch?.content || '',
+      m.purchase_touch?.term || '',
+      m.purchase_touch?.referrer || '',
+      m.purchase_touch?.landing || '',
     ])
 
     // 광고 캠페인 ID 같은 12자리 이상 숫자·앞자리 0 숫자는 엑셀이 지수표기(1.2E+17)로 바꿔 값을 깨뜨리므로 텍스트 수식으로 강제
@@ -1556,6 +1571,7 @@ export default function AdminCourseDetail() {
                       <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">결제수단</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600 max-md:hidden">금액</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600">진도율</th>
+                      <th className="px-4 py-3 text-left font-bold text-gray-600 max-lg:hidden" title="가입: 회원가입 시점 경로(최초) / 구매: 이번 구매 직전 30일 내 마지막 경로">유입 경로</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600" title="구매 직후 안내 링크(오픈채팅) 진입 — 카톡방 실제 참여 여부는 알 수 없음">오픈채팅</th>
                     </tr>
                   </thead>
@@ -1594,6 +1610,10 @@ export default function AdminCourseDetail() {
                             </div>
                             <span className="text-xs text-gray-500 w-9 text-right">{m.completion_rate}%</span>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs max-lg:hidden">
+                          <div className="text-gray-400 truncate max-w-[220px]" title={firstTouchLabel(m)}>가입 · {firstTouchLabel(m) || '-'}</div>
+                          <div className="text-gray-700 truncate max-w-[220px]" title={formatTouch(m.purchase_touch)}>구매 · {formatTouch(m.purchase_touch) || '-'}</div>
                         </td>
                         <td className="px-4 py-3 text-center" title={formatKoDateTime(m.openchat_clicked_at ?? m.openchat_opened_at)}>
                           {m.openchat_clicked_at ? (
