@@ -1,38 +1,51 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 
 // 관리자 강의·전자책 상세의 '통합 대시보드' 탭.
 // 집계는 서버 함수 get_product_dashboard(관리자 전용)가 하고, 여기서는 표시·연결 상품·광고비 입력만 한다.
-//  - 유입 → 가입 → 신청 → 결제 : 상품 페이지 방문 기록(product_visits, 2026-10-13부터)을 회원·구매와 연결
+//  - 유입 → 가입 → 신청 → 결제 : 가입·신청·결제는 전체 기간, 유입(방문)은 product_visits 기록 시작 후부터
 //  - D-14 ~ 당일 : 라이브(진행일) 기준 신청일별 결제율
 //  - 매체별 성별·연령대, 광고비·DB당 단가·결제당 비용·ROAS
 
 type Kind = 'course' | 'ebook'
+type Dim = 'campaign' | 'content' | 'term'
 
-interface ChannelRow {
-  channel: string; applicants: number; payers: number; revenue: number; spend: number
+/** 신청자 행 — 매체 × 캠페인 × 소재 × 세트 */
+interface AppRow {
+  channel: string; campaign: string; content: string; term: string
+  applicants: number; new_signups: number; payers: number; revenue: number
   male: number; female: number; gender_unknown: number; ages: Record<string, number>
 }
-interface FunnelRow { channel: string; visitors: number; signups: number; applicants: number; payers: number }
+/** 방문 행 (10/12~) */
+interface VisitRow { channel: string; campaign: string; content: string; term: string; visitors: number; visit_applicants: number }
 interface DdayRow { label: string; applicants: number; payers: number; revenue: number }
 interface Dashboard {
   product: {
     kind: Kind; id: number; title: string; is_free: boolean; live_at: string | null; linked_default: boolean
     linked_courses: { id: number; title: string }[]; linked_ebooks: { id: number; title: string }[]
   }
-  totals: { applicants: number; payers: number; revenue: number; spend: number }
-  funnel: { since: string | null; visitors: number; members: number; signups: number; applicants: number; payers: number }
-  funnel_by_channel: FunnelRow[]
+  totals: { applicants: number; new_signups: number; payers: number; revenue: number; spend: number }
+  visits: { since: string | null; visitors: number; applicants: number; payers: number }
+  visit_rows: VisitRow[]
+  rows: AppRow[]
+  spend: Record<string, number>
   dday: DdayRow[] | null
-  channels: ChannelRow[]
 }
 interface SpendRow { id: number; channel: string; spend_date: string; amount: number; source: 'manual' | 'meta'; external_id: string | null; note: string | null }
+
+/** 표 한 줄 (매체 또는 그 아래 파라미터 값) */
+interface Agg {
+  key: string; applicants: number; new_signups: number; payers: number; revenue: number
+  male: number; female: number; gender_unknown: number; ages: Record<string, number>
+  visitors: number; visit_applicants: number; spend: number
+}
 
 const CHANNEL_LABEL: Record<string, string> = {
   meta: '메타', naver: '네이버', kakao: '카카오', google: '구글', youtube: '유튜브', dable: '데이블',
   taboola: '타불라', tiktok: '틱톡', karrot: '당근', direct: '직접·미확인', other: '기타',
 }
+const DIM_LABEL: Record<Dim, string> = { campaign: '캠페인', content: '소재(content)', term: '세트(term)' }
 const SPEND_CHANNELS = ['meta', 'kakao', 'naver', 'google', 'youtube', 'dable', 'taboola', 'tiktok', 'karrot', 'other']
 const AGE_ORDER = ['10대', '20대', '30대', '40대', '50대', '60대+', '미상']
 
@@ -46,11 +59,35 @@ const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slic
 const kstDateTime = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
 
+const emptyAgg = (key: string): Agg => ({
+  key, applicants: 0, new_signups: 0, payers: 0, revenue: 0, male: 0, female: 0, gender_unknown: 0, ages: {},
+  visitors: 0, visit_applicants: 0, spend: 0,
+})
+
+/** 신청자 행·방문 행을 keyFn 값별로 합친다 */
+function aggregate(rows: AppRow[], visits: VisitRow[], keyFn: (r: { channel: string; campaign: string; content: string; term: string }) => string) {
+  const m = new Map<string, Agg>()
+  const get = (k: string) => { let a = m.get(k); if (!a) { a = emptyAgg(k); m.set(k, a) } return a }
+  for (const r of rows) {
+    const a = get(keyFn(r))
+    a.applicants += r.applicants; a.new_signups += r.new_signups; a.payers += r.payers; a.revenue += Number(r.revenue)
+    a.male += r.male; a.female += r.female; a.gender_unknown += r.gender_unknown
+    for (const [age, c] of Object.entries(r.ages ?? {})) a.ages[age] = (a.ages[age] ?? 0) + c
+  }
+  for (const v of visits) {
+    const a = get(keyFn(v))
+    a.visitors += v.visitors; a.visit_applicants += v.visit_applicants
+  }
+  return [...m.values()].sort((x, y) => y.applicants - x.applicants || y.visitors - x.visitors)
+}
+
 export default function ProductDashboard({ kind, productId }: { kind: Kind; productId: number }) {
   const [data, setData] = useState<Dashboard | null>(null)
   const [spends, setSpends] = useState<SpendRow[]>([])
   const [loading, setLoading] = useState(true)
   const [linkOpen, setLinkOpen] = useState(false)
+  const [open, setOpen] = useState<Set<string>>(new Set())
+  const [dim, setDim] = useState<Dim>('campaign')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -67,13 +104,82 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
 
   useEffect(() => { load() }, [load])
 
+  // 매체별 합계 (광고비는 매체 단위로만 있음)
+  const channels = useMemo(() => {
+    if (!data) return []
+    const list = aggregate(data.rows ?? [], data.visit_rows ?? [], (r) => r.channel)
+    for (const [ch, s] of Object.entries(data.spend ?? {})) {
+      let a = list.find((x) => x.key === ch)
+      if (!a) { a = emptyAgg(ch); list.push(a) }
+      a.spend = Number(s)
+    }
+    return list
+  }, [data])
+
+  // 펼친 매체의 파라미터별 줄
+  const subRows = useCallback((ch: string) => {
+    if (!data) return []
+    return aggregate(
+      (data.rows ?? []).filter((r) => r.channel === ch),
+      (data.visit_rows ?? []).filter((v) => v.channel === ch),
+      (r) => r[dim],
+    )
+  }, [data, dim])
+
+  const toggle = (ch: string) => setOpen((prev) => { const s = new Set(prev); if (s.has(ch)) s.delete(ch); else s.add(ch); return s })
+
   if (loading && !data) {
     return <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">{[1, 2, 3, 4].map((i) => <div key={i} className="animate-pulse h-16 bg-gray-100 rounded" />)}</div>
   }
   if (!data) return <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-400 text-sm">대시보드 데이터를 불러오지 못했습니다.</div>
 
-  const { product, totals, funnel } = data
+  const { product, totals, visits } = data
   const linked = [...product.linked_courses.map((c) => ({ ...c, k: '강의' })), ...product.linked_ebooks.map((e) => ({ ...e, k: '전자책' }))]
+
+  /** 매체 줄 + 펼친 하위 줄을 그리는 공용 표 */
+  const ChannelTable = ({ headers, cells }: { headers: string[]; cells: (a: Agg, isChannel: boolean) => ReactNode[] }) => (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50"><tr>
+          {headers.map((h, i) => <th key={i} className="px-3 py-2 text-right first:text-left font-bold text-gray-600 whitespace-nowrap">{h}</th>)}
+        </tr></thead>
+        <tbody>
+          {channels.map((c) => {
+            const isOpen = open.has(c.key)
+            return (
+              <Fragment key={c.key}>
+                <tr className="border-t border-gray-100 cursor-pointer hover:bg-gray-50" onClick={() => toggle(c.key)}>
+                  <td className="px-3 py-2 font-medium whitespace-nowrap">
+                    <i className={`ti ${isOpen ? 'ti-chevron-down' : 'ti-chevron-right'} text-xs text-gray-400 mr-1`} />
+                    {label(c.key)}
+                  </td>
+                  {cells(c, true).map((v, i) => <td key={i} className="px-3 py-2 text-right whitespace-nowrap">{v}</td>)}
+                </tr>
+                {isOpen && subRows(c.key).map((s) => (
+                  <tr key={`${c.key}:${s.key}`} className="bg-gray-50/60 text-gray-600">
+                    <td className="pl-8 pr-3 py-1.5 text-xs max-w-[260px] truncate" title={s.key}>{s.key || <span className="text-gray-400">(값 없음)</span>}</td>
+                    {cells(s, false).map((v, i) => <td key={i} className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{v}</td>)}
+                  </tr>
+                ))}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+
+  const DimPicker = () => (
+    <div className="flex items-center gap-1 text-xs">
+      <span className="text-gray-400 mr-1">펼쳐 보기 기준</span>
+      {(Object.keys(DIM_LABEL) as Dim[]).map((d) => (
+        <button key={d} onClick={() => setDim(d)}
+          className={`px-2.5 py-1 rounded-md border-none cursor-pointer ${dim === d ? 'bg-[#2ED573] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+          {DIM_LABEL[d]}
+        </button>
+      ))}
+    </div>
+  )
 
   return (
     <div className="space-y-6">
@@ -124,47 +230,41 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
       <section className="bg-white rounded-xl shadow-sm p-5">
         <div className="flex items-baseline justify-between gap-2 flex-wrap mb-4">
           <h3 className="text-base font-bold text-gray-900">UTM 유입 → 가입 → 신청 → 결제</h3>
-          <p className="text-xs text-gray-400">
-            상품 페이지 방문 기록 기준{funnel.since ? ` · ${kstDateTime(funnel.since)}부터` : ' · 아직 방문 기록 없음 (2026-10-13부터 쌓임)'}
-          </p>
+          <DimPicker />
         </div>
-        <div className="grid grid-cols-4 max-md:grid-cols-2 gap-3 mb-5">
-          {([
-            ['유입(방문자)', funnel.visitors, null],
-            ['가입(방문 후 신규)', funnel.signups, funnel.visitors],
-            ['신청', funnel.applicants, funnel.visitors],
-            ['결제', funnel.payers, funnel.applicants],
-          ] as [string, number, number | null][]).map(([k, v, base]) => (
-            <div key={k} className="rounded-lg bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">{k}</p>
-              <p className="text-xl font-bold text-gray-900">{n(v)}</p>
-              {base !== null && <p className="text-xs text-[#2ED573] font-bold">{pct(v, base)}</p>}
-            </div>
-          ))}
-        </div>
-        {data.funnel_by_channel.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50"><tr>
-                {['매체', '유입', '가입', '가입률', '신청', '신청률', '결제', '결제율(신청 대비)'].map((h) => <th key={h} className="px-3 py-2 text-right first:text-left font-bold text-gray-600 whitespace-nowrap">{h}</th>)}
-              </tr></thead>
-              <tbody>
-                {data.funnel_by_channel.map((r) => (
-                  <tr key={r.channel} className="border-t border-gray-100">
-                    <td className="px-3 py-2 font-medium">{label(r.channel)}</td>
-                    <td className="px-3 py-2 text-right">{n(r.visitors)}</td>
-                    <td className="px-3 py-2 text-right">{n(r.signups)}</td>
-                    <td className="px-3 py-2 text-right text-gray-500">{pct(r.signups, r.visitors)}</td>
-                    <td className="px-3 py-2 text-right">{n(r.applicants)}</td>
-                    <td className="px-3 py-2 text-right text-gray-500">{pct(r.applicants, r.visitors)}</td>
-                    <td className="px-3 py-2 text-right">{n(r.payers)}</td>
-                    <td className="px-3 py-2 text-right text-gray-500">{pct(r.payers, r.applicants)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="grid grid-cols-4 max-md:grid-cols-2 gap-3 mb-2">
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs text-gray-500">유입(방문자)</p>
+            <p className="text-xl font-bold text-gray-900">{n(visits.visitors)}</p>
+            <p className="text-xs text-gray-400">{visits.since ? `${kstDateTime(visits.since)}부터 기록` : '방문 기록 없음'}</p>
           </div>
-        )}
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs text-gray-500">신규 가입</p>
+            <p className="text-xl font-bold text-gray-900">{n(totals.new_signups)}</p>
+            <p className="text-xs text-[#2ED573] font-bold">신청자 중 {pct(totals.new_signups, totals.applicants)}</p>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs text-gray-500">신청</p>
+            <p className="text-xl font-bold text-gray-900">{n(totals.applicants)}</p>
+            <p className="text-xs text-[#2ED573] font-bold">방문 대비 {pct(visits.applicants, visits.visitors)}</p>
+          </div>
+          <div className="rounded-lg bg-gray-50 p-3">
+            <p className="text-xs text-gray-500">결제</p>
+            <p className="text-xl font-bold text-gray-900">{n(totals.payers)}</p>
+            <p className="text-xs text-[#2ED573] font-bold">신청 대비 {pct(totals.payers, totals.applicants)}</p>
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 mb-4">
+          가입·신청·결제는 전체 기간. 신규 가입 = 신청 전 24시간 안에 가입한 회원. 유입과 '방문 대비 신청'은 방문 기록을 시작한 뒤부터만 계산됩니다. 매체 줄을 누르면 {DIM_LABEL[dim]}별로 펼쳐집니다.
+        </p>
+        <ChannelTable
+          headers={['매체', '유입(방문)', '방문→신청', '신규 가입', '신청', '신규 비율', '결제', '결제율']}
+          cells={(a) => [
+            a.visitors ? n(a.visitors) : '-',
+            a.visitors ? pct(a.visit_applicants, a.visitors) : '-',
+            n(a.new_signups), n(a.applicants), pct(a.new_signups, a.applicants), n(a.payers), pct(a.payers, a.applicants),
+          ]}
+        />
       </section>
 
       {/* D-14 ~ 당일 */}
@@ -172,62 +272,43 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
 
       {/* 매체별 성과 */}
       <section className="bg-white rounded-xl shadow-sm p-5">
-        <h3 className="text-base font-bold text-gray-900 mb-1">매체별 광고 성과</h3>
-        <p className="text-xs text-gray-400 mb-4">매체 = 이번 신청 직전 유입 경로(UTM) → 없으면 회원가입 때 경로. 광고비는 아래에서 입력·메타 자동.</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50"><tr>
-              {['매체', '신청(DB)', '결제', '결제율', '매출', '광고비', 'DB당 단가', '결제당 비용', 'ROAS'].map((h) => <th key={h} className="px-3 py-2 text-right first:text-left font-bold text-gray-600 whitespace-nowrap">{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {data.channels.map((r) => (
-                <tr key={r.channel} className="border-t border-gray-100">
-                  <td className="px-3 py-2 font-medium">{label(r.channel)}</td>
-                  <td className="px-3 py-2 text-right">{n(r.applicants)}</td>
-                  <td className="px-3 py-2 text-right">{n(r.payers)}</td>
-                  <td className="px-3 py-2 text-right text-gray-500">{pct(r.payers, r.applicants)}</td>
-                  <td className="px-3 py-2 text-right">{won(r.revenue)}</td>
-                  <td className="px-3 py-2 text-right">{r.spend ? won(r.spend) : '-'}</td>
-                  <td className="px-3 py-2 text-right">{per(r.spend, r.applicants)}</td>
-                  <td className="px-3 py-2 text-right">{per(r.spend, r.payers)}</td>
-                  <td className="px-3 py-2 text-right font-bold">{roas(r.revenue, r.spend)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex items-baseline justify-between gap-2 flex-wrap mb-1">
+          <h3 className="text-base font-bold text-gray-900">매체별 광고 성과</h3>
+          <DimPicker />
         </div>
+        <p className="text-xs text-gray-400 mb-4">매체 = 이번 신청 직전 유입 경로(UTM) → 없으면 회원가입 때 경로. 광고비는 매체 단위(펼친 줄에는 없음).</p>
+        <ChannelTable
+          headers={['매체', '신청(DB)', '결제', '결제율', '매출', '광고비', 'DB당 단가', '결제당 비용', 'ROAS']}
+          cells={(a, isChannel) => [
+            n(a.applicants), n(a.payers), pct(a.payers, a.applicants), won(a.revenue),
+            isChannel && a.spend ? won(a.spend) : '-',
+            isChannel ? per(a.spend, a.applicants) : '-',
+            isChannel ? per(a.spend, a.payers) : '-',
+            isChannel ? <b>{roas(a.revenue, a.spend)}</b> : '-',
+          ]}
+        />
       </section>
 
       {/* 매체별 성별·연령대 */}
       <section className="bg-white rounded-xl shadow-sm p-5">
-        <h3 className="text-base font-bold text-gray-900 mb-4">매체별 성별·연령대 (신청자 기준)</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50"><tr>
-              {['매체', '신청', '남', '여', '미상', ...AGE_ORDER].map((h) => <th key={h} className="px-3 py-2 text-right first:text-left font-bold text-gray-600 whitespace-nowrap">{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {data.channels.filter((r) => r.applicants > 0).map((r) => (
-                <tr key={r.channel} className="border-t border-gray-100">
-                  <td className="px-3 py-2 font-medium">{label(r.channel)}</td>
-                  <td className="px-3 py-2 text-right">{n(r.applicants)}</td>
-                  {[r.male, r.female, r.gender_unknown].map((v, i) => (
-                    <td key={i} className="px-3 py-2 text-right">{n(v)} <span className="text-xs text-gray-400">{pct(v, r.applicants)}</span></td>
-                  ))}
-                  {AGE_ORDER.map((a) => {
-                    const v = r.ages?.[a] ?? 0
-                    const share = r.applicants ? v / r.applicants : 0
-                    return (
-                      <td key={a} className="px-3 py-2 text-right" style={{ background: share ? `rgba(46,213,115,${Math.min(0.08 + share * 0.7, 0.75)})` : undefined }}>
-                        {v ? <>{n(v)} <span className="text-xs text-gray-500">{pct(v, r.applicants)}</span></> : <span className="text-gray-300">-</span>}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="flex items-baseline justify-between gap-2 flex-wrap mb-4">
+          <h3 className="text-base font-bold text-gray-900">매체별 성별·연령대 (신청자 기준)</h3>
+          <DimPicker />
         </div>
+        <ChannelTable
+          headers={['매체', '신청', '남', '여', '미상', ...AGE_ORDER]}
+          cells={(a) => [
+            n(a.applicants),
+            ...[a.male, a.female, a.gender_unknown].map((v) => <>{n(v)} <span className="text-xs text-gray-400">{pct(v, a.applicants)}</span></>),
+            ...AGE_ORDER.map((age) => {
+              const v = a.ages?.[age] ?? 0
+              const share = a.applicants ? v / a.applicants : 0
+              return v
+                ? <span className="inline-block px-1.5 rounded" style={{ background: `rgba(46,213,115,${Math.min(0.08 + share * 0.7, 0.75)})` }}>{n(v)} <span className="text-xs text-gray-500">{pct(v, a.applicants)}</span></span>
+                : <span className="text-gray-300">-</span>
+            }),
+          ]}
+        />
       </section>
 
       <SpendSection kind={kind} productId={productId} rows={spends} onChanged={load} />
