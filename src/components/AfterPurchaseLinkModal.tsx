@@ -54,8 +54,12 @@ export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강�
             intervalRef.current = null
           }
           // 자동 발사 시도. blocker 에 막히면 사용자가 버튼으로 직접 열게 됨.
-          const win = window.open(url, '_blank', 'noopener,noreferrer')
+          // 'noopener' feature 를 주면 성공해도 window.open 이 null 을 반환(HTML 스펙)해 차단으로 오판 →
+          // 오픈채팅 전환(open_chat_join)이 자동 오픈 경로에서 전혀 발화되지 않았음. 반환값으로 차단 여부를
+          // 판별할 수 있도록 feature 없이 열고 opener 를 직접 끊는다(탭내빙 방지는 동일).
+          const win = window.open(url, '_blank')
           if (win) {
+            try { win.opener = null } catch { /* cross-origin 등 무시 */ }
             setOpened(true)
             fireOpenChatJoin()
           }
