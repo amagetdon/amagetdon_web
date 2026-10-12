@@ -147,36 +147,17 @@ export const purchaseService = {
     await grantPurchaseRewardPoints(userId, item.courseId, item.ebookId, title)
   },
 
-  async enrollFree(
-    userId: string,
-    item: { courseId?: number | null; ebookId?: number | null },
-    title: string,
-    durationDays?: number | null,
-    startFrom?: string | null,
-  ): Promise<void> {
-    const owned = await this.checkOwnership(userId, item.courseId, item.ebookId)
-    if (owned) {
-      throw new Error('이미 등록한 상품입니다.')
-    }
-
-    const expiresAt = durationDays
-      ? new Date((startFrom ? new Date(startFrom).getTime() : Date.now()) + durationDays * 86400000).toISOString()
-      : null
-
-    const { error } = await supabase
-      .from('purchases')
-      .insert({
-        user_id: userId,
-        course_id: item.courseId ?? null,
-        ebook_id: item.ebookId ?? null,
-        title,
-        price: 0,
-        expires_at: expiresAt,
-      } as never)
-    if (error) throw error
-
-    await grantPurchaseRewardPoints(userId, item.courseId, item.ebookId, title)
+  // 무료 신청 — 서버 함수 enroll_free 가 DB 값으로 무료 여부·판매 중·모집 기간·정원·보유를 검사하고
+  // 구매 행 생성 + 수강 적립까지 처리한다(브라우저가 purchases·포인트를 직접 바꾸지 않음).
+  // 수강 기간·제목·적립금도 서버가 DB 값으로 정한다.
+  async enrollFree(item: { courseId?: number | null; ebookId?: number | null }): Promise<void> {
+    const kind = item.courseId ? 'course' : item.ebookId ? 'ebook' : null
+    const id = item.courseId ?? item.ebookId
+    if (!kind || !id) throw new Error('잘못된 상품입니다.')
+    const { error } = await supabase.rpc('enroll_free' as never, { p_kind: kind, p_id: id } as never)
+    if (error) throw new Error(error.message || '등록에 실패했습니다.')
   },
+
 }
 
 async function grantPurchaseRewardPoints(userId: string, courseId: number | null | undefined, ebookId: number | null | undefined, title: string) {

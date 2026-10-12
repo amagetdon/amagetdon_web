@@ -360,13 +360,7 @@ function CourseDetailPage() {
     if (!user || !course || !courseId) return
     setPurchasing(true)
     try {
-      await purchaseService.enrollFree(
-        user.id,
-        { courseId },
-        course.title,
-        course.enrollment_deadline ? (course.duration_days || null) : null,
-        course.enrollment_deadline || null,
-      )
+      await purchaseService.enrollFree({ courseId })
       // 관리자 테스트 등록이므로 구매 알림톡 / 예약 발송은 스킵.
       toast.success('관리자 권한으로 강의가 등록되었습니다.')
       setOwned(true)
@@ -404,13 +398,7 @@ function CourseDetailPage() {
     if (!user || !course || !courseId) return
     setPurchasing(true)
     try {
-      await purchaseService.enrollFree(
-        user.id,
-        { courseId },
-        course.title,
-        course.enrollment_deadline ? (course.duration_days || null) : null,
-        course.enrollment_deadline || null,
-      )
+      await purchaseService.enrollFree({ courseId })
       // 무료 구매 알림톡 + D-N 예약 알림톡 큐 적재
       // ('purchase' built-in event 는 legacy 라 호출하지 않음 — purchase_free / course_pre_alert custom event 가 대체)
       // 사전 알림 신청 강의는 동일 흐름이지만 알림톡 코드만 별도(course_pre_alert) 로 분기.
