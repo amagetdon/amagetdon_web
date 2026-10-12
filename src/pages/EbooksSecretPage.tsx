@@ -16,6 +16,7 @@ function EbooksSecretPage() {
 
   return (
     <>
+      <h1 className="sr-only">프리미엄 전자책</h1>
       <HeroSection pageKey="ebooks_secret_hero" />
 
       <section className="w-full bg-black py-14 max-sm:py-10">

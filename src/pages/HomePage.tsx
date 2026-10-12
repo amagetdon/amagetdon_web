@@ -17,6 +17,7 @@ function HomePage() {
 
   return (
     <>
+      <h1 className="sr-only">아마겟돈 클래스 — 실전 강사진의 온라인 강의와 전자책</h1>
       <HomeEbooks ebooks={data.freeEbooks} loading={loading} />
       <CouponBanner />
       <ScheduleCalendar schedules={data.schedules} />

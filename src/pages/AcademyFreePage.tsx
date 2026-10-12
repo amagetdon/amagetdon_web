@@ -27,6 +27,7 @@ function AcademyFreePage() {
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="flex items-center justify-between mb-6">
             <EditableSectionTitle
+              as="h1"
               sectionKey="academy_free_courses"
               config={section}
               className="text-2xl font-bold text-gray-900 min-w-0"
