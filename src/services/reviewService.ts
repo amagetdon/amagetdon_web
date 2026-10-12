@@ -2,6 +2,10 @@ import { supabase } from '../lib/supabase'
 import { getCached, setCache, clearCache } from '../lib/cache'
 import type { Review, ReviewWithCourse } from '../types'
 
+// 후기 공개 컬럼 — 작성자 이메일·전화(email/phone)는 화면에서 쓰지 않으며 DB 에서 조회 권한을 회수했다(개인정보).
+// '*' 로 조회하면 권한 없는 컬럼까지 요청해 실패하므로 반드시 이 목록을 쓴다.
+export const REVIEW_PUBLIC_COLUMNS = 'id, user_id, course_id, instructor_id, author_name, title, content, rating, is_published, created_at, is_low_rating'
+
 export const reviewService = {
   async getAll(options?: { page?: number; perPage?: number; instructorId?: number }) {
     const page = options?.page ?? 1
@@ -11,7 +15,7 @@ export const reviewService = {
 
     let query = supabase
       .from('reviews')
-      .select('*, course:courses(id, title)', { count: 'exact' })
+      .select(`${REVIEW_PUBLIC_COLUMNS}, course:courses(id, title)`, { count: 'exact' })
       .eq('is_published', true)
       // 1~2점(is_low_rating=true) 후기는 후순위로, 그 외에는 최신 날짜순으로 정렬
       .order('is_low_rating', { ascending: true })
@@ -42,7 +46,7 @@ export const reviewService = {
     if (cached) return cached
     const { data, error } = await supabase
       .from('reviews')
-      .select('*, course:courses(id, title)')
+      .select(`${REVIEW_PUBLIC_COLUMNS}, course:courses(id, title)`)
       .eq('is_published', true)
       .gte('rating', 4)
       .order('created_at', { ascending: false })
@@ -57,7 +61,7 @@ export const reviewService = {
 
     const { data, error, count } = await supabase
       .from('reviews')
-      .select('*', { count: 'exact' })
+      .select(REVIEW_PUBLIC_COLUMNS, { count: 'exact' })
       .eq('course_id', courseId)
       .eq('is_published', true)
       // 1~2점(is_low_rating=true) 후기는 후순위로, 그 외에는 최신 날짜순으로 정렬 (/reviews 와 동일)
@@ -85,7 +89,7 @@ export const reviewService = {
   async getByUser(userId: string, courseId: number) {
     const { data, error } = await supabase
       .from('reviews')
-      .select('*')
+      .select(REVIEW_PUBLIC_COLUMNS)
       .eq('user_id', userId)
       .eq('course_id', courseId)
       .limit(1)
@@ -100,7 +104,7 @@ export const reviewService = {
     const { data, error } = await supabase
       .from('reviews')
       .insert(review as never)
-      .select()
+      .select(REVIEW_PUBLIC_COLUMNS)
       .single()
     if (error) throw error
     this.invalidate()
@@ -125,7 +129,7 @@ export const reviewService = {
       .from('reviews')
       .update(updates as never)
       .eq('id', id)
-      .select()
+      .select(REVIEW_PUBLIC_COLUMNS)
       .single()
     if (error) throw error
     this.invalidate()
