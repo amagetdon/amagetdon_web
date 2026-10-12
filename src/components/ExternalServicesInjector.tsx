@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useExternalServices } from '../hooks/useExternalServices'
 
 const MARK_ATTR = 'data-external-service'
@@ -194,6 +195,23 @@ export default function ExternalServicesInjector() {
     if (cts?.enabled && cts.code) injectNaverCts(cts.code.trim())
     else removeByMark('naver-cts')
   }, [settings.NAVER_CTS?.enabled, settings.NAVER_CTS?.code])
+
+  // SPA 라우트 이동 시 네이버 PV 재전송 — 네이버는 전환 페이지마다 PV 로그가 있어야 정상으로 본다.
+  // 첫 진입 PV 는 injectNaverCts 의 onload 가 보내므로 건너뛴다. 이 컴포넌트는 <Routes> 보다 앞에
+  // 렌더되어 effect 가 페이지 컴포넌트(view_product 등 전환)보다 먼저 실행된다.
+  const { pathname } = useLocation()
+  const firstPath = useRef(true)
+  useEffect(() => {
+    if (firstPath.current) {
+      firstPath.current = false
+      return
+    }
+    try {
+      if (window.wcs && window.wcs_do && !window.__naverQ) window.wcs_do()
+    } catch {
+      // 트래킹 실패는 무시
+    }
+  }, [pathname])
 
   useEffect(() => {
     const naver = settings.NAVER_SEARCH_ADVISOR
