@@ -103,13 +103,7 @@ export default function BoardCheckoutModal({ item, onClose, onPurchased }: Board
     if (points < item.price) { toast.error('포인트가 부족합니다.'); return }
     try {
       setPaying('points')
-      await boardService.purchaseWithPoints(
-        user.id,
-        isSub ? { instructorId: item.id } : { postId: item.id },
-        item.title,
-        item.price,
-        item.subMonths,
-      )
+      await boardService.purchaseWithPoints(isSub ? { instructorId: item.id } : { postId: item.id })
       // Purchase — 포인트 결제 완료 (강의/전자책 포인트 결제와 동일 규약)
       trackPurchase({
         orderId: paymentService.generateOrderId() + (isSub ? `_bsub_${item.id}` : `_bpost_${item.id}`),

@@ -70,82 +70,21 @@ export const purchaseService = {
     return (count ?? 0) > 0
   },
 
+  // 포인트 구매 — 서버 함수 purchase_with_points 가 가격(정가·할인 기간)·쿠폰을 DB 값으로 다시 계산하고
+  // 포인트 차감·구매 행·쿠폰 사용 처리·포인트 로그·수강 적립을 한 트랜잭션으로 처리한다.
+  // 반환값의 final_price 가 실제 차감액(화면 계산과 다르면 서버 값이 기준).
   async purchaseWithPoints(
-    userId: string,
     item: { courseId?: number | null; ebookId?: number | null },
-    title: string,
-    price: number,
-    durationDays?: number | null,
     couponId?: number | null,
-    originalPrice?: number | null,
-    startFrom?: string | null,
-  ): Promise<void> {
-    // 1. 현재 포인트 잔액 확인
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('points')
-      .eq('id', userId)
-      .single<{ points: number }>()
-    if (profileError) throw profileError
-    if (!profile || profile.points < price) {
-      throw new Error('포인트가 부족합니다.')
-    }
-
-    // 2. 이미 구매했는지 확인
-    const owned = await this.checkOwnership(userId, item.courseId, item.ebookId)
-    if (owned) {
-      throw new Error('이미 구매한 상품입니다.')
-    }
-
-    const newBalance = profile.points - price
-    const expiresAt = durationDays
-      ? new Date((startFrom ? new Date(startFrom).getTime() : Date.now()) + durationDays * 86400000).toISOString()
-      : null
-
-    // 3. 포인트 차감 (optimistic locking: points 값이 예상과 다르면 실패)
-    const { data: updatedRows, error: deductError } = await supabase
-      .from('profiles')
-      .update({ points: newBalance } as never)
-      .eq('id', userId)
-      .gte('points', price)
-      .select('id')
-    if (deductError) throw new Error('포인트 차감에 실패했습니다.')
-    if (!updatedRows || updatedRows.length === 0) throw new Error('포인트가 부족합니다.')
-
-    try {
-      // 4. purchases 레코드 생성
-      const { error: purchaseError } = await supabase
-        .from('purchases')
-        .insert({
-          user_id: userId,
-          course_id: item.courseId ?? null,
-          ebook_id: item.ebookId ?? null,
-          coupon_id: couponId ?? null,
-          title,
-          original_price: originalPrice ?? price,
-          price,
-          expires_at: expiresAt,
-        } as never)
-      if (purchaseError) throw purchaseError
-
-      // 5. point_logs 기록 (SECURITY DEFINER 함수로 RLS 우회)
-      const { error: logError } = await supabase.rpc('insert_point_log', {
-        p_user_id: userId,
-        p_amount: -price,
-        p_balance: newBalance,
-        p_type: 'use',
-        p_memo: `${title} 구매`,
-      } as never)
-      if (logError) throw logError
-    } catch (err) {
-      // 롤백: 차감한 만큼만 복구 (increment)
-      await supabase.rpc('add_points', { user_id_input: userId, amount_input: price } as never)
-      throw err
-    }
-
-    // 6. 강의 수강 포인트 지급
-    await grantPurchaseRewardPoints(userId, item.courseId, item.ebookId, title)
+  ): Promise<{ final_price: number; price: number; discount: number; balance: number }> {
+    const kind = item.courseId ? 'course' : item.ebookId ? 'ebook' : null
+    const id = item.courseId ?? item.ebookId
+    if (!kind || !id) throw new Error('잘못된 상품입니다.')
+    const { data, error } = await supabase.rpc('purchase_with_points' as never, { p_kind: kind, p_id: id, p_coupon_id: couponId ?? null } as never)
+    if (error) throw new Error(error.message || '구매에 실패했습니다.')
+    return data as unknown as { final_price: number; price: number; discount: number; balance: number }
   },
+
 
   // 무료 신청 — 서버 함수 enroll_free 가 DB 값으로 무료 여부·판매 중·모집 기간·정원·보유를 검사하고
   // 구매 행 생성 + 수강 적립까지 처리한다(브라우저가 purchases·포인트를 직접 바꾸지 않음).
@@ -160,25 +99,3 @@ export const purchaseService = {
 
 }
 
-async function grantPurchaseRewardPoints(userId: string, courseId: number | null | undefined, ebookId: number | null | undefined, title: string) {
-  if (!courseId && !ebookId) return
-  try {
-    const table = courseId ? 'courses' : 'ebooks'
-    const targetId = courseId ?? ebookId!
-    const { data } = await supabase.from(table).select('reward_points').eq('id', targetId).maybeSingle()
-    const reward = (data as { reward_points?: number } | null)?.reward_points ?? 0
-    if (reward > 0) {
-      await supabase.rpc('add_points', { user_id_input: userId, amount_input: reward } as never)
-      const { data: profile } = await supabase.from('profiles').select('points').eq('id', userId).single<{ points: number }>()
-      await supabase.rpc('insert_point_log', {
-        p_user_id: userId,
-        p_amount: reward,
-        p_balance: profile?.points ?? reward,
-        p_type: 'charge',
-        p_memo: `${title} 수강 적립`,
-      } as never)
-    }
-  } catch {
-    // 포인트 지급 실패는 구매 자체를 롤백하지 않음 (로그만 실패해도 구매는 유효)
-  }
-}
