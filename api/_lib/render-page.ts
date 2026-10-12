@@ -440,10 +440,39 @@ const ROUTES: [RegExp, Handler][] = [
     }
   }],
 
-  [/^\/(results|notice|privacy|terms)$/, async (m) => {
-    const h1 = { results: '수강생 성과', notice: '공지사항', privacy: '개인정보처리방침', terms: '이용약관' }[m[1]]!
-    return { title: `${h1} | 아마겟돈 클래스`, description: `아마겟돈 클래스 ${h1}`, h1 }
+  [/^\/results$/, async () => {
+    const rows = ((await q('results?is_published=eq.true&select=title,preview,author_name&order=sort_order.asc,created_at.desc&limit=50')) ?? []) as
+      { title: string | null; preview: string | null; author_name: string | null }[]
+    return {
+      title: '수강생 성과 | 아마겟돈 클래스',
+      description: `아마겟돈 클래스 강사·수강생이 만든 성과 — ${rows.slice(0, 3).map((r) => plain(r.title, 40)).join(' · ')}`,
+      h1: '수강생 성과',
+      body: rows.length
+        ? `<ul>${rows.map((r) => `<li><strong>${esc(plain(r.title, 100))}</strong>${r.preview ? ` — ${esc(plain(r.preview, 150))}` : ''}${r.author_name ? ` (${esc(plain(r.author_name, 40))})` : ''}</li>`).join('')}</ul>`
+        : '',
+      jsonld: [crumbs([['홈', '/'], ['수강생 성과', '/results']])],
+    }
   }],
+
+  [/^\/(privacy|terms)$/, async (m) => {
+    const h1 = m[1] === 'privacy' ? '개인정보처리방침' : '이용약관'
+    const rows = (await q(`site_settings?key=eq.${m[1]}_html&select=value`)) as { value: { html?: string } }[] | null
+    const text = plain(rows?.[0]?.value?.html, 4000)
+    return {
+      title: `${h1} | 아마겟돈 클래스`,
+      description: text ? plain(text, 150) : `아마겟돈 클래스 ${h1}`,
+      h1,
+      body: text ? `<p>${esc(text)}</p>` : '',
+      jsonld: [crumbs([['홈', '/'], [h1, m[0]]])],
+    }
+  }],
+
+  [/^\/notice$/, async () => ({
+    title: '공지사항 | 아마겟돈 클래스',
+    description: '아마겟돈 클래스 공지사항',
+    h1: '공지사항',
+    jsonld: [crumbs([['홈', '/'], ['공지사항', '/notice']])],
+  })],
 ]
 
 // 앱에 있지만 손대지 않는 경로 (회원·관리자·결제·검색) — 원래 SPA 그대로
