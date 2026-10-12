@@ -14,6 +14,7 @@ import { useBusinessInfo } from './hooks/useBusinessInfo'
 import SeoHead from './components/SeoHead'
 import ExternalServicesInjector from './components/ExternalServicesInjector'
 import ExternalCodesInjector from './components/ExternalCodesInjector'
+import PixelInjector from './components/PixelInjector'
 import { captureLastTouch } from './lib/attribution'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
@@ -50,6 +51,7 @@ const AdminFaqs = lazy(() => import('./pages/admin/AdminFaqs'))
 const AdminSiteSettings = lazy(() => import('./pages/admin/AdminSiteSettings'))
 const AdminExternalServices = lazy(() => import('./pages/admin/AdminExternalServices'))
 const AdminExternalServiceDetail = lazy(() => import('./pages/admin/AdminExternalServiceDetail'))
+const AdminPixels = lazy(() => import('./pages/admin/AdminPixels'))
 const AdminCodeSettings = lazy(() => import('./pages/admin/AdminCodeSettings'))
 const AdminCodeSettingsDetail = lazy(() => import('./pages/admin/AdminCodeSettingsDetail'))
 const AdminAnalytics = lazy(() => import('./pages/admin/AdminAnalytics'))
@@ -176,6 +178,7 @@ function App() {
           <DynamicMeta />
           <SeoHead />
           <ExternalServicesInjector />
+          <PixelInjector />
           <ExternalCodesInjector />
           <Header />
           <FadeInProvider />
@@ -236,6 +239,7 @@ function App() {
                 <Route path="/admin/site-settings" element={<AdminRoute><AdminSiteSettings /></AdminRoute>} />
                 <Route path="/admin/external-services" element={<AdminRoute><AdminExternalServices /></AdminRoute>} />
                 <Route path="/admin/external-services/:id" element={<AdminRoute><AdminExternalServiceDetail /></AdminRoute>} />
+                <Route path="/admin/pixels" element={<AdminRoute><AdminPixels /></AdminRoute>} />
                 <Route path="/admin/code-settings" element={<AdminRoute><AdminCodeSettings /></AdminRoute>} />
                 <Route path="/admin/code-settings/registration" element={<AdminRoute><AdminCodeSettingsDetail /></AdminRoute>} />
                 <Route path="/admin/coupons" element={<AdminRoute><AdminCoupons /></AdminRoute>} />

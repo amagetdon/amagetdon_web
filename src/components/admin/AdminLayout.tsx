@@ -48,6 +48,7 @@ const NAV_GROUPS = [
   {
     label: '외부 설정',
     items: [
+      { path: '/admin/pixels', label: '픽셀 관리', icon: 'ti-target-arrow' },
       { path: '/admin/external-services', label: '외부 서비스 설정', icon: 'ti-plug-connected' },
       { path: '/admin/code-settings', label: '외부 코드 설정', icon: 'ti-code' },
     ],

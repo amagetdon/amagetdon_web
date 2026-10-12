@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
 import { useExternalServices } from '../hooks/useExternalServices'
 
 const MARK_ATTR = 'data-external-service'
@@ -13,11 +12,6 @@ declare global {
     Kakao?: { init: (key: string) => void; isInitialized: () => boolean }
     ChannelIO?: ((...args: unknown[]) => void) & { q?: unknown[]; c?: (...args: unknown[]) => void }
     ChannelIOInitialized?: boolean
-    wcs?: { inflow: (domain?: string) => void; trans: (conv: Record<string, unknown>) => void }
-    wcs_add?: Record<string, string>
-    wcs_do?: () => void
-    /** wcslog.js 로드 전에 발화된 네이버 전환 대기열 (tracking.ts 가 push, 로드 시 flush) */
-    __naverQ?: Record<string, unknown>[] | null
   }
 }
 
@@ -40,82 +34,6 @@ function upsertMeta(mark: string, name: string, content: string) {
   meta.setAttribute('content', content)
   meta.setAttribute(MARK_ATTR, mark)
   document.head.appendChild(meta)
-}
-
-function injectScript(mark: string, src: string | null, inline: string | null, parent: 'head' | 'body' = 'head', async = true) {
-  removeByMark(mark)
-  const script = document.createElement('script')
-  if (src) {
-    script.src = src
-    script.async = async
-  }
-  if (inline) script.text = inline
-  script.setAttribute(MARK_ATTR, mark)
-  ;(parent === 'head' ? document.head : document.body).appendChild(script)
-}
-
-function injectGtm(id: string) {
-  removeByMark('gtm-inline')
-  removeByMark('gtm-noscript')
-  const inline = `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${id}');`
-  const script = document.createElement('script')
-  script.text = inline
-  script.setAttribute(MARK_ATTR, 'gtm-inline')
-  document.head.appendChild(script)
-
-  const noscript = document.createElement('noscript')
-  noscript.innerHTML = `<iframe src="https://www.googletagmanager.com/ns.html?id=${id}" height="0" width="0" style="display:none;visibility:hidden"></iframe>`
-  noscript.setAttribute(MARK_ATTR, 'gtm-noscript')
-  document.body.insertBefore(noscript, document.body.firstChild)
-}
-
-function injectGa4(id: string) {
-  removeByMark('ga4-src')
-  removeByMark('ga4-inline')
-  injectScript('ga4-src', `https://www.googletagmanager.com/gtag/js?id=${id}`, null)
-  const inline = `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${id}');`
-  const script = document.createElement('script')
-  script.text = inline
-  script.setAttribute(MARK_ATTR, 'ga4-inline')
-  document.head.appendChild(script)
-  window.dataLayer = window.dataLayer || []
-  window.gtag = window.gtag || function gtag(...args: unknown[]) { (window.dataLayer as unknown[]).push(args) }
-}
-
-function injectMetaPixel(id: string) {
-  removeByMark('meta-pixel')
-  const inline = `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','${id}');fbq('track','PageView');`
-  const script = document.createElement('script')
-  script.text = inline
-  script.setAttribute(MARK_ATTR, 'meta-pixel')
-  document.head.appendChild(script)
-}
-
-// 네이버 전환추적 공통 스크립트 — 공식 가이드의 동기 <script> 대신 비동기 로드 후
-// inflow(서브도메인 간 NA_SA 쿠키 공유) → wcs_do(PV + 쿠키 생성) → 대기 중 전환 flush 순서로 실행.
-// SPA 라 결제 완료 페이지 직접 진입 시 로드 전에 전환이 먼저 호출될 수 있어 대기열을 둔다.
-function injectNaverCts(accountId: string) {
-  removeByMark('naver-cts')
-  window.wcs_add = window.wcs_add || {}
-  window.wcs_add['wa'] = accountId
-  const script = document.createElement('script')
-  script.src = 'https://wcs.naver.net/wcslog.js'
-  script.async = true
-  script.setAttribute(MARK_ATTR, 'naver-cts')
-  script.addEventListener('load', () => {
-    try {
-      if (!window.wcs || !window.wcs_do) return
-      // 1차 도메인만 (www./m. 제거) — 네이버 가이드 요구사항
-      window.wcs.inflow(window.location.hostname.replace(/^(www|m)\./, ''))
-      window.wcs_do()
-      const pending = window.__naverQ || []
-      window.__naverQ = null
-      for (const conv of pending) window.wcs.trans(conv)
-    } catch {
-      // 트래킹 실패는 무시
-    }
-  })
-  document.head.appendChild(script)
 }
 
 function injectChannelTalk(pluginKey: string) {
@@ -163,55 +81,9 @@ function injectKakaoSdk(key: string) {
   document.head.appendChild(script)
 }
 
+// GTM · GA4 · 메타 픽셀 · 네이버 전환추적은 '픽셀 관리'(PixelInjector / lib/pixels)로 이전 — 여기서는 주입하지 않음(중복 방지)
 export default function ExternalServicesInjector() {
   const settings = useExternalServices()
-
-  useEffect(() => {
-    const gtm = settings.GOOGLE_TAG_MANAGER
-    if (gtm?.enabled && gtm.code) injectGtm(gtm.code)
-    else {
-      removeByMark('gtm-inline')
-      removeByMark('gtm-noscript')
-    }
-  }, [settings.GOOGLE_TAG_MANAGER?.enabled, settings.GOOGLE_TAG_MANAGER?.code])
-
-  useEffect(() => {
-    const ga = settings.GOOGLE_ANALYTICS
-    if (ga?.enabled && ga.code) injectGa4(ga.code)
-    else {
-      removeByMark('ga4-src')
-      removeByMark('ga4-inline')
-    }
-  }, [settings.GOOGLE_ANALYTICS?.enabled, settings.GOOGLE_ANALYTICS?.code])
-
-  useEffect(() => {
-    const pixel = settings.META_PIXEL
-    if (pixel?.enabled && pixel.code) injectMetaPixel(pixel.code)
-    else removeByMark('meta-pixel')
-  }, [settings.META_PIXEL?.enabled, settings.META_PIXEL?.code])
-
-  useEffect(() => {
-    const cts = settings.NAVER_CTS
-    if (cts?.enabled && cts.code) injectNaverCts(cts.code.trim())
-    else removeByMark('naver-cts')
-  }, [settings.NAVER_CTS?.enabled, settings.NAVER_CTS?.code])
-
-  // SPA 라우트 이동 시 네이버 PV 재전송 — 네이버는 전환 페이지마다 PV 로그가 있어야 정상으로 본다.
-  // 첫 진입 PV 는 injectNaverCts 의 onload 가 보내므로 건너뛴다. 이 컴포넌트는 <Routes> 보다 앞에
-  // 렌더되어 effect 가 페이지 컴포넌트(view_product 등 전환)보다 먼저 실행된다.
-  const { pathname } = useLocation()
-  const firstPath = useRef(true)
-  useEffect(() => {
-    if (firstPath.current) {
-      firstPath.current = false
-      return
-    }
-    try {
-      if (window.wcs && window.wcs_do && !window.__naverQ) window.wcs_do()
-    } catch {
-      // 트래킹 실패는 무시
-    }
-  }, [pathname])
 
   useEffect(() => {
     const naver = settings.NAVER_SEARCH_ADVISOR
