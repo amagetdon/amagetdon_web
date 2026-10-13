@@ -16,6 +16,7 @@ import { paymentService } from '../services/paymentService'
 import type { EbookWithInstructor, Coupon } from '../types'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
 import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId, ebookCategoryLabel } from '../lib/tracking'
+import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 
 function EbookDetailPage() {
   const { id } = useParams()
@@ -169,12 +170,15 @@ function EbookDetailPage() {
 
   const handlePurchaseClick = () => {
     if (!user) {
+      // 로그인(가입·회원정보 입력 포함)을 마치면 이 전자책으로 돌아와 신청을 이어서 한다 (아래 resume effect)
+      rememberPostLogin('purchase')
       navigate('/login')
       return
     }
 
     if (profile && (!profile.phone || !profile.name || !profile.gender || !profile.birth_date)) {
       toast.error('회원정보를 먼저 입력해주세요.')
+      rememberPostLogin('purchase')
       navigate('/mypage')
       return
     }
@@ -196,6 +200,24 @@ function EbookDetailPage() {
 
     setConfirmOpen(true)
   }
+
+  // 로그인 전에 '신청'을 눌렀던 사람이 돌아오면 이어서 — 무료는 바로 받기, 유료는 결제 확인 창.
+  // 보유 여부는 로그인 직후 반영 전일 수 있어 다시 조회한다.
+  const resumeTriedRef = useRef(false)
+  useEffect(() => {
+    if (resumeTriedRef.current || !user || !profile || !ebook || !ebookId) return
+    resumeTriedRef.current = true
+    if (takePostLoginAction() !== 'purchase') return
+    if (ebook.is_on_sale === false) return
+    if (ebook.close_date && new Date(ebook.close_date).getTime() <= Date.now()) return
+    purchaseService.checkOwnership(user.id, null, ebookId)
+      .then((has) => {
+        if (has) { setOwned(true); toast('이미 받은 전자책입니다.'); return }
+        handlePurchaseClick()
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, profile, ebook, ebookId])
 
   const handleEnrollFree = async () => {
     if (!user || !ebook || !ebookId) return

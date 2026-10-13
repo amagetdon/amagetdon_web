@@ -17,6 +17,7 @@ import ExternalCodesInjector from './components/ExternalCodesInjector'
 import PixelInjector from './components/PixelInjector'
 import { captureLastTouch, logProductVisit } from './lib/attribution'
 import { useChromeHidden } from './lib/chrome'
+import { takeReturnPath } from './lib/postLogin'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
 const InstructorListPage = lazy(() => import('./pages/InstructorListPage'))
@@ -132,23 +133,22 @@ function UtmCapture() {
   return null
 }
 
-// 특정 페이지(게시판 공유글 등)에서 로그인 버튼을 눌러 OAuth(카카오/구글)로 로그인하면
-// 외부 리다이렉트로 라우터 state 가 사라지고 홈(/)으로 돌아온다. sessionStorage 에 저장해둔
-// 복귀 경로를 로그인 완료(user 세팅) 시점에 소비해 원래 글로 돌려보낸다.
-// (이메일 로그인은 LoginPage 가 직접 처리하므로 여기선 /, /login 에서만 동작시켜 충돌을 피한다.)
+// 카카오/구글 로그인·이메일 인증·로그인 링크는 홈(/)으로 돌아온다. 로그인 전에 신청·구매·로그인 버튼을
+// 누른 화면(src/lib/postLogin)이 있으면 그리로 돌려보낸다.
+// - /login 은 LoginPage 가 직접 처리한다(여기서도 움직이면 LoginPage 의 이동과 겹쳐 홈으로 튕기던 원인).
+// - 회원정보가 비어 있으면 AuthContext 가 /mypage → /onboarding 으로 보내고, 온보딩 완료 후 OnboardingPage 가 복귀시킨다.
 function PostLoginRedirect() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   useEffect(() => {
-    if (!user) return
-    if (pathname !== '/' && pathname !== '/login') return
-    const target = sessionStorage.getItem('postLoginRedirect')
-    if (target && target !== pathname) {
-      sessionStorage.removeItem('postLoginRedirect')
-      navigate(target, { replace: true })
-    }
-  }, [user, pathname, navigate])
+    if (!user || !profile || pathname !== '/') return
+    const isGuest = profile.provider === 'guest'
+    const isIncomplete = !profile.name || !profile.phone || !profile.gender || !profile.birth_date
+    if (isIncomplete && !isGuest) return
+    const target = takeReturnPath()
+    if (target && target !== pathname) navigate(target, { replace: true })
+  }, [user, profile, pathname, navigate])
   return null
 }
 

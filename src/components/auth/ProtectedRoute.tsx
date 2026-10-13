@@ -1,5 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { rememberPostLogin } from '../../lib/postLogin'
 
 export default function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth()
@@ -14,6 +15,8 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   }
 
   if (!user) {
+    // 카카오/구글 로그인은 외부를 거쳐 라우터 state 가 사라지므로 복귀 경로를 따로 기억
+    rememberPostLogin(undefined, location.pathname + location.search)
     return <Navigate to="/login" state={{ from: location }} replace />
   }
 

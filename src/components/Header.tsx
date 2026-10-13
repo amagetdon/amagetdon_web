@@ -5,6 +5,7 @@ import { authService } from '../services/authService'
 import { useBusinessInfo } from '../hooks/useBusinessInfo'
 import { usePublishedLandingCategories } from '../hooks/useLandingCategories'
 import { useNavVisibility, type NavVisibility } from '../hooks/useNavVisibility'
+import { rememberPostLogin } from '../lib/postLogin'
 function Header() {
   const biz = useBusinessInfo()
   const location = useLocation()
@@ -106,7 +107,7 @@ function Header() {
               </button>
             </div>
           ) : (
-            <Link to="/login" className="no-underline max-md:hidden">
+            <Link to="/login" onClick={() => rememberPostLogin()} className="no-underline max-md:hidden">
               <span className="text-sm text-gray-900 cursor-pointer">로그인/회원가입</span>
             </Link>
           )}
@@ -183,7 +184,7 @@ function Header() {
                 </button>
               </>
             ) : (
-              <Link to="/login" onClick={() => setIsMenuOpen(false)} className="block text-center text-sm font-bold text-white bg-[#2ED573] no-underline py-2.5 rounded-lg">
+              <Link to="/login" onClick={() => { setIsMenuOpen(false); rememberPostLogin() }} className="block text-center text-sm font-bold text-white bg-[#2ED573] no-underline py-2.5 rounded-lg">
                 로그인 / 회원가입
               </Link>
             )}
