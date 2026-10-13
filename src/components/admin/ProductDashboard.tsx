@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 
@@ -26,7 +26,11 @@ interface Dashboard {
     linked_courses: { id: number; title: string }[]; linked_ebooks: { id: number; title: string }[]
   }
   totals: { applicants: number; new_signups: number; payers: number; revenue: number; spend: number }
-  visits: { since: string | null; visitors: number; applicants: number; payers: number }
+  visits: {
+    since: string | null; visitors: number; applicants: number; payers: number
+    // Umami 로 채운 과거 방문 (자체 기록 시작 전)
+    history_visitors: number; history_imported_at: string | null; history_cutoff: string | null
+  }
   visit_rows: VisitRow[]
   rows: AppRow[]
   spend: Record<string, number>
@@ -88,6 +92,8 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
   const [linkOpen, setLinkOpen] = useState(false)
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [dim, setDim] = useState<Dim>('campaign')
+  const [importing, setImporting] = useState(false)
+  const autoImported = useRef(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -103,6 +109,33 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
   }, [kind, productId])
 
   useEffect(() => { load() }, [load])
+
+  // 과거 방문(Umami) 가져오기 — 아직 한 번도 안 가져왔으면 대시보드를 열 때 자동으로 1회
+  const importHistory = useCallback(async (silent = false) => {
+    setImporting(true)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const res = await fetch('/api/umami-import', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${session?.access_token ?? ''}` },
+        body: JSON.stringify({ kind, product_id: productId }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`)
+      if (!silent) toast.success(`과거 방문 ${Number(body.visitors ?? 0).toLocaleString('ko-KR')}명을 Umami 에서 가져왔습니다.`)
+      await load()
+    } catch (e) {
+      toast.error(`과거 방문 가져오기 실패: ${(e as Error).message}`)
+    } finally {
+      setImporting(false)
+    }
+  }, [kind, productId, load])
+
+  useEffect(() => {
+    if (!data || autoImported.current || data.visits?.history_imported_at) return
+    autoImported.current = true
+    importHistory(true)
+  }, [data, importHistory])
 
   // 매체별 합계 (광고비는 매체 단위로만 있음)
   const channels = useMemo(() => {
@@ -134,6 +167,11 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
   if (!data) return <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-400 text-sm">대시보드 데이터를 불러오지 못했습니다.</div>
 
   const { product, totals, visits } = data
+  const hasHistory = !!visits.history_imported_at
+  const allVisitors = visits.visitors + (visits.history_visitors ?? 0)
+  // 과거 방문은 회원과 연결할 수 없어 '방문→신청' 을 신청 수 ÷ 방문자 수로 본다 (과거를 안 가져왔으면 자체 기록끼리만)
+  const visitRate = (a: { applicants: number; visit_applicants: number; visitors: number }) =>
+    a.visitors ? (hasHistory ? pct(a.applicants, a.visitors) : pct(a.visit_applicants, a.visitors)) : '-'
   const linked = [...product.linked_courses.map((c) => ({ ...c, k: '강의' })), ...product.linked_ebooks.map((e) => ({ ...e, k: '전자책' }))]
 
   /** 매체 줄 + 펼친 하위 줄을 그리는 공용 표 */
@@ -235,8 +273,12 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
         <div className="grid grid-cols-4 max-md:grid-cols-2 gap-3 mb-2">
           <div className="rounded-lg bg-gray-50 p-3">
             <p className="text-xs text-gray-500">유입 (이 페이지 방문자)</p>
-            <p className="text-xl font-bold text-gray-900">{n(visits.visitors)}</p>
-            <p className="text-xs text-gray-400">{visits.since ? `${kstDateTime(visits.since)}부터 · 브라우저 1개 = 1명` : '방문 기록 없음'}</p>
+            <p className="text-xl font-bold text-gray-900">{n(allVisitors)}</p>
+            <p className="text-xs text-gray-400">
+              {importing ? 'Umami 에서 과거 방문 가져오는 중…'
+                : hasHistory ? <>과거 {n(visits.history_visitors)} (Umami) + 최근 {n(visits.visitors)} (자체 기록) <button onClick={() => importHistory()} className="ml-1 underline bg-transparent border-none p-0 text-gray-400 cursor-pointer text-xs">다시 가져오기</button></>
+                : visits.since ? `${kstDateTime(visits.since)}부터 · 브라우저 1개 = 1명` : '방문 기록 없음'}
+            </p>
           </div>
           <div className="rounded-lg bg-gray-50 p-3">
             <p className="text-xs text-gray-500">신규 가입</p>
@@ -246,7 +288,7 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
           <div className="rounded-lg bg-gray-50 p-3">
             <p className="text-xs text-gray-500">신청</p>
             <p className="text-xl font-bold text-gray-900">{n(totals.applicants)}</p>
-            <p className="text-xs text-[#2ED573] font-bold">방문 대비 {pct(visits.applicants, visits.visitors)}</p>
+            <p className="text-xs text-[#2ED573] font-bold">방문 대비 {hasHistory ? pct(totals.applicants, allVisitors) : pct(visits.applicants, visits.visitors)}</p>
           </div>
           <div className="rounded-lg bg-gray-50 p-3">
             <p className="text-xs text-gray-500">결제</p>
@@ -255,13 +297,13 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
           </div>
         </div>
         <p className="text-xs text-gray-400 mb-4">
-          가입·신청·결제는 전체 기간. 신규 가입 = 신청 전 24시간 안에 가입한 회원. 유입 = 이 상품 상세 페이지를 연 브라우저 수(사이트 전체 방문 아님, 기록 시작 후부터). 방문→신청 = 그 방문 이후에 신청한 비율(이미 신청한 사람의 재방문은 제외). 매체 줄을 누르면 {DIM_LABEL[dim]}별로 펼쳐집니다.
+          가입·신청·결제는 전체 기간. 신규 가입 = 신청 전 24시간 안에 가입한 회원. 유입 = 이 상품 상세 페이지를 연 사람 수(사이트 전체 방문 아님). 10/12 밤 이전은 Umami, 이후는 자체 기록. 방문→신청 = 신청 수 ÷ 방문자 수(과거 방문은 회원과 연결할 수 없어 근사치). 매체 줄을 누르면 {DIM_LABEL[dim]}별로 펼쳐집니다.
         </p>
         <ChannelTable
           headers={['매체', '페이지 방문', '방문→신청', '신규 가입', '신청', '신규 비율', '결제', '결제율']}
           cells={(a) => [
             a.visitors ? n(a.visitors) : '-',
-            a.visitors ? pct(a.visit_applicants, a.visitors) : '-',
+            visitRate(a),
             n(a.new_signups), n(a.applicants), pct(a.new_signups, a.applicants), n(a.payers), pct(a.payers, a.applicants),
           ]}
         />
