@@ -7,6 +7,8 @@ import { TableKit } from '@tiptap/extension-table'
 import { TextAlign } from '@tiptap/extension-text-align'
 import { ResizableImage } from './tiptap-resizable-image'
 import { LetterSpacing } from './tiptap-letter-spacing'
+import { BlogBlock, type BlogBlockEditDetail } from './tiptap-blog-block'
+import BlogBlockDialog, { type BlogBlockKind } from './BlogBlockDialog'
 import { textToHtml } from '../../utils/richText'
 import { storageService } from '../../services/storageService'
 import toast from 'react-hot-toast'
@@ -28,6 +30,8 @@ interface Props {
   toolbarPortalTarget?: HTMLElement | null
   /** 이미지 업로드 옵션 — 미지정 시 기본값(banners 버킷, rich-text 경로) 사용 */
   imageUpload?: { bucket?: string; basePath?: string }
+  /** 블로그형 게시판 블록(인용구·구분선·사진·슬라이드·링크 카드·태그) 사용 — 게시판 글 전용 */
+  blogBlocks?: boolean
 }
 
 const DEFAULT_FONT_SIZES = ['12px', '13px', '14px', '15px', '16px', '18px', '20px', '24px']
@@ -35,7 +39,7 @@ const BANNER_FONT_SIZES = ['16px', '20px', '24px', '28px', '32px', '36px', '40px
 const LINE_HEIGHTS = ['0', '0.5', '1', '1.5', '2', '3', '4']
 const LETTER_SPACINGS = ['-1px', '-0.5px', '0', '0.5px', '1px', '2px']
 
-export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, preset = 'default', fontSizes, seamless = false, editorBackground, toolbarPortalTarget, imageUpload }: Props) {
+export default function RichTextEditor({ value, onChange, placeholder, minHeight = 280, preset = 'default', fontSizes, seamless = false, editorBackground, toolbarPortalTarget, imageUpload, blogBlocks = false }: Props) {
   const FONT_SIZES = fontSizes ?? (preset === 'banner' ? BANNER_FONT_SIZES : DEFAULT_FONT_SIZES)
   const editorBaseClass = preset === 'banner'
     ? 'tiptap-content tiptap-banner outline-none px-4 py-3 leading-tight'
@@ -50,6 +54,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
   const bgColorInputRef = useRef<HTMLInputElement>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [imageUploading, setImageUploading] = useState(false)
+  const [blockDialog, setBlockDialog] = useState<{ kind: BlogBlockKind; pos: number | null; html: string | null } | null>(null)
 
   const editor = useEditor({
     extensions: [
@@ -76,6 +81,7 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
         allowBase64: false,
         HTMLAttributes: { class: 'rte-image' },
       }),
+      ...(blogBlocks ? [BlogBlock] : []),
     ],
     content: textToHtml(value),
     editorProps: {
@@ -99,6 +105,43 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
       editor.commands.setContent(textToHtml(value), { emitUpdate: false })
     }
   }, [value, editor, htmlMode])
+
+  // 블로그 블록 더블클릭 → 편집 창
+  useEffect(() => {
+    if (!editor || !blogBlocks) return
+    const dom = editor.view.dom
+    const onEdit = (e: Event) => {
+      const { pos, html } = (e as CustomEvent<BlogBlockEditDetail>).detail
+      setBlockDialog({ kind: 'raw', pos, html })
+    }
+    dom.addEventListener('blog-block-edit', onEdit)
+    return () => dom.removeEventListener('blog-block-edit', onEdit)
+  }, [editor, blogBlocks])
+
+  const blockUpload = (file: File) =>
+    storageService.uploadImage(imageUpload?.bucket ?? 'banners', imageUpload?.basePath ?? 'rich-text', file, { compress: false })
+
+  const saveBlock = (html: string) => {
+    if (!editor || !blockDialog) return
+    if (blockDialog.pos == null) {
+      editor.chain().focus().insertBlogBlock(html).run()
+    } else {
+      const pos = blockDialog.pos
+      editor.chain().command(({ tr }) => { tr.setNodeMarkup(pos, undefined, { html }); return true }).run()
+    }
+    setBlockDialog(null)
+  }
+
+  const deleteBlock = () => {
+    if (!editor || blockDialog?.pos == null) return
+    const pos = blockDialog.pos
+    editor.chain().command(({ tr }) => {
+      const node = tr.doc.nodeAt(pos)
+      if (node) tr.delete(pos, pos + node.nodeSize)
+      return true
+    }).run()
+    setBlockDialog(null)
+  }
 
   const enterHtmlMode = () => {
     if (editor) {
@@ -430,6 +473,21 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
           <i className="ti ti-arrow-forward-up" />
         </button>
 
+        {blogBlocks && (
+          <>
+            <span className="w-px h-5 bg-gray-200 mx-1" />
+            {([
+              ['quote', 'ti-quote', '인용구'], ['hr', 'ti-separator', '구분선'], ['image', 'ti-photo', '사진(설명·링크)'],
+              ['gallery', 'ti-layout-columns', '사진 여러 장(슬라이드·나란히)'], ['link', 'ti-link', '링크 카드'], ['tags', 'ti-hash', '태그'],
+            ] as [BlogBlockKind, string, string][]).map(([k, icon, t]) => (
+              <button key={k} type="button" disabled={htmlMode} onClick={() => setBlockDialog({ kind: k, pos: null, html: null })}
+                className={`${btnBase} ${btnIdle} disabled:opacity-30`} title={t}>
+                <i className={`ti ${icon}`} />
+              </button>
+            ))}
+          </>
+        )}
+
         {/* HTML 모드 토글 (오른쪽 정렬) */}
         <div className="ml-auto">
           <button
@@ -475,6 +533,17 @@ export default function RichTextEditor({ value, onChange, placeholder, minHeight
           )}
           <EditorContent editor={editor} />
         </div>
+      )}
+
+      {blockDialog && (
+        <BlogBlockDialog
+          html={blockDialog.html}
+          kind={blockDialog.kind}
+          onSave={saveBlock}
+          onDelete={blockDialog.pos != null ? deleteBlock : undefined}
+          onClose={() => setBlockDialog(null)}
+          uploadImage={blockUpload}
+        />
       )}
     </div>
   )
