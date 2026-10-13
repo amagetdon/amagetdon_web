@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import Turnstile from '../components/Turnstile'
 import TypeformQuestion, { TYPEFORM_SCALE_IN } from '../components/auth/TypeformQuestion'
+import { takeReturnPath } from '../lib/postLogin'
 
 declare global {
   interface Window {
@@ -108,10 +109,10 @@ function SignUpPage() {
   const [captchaToken, setCaptchaToken] = useState('')
   const inputRef = useRef<HTMLInputElement | HTMLSelectElement | null>(null)
 
-  // 이미 로그인된 사용자는 회원가입 불필요
+  // 이미 로그인된 사용자는 회원가입 불필요 — 신청하려던 화면이 있으면 그리로
   useEffect(() => {
     if (!authLoading && user) {
-      navigate('/', { replace: true })
+      navigate(takeReturnPath() ?? '/', { replace: true })
     }
   }, [authLoading, user, navigate])
 

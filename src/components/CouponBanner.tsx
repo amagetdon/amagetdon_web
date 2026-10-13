@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { couponService } from '../services/couponService'
 import toast from 'react-hot-toast'
 import { imgUrl } from '../lib/image'
+import { rememberPostLogin } from '../lib/postLogin'
 import type { Coupon } from '../types'
 
 function CouponBanner() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [claimedIds, setClaimedIds] = useState<Set<number>>(new Set())
   const [claiming, setClaiming] = useState<number | null>(null)
@@ -22,7 +25,10 @@ function CouponBanner() {
 
   const handleClaim = async (coupon: Coupon) => {
     if (!user) {
+      // 로그인 후 이 화면으로 돌아와 쿠폰을 다시 받을 수 있게
       toast.error('로그인 후 쿠폰을 받을 수 있습니다.')
+      rememberPostLogin()
+      navigate('/login')
       return
     }
     if (claimedIds.has(coupon.id)) {

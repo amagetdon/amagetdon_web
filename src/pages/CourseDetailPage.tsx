@@ -25,6 +25,7 @@ import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAcc
 import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, trackOpenChatJoin, buildContentId, courseCategoryLabel } from '../lib/tracking'
 import { logOpenChat } from '../lib/openchatLog'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
+import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 
 function CourseDetailPage() {
   const { id } = useParams()
@@ -327,9 +328,8 @@ function CourseDetailPage() {
         openExternalBrowser()
         return
       }
-      // 로그인 후 다시 이 강의로 돌아오도록 복귀 경로 저장.
-      // 이메일 로그인은 LoginPage 가, OAuth(카카오/구글)는 App 의 PostLoginRedirect 가 소비한다.
-      sessionStorage.setItem('postLoginRedirect', window.location.pathname + window.location.search)
+      // 로그인(가입·회원정보 입력 포함)을 마치면 이 강의로 돌아와 신청을 이어서 한다 (아래 resume effect)
+      rememberPostLogin('purchase')
       navigate('/login')
       return
     }
@@ -338,6 +338,7 @@ function CourseDetailPage() {
     const isGuest = profile?.provider === 'guest'
     if (!isGuest && profile && (!profile.phone || !profile.name || !profile.gender || !profile.birth_date)) {
       toast.error('회원정보를 먼저 입력해주세요.')
+      rememberPostLogin('purchase')
       navigate('/mypage')
       return
     }
@@ -392,6 +393,29 @@ function CourseDetailPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingAutoPurchase, user, isFree, isPreAlert, owned])
+
+  // 로그인 전에 '신청'을 눌렀던 사람이 로그인(가입·회원정보 입력 포함)을 마치고 돌아오면 그 신청을 이어서 한다.
+  // 무료·사전 알림은 바로 신청 완료, 유료는 결제 확인 창까지 띄운다. 보유 여부는 화면 상태와 별개로 다시 조회한다
+  // (로그인 직후엔 보유 확인이 아직 반영 전일 수 있어 중복 신청을 막기 위함).
+  const resumeTriedRef = useRef(false)
+  useEffect(() => {
+    // 랜딩 카테고리 확정 후 실행 — 무료 신청 전환(Lead)에 subcategory 가 빠지지 않게
+    if (resumeTriedRef.current || !user || !profile || !course || !courseId || !enrollmentQ.isFetched || landingInfo.resolvedFor !== course.id) return
+    resumeTriedRef.current = true
+    if (takePostLoginAction() !== 'purchase') return
+    const nowMs = Date.now()
+    const closed = isClosed || (!!course.enrollment_deadline && new Date(course.enrollment_deadline).getTime() <= nowMs)
+    const full = course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments
+    const notOpen = course.course_type !== 'pre_alert' && !!course.enrollment_start && new Date(course.enrollment_start).getTime() > nowMs
+    if (course.is_on_sale === false || closed || full || notOpen) return
+    purchaseService.checkOwnership(user.id, courseId)
+      .then((has) => {
+        if (has) { setOwned(true); toast('이미 신청한 강의입니다.'); return }
+        handlePurchaseClick()
+      })
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, profile, course, courseId, enrollmentQ.isFetched, landingInfo])
 
 
   const handleEnrollFree = async () => {

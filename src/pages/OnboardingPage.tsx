@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { profileService } from '../services/profileService'
+import { takeReturnPath } from '../lib/postLogin'
 import TypeformQuestion, { TYPEFORM_SCALE_IN } from '../components/auth/TypeformQuestion'
 
 declare global {
@@ -119,15 +120,16 @@ function OnboardingPage() {
   }, [stepIndex])
 
   // 미로그인 또는 정보가 이미 모두 있는 경우 진입 차단
+  const finishingRef = useRef(false)
   useEffect(() => {
-    if (authLoading) return
+    if (authLoading || finishingRef.current) return
     if (!user) {
       navigate('/login', { replace: true })
       return
     }
     const isComplete = !!profile?.name && !!profile?.phone && !!profile?.gender && !!profile?.birth_date
     if (isComplete && !isGuest) {
-      navigate('/my-classroom', { replace: true })
+      navigate(takeReturnPath() ?? '/my-classroom', { replace: true })
     }
   }, [authLoading, user, profile, isGuest, navigate])
 
@@ -205,12 +207,17 @@ function OnboardingPage() {
         }
       }
 
+      // 저장 직후 프로필이 '완성'으로 바뀌어도 아래 진입 차단 effect 가 먼저 이동시키지 않게(완료 화면 → 복귀 순서 유지)
+      finishingRef.current = true
       await refreshProfile()
       setDone(true)
+      // 로그인 전에 신청하려던 강의·전자책 등이 있으면 그 화면으로(거기서 신청을 이어서 실행), 없으면 내 강의실
+      const returnPath = takeReturnPath()
       window.setTimeout(() => {
-        navigate('/my-classroom', { replace: true })
+        navigate(returnPath ?? '/my-classroom', { replace: true })
       }, 900)
     } catch (err) {
+      finishingRef.current = false
       const msg = err instanceof Error ? err.message : '저장에 실패했습니다. 잠시 후 다시 시도해주세요.'
       setError(msg)
     } finally {

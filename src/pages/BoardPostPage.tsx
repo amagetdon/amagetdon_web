@@ -8,6 +8,7 @@ import BoardCheckoutModal, { type BoardCheckoutItem } from '../components/BoardC
 import { membershipPriceLabel } from '../components/BoardNewsletterBits'
 import BlogPostView from '../components/blog/BlogPostView'
 import { setChromeHidden } from '../lib/chrome'
+import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 import type { BoardInstructor, BoardPostPublic } from '../types'
 
 // 뉴스레터 글 열람 페이지. 두 경로에서 재사용:
@@ -15,6 +16,22 @@ import type { BoardInstructor, BoardPostPublic } from '../types'
 //   /board/:id      — 공개 목록(/board)에서 진입 (is_listed 글만, id 는 난독화 해시)
 // 잠금 판정(is_locked)과 본문 자르기는 서버 RPC 가 수행 — 클라이언트는 표시만 담당한다.
 // 유료 글은 단건 구매(영구) 또는 강사 구독(기간제)으로 열람 — 결제는 BoardCheckoutModal.
+// 글 단건 구매 / 강사 뉴스레터 구독 결제 창에 넘길 항목 (구독 정보가 없으면 null)
+function checkoutItemFor(post: BoardPostPublic, kind: 'post' | 'subscription'): BoardCheckoutItem | null {
+  if (kind === 'post') {
+    return { kind: 'post', id: post.id, title: post.title, price: post.post_price, instructorName: post.instructor_name }
+  }
+  if (!post.instructor_id || !post.sub_price) return null
+  return {
+    kind: 'subscription',
+    id: post.instructor_id,
+    title: `${post.instructor_name ?? '강사'} 뉴스레터 구독`,
+    price: post.sub_price,
+    subMonths: post.sub_months,
+    instructorName: post.instructor_name,
+  }
+}
+
 export default function BoardPostPage() {
   const { token, id } = useParams<{ token?: string; id?: string }>()
   const location = useLocation()
@@ -109,6 +126,21 @@ export default function BoardPostPage() {
     return () => ro.disconnect()
   }, [teaser, post])
 
+  // 로그인 전에 '구매/구독'을 눌렀던 사람이 로그인을 마치고 돌아오면 결제 창을 바로 띄운다
+  // (이미 열람 가능·구독 중이면 띄우지 않음).
+  useEffect(() => {
+    if (status !== 'ok' || !post || !user) return
+    const action = takePostLoginAction(location.pathname)
+    // 저장소(localStorage)에 남은 '이어서 할 일'을 한 번 소비해 결제 창을 여는 것이라 effect 안 setState 가 맞다
+    /* eslint-disable react-hooks/set-state-in-effect */
+    if (action === 'checkout_post' && post.is_locked && post.post_price > 0) {
+      setCheckout(checkoutItemFor(post, 'post'))
+    } else if (action === 'checkout_subscription' && !post.is_subscribed) {
+      setCheckout(checkoutItemFor(post, 'subscription'))
+    }
+    /* eslint-enable react-hooks/set-state-in-effect */
+  }, [status, post, user, location.pathname])
+
   if (status === 'loading' || authLoading) {
     return (
       <section className="w-full bg-white min-h-[60vh] flex items-center justify-center">
@@ -139,25 +171,16 @@ export default function BoardPostPage() {
   const buttonText = post.cta_button_text?.trim() || BOARD_CTA_DEFAULTS.buttonText
   const subLabel = post.sub_price ? membershipPriceLabel(post.sub_price, post.sub_months) : null
 
-  const goLogin = () => {
-    sessionStorage.setItem('postLoginRedirect', location.pathname)
+  // 로그인 후 이 글로 돌아오게 기억 — 구매/구독 버튼에서 왔으면 돌아와서 결제 창까지 이어서 띄운다
+  const goLogin = (kind?: 'post' | 'subscription') => {
+    rememberPostLogin(kind === 'post' ? 'checkout_post' : kind === 'subscription' ? 'checkout_subscription' : undefined)
     navigate('/login', { state: { from: { pathname: location.pathname } } })
   }
 
   const openCheckout = (kind: 'post' | 'subscription') => {
-    if (!user) { goLogin(); return }
-    if (kind === 'post') {
-      setCheckout({ kind: 'post', id: post.id, title: post.title, price: post.post_price, instructorName: post.instructor_name })
-    } else if (post.instructor_id && post.sub_price) {
-      setCheckout({
-        kind: 'subscription',
-        id: post.instructor_id,
-        title: `${post.instructor_name ?? '강사'} 뉴스레터 구독`,
-        price: post.sub_price,
-        subMonths: post.sub_months,
-        instructorName: post.instructor_name,
-      })
-    }
+    if (!user) { goLogin(kind); return }
+    const item = checkoutItemFor(post, kind)
+    if (item) setCheckout(item)
   }
 
   // 기본 스킨 — 기존 뉴스레터 화면
@@ -259,7 +282,7 @@ export default function BoardPostPage() {
                   {!user && (
                     <p className="text-xs text-gray-400 mt-2">
                       이미 구매하셨나요?{' '}
-                      <button onClick={goLogin} className="text-[#2ED573] font-semibold bg-transparent border-none cursor-pointer p-0 hover:underline">
+                      <button onClick={() => goLogin()} className="text-[#2ED573] font-semibold bg-transparent border-none cursor-pointer p-0 hover:underline">
                         로그인
                       </button>
                     </p>
@@ -269,7 +292,7 @@ export default function BoardPostPage() {
                 <Link
                   to="/login"
                   state={{ from: { pathname: location.pathname } }}
-                  onClick={() => sessionStorage.setItem('postLoginRedirect', location.pathname)}
+                  onClick={() => rememberPostLogin()}
                   className="block w-full max-w-md mx-auto mt-8 py-4 bg-[#2ED573] text-white text-center font-bold rounded-xl no-underline hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
                 >
                   {buttonText}
@@ -339,7 +362,7 @@ export default function BoardPostPage() {
             {!user && (
               <p className="text-xs text-gray-400 mt-2">
                 이미 구매하셨나요?{' '}
-                <button onClick={goLogin} className="text-[#2ED573] font-semibold bg-transparent border-none cursor-pointer p-0 hover:underline">로그인</button>
+                <button onClick={() => goLogin()} className="text-[#2ED573] font-semibold bg-transparent border-none cursor-pointer p-0 hover:underline">로그인</button>
               </p>
             )}
           </div>
@@ -347,7 +370,7 @@ export default function BoardPostPage() {
           <Link
             to="/login"
             state={{ from: { pathname: location.pathname } }}
-            onClick={() => sessionStorage.setItem('postLoginRedirect', location.pathname)}
+            onClick={() => rememberPostLogin()}
             className="block w-full max-w-md mx-auto mt-8 py-4 bg-[#2ED573] text-white text-center font-bold rounded-xl no-underline hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
           >
             {buttonText}

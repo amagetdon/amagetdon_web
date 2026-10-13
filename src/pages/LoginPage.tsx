@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useExternalServices } from '../hooks/useExternalServices'
 import Turnstile from '../components/Turnstile'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
+import { takeReturnPath } from '../lib/postLogin'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -82,17 +83,12 @@ function LoginPage() {
           .eq('id', user.id)
           .single<{ name: string | null; phone: string | null; gender: string | null; birth_date: string | null }>()
         const isIncomplete = !profile?.name || !profile?.phone || !profile?.gender || !profile?.birth_date
-        // 특정 페이지(게시판 공유글 등)에서 로그인 버튼을 누른 경우 그 페이지로 복귀
-        const redirect = sessionStorage.getItem('postLoginRedirect')
-        sessionStorage.removeItem('postLoginRedirect')
         if (isIncomplete) {
+          // 회원정보 입력(온보딩)을 마친 뒤 OnboardingPage 가 원래 화면으로 돌려보낸다(복귀 경로는 그대로 남겨둠).
           navigate('/mypage', { replace: true })
-        } else if (redirect) {
-          navigate(redirect, { replace: true })
-        } else if (from !== '/') {
-          navigate(from, { replace: true })
         } else {
-          navigate('/', { replace: true })
+          // 신청·구매·로그인 버튼을 누른 화면으로 복귀 (강의 신청 등은 그 화면이 이어서 실행)
+          navigate(takeReturnPath() ?? from, { replace: true })
         }
       } else {
         navigate('/', { replace: true })
