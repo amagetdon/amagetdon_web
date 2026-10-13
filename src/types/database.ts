@@ -422,8 +422,21 @@ export interface BoardPost {
   cta_title: string            // 가입 유도 제목(HTML)
   cta_subtitle: string         // 부제목(평문)
   cta_button_text: string      // 버튼 라벨
+  skin: 'default' | 'blog'     // 글 화면 — 기본 / 네이버 블로그형
+  hide_chrome: boolean         // 이 글 화면에서 사이트 헤더·푸터 숨김
+  blog_meta: BlogMeta          // 블로그형 화면 표시 정보 (비우면 강사 정보)
   created_at: string
   updated_at: string
+}
+
+/** 블로그형 게시판 화면에 보일 블로그 정보 */
+export interface BlogMeta {
+  blogTitle?: string
+  nickname?: string
+  sub?: string
+  profileImage?: string
+  description?: string
+  category?: string
 }
 
 // 공개 단건(RPC get_board_post_public). share_token/is_published 은 노출하지 않음.
@@ -450,6 +463,9 @@ export interface BoardPostPublic {
   is_locked: boolean
   created_at: string
   updated_at: string
+  skin?: 'default' | 'blog'
+  hide_chrome?: boolean
+  blog_meta?: BlogMeta | null
 }
 
 // 공개 목록 행(RPC get_board_posts_listed). excerpt 는 서버에서 만든 200자 평문 발췌.

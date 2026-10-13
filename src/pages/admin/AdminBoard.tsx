@@ -7,6 +7,7 @@ import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import RichTextEditor from '../../components/admin/RichTextEditor'
 import NaverImportButton from '../../components/admin/NaverImportButton'
+import BoardSkinSettings from '../../components/admin/BoardSkinSettings'
 import { boardService, buildShareUrl, BOARD_CTA_DEFAULTS, BOARD_MEMBER_CTA_DEFAULTS, type BoardPostInput } from '../../services/boardService'
 import { instructorService } from '../../services/instructorService'
 import { htmlToPlainText } from '../../utils/richText'
@@ -19,6 +20,7 @@ function newPost(): Partial<BoardPost> {
     instructor_id: null, is_listed: false, is_paid: false, price: 0,
     preview_height: BOARD_CTA_DEFAULTS.previewHeight, cta_enabled: true,
     cta_locked_text: '', cta_title: '', cta_subtitle: '', cta_button_text: '',
+    skin: 'default', hide_chrome: false, blog_meta: {},
   }
 }
 
@@ -57,6 +59,9 @@ export default function AdminBoard() {
       cta_title: editing.cta_title ?? '',
       cta_subtitle: editing.cta_subtitle ?? '',
       cta_button_text: editing.cta_button_text ?? '',
+      skin: editing.skin ?? 'default',
+      hide_chrome: editing.hide_chrome ?? false,
+      blog_meta: editing.blog_meta ?? {},
     }
     try {
       setSaving(true)
@@ -268,12 +273,22 @@ export default function AdminBoard() {
               </label>
             </div>
 
+            <BoardSkinSettings
+              skin={editing.skin ?? 'default'}
+              hideChrome={editing.hide_chrome ?? false}
+              meta={editing.blog_meta ?? {}}
+              onChange={(p) => setEditing((prev) => (prev ? { ...prev, ...p } : prev))}
+            />
+
             <div>
               <div className="flex items-center justify-between mb-1 gap-2">
                 <label className="text-sm font-bold block">내용</label>
                 <NaverImportButton
                   hasContent={!!htmlToPlainText(editing.content || '').trim()}
-                  onImported={({ title, html }) => setEditing((prev) => prev ? { ...prev, title: prev.title?.trim() ? prev.title : title, content: html } : prev)}
+                  onImported={({ title, html, meta }) => setEditing((prev) => prev ? {
+                    ...prev, title: prev.title?.trim() ? prev.title : title, content: html, skin: 'blog',
+                    blog_meta: { ...(prev.blog_meta ?? {}), ...Object.fromEntries(Object.entries(meta).filter(([, v]) => v)) },
+                  } : prev)}
                 />
               </div>
               <RichTextEditor

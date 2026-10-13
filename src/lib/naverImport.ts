@@ -16,7 +16,7 @@ async function authHeader() {
 export async function importNaverPost(
   postUrl: string,
   opts: { upload: (file: File) => Promise<string>; utm?: ImportUtm | null; onProgress?: (msg: string) => void },
-): Promise<{ title: string; html: string; images: number }> {
+): Promise<{ title: string; html: string; images: number; meta: { blogTitle: string; nickname: string; profileImage: string; category: string } }> {
   const headers = await authHeader()
   const say = opts.onProgress ?? (() => {})
 
@@ -67,7 +67,19 @@ export async function importNaverPost(
     a.setAttribute('href', href)
   }
 
-  return { title: post.title, html: root.innerHTML, images: moved.size }
+  // 블로그형 화면 프로필 사진도 우리 저장소로
+  let profileImage = ''
+  if (post.profileImage) {
+    try {
+      const r = await fetch(`/api/naver-import?img=${encodeURIComponent(post.profileImage)}`, { headers })
+      if (r.ok) { const blob = await r.blob(); profileImage = await opts.upload(new File([blob], 'profile.png', { type: blob.type || 'image/png' })) }
+    } catch { /* 프로필 사진은 없어도 됨 */ }
+  }
+
+  return {
+    title: post.title, html: root.innerHTML, images: moved.size,
+    meta: { blogTitle: post.blogTitle, nickname: post.nickname, profileImage, category: post.category },
+  }
 }
 
 function safeHost(u: string | null) {
