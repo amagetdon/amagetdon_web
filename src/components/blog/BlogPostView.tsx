@@ -14,7 +14,7 @@ export interface BlogProfile {
   button?: { label: string; onClick?: () => void; href?: string } | null
 }
 export interface BlogCategory { label: string; count?: number; href?: string; active?: boolean }
-export interface BlogLink { label: string; href: string }
+export interface BlogLink { label: string; href?: string }
 
 interface Props {
   blogTitle: string
@@ -114,7 +114,7 @@ export default function BlogPostView({ blogTitle, blogHref = '#', profile, categ
               <ul>
                 {categories.map((c) => (
                   <li key={c.label}>
-                    <a href={c.href ?? '#'} className={c.active ? 'on' : undefined}>{c.label}</a>
+                    {c.href ? <a href={c.href} className={c.active ? 'on' : undefined}>{c.label}</a> : <span className={c.active ? 'on' : undefined}>{c.label}</span>}
                     {c.count !== undefined && <span className="cnt">({c.count})</span>}
                   </li>
                 ))}
@@ -124,7 +124,7 @@ export default function BlogPostView({ blogTitle, blogHref = '#', profile, categ
             {recent && recent.length > 0 && (
               <div className="blog-box">
                 <h4>최근 글 <i className="ti ti-chevron-up" /></h4>
-                <ul>{recent.map((r) => <li key={r.href}><a href={r.href}>{r.label}</a></li>)}</ul>
+                <ul>{recent.map((r, i) => <li key={i}>{r.href ? <a href={r.href}>{r.label}</a> : <span>{r.label}</span>}</li>)}</ul>
               </div>
             )}
           </aside>

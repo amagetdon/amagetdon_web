@@ -47,6 +47,25 @@ export default function BoardSkinSettings({ skin, hideChrome, meta, onChange }: 
           <div><label className="text-xs font-bold block mb-1 text-gray-600">닉네임</label><input value={meta.nickname ?? ''} onChange={(e) => setMeta({ nickname: e.target.value })} placeholder="시니어 BLOG" className={input} /></div>
           <div><label className="text-xs font-bold block mb-1 text-gray-600">닉네임 아래 작은 글씨</label><input value={meta.sub ?? ''} onChange={(e) => setMeta({ sub: e.target.value })} placeholder="lumos___solem" className={input} /></div>
           <div className="col-span-full"><label className="text-xs font-bold block mb-1 text-gray-600">소개</label><input value={meta.description ?? ''} onChange={(e) => setMeta({ description: e.target.value })} placeholder="몸이 늙어도, 수익을 만드는 방법 공부" className={input} /></div>
+          <div>
+            <label className="text-xs font-bold block mb-1 text-gray-600">사이드바 카테고리 <span className="font-normal text-gray-400">(한 줄에 하나, "이름 | 글 수")</span></label>
+            <textarea rows={4} className={input}
+              value={(meta.categories ?? []).map((c) => (c.count !== undefined ? `${c.label} | ${c.count}` : c.label)).join('\n')}
+              onChange={(e) => setMeta({
+                categories: e.target.value.split('\n').map((l) => l.trim()).filter(Boolean).map((l) => {
+                  const [label, count] = l.split('|').map((x) => x.trim())
+                  return count !== undefined && count !== '' && !isNaN(Number(count)) ? { label, count: Number(count) } : { label }
+                }),
+              })}
+              placeholder={'전체보기 | 8\n게시판 | 8'} />
+          </div>
+          <div>
+            <label className="text-xs font-bold block mb-1 text-gray-600">사이드바 최근 글 <span className="font-normal text-gray-400">(한 줄에 하나)</span></label>
+            <textarea rows={4} className={input}
+              value={(meta.recent ?? []).join('\n')}
+              onChange={(e) => setMeta({ recent: e.target.value.split('\n').map((l) => l.trim()).filter(Boolean) })}
+              placeholder="[수익 공개] 노후 시니어 블로그 부업…" />
+          </div>
           <div className="col-span-full flex items-center gap-3">
             {meta.profileImage ? <img src={meta.profileImage} alt="" className="w-16 h-16 object-cover bg-gray-100" /> : <div className="w-16 h-16 bg-gray-100" />}
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => upload(e.target.files?.[0])} />

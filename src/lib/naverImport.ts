@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { convertNaverPost } from './naverBlog'
+import type { BlogMeta } from '../types'
 
 // 네이버 블로그 글 → 게시판 글 (관리자 글쓰기 '네이버 블로그에서 가져오기')
 //  1) 서버(/api/naver-import)가 글 페이지를 받아오고  2) 브라우저에서 블록 HTML 로 변환
@@ -16,7 +17,7 @@ async function authHeader() {
 export async function importNaverPost(
   postUrl: string,
   opts: { upload: (file: File) => Promise<string>; utm?: ImportUtm | null; onProgress?: (msg: string) => void },
-): Promise<{ title: string; html: string; images: number; meta: { blogTitle: string; nickname: string; profileImage: string; category: string } }> {
+): Promise<{ title: string; html: string; images: number; meta: BlogMeta }> {
   const headers = await authHeader()
   const say = opts.onProgress ?? (() => {})
 
@@ -67,18 +68,33 @@ export async function importNaverPost(
     a.setAttribute('href', href)
   }
 
-  // 블로그형 화면 프로필 사진도 우리 저장소로
+  // 블로그 정보(이름·소개·카테고리·최근 글) — 블로그형 화면 사이드바를 원래 블로그처럼
+  say('블로그 정보 가져오는 중…')
+  type Info = { blogTitle?: string; nickname?: string; profileImage?: string; description?: string; categories?: { label: string; count?: number }[]; recent?: { title: string; logNo: string }[] }
+  const info: Info = await fetch(`/api/naver-import?blog=${encodeURIComponent(body.blogId as string)}`, { headers })
+    .then((r) => (r.ok ? r.json() : {})).catch(() => ({}))
+
+  // 프로필 사진도 우리 저장소로
   let profileImage = ''
-  if (post.profileImage) {
+  const profileSrc = info.profileImage || post.profileImage
+  if (profileSrc) {
     try {
-      const r = await fetch(`/api/naver-import?img=${encodeURIComponent(post.profileImage)}`, { headers })
+      const r = await fetch(`/api/naver-import?img=${encodeURIComponent(profileSrc)}`, { headers })
       if (r.ok) { const blob = await r.blob(); profileImage = await opts.upload(new File([blob], 'profile.png', { type: blob.type || 'image/png' })) }
     } catch { /* 프로필 사진은 없어도 됨 */ }
   }
 
   return {
     title: post.title, html: root.innerHTML, images: moved.size,
-    meta: { blogTitle: post.blogTitle, nickname: post.nickname, profileImage, category: post.category },
+    meta: {
+      blogTitle: info.blogTitle || post.blogTitle,
+      nickname: info.nickname || post.nickname,
+      profileImage,
+      description: info.description || '',
+      category: post.category,
+      categories: info.categories ?? [],
+      recent: (info.recent ?? []).map((r) => r.title),
+    },
   }
 }
 

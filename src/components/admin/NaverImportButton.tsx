@@ -2,6 +2,7 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { importNaverPost, type ImportUtm } from '../../lib/naverImport'
 import { storageService } from '../../services/storageService'
+import type { BlogMeta } from '../../types'
 
 // 관리자 게시판 글쓰기 — 우리 네이버 블로그 글을 주소로 가져와 본문(블로그형 블록)으로 채운다.
 const UTM_KEY = 'blog_link_utm'
@@ -9,7 +10,7 @@ const DEFAULT_UTM: ImportUtm = { source: 'DABLE', medium: 'native', campaign: 'm
 
 export default function NaverImportButton({ hasContent, onImported }: {
   hasContent: boolean
-  onImported: (r: { title: string; html: string; meta: { blogTitle: string; nickname: string; profileImage: string; category: string } }) => void
+  onImported: (r: { title: string; html: string; meta: BlogMeta }) => void
 }) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState('')
