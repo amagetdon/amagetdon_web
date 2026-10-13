@@ -67,6 +67,38 @@ export default async function handler(request: Request): Promise<Response> {
       })
     }
 
+    // 블로그 정보: 이름·닉네임·프로필 사진·소개·카테고리(글 수)·최근 글 — 블로그형 화면 사이드바용
+    const blogId = q.get('blog')
+    if (blogId) {
+      if (!/^[\w-]{2,40}$/.test(blogId)) return json({ error: '블로그 아이디가 올바르지 않습니다.' }, 400)
+      const MUA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148'
+      const mget = async (path: string) => {
+        const r = await fetch(`https://m.blog.naver.com/api/blogs/${blogId}${path}`, { headers: { 'user-agent': MUA, referer: `https://m.blog.naver.com/${blogId}` } })
+        return r.ok ? ((await r.json()) as { result?: Record<string, unknown> }).result ?? null : null
+      }
+      const [info, cats, list, introHtml] = await Promise.all([
+        mget(''),
+        mget('/category-list'),
+        mget('/post-list?categoryNo=0&itemCount=30&page=1'),
+        fetch(`https://blog.naver.com/profile/intro.naver?blogId=${blogId}`, { headers: { 'user-agent': UA } }).then((r) => (r.ok ? r.text() : '')).catch(() => ''),
+      ])
+      const items = ((list?.items as { titleWithInspectMessage: string; logNo: number; categoryNo: number }[]) ?? [])
+      const perCat = new Map<number, number>()
+      for (const it of items) perCat.set(it.categoryNo, (perCat.get(it.categoryNo) ?? 0) + 1)
+      const catList = ((cats?.mylogCategoryList as { categoryName: string; categoryNo: number; openYN: boolean }[]) ?? [])
+        .filter((c) => c.openYN)
+        .map((c) => ({ label: c.categoryName, count: perCat.get(c.categoryNo) ?? 0 }))
+      const intro = introHtml.match(/<meta property="og:description" content="([^"]*)"/)?.[1] ?? ''
+      return json({
+        blogTitle: (info?.blogName as string) ?? '',
+        nickname: (info?.nickName as string) ?? '',
+        profileImage: (info?.profileImagePath as string) ?? '',
+        description: intro.replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'),
+        categories: [{ label: '전체보기', count: items.length }, ...catList],
+        recent: items.slice(0, 5).map((i) => ({ title: i.titleWithInspectMessage, logNo: String(i.logNo) })),
+      })
+    }
+
     const short = q.get('resolve')
     if (short) {
       if (!/^(m\.site\.naver\.com|naver\.me|link\.naver\.com)$/.test(hostOf(short))) return json({ url: short })

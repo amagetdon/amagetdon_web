@@ -2,11 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { boardService, BOARD_CTA_DEFAULTS, BOARD_MEMBER_CTA_DEFAULTS } from '../services/boardService'
 import { textToHtml } from '../utils/richText'
-import { decodePostId, encodePostId } from '../utils/postHash'
+import { decodePostId } from '../utils/postHash'
 import { useAuth } from '../contexts/AuthContext'
 import BoardCheckoutModal, { type BoardCheckoutItem } from '../components/BoardCheckoutModal'
 import { membershipPriceLabel } from '../components/BoardNewsletterBits'
-import BlogPostView, { type BlogLink } from '../components/blog/BlogPostView'
+import BlogPostView from '../components/blog/BlogPostView'
 import { setChromeHidden } from '../lib/chrome'
 import type { BoardInstructor, BoardPostPublic } from '../types'
 
@@ -27,7 +27,6 @@ export default function BoardPostPage() {
   const [checkout, setCheckout] = useState<BoardCheckoutItem | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
   const [instructors, setInstructors] = useState<BoardInstructor[]>([])
-  const [recent, setRecent] = useState<BlogLink[]>([])
 
   // 공개 목록 진입 경로(/board/:id)의 id 는 난독화 해시 — 숫자 직접 접근은 받지 않는다.
   const postId = decodePostId(id)
@@ -66,12 +65,6 @@ export default function BoardPostPage() {
   useEffect(() => {
     boardService.getBoardInstructors().then(setInstructors).catch(() => {})
   }, [])
-  useEffect(() => {
-    if (!post) return
-    boardService.getListed({ instructorId: post.instructor_id, perPage: 5 })
-      .then(({ posts }) => setRecent(posts.filter((p) => p.id !== post.id).slice(0, 4).map((p) => ({ label: p.title, href: `/board/${encodePostId(p.id)}` }))))
-      .catch(() => {})
-  }, [post])
 
   // 본문 끝의 태그 블록(<div class="btags" data-tags="a,b">)은 하단 태그 영역으로
   const { bodyHtml, tags } = useMemo(() => {
@@ -300,7 +293,6 @@ export default function BoardPostPage() {
   const meta = post.blog_meta ?? {}
   const blogTitle = meta.blogTitle || (post.instructor_name ? `${post.instructor_name}의 뉴스레터` : '아마겟돈 뉴스레터')
   const me = instructors.find((i) => i.id === post.instructor_id) ?? null
-  const totalPosts = instructors.reduce((s, i) => s + i.post_count, 0)
   const boardHome = post.instructor_id ? `/board/instructor/${post.instructor_id}` : '/board'
   const canSubscribe = !!(post.instructor_id && post.sub_price && !post.is_subscribed)
 
@@ -380,11 +372,11 @@ export default function BoardPostPage() {
             ? { label: '구독하기', onClick: () => openCheckout('subscription') }
             : { label: '글 더보기', href: boardHome },
         }}
-        categories={[
-          { label: '전체보기', count: totalPosts || undefined, href: '/board' },
-          ...instructors.map((i) => ({ label: `${i.name}의 뉴스레터`, count: i.post_count, href: `/board/instructor/${i.id}`, active: i.id === post.instructor_id })),
-        ]}
-        recent={recent}
+        // 원래 블로그의 목차·최근 글(가져오기·관리자 입력) — 다른 강사 뉴스레터는 넣지 않는다, 클릭 없는 표시용
+        categories={meta.categories?.length
+          ? meta.categories.map((c, i) => ({ label: c.label, count: c.count, active: i === 0 }))
+          : [{ label: '전체보기', active: true }, { label: meta.category || '게시판' }]}
+        recent={meta.recent?.length ? meta.recent.map((t) => ({ label: t })) : [{ label: post.title }]}
         post={{
           category: meta.category || (post.instructor_name ? `${post.instructor_name}의 뉴스레터` : '뉴스레터'),
           categoryHref: token ? null : boardHome,

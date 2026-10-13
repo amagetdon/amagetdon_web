@@ -437,6 +437,10 @@ export interface BlogMeta {
   profileImage?: string
   description?: string
   category?: string
+  /** 사이드바 카테고리 (원래 블로그 목차) — 클릭되지 않는 표시용 */
+  categories?: { label: string; count?: number }[]
+  /** 사이드바 최근 글 제목 — 표시용 */
+  recent?: string[]
 }
 
 // 공개 단건(RPC get_board_post_public). share_token/is_published 은 노출하지 않음.
