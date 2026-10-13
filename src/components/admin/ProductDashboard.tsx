@@ -234,9 +234,9 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
         </div>
         <div className="grid grid-cols-4 max-md:grid-cols-2 gap-3 mb-2">
           <div className="rounded-lg bg-gray-50 p-3">
-            <p className="text-xs text-gray-500">유입(방문자)</p>
+            <p className="text-xs text-gray-500">유입 (이 페이지 방문자)</p>
             <p className="text-xl font-bold text-gray-900">{n(visits.visitors)}</p>
-            <p className="text-xs text-gray-400">{visits.since ? `${kstDateTime(visits.since)}부터 기록` : '방문 기록 없음'}</p>
+            <p className="text-xs text-gray-400">{visits.since ? `${kstDateTime(visits.since)}부터 · 브라우저 1개 = 1명` : '방문 기록 없음'}</p>
           </div>
           <div className="rounded-lg bg-gray-50 p-3">
             <p className="text-xs text-gray-500">신규 가입</p>
@@ -255,10 +255,10 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
           </div>
         </div>
         <p className="text-xs text-gray-400 mb-4">
-          가입·신청·결제는 전체 기간. 신규 가입 = 신청 전 24시간 안에 가입한 회원. 유입과 '방문 대비 신청'은 방문 기록을 시작한 뒤부터만 계산됩니다. 매체 줄을 누르면 {DIM_LABEL[dim]}별로 펼쳐집니다.
+          가입·신청·결제는 전체 기간. 신규 가입 = 신청 전 24시간 안에 가입한 회원. 유입 = 이 상품 상세 페이지를 연 브라우저 수(사이트 전체 방문 아님, 기록 시작 후부터). 방문→신청 = 그 방문 이후에 신청한 비율(이미 신청한 사람의 재방문은 제외). 매체 줄을 누르면 {DIM_LABEL[dim]}별로 펼쳐집니다.
         </p>
         <ChannelTable
-          headers={['매체', '유입(방문)', '방문→신청', '신규 가입', '신청', '신규 비율', '결제', '결제율']}
+          headers={['매체', '페이지 방문', '방문→신청', '신규 가입', '신청', '신규 비율', '결제', '결제율']}
           cells={(a) => [
             a.visitors ? n(a.visitors) : '-',
             a.visitors ? pct(a.visit_applicants, a.visitors) : '-',

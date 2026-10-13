@@ -15,7 +15,7 @@ import SeoHead from './components/SeoHead'
 import ExternalServicesInjector from './components/ExternalServicesInjector'
 import ExternalCodesInjector from './components/ExternalCodesInjector'
 import PixelInjector from './components/PixelInjector'
-import { captureLastTouch } from './lib/attribution'
+import { captureLastTouch, logProductVisit } from './lib/attribution'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
 const InstructorListPage = lazy(() => import('./pages/InstructorListPage'))
@@ -118,6 +118,13 @@ function UtmCapture() {
       sessionStorage.setItem('signup_referrer', prev)
     }
     prevPath.current = curr
+  }, [location.pathname])
+
+  // 상품 대시보드 '유입' — 강의·전자책 상세 주소로 들어오는 순간 기록(데이터 로딩 전에 나가는 방문도 잡히게).
+  // 마지막 유입 경로 갱신(captureLastTouch, 위 effect)보다 뒤에 선언돼 같은 렌더에서 그 다음에 실행된다.
+  useEffect(() => {
+    const m = location.pathname.match(/^\/(course|ebook)\/(\d+)\/?$/)
+    if (m) logProductVisit(`${m[1]}_${m[2]}`)
   }, [location.pathname])
 
   return null
