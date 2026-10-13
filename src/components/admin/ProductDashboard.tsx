@@ -14,6 +14,8 @@ type Dim = 'campaign' | 'content' | 'term'
 /** 신청자 행 — 매체 × 캠페인 × 소재 × 세트 */
 interface AppRow {
   channel: string; campaign: string; content: string; term: string
+  // purchase = 이번 신청 직전 경로로 분류, signup = 그 기록이 없어 회원가입 때 경로로 분류
+  basis?: 'purchase' | 'signup'
   applicants: number; new_signups: number; payers: number; revenue: number
   male: number; female: number; gender_unknown: number; ages: Record<string, number>
 }
@@ -51,6 +53,7 @@ const CHANNEL_LABEL: Record<string, string> = {
 }
 const DIM_LABEL: Record<Dim, string> = { campaign: '캠페인', content: '소재(content)', term: '세트(term)' }
 const SPEND_CHANNELS = ['meta', 'kakao', 'naver', 'google', 'youtube', 'dable', 'taboola', 'tiktok', 'karrot', 'other']
+const SIGNUP_MARK = ' (가입 경로)'
 const AGE_ORDER = ['10대', '20대', '30대', '40대', '50대', '60대+', '미상']
 
 const label = (c: string) => CHANNEL_LABEL[c] ?? c
@@ -69,7 +72,7 @@ const emptyAgg = (key: string): Agg => ({
 })
 
 /** 신청자 행·방문 행을 keyFn 값별로 합친다 */
-function aggregate(rows: AppRow[], visits: VisitRow[], keyFn: (r: { channel: string; campaign: string; content: string; term: string }) => string) {
+function aggregate(rows: AppRow[], visits: VisitRow[], keyFn: (r: { channel: string; campaign: string; content: string; term: string; basis?: string }) => string) {
   const m = new Map<string, Agg>()
   const get = (k: string) => { let a = m.get(k); if (!a) { a = emptyAgg(k); m.set(k, a) } return a }
   for (const r of rows) {
@@ -155,7 +158,8 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
     return aggregate(
       (data.rows ?? []).filter((r) => r.channel === ch),
       (data.visit_rows ?? []).filter((v) => v.channel === ch),
-      (r) => r[dim],
+      // 가입 경로로 분류된 신청자는 같은 값이라도 따로 묶어 '(가입 경로)' 로 표시 — 방문(이번 경로)과 섞이지 않게
+      (r) => ('basis' in r && r.basis === 'signup' && r[dim] ? `${r[dim]}${SIGNUP_MARK}` : r[dim]),
     )
   }, [data, dim])
 
@@ -195,7 +199,11 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
                 </tr>
                 {isOpen && subRows(c.key).map((s) => (
                   <tr key={`${c.key}:${s.key}`} className="bg-gray-50/60 text-gray-600">
-                    <td className="pl-8 pr-3 py-1.5 text-xs max-w-[260px] truncate" title={s.key}>{s.key || <span className="text-gray-400">(값 없음)</span>}</td>
+                    <td className="pl-8 pr-3 py-1.5 text-xs max-w-[260px] truncate" title={s.key}>
+                      {!s.key ? <span className="text-gray-400">(값 없음)</span>
+                        : s.key.endsWith(SIGNUP_MARK) ? <>{s.key.slice(0, -SIGNUP_MARK.length)}<span className="text-gray-400" title="이번 신청 경로 기록이 없어(10/12 이전 신청) 회원가입 때 UTM 으로 분류">{SIGNUP_MARK}</span></>
+                        : s.key}
+                    </td>
                     {cells(s, false).map((v, i) => <td key={i} className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{v}</td>)}
                   </tr>
                 ))}
