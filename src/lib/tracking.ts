@@ -10,7 +10,7 @@
 // - 발화 실패는 절대 앱 동작을 막지 않는다 (try-catch 로 무음 처리).
 // - 광고 매체로는 개인정보(이메일·전화)를 보내지 않는다(dataLayer 의 user_email/phone 은 기존 GTM 구성 유지).
 
-import { stampPurchaseTouch, logProductVisit } from './attribution'
+import { stampPurchaseTouch } from './attribution'
 import { dispatchPixelEvent } from './pixels/engine'
 
 type DataLayerObject = Record<string, unknown>
@@ -93,7 +93,6 @@ export function trackViewItem(params: {
   value: number
   user?: UserContact
 }): void {
-  logProductVisit(params.contentId)
   pushToDataLayer({
     event: 'view_item',
     content_id: params.contentId,
