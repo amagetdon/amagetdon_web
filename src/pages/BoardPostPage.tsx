@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { boardService, BOARD_CTA_DEFAULTS, BOARD_MEMBER_CTA_DEFAULTS } from '../services/boardService'
 import { textToHtml } from '../utils/richText'
-import { decodePostId } from '../utils/postHash'
+import { decodePostId, encodePostId } from '../utils/postHash'
 import { useAuth } from '../contexts/AuthContext'
 import BoardCheckoutModal, { type BoardCheckoutItem } from '../components/BoardCheckoutModal'
 import { membershipPriceLabel } from '../components/BoardNewsletterBits'
-import type { BoardPostPublic } from '../types'
+import BlogPostView, { type BlogLink } from '../components/blog/BlogPostView'
+import type { BoardInstructor, BoardPostPublic } from '../types'
 
 // 뉴스레터 글 열람 페이지. 두 경로에서 재사용:
 //   /board/p/:token — 비밀 공유 링크 (목록 비공개 글 포함)
@@ -24,6 +25,8 @@ export default function BoardPostPage() {
   const [clipped, setClipped] = useState(false)
   const [checkout, setCheckout] = useState<BoardCheckoutItem | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [instructors, setInstructors] = useState<BoardInstructor[]>([])
+  const [recent, setRecent] = useState<BlogLink[]>([])
 
   // 공개 목록 진입 경로(/board/:id)의 id 는 난독화 해시 — 숫자 직접 접근은 받지 않는다.
   const postId = decodePostId(id)
@@ -51,6 +54,44 @@ export default function BoardPostPage() {
       return () => { document.title = prev }
     }
   }, [post?.title])
+
+  // 블로그형 화면 사이드바 — 강사 프로필·카테고리(강사별 뉴스레터)·최근 글
+  useEffect(() => {
+    boardService.getBoardInstructors().then(setInstructors).catch(() => {})
+  }, [])
+  useEffect(() => {
+    if (!post) return
+    boardService.getListed({ instructorId: post.instructor_id, perPage: 5 })
+      .then(({ posts }) => setRecent(posts.filter((p) => p.id !== post.id).slice(0, 4).map((p) => ({ label: p.title, href: `/board/${encodePostId(p.id)}` }))))
+      .catch(() => {})
+  }, [post])
+
+  // 본문 끝의 태그 블록(<div class="btags" data-tags="a,b">)은 하단 태그 영역으로
+  const { bodyHtml, tags } = useMemo(() => {
+    const html = textToHtml(post?.content ?? '')
+    const m = html.match(/<div class="btags" data-tags="([^"]*)"[^>]*>[\s\S]*?<\/div>/)
+    return {
+      bodyHtml: m ? html.replace(m[0], '') : html,
+      tags: m ? m[1].split(',').map((t) => t.trim()).filter(Boolean) : [],
+    }
+  }, [post?.content])
+
+  // 본문 속 우리 강의·전자책 링크: 같은 창으로 열고, UTM 이 있으면 소재 구분(utm_content)을 채운다
+  //   광고로 이 글에 들어온 방문자는 그 광고의 utm_content 를 그대로 넘기고, 없으면 글 번호(post_N)
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el || !post) return
+    const arrival = new URLSearchParams(window.location.search).get('utm_content')
+    el.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((a) => {
+      let u: URL
+      try { u = new URL(a.getAttribute('href') || '', window.location.origin) } catch { return }
+      const ours = u.origin === window.location.origin || /(^|\.)amag-class\.com$/.test(u.hostname)
+      if (!ours || !/^\/(course|ebook|landing)\//.test(u.pathname)) return
+      if (u.searchParams.get('utm_source')) u.searchParams.set('utm_content', arrival || u.searchParams.get('utm_content') || `post_${post.id}`)
+      a.href = u.origin === window.location.origin ? u.pathname + u.search : u.toString()
+      a.removeAttribute('target')
+    })
+  }, [post, bodyHtml])
 
   // 서버가 잘라 보낸 잠긴 글 — 미리보기 높이로 클리핑하고 CTA 를 노출한다.
   const teaser = status === 'ok' && !!post?.is_locked
@@ -119,129 +160,127 @@ export default function BoardPostPage() {
     }
   }
 
-  return (
-    <section className="w-full bg-white py-12 max-sm:py-8">
-      <div className="max-w-[800px] mx-auto px-5">
-        {/* 공개 목록에서 진입한 글에만 목록 백링크 노출 (비밀 링크 글은 목록에 없음) */}
-        {!token && (
-          <Link to="/board" className="inline-flex items-center gap-1 text-sm text-gray-400 no-underline hover:text-gray-600 mb-6 transition-colors">
-            <i className="ti ti-chevron-left text-base" /> 아마겟돈 뉴스레터
+  const blogTitle = post.instructor_name ? `${post.instructor_name}의 뉴스레터` : '아마겟돈 뉴스레터'
+  const me = instructors.find((i) => i.id === post.instructor_id) ?? null
+  const totalPosts = instructors.reduce((s, i) => s + i.post_count, 0)
+  const boardHome = post.instructor_id ? `/board/instructor/${post.instructor_id}` : '/board'
+  const canSubscribe = !!(post.instructor_id && post.sub_price && !post.is_subscribed)
+
+  const stateBadge = post.is_paid && !post.is_locked ? (
+    <span className="blog-state">
+      <i className="ti ti-lock-open" />
+      {post.is_purchased ? '구매한 글입니다'
+        : post.is_subscribed ? '구독 중인 강사의 글입니다'
+        : isAdmin ? '관리자 권한으로 열람 중입니다 (일반 방문자에게는 잠겨 보입니다)'
+        : '열람 가능한 글입니다'}
+    </span>
+  ) : null
+
+  // 잠금 하단: 안내문 + 결제/로그인 유도 (비워둔 항목은 기본값으로 표시)
+  const lockPanel = teaser ? (
+    <>
+      <p className="text-center text-gray-400 text-sm mt-4 mb-10">{lockedText}</p>
+      <div className="border-t border-gray-100 pt-12 pb-4 text-center">
+        <div
+          className="rich-text-content text-xl max-sm:text-lg font-bold text-gray-900 leading-relaxed [&_p]:text-center"
+          dangerouslySetInnerHTML={{ __html: textToHtml(ctaTitle) }}
+        />
+        <p className="text-sm text-gray-400 mt-3">{ctaSubtitle}</p>
+        {isPaid ? (
+          <div className="flex flex-col gap-2.5 w-full max-w-md mx-auto mt-8">
+            {post.post_price > 0 && (
+              <button
+                onClick={() => openCheckout('post')}
+                className="w-full py-4 bg-[#2ED573] text-white text-center text-[15px] font-bold rounded-xl border-none cursor-pointer hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
+              >
+                이 글만 구매하기 · {post.post_price.toLocaleString()}원
+              </button>
+            )}
+            {subLabel && (
+              <button
+                onClick={() => openCheckout('subscription')}
+                className={`w-full py-4 text-center text-[15px] font-bold rounded-xl border-none cursor-pointer transition-colors ${
+                  post.post_price > 0 ? 'bg-gray-900 text-white hover:bg-gray-700' : 'bg-[#2ED573] text-white hover:bg-[#25B866] shadow-sm shadow-[#2ED573]/20'
+                }`}
+              >
+                {subLabel} 구독하고 모든 글 보기
+              </button>
+            )}
+            {!user && (
+              <p className="text-xs text-gray-400 mt-2">
+                이미 구매하셨나요?{' '}
+                <button onClick={goLogin} className="text-[#2ED573] font-semibold bg-transparent border-none cursor-pointer p-0 hover:underline">로그인</button>
+              </p>
+            )}
+          </div>
+        ) : (
+          <Link
+            to="/login"
+            state={{ from: { pathname: location.pathname } }}
+            onClick={() => sessionStorage.setItem('postLoginRedirect', location.pathname)}
+            className="block w-full max-w-md mx-auto mt-8 py-4 bg-[#2ED573] text-white text-center font-bold rounded-xl no-underline hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
+          >
+            {buttonText}
           </Link>
         )}
-
-        {/* 유료 글을 잠금 없이 보는 이유 안내 — 관리자 확인 시 "결제 없이 보인다"는 혼동 방지 */}
-        {post.is_paid && !post.is_locked && (
-          <div className="mb-5">
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-[#2ED573]/10 text-[#1faf5c]">
-              <i className="ti ti-lock-open text-sm" />
-              {post.is_purchased
-                ? '구매한 글입니다'
-                : post.is_subscribed
-                  ? '구독 중인 강사의 글입니다'
-                  : isAdmin
-                    ? '관리자 권한으로 열람 중입니다 (일반 방문자에게는 잠겨 보입니다)'
-                    : '열람 가능한 글입니다'}
-            </span>
-          </div>
-        )}
-
-        <header className="border-b border-gray-200 pb-6 mb-8">
-          <h1 className="text-2xl max-sm:text-xl font-bold text-gray-900 leading-snug break-words">{post.title}</h1>
-          <div className="flex items-center gap-2 mt-3 text-sm text-gray-400">
-            {post.instructor_name && (
-              <>
-                {post.instructor_id ? (
-                  <Link to={`/board/instructor/${post.instructor_id}`} className="font-medium text-gray-600 no-underline hover:text-[#25B866] transition-colors">
-                    {post.instructor_name}
-                  </Link>
-                ) : (
-                  <span className="font-medium text-gray-600">{post.instructor_name}</span>
-                )}
-                <span className="text-gray-300">·</span>
-              </>
-            )}
-            <span>{new Date(post.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-          </div>
-        </header>
-
-        {/* 본문 — 잠긴 글이면 preview_height 만큼만 노출하고 하단 페이드 */}
-        <div
-          className="relative overflow-hidden"
-          style={teaser ? { maxHeight: post.preview_height } : undefined}
-        >
-          <div
-            ref={contentRef}
-            className="rich-text-content text-[15px] text-gray-700 leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: textToHtml(post.content) }}
-          />
-          {teaser && clipped && (
-            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-white pointer-events-none" />
-          )}
-        </div>
-
-        {/* 잠금 하단: 안내문 + 결제/로그인 유도 (비워둔 항목은 기본값으로 표시) */}
-        {teaser && (
-          <>
-            <p className="text-center text-gray-400 text-sm mt-4 mb-10">{lockedText}</p>
-
-            <div className="border-t border-gray-100 pt-12 pb-4 text-center">
-              <div
-                className="rich-text-content text-xl max-sm:text-lg font-bold text-gray-900 leading-relaxed [&_p]:text-center"
-                dangerouslySetInnerHTML={{ __html: textToHtml(ctaTitle) }}
-              />
-              <p className="text-sm text-gray-400 mt-3">{ctaSubtitle}</p>
-
-              {isPaid ? (
-                <div className="flex flex-col gap-2.5 w-full max-w-md mx-auto mt-8">
-                  {post.post_price > 0 && (
-                    <button
-                      onClick={() => openCheckout('post')}
-                      className="w-full py-4 bg-[#2ED573] text-white text-center text-[15px] font-bold rounded-xl border-none cursor-pointer hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
-                    >
-                      이 글만 구매하기 · {post.post_price.toLocaleString()}원
-                    </button>
-                  )}
-                  {subLabel && (
-                    <button
-                      onClick={() => openCheckout('subscription')}
-                      className={`w-full py-4 text-center text-[15px] font-bold rounded-xl border-none cursor-pointer transition-colors ${
-                        post.post_price > 0
-                          ? 'bg-gray-900 text-white hover:bg-gray-700'
-                          : 'bg-[#2ED573] text-white hover:bg-[#25B866] shadow-sm shadow-[#2ED573]/20'
-                      }`}
-                    >
-                      {subLabel} 구독하고 모든 글 보기
-                    </button>
-                  )}
-                  {!user && (
-                    <p className="text-xs text-gray-400 mt-2">
-                      이미 구매하셨나요?{' '}
-                      <button onClick={goLogin} className="text-[#2ED573] font-semibold bg-transparent border-none cursor-pointer p-0 hover:underline">
-                        로그인
-                      </button>
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <Link
-                  to="/login"
-                  state={{ from: { pathname: location.pathname } }}
-                  onClick={() => sessionStorage.setItem('postLoginRedirect', location.pathname)}
-                  className="block w-full max-w-md mx-auto mt-8 py-4 bg-[#2ED573] text-white text-center font-bold rounded-xl no-underline hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
-                >
-                  {buttonText}
-                </Link>
-              )}
-            </div>
-          </>
-        )}
       </div>
+    </>
+  ) : null
+
+  return (
+    <>
+      <BlogPostView
+        blogTitle={blogTitle}
+        blogHref={boardHome}
+        profile={{
+          image: me?.image_url,
+          name: post.instructor_name ?? '아마겟돈 클래스',
+          sub: me?.title ?? null,
+          description: me?.headline ?? null,
+          moreHref: post.instructor_id ? `/instructors/${post.instructor_id}` : null,
+          button: canSubscribe
+            ? { label: '구독하기', onClick: () => openCheckout('subscription') }
+            : { label: '글 더보기', href: boardHome },
+        }}
+        categories={[
+          { label: '전체보기', count: totalPosts || undefined, href: '/board' },
+          ...instructors.map((i) => ({ label: `${i.name}의 뉴스레터`, count: i.post_count, href: `/board/instructor/${i.id}`, active: i.id === post.instructor_id })),
+        ]}
+        recent={recent}
+        post={{
+          category: post.instructor_name ? `${post.instructor_name}의 뉴스레터` : '뉴스레터',
+          categoryHref: token ? null : boardHome,
+          title: post.title,
+          authorName: post.instructor_name ?? '아마겟돈 클래스',
+          authorImage: me?.image_url,
+          dateText: blogDate(post.created_at),
+          bodyHtml,
+          tags,
+        }}
+        subscribe={canSubscribe ? { label: '구독', onClick: () => openCheckout('subscription') } : null}
+        beforeBody={stateBadge}
+        bodyRef={contentRef}
+        bodyStyle={teaser ? { maxHeight: post.preview_height } : undefined}
+        bodyOverlay={teaser && clipped ? <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-white pointer-events-none" /> : null}
+        afterBody={lockPanel}
+      />
 
       <BoardCheckoutModal
         item={checkout}
         onClose={() => setCheckout(null)}
         onPurchased={() => setReloadKey((k) => k + 1)}
       />
-    </section>
+    </>
   )
+}
+
+/** 네이버 블로그식 날짜: 하루 안이면 'N분/시간 전', 아니면 '2026. 10. 12. 21:30' */
+function blogDate(iso: string): string {
+  const t = new Date(iso).getTime()
+  const diff = Date.now() - t
+  if (diff >= 0 && diff < 60 * 60 * 1000) return `${Math.max(1, Math.floor(diff / 60000))}분 전`
+  if (diff >= 0 && diff < 24 * 60 * 60 * 1000) return `${Math.floor(diff / 3600000)}시간 전`
+  const d = new Date(t + 9 * 3600 * 1000)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getUTCFullYear()}. ${d.getUTCMonth() + 1}. ${d.getUTCDate()}. ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`
 }

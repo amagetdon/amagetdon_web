@@ -33,6 +33,8 @@ interface Props {
     tags?: string[]
   }
   subscribe?: { label: string; onClick: () => void } | null
+  /** 본문 바로 위(구분선 아래) — 열람 상태 안내 등 */
+  beforeBody?: ReactNode
   /** 본문 바로 아래(태그 위) — 잠금 안내·결제 버튼 등 */
   afterBody?: ReactNode
   /** 본문 영역 감싸기(잠긴 글 미리보기 높이 자르기 등) */
@@ -67,7 +69,7 @@ function enhanceSlides(root: HTMLElement) {
   })
 }
 
-export default function BlogPostView({ blogTitle, blogHref = '#', profile, categories, recent, post, subscribe, afterBody, bodyStyle, bodyOverlay, bodyRef }: Props) {
+export default function BlogPostView({ blogTitle, blogHref = '#', profile, categories, recent, post, subscribe, beforeBody, afterBody, bodyStyle, bodyOverlay, bodyRef }: Props) {
   const bodyEl = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -142,6 +144,7 @@ export default function BlogPostView({ blogTitle, blogHref = '#', profile, categ
               </div>
             </div>
 
+            {beforeBody}
             <div style={{ position: 'relative', overflow: bodyStyle ? 'hidden' : undefined, ...bodyStyle }}>
               <div ref={setBodyRef} className="blog-body" dangerouslySetInnerHTML={{ __html: post.bodyHtml }} />
               {bodyOverlay}

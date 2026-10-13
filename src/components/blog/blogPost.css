@@ -149,3 +149,22 @@
 .blog-top { margin-top: 56px; text-align: right; }
 .blog-top a { color: #8a6d3b; font-size: 11px; font-weight: 700; text-decoration: none; }
 @media print { .blog-side, .blog-head, .blog-foot, .blog-top, .blog-meta-right { display: none !important; } .blogwrap { background: #fff; } }
+
+/* 편집기(TipTap)로 쓴 글도 같은 모양 — 일반 태그 */
+.blog-body p { margin: 0; min-height: 1em; }
+.blog-body h1, .blog-body h2, .blog-body h3 { margin: 30px 0 10px; line-height: 1.6; font-weight: 700; color: #222; }
+.blog-body h1 { font-size: 24px; } .blog-body h2 { font-size: 20px; } .blog-body h3 { font-size: 18px; }
+.blog-body ul, .blog-body ol { margin: 0; padding-left: 24px; }
+.blog-body img.rte-image { max-width: 100%; height: auto; }
+.blog-body blockquote:not(.bq) { margin: 30px 0; border-left: 2px solid #222; padding-left: 16px; }
+.blog-body hr:not(.bhr) { border: 0; border-top: 1px solid #ddd; margin: 50px 0; }
+.blog-body table { border-collapse: collapse; width: 100%; margin: 30px 0; font-size: 14px; line-height: 1.6; }
+.blog-body td, .blog-body th { border: 1px solid #ddd; padding: 8px 10px; }
+.blog-body .btags { display: none; } /* 태그는 하단 태그 영역으로 따로 표시 */
+.blog-state { margin-top: 24px; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; background: rgba(46,213,115,.1); color: #1faf5c; }
+
+/* 편집기 안의 블록 표시 */
+.blog-body.blog-block-nv { margin: 6px 0; cursor: pointer; border-radius: 4px; outline: 1px dashed transparent; outline-offset: 4px; }
+.blog-body.blog-block-nv:hover { outline-color: #2ED573; }
+.blog-body.blog-block-nv > * { margin-top: 12px !important; margin-bottom: 12px !important; }
+.blog-body.blog-block-nv .btags { display: block; color: #888; font-size: 13px; }

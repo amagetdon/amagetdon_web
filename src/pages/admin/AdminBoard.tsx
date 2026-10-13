@@ -6,6 +6,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import RichTextEditor from '../../components/admin/RichTextEditor'
+import NaverImportButton from '../../components/admin/NaverImportButton'
 import { boardService, buildShareUrl, BOARD_CTA_DEFAULTS, BOARD_MEMBER_CTA_DEFAULTS, type BoardPostInput } from '../../services/boardService'
 import { instructorService } from '../../services/instructorService'
 import { htmlToPlainText } from '../../utils/richText'
@@ -268,12 +269,20 @@ export default function AdminBoard() {
             </div>
 
             <div>
-              <label className="text-sm font-bold block mb-1">내용</label>
+              <div className="flex items-center justify-between mb-1 gap-2">
+                <label className="text-sm font-bold block">내용</label>
+                <NaverImportButton
+                  hasContent={!!htmlToPlainText(editing.content || '').trim()}
+                  onImported={({ title, html }) => setEditing((prev) => prev ? { ...prev, title: prev.title?.trim() ? prev.title : title, content: html } : prev)}
+                />
+              </div>
               <RichTextEditor
                 value={editing.content || ''}
                 onChange={(html) => setEditing({ ...editing, content: html })}
-                placeholder="내용을 입력해 주세요"
-                minHeight={280}
+                placeholder="내용을 입력해 주세요 — 위 툴바 오른쪽의 인용구·구분선·사진·슬라이드·링크 카드·태그 버튼으로 블로그처럼 꾸밀 수 있어요. 블록은 더블클릭해서 수정합니다."
+                minHeight={420}
+                blogBlocks
+                imageUpload={{ basePath: 'board' }}
               />
             </div>
 
