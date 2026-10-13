@@ -21,10 +21,10 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replac
 /** se-l-xxx 레이아웃 이름 */
 const layoutOf = (el: Element) => [...el.classList].find((c) => c.startsWith('se-l-'))?.slice(5) ?? 'default'
 
-/** 네이버 이미지는 원본 크기(type=w966)로 */
+/** 네이버 이미지 주소 — blogfiles 는 원본(type=w1)만 있으므로 그대로 쓰고, 흐린 미리보기(_blur)만 원본으로 */
 const imgSrc = (img: Element | null) => {
   const src = img?.getAttribute('data-lazy-src') || img?.getAttribute('src') || ''
-  return src.replace(/\?type=w\d+(_blur)?$/, '?type=w966')
+  return src.replace(/\?type=w\d+_blur$/, '?type=w1')
 }
 const imgTag = (img: Element | null) => {
   const src = imgSrc(img)

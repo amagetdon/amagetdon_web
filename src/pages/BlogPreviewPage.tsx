@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import BlogPostView from '../components/blog/BlogPostView'
 import { convertNaverPost } from '../lib/naverBlog'
 import sampleHtml from '../dev/naverSample.html?raw'
@@ -7,6 +7,7 @@ import sampleHtml from '../dev/naverSample.html?raw'
 export default function BlogPreviewPage() {
   const isProd = typeof window !== 'undefined' && /(^|\.)amag-class\.com$/.test(window.location.hostname)
   const post = useMemo(() => convertNaverPost(sampleHtml), [])
+  useEffect(() => { document.title = post.title }, [post.title])
   if (isProd) return null
 
   const disclaimer = '<p class="bp">&nbsp;</p><p class="bp" style="text-align:left"><span style="font-size:11px;color:#999999">* 이 글은 아마겟돈 클래스 실제 수강생의 후기를 바탕으로 각색한 글 입니다.</span></p>'
