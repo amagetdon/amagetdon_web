@@ -71,6 +71,7 @@ const AdminEbookDetail = lazy(() => import('./pages/admin/AdminEbookDetail'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const AdminBoard = lazy(() => import('./pages/admin/AdminBoard'))
 const BoardPostPage = lazy(() => import('./pages/BoardPostPage'))
+const BlogPreviewPage = lazy(() => import('./pages/BlogPreviewPage'))
 const BoardListPage = lazy(() => import('./pages/BoardListPage'))
 const BoardInstructorPage = lazy(() => import('./pages/BoardInstructorPage'))
 
@@ -230,6 +231,7 @@ function App() {
                 <Route path="/board" element={<BoardListPage />} />
                 <Route path="/board/instructor/:id" element={<BoardInstructorPage />} />
                 <Route path="/board/p/:token" element={<BoardPostPage />} />
+                <Route path="/board/blog-preview" element={<BlogPreviewPage />} />
                 <Route path="/board/:id" element={<BoardPostPage />} />
 
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
