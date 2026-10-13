@@ -8,6 +8,7 @@
 //   슬라이드 <div class="bslide">  가로 나열 <div class="bstrip">  링크 카드 <a class="blink blink-{스타일}">
 
 export interface NaverPost {
+  blogTitle: string
   title: string
   category: string
   dateText: string
@@ -131,7 +132,10 @@ export function convertNaverPost(html: string): NaverPost {
     .map(component)
     .join('\n')
   const nick = html.match(/nickName\s*=\s*'([^']*)'/)?.[1] ?? ''
+  // 블로그 이름은 공유용 meta(me2:post_tag = '네이버블로그 {블로그 이름}')에만 들어 있다
+  const blogTitle = (doc.querySelector('meta[property="me2:post_tag"]')?.getAttribute('content') ?? '').replace(/^네이버블로그\s*/, '').trim()
   return {
+    blogTitle,
     title: titleEl?.textContent?.trim() ?? '',
     category: doc.querySelector('.blog2_series a')?.textContent?.trim() ?? '',
     dateText: doc.querySelector('.se_publishDate')?.textContent?.trim() ?? '',

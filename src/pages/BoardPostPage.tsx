@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import BoardCheckoutModal, { type BoardCheckoutItem } from '../components/BoardCheckoutModal'
 import { membershipPriceLabel } from '../components/BoardNewsletterBits'
 import BlogPostView, { type BlogLink } from '../components/blog/BlogPostView'
+import { setChromeHidden } from '../lib/chrome'
 import type { BoardInstructor, BoardPostPublic } from '../types'
 
 // 뉴스레터 글 열람 페이지. 두 경로에서 재사용:
@@ -54,6 +55,12 @@ export default function BoardPostPage() {
       return () => { document.title = prev }
     }
   }, [post?.title])
+
+  // 시크릿 페이지처럼 사이트 헤더·푸터 숨김 (글 설정)
+  useEffect(() => {
+    setChromeHidden(!!post?.hide_chrome)
+    return () => setChromeHidden(false)
+  }, [post?.hide_chrome])
 
   // 블로그형 화면 사이드바 — 강사 프로필·카테고리(강사별 뉴스레터)·최근 글
   useEffect(() => {
@@ -160,7 +167,138 @@ export default function BoardPostPage() {
     }
   }
 
-  const blogTitle = post.instructor_name ? `${post.instructor_name}의 뉴스레터` : '아마겟돈 뉴스레터'
+  // 기본 스킨 — 기존 뉴스레터 화면
+  if (post.skin !== 'blog') {
+  return (
+    <section className="w-full bg-white py-12 max-sm:py-8">
+      <div className="max-w-[800px] mx-auto px-5">
+        {/* 공개 목록에서 진입한 글에만 목록 백링크 노출 (비밀 링크 글은 목록에 없음) */}
+        {!token && (
+          <Link to="/board" className="inline-flex items-center gap-1 text-sm text-gray-400 no-underline hover:text-gray-600 mb-6 transition-colors">
+            <i className="ti ti-chevron-left text-base" /> 아마겟돈 뉴스레터
+          </Link>
+        )}
+
+        {/* 유료 글을 잠금 없이 보는 이유 안내 — 관리자 확인 시 "결제 없이 보인다"는 혼동 방지 */}
+        {post.is_paid && !post.is_locked && (
+          <div className="mb-5">
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full bg-[#2ED573]/10 text-[#1faf5c]">
+              <i className="ti ti-lock-open text-sm" />
+              {post.is_purchased
+                ? '구매한 글입니다'
+                : post.is_subscribed
+                  ? '구독 중인 강사의 글입니다'
+                  : isAdmin
+                    ? '관리자 권한으로 열람 중입니다 (일반 방문자에게는 잠겨 보입니다)'
+                    : '열람 가능한 글입니다'}
+            </span>
+          </div>
+        )}
+
+        <header className="border-b border-gray-200 pb-6 mb-8">
+          <h1 className="text-2xl max-sm:text-xl font-bold text-gray-900 leading-snug break-words">{post.title}</h1>
+          <div className="flex items-center gap-2 mt-3 text-sm text-gray-400">
+            {post.instructor_name && (
+              <>
+                {post.instructor_id ? (
+                  <Link to={`/board/instructor/${post.instructor_id}`} className="font-medium text-gray-600 no-underline hover:text-[#25B866] transition-colors">
+                    {post.instructor_name}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-gray-600">{post.instructor_name}</span>
+                )}
+                <span className="text-gray-300">·</span>
+              </>
+            )}
+            <span>{new Date(post.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          </div>
+        </header>
+
+        {/* 본문 — 잠긴 글이면 preview_height 만큼만 노출하고 하단 페이드 */}
+        <div
+          className="relative overflow-hidden"
+          style={teaser ? { maxHeight: post.preview_height } : undefined}
+        >
+          <div
+            ref={contentRef}
+            className="rich-text-content text-[15px] text-gray-700 leading-relaxed"
+            dangerouslySetInnerHTML={{ __html: bodyHtml }}
+          />
+          {teaser && clipped && (
+            <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-b from-transparent to-white pointer-events-none" />
+          )}
+        </div>
+
+        {/* 잠금 하단: 안내문 + 결제/로그인 유도 (비워둔 항목은 기본값으로 표시) */}
+        {teaser && (
+          <>
+            <p className="text-center text-gray-400 text-sm mt-4 mb-10">{lockedText}</p>
+
+            <div className="border-t border-gray-100 pt-12 pb-4 text-center">
+              <div
+                className="rich-text-content text-xl max-sm:text-lg font-bold text-gray-900 leading-relaxed [&_p]:text-center"
+                dangerouslySetInnerHTML={{ __html: textToHtml(ctaTitle) }}
+              />
+              <p className="text-sm text-gray-400 mt-3">{ctaSubtitle}</p>
+
+              {isPaid ? (
+                <div className="flex flex-col gap-2.5 w-full max-w-md mx-auto mt-8">
+                  {post.post_price > 0 && (
+                    <button
+                      onClick={() => openCheckout('post')}
+                      className="w-full py-4 bg-[#2ED573] text-white text-center text-[15px] font-bold rounded-xl border-none cursor-pointer hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
+                    >
+                      이 글만 구매하기 · {post.post_price.toLocaleString()}원
+                    </button>
+                  )}
+                  {subLabel && (
+                    <button
+                      onClick={() => openCheckout('subscription')}
+                      className={`w-full py-4 text-center text-[15px] font-bold rounded-xl border-none cursor-pointer transition-colors ${
+                        post.post_price > 0
+                          ? 'bg-gray-900 text-white hover:bg-gray-700'
+                          : 'bg-[#2ED573] text-white hover:bg-[#25B866] shadow-sm shadow-[#2ED573]/20'
+                      }`}
+                    >
+                      {subLabel} 구독하고 모든 글 보기
+                    </button>
+                  )}
+                  {!user && (
+                    <p className="text-xs text-gray-400 mt-2">
+                      이미 구매하셨나요?{' '}
+                      <button onClick={goLogin} className="text-[#2ED573] font-semibold bg-transparent border-none cursor-pointer p-0 hover:underline">
+                        로그인
+                      </button>
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  state={{ from: { pathname: location.pathname } }}
+                  onClick={() => sessionStorage.setItem('postLoginRedirect', location.pathname)}
+                  className="block w-full max-w-md mx-auto mt-8 py-4 bg-[#2ED573] text-white text-center font-bold rounded-xl no-underline hover:bg-[#25B866] transition-colors shadow-sm shadow-[#2ED573]/20"
+                >
+                  {buttonText}
+                </Link>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      <BoardCheckoutModal
+        item={checkout}
+        onClose={() => setCheckout(null)}
+        onPurchased={() => setReloadKey((k) => k + 1)}
+      />
+    </section>
+  )
+  }
+
+  // 블로그형 스킨 — blog_meta(블로그 이름·닉네임·프로필·소개·카테고리)가 있으면 그것, 없으면 강사 정보
+  const meta = post.blog_meta ?? {}
+  const blogTitle = meta.blogTitle || (post.instructor_name ? `${post.instructor_name}의 뉴스레터` : '아마겟돈 뉴스레터')
   const me = instructors.find((i) => i.id === post.instructor_id) ?? null
   const totalPosts = instructors.reduce((s, i) => s + i.post_count, 0)
   const boardHome = post.instructor_id ? `/board/instructor/${post.instructor_id}` : '/board'
@@ -233,10 +371,10 @@ export default function BoardPostPage() {
         blogTitle={blogTitle}
         blogHref={boardHome}
         profile={{
-          image: me?.image_url,
-          name: post.instructor_name ?? '아마겟돈 클래스',
-          sub: me?.title ?? null,
-          description: me?.headline ?? null,
+          image: meta.profileImage || me?.image_url,
+          name: meta.nickname || post.instructor_name || '아마겟돈 클래스',
+          sub: meta.sub ?? me?.title ?? null,
+          description: meta.description || me?.headline || null,
           moreHref: post.instructor_id ? `/instructors/${post.instructor_id}` : null,
           button: canSubscribe
             ? { label: '구독하기', onClick: () => openCheckout('subscription') }
@@ -248,11 +386,11 @@ export default function BoardPostPage() {
         ]}
         recent={recent}
         post={{
-          category: post.instructor_name ? `${post.instructor_name}의 뉴스레터` : '뉴스레터',
+          category: meta.category || (post.instructor_name ? `${post.instructor_name}의 뉴스레터` : '뉴스레터'),
           categoryHref: token ? null : boardHome,
           title: post.title,
-          authorName: post.instructor_name ?? '아마겟돈 클래스',
-          authorImage: me?.image_url,
+          authorName: meta.nickname || post.instructor_name || '아마겟돈 클래스',
+          authorImage: meta.profileImage || me?.image_url,
           dateText: blogDate(post.created_at),
           bodyHtml,
           tags,

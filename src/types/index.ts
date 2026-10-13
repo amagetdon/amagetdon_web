@@ -18,6 +18,7 @@ export type {
   Faq,
   BoardPost,
   BoardPostPublic,
+  BlogMeta,
   BoardPostListItem,
   BoardInstructor,
   Purchase,

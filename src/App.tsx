@@ -16,6 +16,7 @@ import ExternalServicesInjector from './components/ExternalServicesInjector'
 import ExternalCodesInjector from './components/ExternalCodesInjector'
 import PixelInjector from './components/PixelInjector'
 import { captureLastTouch, logProductVisit } from './lib/attribution'
+import { useChromeHidden } from './lib/chrome'
 
 const AcademyPage = lazy(() => import('./pages/AcademyPage'))
 const InstructorListPage = lazy(() => import('./pages/InstructorListPage'))
@@ -191,6 +192,7 @@ function DynamicMeta() {
 }
 
 function App() {
+  const chromeHidden = useChromeHidden()
   return (
     <BrowserRouter>
       <AuthProvider>
@@ -205,7 +207,7 @@ function App() {
           <ExternalServicesInjector />
           <PixelInjector />
           <ExternalCodesInjector />
-          <Header />
+          {!chromeHidden && <Header />}
           <FadeInProvider />
           <main className="flex-1">
             <GlobalHero />
@@ -281,7 +283,7 @@ function App() {
               </Routes>
             </Suspense>
           </main>
-          <Footer />
+          {!chromeHidden && <Footer />}
           <Toaster position="top-center" toastOptions={{ duration: 3000, style: { fontSize: '14px' } }} />
         </div>
       </AuthProvider>

@@ -18,8 +18,16 @@ const DEFAULT_UTM = { source: 'DABLE', medium: 'native', campaign: 'min_ai_dbl' 
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 const img = (src: string) => `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer" />`
-const lines = (text: string, cls: string) => text.split('\n').map((l) => `<p class="${cls}">${l.trim() ? esc(l) : '&nbsp;'}</p>`).join('')
-const textOf = (el: Element | null, sel: string) => (el ? [...el.querySelectorAll(sel)].map((p) => (p.textContent ?? '').replace(/ /g, '').trimEnd()).join('\n') : '')
+// **굵게** 표시를 <strong> 으로
+const md = (l: string) => esc(l).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+const lines = (text: string, cls: string) => text.split('\n').map((l) => `<p class="${cls}">${l.trim() ? md(l) : '&nbsp;'}</p>`).join('')
+/** 문단 HTML → 편집용 텍스트 (굵은 글씨는 **표시**) */
+const mdOf = (el: Element | null, sel: string) => (el ? [...el.querySelectorAll(sel)].map((p) => {
+  const tmp = document.createElement('div')
+  tmp.innerHTML = p.innerHTML.replace(/<(strong|b)>([\s\S]*?)<\/(strong|b)>/gi, '**$2**')
+  return (tmp.textContent ?? '').replace(/\u00a0/g, '').trimEnd()
+}).join('\n') : '')
+const textOf = (el: Element | null, sel: string) => (el ? [...el.querySelectorAll(sel)].map((p) => (p.textContent ?? '').replace(/\u00a0/g, '').trimEnd()).join('\n') : '')
 
 interface State {
   kind: BlogBlockKind
@@ -34,10 +42,11 @@ interface State {
   urlText: string
   tags: string
   raw: string
+  bold: boolean
 }
 
 function parse(html: string | null, kind: BlogBlockKind): State {
-  const s: State = { kind, style: '', text: '', caption: '', href: '', images: [], gallery: 'slide', title: '', summary: '', urlText: '', tags: '', raw: html ?? '' }
+  const s: State = { kind, style: '', text: '', caption: '', href: '', images: [], gallery: 'slide', title: '', summary: '', urlText: '', tags: '', raw: html ?? '', bold: false }
   if (!html) {
     s.style = kind === 'quote' ? 'default' : kind === 'hr' ? 'line1' : kind === 'link' ? 'large_image' : 'default'
     return s
@@ -45,7 +54,10 @@ function parse(html: string | null, kind: BlogBlockKind): State {
   const el = new DOMParser().parseFromString(html, 'text/html').body.firstElementChild
   if (!el) return { ...s, kind: 'raw' }
   const layout = (prefix: string) => [...el.classList].find((c) => c.startsWith(prefix))?.slice(prefix.length) ?? 'default'
-  if (el.matches('blockquote.bq')) return { ...s, kind: 'quote', style: layout('bq-'), text: textOf(el, '.bq-p, p'), caption: el.querySelector('cite')?.textContent ?? '' }
+  if (el.matches('blockquote.bq')) {
+    const style = [...el.classList].find((c) => c.startsWith('bq-') && c !== 'bq-bold')?.slice(3) ?? 'default'
+    return { ...s, kind: 'quote', style, bold: el.classList.contains('bq-bold'), text: mdOf(el, '.bq-p, p'), caption: el.querySelector('cite')?.textContent ?? '' }
+  }
   if (el.matches('hr.bhr')) return { ...s, kind: 'hr', style: layout('bhr-') }
   if (el.matches('figure.bimg')) {
     return { ...s, kind: 'image', style: layout('bimg-'), images: [el.querySelector('img')?.getAttribute('src') ?? ''].filter(Boolean),
@@ -68,7 +80,7 @@ function build(s: State): string {
   const cap = s.caption.trim() ? `<figcaption>${lines(s.caption, 'bcap')}</figcaption>` : ''
   switch (s.kind) {
     case 'quote':
-      return `<blockquote class="bq bq-${s.style}">${lines(s.text, 'bq-p')}${s.caption.trim() ? `<cite>${esc(s.caption.trim())}</cite>` : ''}</blockquote>`
+      return `<blockquote class="bq bq-${s.style}${s.bold ? ' bq-bold' : ''}">${lines(s.text, 'bq-p')}${s.caption.trim() ? `<cite>${esc(s.caption.trim())}</cite>` : ''}</blockquote>`
     case 'hr':
       return `<hr class="bhr bhr-${s.style}" />`
     case 'image': {
@@ -189,7 +201,16 @@ export default function BlogBlockDialog({ html, kind, onSave, onDelete, onClose,
 
             {s.kind === 'quote' && (
               <>
-                <div><label className={label}>내용 (줄바꿈 그대로)</label><textarea rows={5} value={s.text} onChange={(e) => set({ text: e.target.value })} className={input} /></div>
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-gray-600">내용 (줄바꿈 그대로)</label>
+                    <label className="flex items-center gap-1 text-xs text-gray-600 cursor-pointer">
+                      <input type="checkbox" checked={s.bold} onChange={(e) => set({ bold: e.target.checked })} className="accent-[#2ED573]" /> 전체 굵게
+                    </label>
+                  </div>
+                  <textarea rows={5} value={s.text} onChange={(e) => set({ text: e.target.value })} className={input} />
+                  <p className="text-[11px] text-gray-400 mt-1">일부만 굵게: <code>**굵게 할 글자**</code> 처럼 별표 두 개로 감싸세요.</p>
+                </div>
                 <div><label className={label}>출처 (선택)</label><input value={s.caption} onChange={(e) => set({ caption: e.target.value })} className={input} /></div>
               </>
             )}

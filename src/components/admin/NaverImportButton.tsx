@@ -9,7 +9,7 @@ const DEFAULT_UTM: ImportUtm = { source: 'DABLE', medium: 'native', campaign: 'm
 
 export default function NaverImportButton({ hasContent, onImported }: {
   hasContent: boolean
-  onImported: (r: { title: string; html: string }) => void
+  onImported: (r: { title: string; html: string; meta: { blogTitle: string; nickname: string; profileImage: string; category: string } }) => void
 }) {
   const [open, setOpen] = useState(false)
   const [url, setUrl] = useState('')
@@ -35,7 +35,7 @@ export default function NaverImportButton({ hasContent, onImported }: {
       const tagBlock = list.length
         ? `<div class="btags" data-tags="${list.join(',').replace(/"/g, '&quot;')}">${list.map((t) => `#${t}`).join(' ')}</div>`
         : ''
-      onImported({ title: r.title, html: r.html + tagBlock })
+      onImported({ title: r.title, html: r.html + tagBlock, meta: r.meta })
       toast.success(`가져왔습니다 (사진 ${r.images}장 옮김)`)
       setOpen(false); setUrl(''); setTags('')
     } catch (e) {

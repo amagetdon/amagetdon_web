@@ -168,3 +168,4 @@
 .blog-body.blog-block-nv:hover { outline-color: #2ED573; }
 .blog-body.blog-block-nv > * { margin-top: 12px !important; margin-bottom: 12px !important; }
 .blog-body.blog-block-nv .btags { display: block; color: #888; font-size: 13px; }
+.blog-body .bq-bold, .blog-body .bq-bold .bq-p { font-weight: 700; }
