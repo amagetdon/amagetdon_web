@@ -50,6 +50,10 @@ export default function LinkpayInbox({
   const [courseSearch, setCourseSearch] = useState('')
   const [preview, setPreview] = useState<'attached' | 'top_up' | 'inserted' | null>(null)
   const [saving, setSaving] = useState(false)
+  // 부여된 결제 옮기기 — 현재 연결된 계정과 옮길 계정을 따로 둔다
+  const [moveOpen, setMoveOpen] = useState(false)
+  const [moveTarget, setMoveTarget] = useState<Member | null>(null)
+  const [revokeOld, setRevokeOld] = useState(true)
   const panelRef = useRef<HTMLDivElement>(null)
 
   const counts = useMemo(() => {
@@ -75,6 +79,9 @@ export default function LinkpayInbox({
 
   const select = async (p: LinkpayPayment) => {
     setSelectedId(p.id)
+    setMoveOpen(false)
+    setMoveTarget(null)
+    setRevokeOld(true)
     setMember(null)
     setMemberQuery('')
     setMemberHits([])
@@ -135,6 +142,34 @@ export default function LinkpayInbox({
       else setSelectedId(null)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '부여에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const move = async () => {
+    if (!selected || saving) return
+    if (!moveTarget) { toast.error('옮길 수강생 계정을 골라주세요.'); return }
+    if (courseId === '') { toast.error('강의를 골라주세요.'); return }
+    const course = courses.find((c) => c.id === courseId)
+    try {
+      setSaving(true)
+      const { oldAction } = await linkpayService.movePayment(selected, {
+        userId: moveTarget.id,
+        courseId: courseId as number,
+        ebookId: null,
+        title: course?.title || selected.order_name || '링크페이 결제',
+        expiresAt: courseExpiry(course),
+        revokeOld,
+      })
+      const oldMsg = oldAction === 'subtracted' ? '원래 구매에서는 금액만 뺐습니다'
+        : oldAction === 'revoked' ? '원래 계정의 수강권은 회수했습니다'
+          : oldAction === 'zeroed' ? '원래 계정은 0원 수강권으로 남겼습니다' : ''
+      toast.success(`${moveTarget.name ?? '회원'}님 계정으로 옮겼습니다.${oldMsg ? ` ${oldMsg}.` : ''}`)
+      await onChanged()
+      await select({ ...selected, matched_user_id: moveTarget.id, course_id: courseId as number })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '옮기기에 실패했습니다.')
     } finally {
       setSaving(false)
     }
@@ -261,10 +296,87 @@ export default function LinkpayInbox({
             {statusOf(selected) !== 'todo' ? (
               <div className="p-5 text-sm text-gray-600 space-y-2">
                 {statusOf(selected) === 'done' ? (
-                  <>
-                    <p><i className="ti ti-circle-check text-emerald-500" /> 수강권이 부여된 결제입니다{selected.course_id ? ` — ${courseTitle(selected.course_id)}` : ''}.</p>
-                    <p className="text-xs text-gray-400">다른 계정에 잘못 붙었다면 운영 담당자에게 요청해 주세요.</p>
-                  </>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-[11px] font-bold text-gray-400 tracking-wide">지금 연결된 곳</p>
+                      <p className="mt-1 text-gray-800">
+                        <i className="ti ti-user text-gray-400" /> {member ? <><b>{member.name || '(이름없음)'}</b> <span className="text-xs text-gray-500">{member.phone || member.email || ''}</span></> : '연결된 회원 없음'}
+                      </p>
+                      <p className="text-gray-800"><i className="ti ti-book text-gray-400" /> {selected.course_id ? courseTitle(selected.course_id) : '강의 없음'}</p>
+                      {!selected.purchase_id && <p className="text-xs text-amber-700 mt-1">구매 기록과 연결이 끊긴 결제입니다. 수강 중인 계정으로 옮기면 매출에 다시 잡힙니다.</p>}
+                    </div>
+
+                    {!moveOpen ? (
+                      <button
+                        type="button"
+                        onClick={() => { setMoveOpen(true); setMoveTarget(null); setMemberQuery(''); setMemberHits([]) }}
+                        className="w-full py-2.5 rounded-xl bg-white border border-gray-300 text-gray-700 font-bold text-sm cursor-pointer hover:border-gray-400"
+                      >
+                        <i className="ti ti-arrows-exchange" /> 다른 계정·강의로 옮기기
+                      </button>
+                    ) : (
+                      <div className="space-y-3 border-t border-gray-100 pt-3">
+                        <p className="text-sm font-bold text-gray-900">① 옮길 수강생 계정 <span className="text-xs font-normal text-gray-400">수업 듣는 사람</span></p>
+                        {moveTarget && (
+                          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                            <i className="ti ti-user-check text-emerald-600" />
+                            <span className="text-sm text-gray-900 font-medium truncate">{moveTarget.name || '(이름없음)'}</span>
+                            <span className="text-xs text-gray-500 truncate">{moveTarget.phone || moveTarget.email || ''}</span>
+                          </div>
+                        )}
+                        <input
+                          id="linkpay-inbox-move-member"
+                          value={memberQuery}
+                          onChange={(e) => searchMembers(e.target.value)}
+                          placeholder="이름·전화·이메일로 검색"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573]"
+                        />
+                        {memberHits.length > 0 && (
+                          <div className="border border-gray-200 rounded-lg max-h-[160px] overflow-y-auto">
+                            {memberHits.map((m) => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => { setMoveTarget(m); setMemberHits([]); setMemberQuery('') }}
+                                className="w-full text-left px-3 py-2 text-sm border-none cursor-pointer bg-white hover:bg-gray-50"
+                              >
+                                {m.name || '(이름없음)'} <span className="text-xs text-gray-400">{m.phone || m.email || ''}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-sm font-bold text-gray-900">② 강의</p>
+                        <select
+                          id="linkpay-inbox-move-course"
+                          value={courseId}
+                          onChange={(e) => setCourseId(e.target.value ? Number(e.target.value) : '')}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] bg-white"
+                        >
+                          <option value="">강의 선택</option>
+                          {[...courses].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((c) => (
+                            <option key={c.id} value={c.id}>{c.instructor?.name ? `[${c.instructor.name}] ` : ''}{c.title}</option>
+                          ))}
+                        </select>
+                        {selected.purchase_id && (
+                          <label className="flex items-start gap-2 text-xs text-gray-600 cursor-pointer">
+                            <input type="checkbox" checked={revokeOld} onChange={(e) => setRevokeOld(e.target.checked)} className="mt-0.5" />
+                            <span>원래 계정의 수강권 회수 <span className="text-gray-400">(끄면 원래 계정은 0원 수강권으로 남습니다. 분할 결제로 합쳐진 구매면 이 결제 금액만 빠집니다)</span></span>
+                          </label>
+                        )}
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setMoveOpen(false)} className="flex-1 py-2.5 rounded-xl bg-gray-100 text-gray-600 text-sm border-none cursor-pointer">취소</button>
+                          <button
+                            type="button"
+                            onClick={move}
+                            disabled={saving || !moveTarget || courseId === ''}
+                            className="flex-[2] py-2.5 rounded-xl bg-gray-900 text-white font-bold text-sm border-none cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {saving ? '옮기는 중...' : '이 계정으로 옮기기'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : statusOf(selected) === 'canceled' ? (
                   <p>취소된 결제라 수강권을 줄 수 없습니다.</p>
                 ) : (

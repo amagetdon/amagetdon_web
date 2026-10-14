@@ -106,6 +106,28 @@ export const linkpayService = {
   },
 
   /**
+   * 이미 부여된 결제를 다른 수강생 계정·강의로 옮긴다 (RPC admin_move_linkpay_payment).
+   * 원래 구매가 분할 합산이면 금액만 빼고, 아니면 revokeOld 에 따라 원래 수강권을 회수하거나 0원으로 남긴다.
+   */
+  async movePayment(
+    payment: LinkpayPayment,
+    opts: { userId: string; courseId: number | null; ebookId: number | null; title: string; expiresAt: string | null; revokeOld: boolean },
+  ): Promise<{ mode: 'attached' | 'top_up' | 'inserted'; oldAction: 'subtracted' | 'revoked' | 'zeroed' | 'none' }> {
+    const { data, error } = await supabase.rpc('admin_move_linkpay_payment', {
+      p_linkpay_id: payment.id,
+      p_user_id: opts.userId,
+      p_course_id: opts.courseId,
+      p_ebook_id: opts.ebookId,
+      p_title: opts.title,
+      p_expires_at: opts.expiresAt,
+      p_revoke_old: opts.revokeOld,
+    } as never)
+    if (error) throw error
+    const r = (data ?? {}) as { mode?: 'attached' | 'top_up' | 'inserted'; old_action?: 'subtracted' | 'revoked' | 'zeroed' | 'none' }
+    return { mode: r.mode ?? 'inserted', oldAction: r.old_action ?? 'none' }
+  },
+
+  /**
    * 미부여 결제를 회원·강의에 연결 (RPC admin_attach_linkpay_payment).
    * 같은 회원·강의에 0원 수강권이 있으면 거기에 결제를 붙이고(attached), 유료 구매가 있으면 금액을 더하고(top_up, 차액·분할),
    * 없으면 새 구매를 만든다(inserted). 예전엔 늘 새로 만들어 팀이 준 0원 수강권과 중복됐다.
