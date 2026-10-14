@@ -8,6 +8,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { ebookService } from '../../services/ebookService'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { EbookWithInstructor } from '../../types'
 
 interface EbookStats {
@@ -29,7 +30,8 @@ export default function AdminEbooks() {
       setLoading(true)
       const [e, purchaseRes] = await withTimeout(Promise.all([
         ebookService.getAll({ includeUnpublished: true }),
-        supabase.from('purchases').select('ebook_id').not('ebook_id', 'is', null),
+        // 전자책별 구매자 집계 — 1,000행 제한에 잘리지 않게 끝까지 (lib/fetchAllRows)
+        fetchAllRows((from, to) => supabase.from('purchases').select('ebook_id').not('ebook_id', 'is', null).order('id').range(from, to)),
       ]))
       setEbooks(e)
 

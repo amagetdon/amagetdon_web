@@ -5,6 +5,7 @@ import {
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { withTimeout } from '../../lib/fetchWithTimeout'
+import { fetchAllRows } from '../../lib/fetchAllRows'
 import { toLocalDateStr, toLocalMonthStr } from '../../lib/dateUtils'
 import AdminLayout from '../../components/admin/AdminLayout'
 import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
@@ -129,19 +130,20 @@ export default function AdminDashboard() {
         supabase.from('faqs').select('*', { count: 'exact', head: true }),
         supabase.from('schedules').select('*', { count: 'exact', head: true }),
         supabase.from('purchases').select('*', { count: 'exact', head: true }),
-        supabase.from('purchases').select('price'),
-        supabase.from('purchases').select('price').gte('purchased_at', startOfToday),
-        supabase.from('purchases').select('price').gte('purchased_at', startOfWeek),
-        supabase.from('purchases').select('price').gte('purchased_at', startOfMonth),
+        // 합계·분포용 목록은 1,000행 제한에 잘리지 않게 끝까지 모은다 (lib/fetchAllRows)
+        fetchAllRows((from, to) => supabase.from('purchases').select('price').order('id').range(from, to)),
+        fetchAllRows((from, to) => supabase.from('purchases').select('price').gte('purchased_at', startOfToday).order('id').range(from, to)),
+        fetchAllRows((from, to) => supabase.from('purchases').select('price').gte('purchased_at', startOfWeek).order('id').range(from, to)),
+        fetchAllRows((from, to) => supabase.from('purchases').select('price').gte('purchased_at', startOfMonth).order('id').range(from, to)),
         supabase.from('profiles').select('name, created_at, phone').order('created_at', { ascending: false }).limit(8),
         supabase.from('purchases').select('title, price, purchased_at').order('purchased_at', { ascending: false }).limit(8),
         supabase.from('reviews').select('author_name, title, rating, created_at').order('created_at', { ascending: false }).limit(5),
-        supabase.from('profiles').select('created_at').gte('created_at', days30Ago),
-        supabase.from('purchases').select('purchased_at, price').gte('purchased_at', days30Ago),
-        supabase.from('purchases').select('title, course_id, ebook_id, board_post_id, board_instructor_id'),
-        supabase.from('reviews').select('rating'),
-        supabase.from('profiles').select('gender, birth_date, address, provider, created_at'),
-      ]), 15000)
+        fetchAllRows((from, to) => supabase.from('profiles').select('created_at').gte('created_at', days30Ago).order('id').range(from, to)),
+        fetchAllRows((from, to) => supabase.from('purchases').select('purchased_at, price').gte('purchased_at', days30Ago).order('id').range(from, to)),
+        fetchAllRows((from, to) => supabase.from('purchases').select('title, course_id, ebook_id, board_post_id, board_instructor_id').order('id').range(from, to)),
+        fetchAllRows((from, to) => supabase.from('reviews').select('rating').order('id').range(from, to)),
+        fetchAllRows((from, to) => supabase.from('profiles').select('gender, birth_date, address, provider, created_at').order('id').range(from, to)),
+      ]), 30000)
 
       const sum = (arr: { price: number }[] | null) => arr?.reduce((s, p) => s + p.price, 0) || 0
 

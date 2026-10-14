@@ -8,6 +8,7 @@ import { Dialog, DialogPanel, DialogTitle, Combobox, ComboboxInput, ComboboxButt
 import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/fetchAllRows'
 import { useAuth } from '../../contexts/AuthContext'
 import { webhookService } from '../../services/webhookService'
 import { webhookScheduleService } from '../../services/webhookScheduleService'
@@ -79,15 +80,20 @@ export default function AdminMembers() {
     try {
       setLoading(true)
 
-      const { data: profiles, error: profileError } = await withTimeout(Promise.resolve(supabase
+      // 회원·구매가 1,000명/건을 넘으므로 끝까지 모은다 (lib/fetchAllRows) — 예전엔 최근 가입 1,000명만 목록에 나왔음
+      const { data: profiles, error: profileError } = await withTimeout(fetchAllRows((from, to) => supabase
         .from('profiles')
         .select('*')
-        .order('created_at', { ascending: false })))
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to)), 30000)
       if (profileError) throw profileError
 
-      const { data: purchaseData } = await withTimeout(Promise.resolve(supabase
+      const { data: purchaseData } = await withTimeout(fetchAllRows((from, to) => supabase
         .from('purchases')
-        .select('user_id, price')))
+        .select('user_id, price')
+        .order('id')
+        .range(from, to)), 30000)
 
       const purchaseMap = new Map<string, { count: number; total: number }>()
       if (purchaseData) {
