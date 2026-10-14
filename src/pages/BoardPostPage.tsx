@@ -8,6 +8,7 @@ import BoardCheckoutModal, { type BoardCheckoutItem } from '../components/BoardC
 import { membershipPriceLabel } from '../components/BoardNewsletterBits'
 import BlogPostView from '../components/blog/BlogPostView'
 import { setChromeHidden } from '../lib/chrome'
+import { logProductVisit } from '../lib/attribution'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 import type { BoardInstructor, BoardPostPublic } from '../types'
 
@@ -112,6 +113,11 @@ export default function BoardPostPage() {
       tags: m ? m[1].split(',').map((t) => t.trim()).filter(Boolean) : [],
     }
   }, [post])
+
+  // 게시글 방문 기록 — 같은 방문자의 강의 페이지 방문·신청과 이어서 관리자 통합 대시보드 '게시글 경유'에 집계 (하루 1건)
+  useEffect(() => {
+    if (status === 'ok' && post?.id) logProductVisit(`board_post_${post.id}`)
+  }, [status, post?.id])
 
   // 서버가 잘라 보낸 잠긴 글 — 미리보기 높이로 클리핑하고 CTA 를 노출한다.
   const teaser = status === 'ok' && !!post?.is_locked

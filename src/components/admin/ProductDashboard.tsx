@@ -317,6 +317,9 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
         />
       </section>
 
+      {/* 게시글 경유 (강의만) */}
+      {kind === 'course' && <BoardFunnelSection courseId={productId} />}
+
       {/* D-14 ~ 당일 */}
       {data.dday && <DdaySection rows={data.dday} />}
 
@@ -629,5 +632,48 @@ function LinkModal({ kind, productId, current, onClose, onSaved }: {
         </div>
       </div>
     </div>
+  )
+}
+
+// 게시글 경유 퍼널 — 본문에 이 강의 링크가 있는 게시글별 방문자 → 같은 방문자의 강의 페이지 방문 → 신청 (RPC get_course_board_funnel)
+// 방문자는 브라우저 방문자 ID 기준(UTM 이 빠져도 이어짐), 신청은 로그인으로 연결된 방문자만. 게시글 방문 기록은 적용일부터 쌓인다.
+function BoardFunnelSection({ courseId }: { courseId: number }) {
+  const [rows, setRows] = useState<{ post_id: number; title: string; visitors: number; moved: number; enrolled: number }[] | null>(null)
+  useEffect(() => {
+    let active = true
+    supabase.rpc('get_course_board_funnel', { p_course_id: courseId } as never).then(({ data, error }) => {
+      if (active) setRows(error ? [] : ((data ?? []) as typeof rows & object))
+    })
+    return () => { active = false }
+  }, [courseId])
+  if (!rows || rows.length === 0) return null
+  const pct = (a: number, b: number) => (b > 0 ? `${Math.round((a / b) * 1000) / 10}%` : '-')
+  return (
+    <section className="bg-white rounded-xl shadow-sm p-5">
+      <h3 className="text-base font-bold text-gray-900 mb-1">게시글 경유 (게시글 방문 → 강의 이동 → 신청)</h3>
+      <p className="text-xs text-gray-400 mb-4">본문에 이 강의 링크가 있는 게시글만. 같은 브라우저 방문자 기준이며, 신청은 로그인으로 연결된 방문자만 셉니다.</p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-3 py-2 text-left font-bold text-gray-600">게시글</th>
+              <th className="px-3 py-2 text-right font-bold text-gray-600">방문자</th>
+              <th className="px-3 py-2 text-right font-bold text-gray-600">강의 이동</th>
+              <th className="px-3 py-2 text-right font-bold text-gray-600">신청</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {rows.map((r) => (
+              <tr key={r.post_id}>
+                <td className="px-3 py-2 text-gray-800 max-w-[320px] truncate">{r.title}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{r.visitors.toLocaleString()}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{r.moved.toLocaleString()} <span className="text-xs text-gray-400">{pct(r.moved, r.visitors)}</span></td>
+                <td className="px-3 py-2 text-right tabular-nums">{r.enrolled.toLocaleString()} <span className="text-xs text-gray-400">{pct(r.enrolled, r.visitors)}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }

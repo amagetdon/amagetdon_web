@@ -117,7 +117,8 @@ function visitorId(): string | null {
 
 /** contentId = course_{id} / ebook_{id} */
 export function logProductVisit(contentId: string): void {
-  const m = contentId.match(/^(course|ebook)_(\d+)$/)
+  // board_post_N: 게시글 방문 (게시글 → 강의 이동 → 신청 집계용, get_course_board_funnel)
+  const m = contentId.match(/^(course|ebook|board_post)_(\d+)$/)
   const vid = visitorId()
   if (!m || !vid) return
   supabase
