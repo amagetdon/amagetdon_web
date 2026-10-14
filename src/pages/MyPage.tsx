@@ -9,6 +9,7 @@ import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
 import { billingService, type NewsletterSubscription } from '../services/billingService'
 import type { Purchase } from '../types'
+import { isDaumPostcodeReady, loadDaumPostcode } from '../lib/daumPostcode'
 
 declare global {
   interface Window {
@@ -301,6 +302,27 @@ function MyPage() {
     }
   }
 
+  // 주소 검색 스크립트는 마이페이지에 들어왔을 때 미리 받아 둔다 (클릭 순간에 준비돼 있어야 팝업이 막히지 않음)
+  useEffect(() => { loadDaumPostcode().catch(() => {}) }, [])
+
+  const openPostcode = () => {
+    if (!isDaumPostcodeReady()) {
+      loadDaumPostcode()
+        .then(openPostcode)
+        .catch(() => toast.error('우편번호 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'))
+      return
+    }
+    new window.daum.Postcode({
+      oncomplete: (data) => {
+        setForm((prev) => ({
+          ...prev,
+          zonecode: data.zonecode,
+          address: data.roadAddress || data.jibunAddress,
+        }))
+      },
+    }).open()
+  }
+
   const years = Array.from({ length: 80 }, (_, i) => 2006 - i)
   const months = Array.from({ length: 12 }, (_, i) => i + 1)
   const days = Array.from({ length: 31 }, (_, i) => i + 1)
@@ -413,17 +435,7 @@ function MyPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    new window.daum.Postcode({
-                      oncomplete: (data) => {
-                        setForm((prev) => ({
-                          ...prev,
-                          zonecode: data.zonecode,
-                          address: data.roadAddress || data.jibunAddress,
-                        }))
-                      },
-                    }).open()
-                  }}
+                  onClick={openPostcode}
                   className="bg-gray-800 text-white text-xs px-4 py-1.5 rounded cursor-pointer border-none"
                 >
                   우편번호 검색

@@ -6,6 +6,7 @@ import { imgUrl } from '../lib/image'
 import { textToHtml, scaleBannerFontSizes } from '../utils/richText'
 import { useAuth } from '../contexts/AuthContext'
 import type { Banner } from '../types'
+import { bannerCache } from '../lib/heroBannerCache'
 
 // 관리자에게만 보이는 히어로 편집 버튼 — 클릭 시 /admin/pages 의 해당 히어로 탭으로 이동
 function AdminEditPencil({ pageKey }: { pageKey: string }) {
@@ -39,7 +40,6 @@ function getEmbedUrl(url: string): { type: 'youtube' | 'raw'; src: string } | nu
   return { type: 'raw', src: url }
 }
 
-const bannerCache = new Map<string, Banner[]>()
 const settingsCache = { loaded: false, data: null as Record<string, { height?: string; heightMobile?: string; speed?: string; fit?: string; fitMobile?: string }> | null }
 
 type FitMode = 'cover' | 'width' | 'height'

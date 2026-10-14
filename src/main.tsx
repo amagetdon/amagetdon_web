@@ -92,8 +92,13 @@ function hideSplash() {
 }
 
 // skeleton 완전 제거 후 즉시 스플래시 제거 (첫 진입만)
+// 단, 아무리 늦어도 첫 진입 1.5초 뒤엔 걷는다 — 데이터가 늦거나 <section> 이 없는 페이지에서
+// 하얀 로고 화면이 계속 남아 있지 않도록. (그 뒤엔 각 페이지의 회색 로딩 화면이 보임)
+const SPLASH_MAX_MS = 1500
+let splashDone = false
 const dataReady = new Promise<void>((resolve) => {
   const check = () => {
+    if (splashDone) return
     const main = document.querySelector('main')
     if (!main) { requestAnimationFrame(check); return }
     const sections = main.querySelectorAll('section')
@@ -106,7 +111,13 @@ const dataReady = new Promise<void>((resolve) => {
   check()
 })
 
-dataReady.then(() => setTimeout(hideSplash, 350))
+const finishSplash = () => {
+  if (splashDone) return
+  splashDone = true
+  hideSplash()
+}
+dataReady.then(() => setTimeout(finishSplash, 350))
+setTimeout(finishSplash, Math.max(0, SPLASH_MAX_MS - performance.now()))
 
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={queryClient}>
