@@ -10,6 +10,7 @@ import { couponService } from '../services/couponService'
 import { webhookService } from '../services/webhookService'
 import { webhookScheduleService } from '../services/webhookScheduleService'
 import CouponSelector from '../components/CouponSelector'
+import LandingImage from '../components/LandingImage'
 import SeoHead from '../components/SeoHead'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
@@ -501,7 +502,8 @@ function EbookDetailPage() {
                     {urls.map((url, idx) => {
                       const key = `${url}-${idx}`
                       const link = (links[idx] || '').trim()
-                      const img = <img src={url} alt={`${ebook.title} 상세 ${idx + 1}`} className="w-full block" />
+                      // 첫 화면 대표는 위 썸네일 — 상세 이미지는 모두 가까워질 때 받는다
+                      const img = <LandingImage src={url} alt={`${ebook.title} 상세 ${idx + 1}`} />
                       if (!link) return <Fragment key={key}>{img}</Fragment>
                       // 내부 경로(/...)는 SPA 이동, 그 외(http 등)는 새 탭으로 연다.
                       if (link.startsWith('/')) return <Link key={key} to={link} className="block">{img}</Link>
