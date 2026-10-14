@@ -181,6 +181,7 @@ export default function PaymentSuccessPage() {
           url={afterPurchaseUrl}
           onClose={() => setAfterPurchaseUrl(null)}
           itemLabel="강의/전자책"
+          title="결제가 완료됐어요!"
           tracking={{
             contentId: purchaseContentId,
             contentName: orderTitle,
