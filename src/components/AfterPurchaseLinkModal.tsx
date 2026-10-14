@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 import { trackOpenChatJoin } from '../lib/tracking'
 import { logOpenChat } from '../lib/openchatLog'
 
@@ -16,22 +16,30 @@ interface Props {
     email?: string | null
     phone?: string | null
   }
+  // 창 제목 (유료 결제 완료 화면은 '결제가 완료됐어요!')
+  title?: string
+  // 미리보기·테스트용: 앱 안 브라우저(같은 탭 이동) 동작을 강제
+  forceSameTab?: boolean
 }
 
-/**
- * 구매 직후 안내 링크(오픈채팅방 등)를 카운트다운 후 새 창으로 띄움.
- * 3 → 2 → 1 카운트가 끝나면 자동으로 window.open 시도.
- * 브라우저 popup blocker 로 차단되면 '지금 열기' 버튼으로 fallback.
- */
-export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강의', tracking }: Props) {
-  const [count, setCount] = useState(3)
-  const [opened, setOpened] = useState(false)
-  const intervalRef = useRef<number | null>(null)
+// 카카오톡·인스타그램·페이스북·라인·네이버·밴드 등 앱 안 브라우저 — 새 창이 막히거나 무시되는 경우가 많아 같은 탭으로 이동
+const IN_APP_RE = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|FB4A|Line\/|NAVER\(inapp|DaumApps|BAND\/|everytimeApp/i
 
-  // OpenChatJoin — 안내 링크(오픈채팅방 등)로 실제 진입하는 시점에 1회 발화 (전환이벤트설계서 #4).
-  // 자동 오픈 / '지금 열기' 클릭 양쪽에서 호출되지만 dedupeKey(url) 기준으로 1회만 발화된다.
-  const fireOpenChatJoin = () => {
-    if (!url) return
+/**
+ * 신청·결제 직후 안내 링크(오픈채팅방 등) 입장 창.
+ * 예전엔 3초 카운트다운 뒤 사용자 터치 없이 window.open 했는데, 휴대폰·앱 안 브라우저·로그인 후 자동 이어 신청에서
+ * 팝업 차단으로 자주 막혔다(10/13~14 129번 신청자: 자동 열림 30% · 직접 클릭 59% · 기록 없음 11%).
+ * 지금은 큰 '오픈채팅 입장하기' 버튼을 누를 때 연다 — 사용자 터치로 여는 창은 차단되지 않는다.
+ * 앱 안 브라우저면 같은 탭에서 이동하되, 이동 전에 입장 기록·전환 이벤트를 먼저 보낸다.
+ */
+export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강의', tracking, title = '신청이 완료됐어요!', forceSameTab }: Props) {
+  const navigatingRef = useRef(false)
+  if (!url) return null
+
+  const sameTab = forceSameTab ?? IN_APP_RE.test(navigator.userAgent)
+
+  // OpenChatJoin — 안내 링크로 실제 진입할 때 1회 (dedupeKey=url 로 세션당 1회, DB 기록은 최초 1회)
+  const recordJoin = () => {
     trackOpenChatJoin({
       dedupeKey: url,
       contentId: tracking?.contentId,
@@ -40,101 +48,62 @@ export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강�
       campaignId: tracking?.campaignId,
       user: { email: tracking?.email, phone: tracking?.phone },
     })
+    return logOpenChat(tracking?.contentId, true)
   }
 
-  useEffect(() => {
-    if (!url) return
-    setCount(3)
-    setOpened(false)
-    intervalRef.current = window.setInterval(() => {
-      setCount((c) => {
-        const next = c - 1
-        if (next <= 0) {
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current)
-            intervalRef.current = null
-          }
-          // 자동 발사 시도. blocker 에 막히면 사용자가 버튼으로 직접 열게 됨.
-          // 'noopener' feature 를 주면 성공해도 window.open 이 null 을 반환(HTML 스펙)해 차단으로 오판 →
-          // 오픈채팅 전환(open_chat_join)이 자동 오픈 경로에서 전혀 발화되지 않았음. 반환값으로 차단 여부를
-          // 판별할 수 있도록 feature 없이 열고 opener 를 직접 끊는다(탭내빙 방지는 동일).
-          const win = window.open(url, '_blank')
-          if (win) {
-            try { win.opener = null } catch { /* cross-origin 등 무시 */ }
-            setOpened(true)
-            fireOpenChatJoin()
-            logOpenChat(tracking?.contentId, false)
-          }
-        }
-        return Math.max(0, next)
-      })
-    }, 1000)
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-        intervalRef.current = null
-      }
+  const handleEnter = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!sameTab) {
+      // 새 창(링크 기본 동작) — 이 페이지가 남아 있으므로 기록은 기다리지 않아도 전송된다
+      void recordJoin()
+      onClose()
+      return
     }
-    // fireOpenChatJoin 은 url 과 함께 고정되며, deps 에 넣으면 매 렌더마다 카운트다운이 리셋되므로 제외.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url])
-
-  // 자동으로 열렸으면 잠깐 보였다가 닫히게
-  useEffect(() => {
-    if (!opened) return
-    const t = window.setTimeout(() => onClose(), 1500)
-    return () => clearTimeout(t)
-  }, [opened, onClose])
-
-  if (!url) return null
+    // 같은 탭 이동 — 페이지를 떠나면 기록 요청이 끊길 수 있어 최대 0.8초 기다린 뒤 이동
+    e.preventDefault()
+    if (navigatingRef.current) return
+    navigatingRef.current = true
+    const go = () => { window.location.href = url }
+    Promise.race([recordJoin(), new Promise((r) => setTimeout(r, 800))]).then(go, go)
+  }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center">
-        <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-emerald-50 flex items-center justify-center">
-          {opened ? (
-            <i className="ti ti-check text-[#2ED573] text-4xl" />
-          ) : count > 0 ? (
-            <span className="text-4xl font-bold text-[#2ED573]">{count}</span>
-          ) : (
-            <div className="w-8 h-8 border-3 border-[#2ED573] border-t-transparent rounded-full animate-spin" />
-          )}
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[100] p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 text-center relative">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="닫기"
+          className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full text-gray-300 hover:text-gray-500 hover:bg-gray-50 bg-transparent border-none cursor-pointer"
+        >
+          <i className="ti ti-x text-lg" />
+        </button>
+        <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-emerald-50 flex items-center justify-center">
+          <i className="ti ti-check text-[#2ED573] text-3xl" />
         </div>
-        <p className="text-sm font-bold text-gray-900 mb-1">
-          {opened
-            ? '새 창이 열렸어요!'
-            : count > 0
-              ? `${count}초 뒤에 ${itemLabel} 정보를 공유받을 수 있는 링크를 열게요!`
-              : '잠시만 기다려주세요...'}
+        <p className="text-lg font-bold text-gray-900">{title}</p>
+        <p className="text-sm text-gray-500 mt-1.5 leading-relaxed" style={{ textWrap: 'balance', wordBreak: 'keep-all' }}>
+          {itemLabel} 안내와 자료는 <b className="text-gray-800">오픈채팅방</b>에서 드려요. 지금 입장해 주세요.
         </p>
-        {!opened && (
-          <p className="text-xs text-gray-500 mb-4">
-            {count > 0 ? '오픈채팅방 등으로 안내됩니다' : '새 창이 안 열리면 아래 버튼을 눌러주세요'}
-          </p>
+        <a
+          href={url}
+          target={sameTab ? '_self' : '_blank'}
+          rel="noopener noreferrer"
+          onClick={handleEnter}
+          className="mt-5 flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-[#2ED573] hover:bg-[#25B866] text-white text-base font-bold no-underline transition-colors shadow-sm shadow-[#2ED573]/30"
+        >
+          <i className="ti ti-message-circle text-xl" />
+          오픈채팅 입장하기
+        </a>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-2 w-full py-2.5 text-sm text-gray-400 bg-transparent border-none cursor-pointer hover:text-gray-600"
+        >
+          나중에 할게요
+        </button>
+        {itemLabel === '강의' && (
+          <p className="text-[11px] text-gray-400 mt-1">나중에는 강의 화면의 '채팅방 이동하기'로 들어올 수 있어요.</p>
         )}
-        <div className="mt-4 space-y-2">
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => { fireOpenChatJoin(); logOpenChat(tracking?.contentId, true); setOpened(true); onClose() }}
-            className={`block w-full py-2.5 px-4 rounded-lg text-sm font-bold no-underline text-center transition-colors ${
-              count > 0 ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-[#2ED573] text-white hover:bg-[#25B866]'
-            }`}
-          >
-            지금 열기
-          </a>
-          {count <= 0 && (
-            <button
-              type="button"
-              onClick={onClose}
-              className="block w-full py-2.5 px-4 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-500 cursor-pointer hover:bg-gray-50 transition-colors"
-            >
-              닫기
-            </button>
-          )}
-        </div>
       </div>
     </div>
   )
