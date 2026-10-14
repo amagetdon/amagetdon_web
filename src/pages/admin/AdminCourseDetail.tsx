@@ -20,6 +20,7 @@ import { landingCategoryService } from '../../services/landingCategoryService'
 import { refundPolicyTemplateService } from '../../services/refundPolicyTemplateService'
 import { formatTouch, type PurchaseTouch } from '../../lib/attribution'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { CourseWithCurriculum, Review, Instructor, LandingCategory } from '../../types'
 
 interface CurriculumVideo {
@@ -134,16 +135,21 @@ export default function AdminCourseDetail() {
     setMembersLoading(true)
     try {
       const [purchaseRes, progressRes, itemsRes] = await Promise.all([
-        supabase
+        // 수강생이 1,000명을 넘는 강의(웨비나 등)도 전원 나오게 끝까지 (lib/fetchAllRows)
+        fetchAllRows((from, to) => supabase
           .from('purchases')
           .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, openchat_opened_at, openchat_clicked_at, purchase_touch, profile:profiles(id, name, email, phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term, signup_referrer)')
           .eq('course_id', courseId)
-          .order('purchased_at', { ascending: false }),
-        supabase
+          .order('purchased_at', { ascending: false })
+          .order('id')
+          .range(from, to)),
+        fetchAllRows((from, to) => supabase
           .from('course_progress')
           .select('user_id')
           .eq('course_id', courseId)
-          .eq('is_completed', true),
+          .eq('is_completed', true)
+          .order('id')
+          .range(from, to)),
         supabase
           .from('curriculum_items')
           .select('id', { count: 'exact', head: true })

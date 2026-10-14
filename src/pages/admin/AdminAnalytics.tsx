@@ -4,6 +4,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/fetchAllRows'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { toLocalDateStr } from '../../lib/dateUtils'
 import AdminLayout from '../../components/admin/AdminLayout'
@@ -55,10 +56,11 @@ export default function AdminAnalytics() {
       try {
         setLoading(true)
         const [profileRes, purchaseRes, couponRes] = await withTimeout(Promise.all([
-          supabase.from('profiles').select('id, gender, birth_date, address, provider, phone, name, created_at, last_active_at, points, utm_source, utm_medium, utm_campaign'),
-          supabase.from('purchases').select('user_id, price, purchased_at, course_id, ebook_id'),
-          supabase.from('coupon_claims').select('coupon_id, used_at'),
-        ]), 15000)
+          // 1,000행 제한에 잘리지 않게 끝까지 (lib/fetchAllRows)
+          fetchAllRows((from, to) => supabase.from('profiles').select('id, gender, birth_date, address, provider, phone, name, created_at, last_active_at, points, utm_source, utm_medium, utm_campaign').order('id').range(from, to)),
+          fetchAllRows((from, to) => supabase.from('purchases').select('user_id, price, purchased_at, course_id, ebook_id').order('id').range(from, to)),
+          fetchAllRows((from, to) => supabase.from('coupon_claims').select('coupon_id, used_at').order('id').range(from, to)),
+        ]), 30000)
         setProfiles((profileRes.data ?? []) as ProfileRow[])
         setPurchases((purchaseRes.data ?? []) as PurchaseRow[])
         setCouponClaims((couponRes.data ?? []) as CouponClaimRow[])

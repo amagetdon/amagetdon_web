@@ -14,6 +14,7 @@ import { refundPolicyTemplateService } from '../../services/refundPolicyTemplate
 import { storageService } from '../../services/storageService'
 import { formatTouch, type PurchaseTouch } from '../../lib/attribution'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { EbookWithInstructor, Instructor } from '../../types'
 
 interface EbookSeoShape {
@@ -180,11 +181,14 @@ export default function AdminEbookDetail() {
     if (!ebookId) return
     setBuyersLoading(true)
     try {
-      const { data, error } = await supabase
+      // 구매자가 1,000명을 넘어도 전원 나오게 끝까지 (lib/fetchAllRows)
+      const { data, error } = await fetchAllRows((from, to) => supabase
         .from('purchases')
         .select('id, purchased_at, expires_at, price, original_price, payment_method, user_id, purchase_touch, profile:profiles(id, name, email, phone, utm_source, utm_medium, utm_campaign, utm_content, utm_term, signup_referrer)')
         .eq('ebook_id', ebookId)
         .order('purchased_at', { ascending: false })
+        .order('id')
+        .range(from, to))
       if (error) throw error
 
       const rows: BuyerRow[] = (data ?? []).map((p) => {

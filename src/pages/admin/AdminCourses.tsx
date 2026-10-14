@@ -9,6 +9,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import { courseService } from '../../services/courseService'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { CourseWithInstructor } from '../../types'
 
 interface CourseStats {
@@ -32,8 +33,9 @@ export default function AdminCourses() {
       setLoading(true)
       const [c, purchaseRes, reviewRes] = await withTimeout(Promise.all([
         courseService.getAll(),
-        supabase.from('purchases').select('course_id').not('course_id', 'is', null),
-        supabase.from('reviews').select('course_id, rating').not('course_id', 'is', null),
+        // 강의별 수강생·후기 집계 — 1,000행 제한에 잘리지 않게 끝까지 (lib/fetchAllRows)
+        fetchAllRows((from, to) => supabase.from('purchases').select('course_id').not('course_id', 'is', null).order('id').range(from, to)),
+        fetchAllRows((from, to) => supabase.from('reviews').select('course_id, rating').not('course_id', 'is', null).order('id').range(from, to)),
       ]))
       setCourses(c)
 

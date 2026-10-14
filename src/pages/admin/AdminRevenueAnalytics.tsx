@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts'
 import { supabase } from '../../lib/supabase'
+import { fetchAllRows } from '../../lib/fetchAllRows'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { toLocalDateStr, toLocalMonthStr } from '../../lib/dateUtils'
 import AdminLayout from '../../components/admin/AdminLayout'
@@ -96,14 +97,15 @@ export default function AdminRevenueAnalytics() {
       try {
         setLoading(true)
         const [purchaseRes, courseRes, ebookRes, instructorRes, pointRes, profileRes, boardPostRes] = await withTimeout(Promise.all([
-          supabase.from('purchases').select('id, user_id, course_id, ebook_id, board_post_id, board_instructor_id, title, price, purchased_at, payment_method'),
+          // 1,000행 제한에 잘리지 않게 끝까지 (lib/fetchAllRows)
+          fetchAllRows((from, to) => supabase.from('purchases').select('id, user_id, course_id, ebook_id, board_post_id, board_instructor_id, title, price, purchased_at, payment_method').order('id').range(from, to)),
           supabase.from('courses').select('id, title, instructor_id, course_type'),
           supabase.from('ebooks').select('id, title, instructor_id'),
           supabase.from('instructors').select('id, name'),
-          supabase.from('point_logs').select('amount, type, created_at'),
-          supabase.from('profiles').select('id, name, email, utm_source, utm_medium, utm_campaign'),
+          fetchAllRows((from, to) => supabase.from('point_logs').select('amount, type, created_at').order('id').range(from, to)),
+          fetchAllRows((from, to) => supabase.from('profiles').select('id, name, email, utm_source, utm_medium, utm_campaign').order('id').range(from, to)),
           supabase.from('board_posts').select('id, instructor_id'),
-        ]), 15000)
+        ]), 30000)
         setPurchases((purchaseRes.data ?? []) as PurchaseRow[])
         setCourses((courseRes.data ?? []) as CourseRow[])
         setEbooks((ebookRes.data ?? []) as EbookRow[])
