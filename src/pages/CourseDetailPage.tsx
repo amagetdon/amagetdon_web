@@ -15,6 +15,7 @@ import { webhookScheduleService } from '../services/webhookScheduleService'
 import { landingCategoryService } from '../services/landingCategoryService'
 import GuestSignupModal from '../components/GuestSignupModal'
 import AfterPurchaseLinkModal from '../components/AfterPurchaseLinkModal'
+import LandingImage from '../components/LandingImage'
 import CouponSelector from '../components/CouponSelector'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
@@ -734,7 +735,8 @@ function CourseDetailPage() {
               {course.video_url ? (
                 <VideoEmbed url={course.video_url} className="w-full" />
               ) : course.promo_image_url ? (
-                <img src={course.promo_image_url} alt={course.title} className="w-full rounded-xl block" loading="lazy" />
+                // 맨 위 홍보 이미지는 첫 화면 대표 이미지라 늦게 받지 않고 우선 받는다
+                <img src={course.promo_image_url} alt={course.title} className="w-full rounded-xl block" fetchPriority="high" decoding="async" />
               ) : null}
             </div>
 
@@ -757,7 +759,8 @@ function CourseDetailPage() {
                     {urls.map((url, idx) => {
                       const key = `${url}-${idx}`
                       const link = (links[idx] || '').trim()
-                      const img = <img src={url} alt={`${course.title} 상세 ${idx + 1}`} className="w-full block" />
+                      // 홍보 영상·이미지가 없으면 첫 장이 첫 화면 대표 이미지 — 그 장만 바로, 나머지는 가까워질 때
+                      const img = <LandingImage src={url} alt={`${course.title} 상세 ${idx + 1}`} eager={idx === 0 && !hasPromo} />
                       if (!link) return <Fragment key={key}>{img}</Fragment>
                       // 내부 경로(/...)는 SPA 이동, 그 외(http 등)는 새 탭으로 연다.
                       if (link.startsWith('/')) return <Link key={key} to={link} className="block">{img}</Link>
