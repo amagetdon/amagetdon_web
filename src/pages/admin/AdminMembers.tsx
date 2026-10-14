@@ -507,6 +507,38 @@ export default function AdminMembers() {
     }
   }
 
+  // 수강 기간 수정 — 구매 행은 그대로 두고 만료일만 바꾼다 (RPC admin_set_purchase_expiry, 이력은 purchase_audit_logs).
+  // 예전엔 수정 수단이 없어 '삭제 → 0원 재부여'로 기간을 고치다 결제 금액이 매출에서 사라졌다(2026-10-14).
+  const [expiryTarget, setExpiryTarget] = useState<{ id: number; title: string; expires_at: string | null } | null>(null)
+  const [expiryDate, setExpiryDate] = useState('')
+  const [expiryUnlimited, setExpiryUnlimited] = useState(false)
+  const [expirySaving, setExpirySaving] = useState(false)
+
+  const openExpiryEdit = (p: { id: number; title: string; expires_at: string | null }) => {
+    setExpiryTarget(p)
+    setExpiryUnlimited(!p.expires_at)
+    setExpiryDate(p.expires_at ? toLocalDateStr(new Date(p.expires_at)) : '')
+  }
+
+  const handleSaveExpiry = async () => {
+    if (!expiryTarget || expirySaving) return
+    if (!expiryUnlimited && !expiryDate) { toast.error('만료 날짜를 선택해주세요.'); return }
+    // 수강권 부여의 '날짜 지정'과 같은 규칙: 그날 끝(23:59:59)까지 유효
+    const nextExpires = expiryUnlimited ? null : new Date(`${expiryDate}T23:59:59`).toISOString()
+    setExpirySaving(true)
+    try {
+      const { error } = await supabase.rpc('admin_set_purchase_expiry', { p_purchase_id: expiryTarget.id, p_expires_at: nextExpires } as never)
+      if (error) throw error
+      setPurchases((prev) => prev.map((p) => (p.id === expiryTarget.id ? { ...p, expires_at: nextExpires } : p)))
+      toast.success(nextExpires ? `수강 기간이 ${formatDate(nextExpires)}까지로 변경되었습니다.` : '수강 기간이 무제한으로 변경되었습니다.')
+      setExpiryTarget(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '수강 기간 변경에 실패했습니다.')
+    } finally {
+      setExpirySaving(false)
+    }
+  }
+
   const [deleteTargetPurchase, setDeleteTargetPurchase] = useState<number | null>(null)
 
   const handleDeletePurchase = async () => {
@@ -1465,6 +1497,14 @@ export default function AdminMembers() {
                             </span>
                           </div>
                           <div className="flex items-center gap-1 shrink-0 ml-3">
+                            {(p.course_id || p.ebook_id) && (
+                              <button
+                                onClick={() => openExpiryEdit({ id: p.id, title: p.title, expires_at: p.expires_at })}
+                                className="px-2 py-1 text-[10px] font-medium text-blue-600 bg-blue-50 rounded border-none cursor-pointer hover:bg-blue-100 transition-colors whitespace-nowrap"
+                              >
+                                기간 수정
+                              </button>
+                            )}
                             <button
                               onClick={() => setRefundTarget({ id: p.id, title: p.title, price: p.price, coupon_id: p.coupon_id, payment_method: p.payment_method, payment_key: p.payment_key, course_id: p.course_id, ebook_id: p.ebook_id })}
                               className="px-2 py-1 text-[10px] font-medium text-yellow-600 bg-yellow-50 rounded border-none cursor-pointer hover:bg-yellow-100 transition-colors whitespace-nowrap"
@@ -1868,13 +1908,61 @@ export default function AdminMembers() {
         </div>
       </Dialog>
 
+      {/* 수강 기간 수정 */}
+      <Dialog open={!!expiryTarget} onClose={() => { if (!expirySaving) setExpiryTarget(null) }} className="relative z-50">
+        <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <DialogTitle className="text-base font-bold text-gray-900 mb-1">수강 기간 수정</DialogTitle>
+            <p className="text-xs text-gray-500 mb-4 truncate">{expiryTarget?.title}</p>
+            <p className="text-xs text-gray-400 mb-3">
+              현재: {expiryTarget?.expires_at ? `~${formatDate(expiryTarget.expires_at)}` : '무제한'} · 결제 금액·구매일은 그대로 유지됩니다.
+            </p>
+            <label className="flex items-center gap-2 text-sm text-gray-700 mb-3 cursor-pointer">
+              <input type="checkbox" checked={expiryUnlimited} onChange={(e) => setExpiryUnlimited(e.target.checked)} />
+              무제한
+            </label>
+            <input
+              type="date"
+              value={expiryDate}
+              disabled={expiryUnlimited}
+              onChange={(e) => setExpiryDate(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] disabled:bg-gray-100 disabled:text-gray-400"
+            />
+            <p className="text-[11px] text-gray-400 mt-1">선택한 날짜 23:59 까지 수강 가능</p>
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setExpiryTarget(null)}
+                disabled={expirySaving}
+                className="flex-1 py-2.5 text-sm text-gray-600 bg-gray-100 rounded-lg border-none cursor-pointer disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSaveExpiry}
+                disabled={expirySaving}
+                className="flex-1 py-2.5 text-sm font-bold text-white bg-[#2ED573] rounded-lg border-none cursor-pointer disabled:opacity-50"
+              >
+                {expirySaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
+
       {/* 구매 삭제 확인 */}
       <ConfirmDialog
         isOpen={!!deleteTargetPurchase}
         onClose={() => setDeleteTargetPurchase(null)}
         onConfirm={handleDeletePurchase}
         title="구매 내역 삭제"
-        message="이 구매 내역을 삭제하시겠습니까? 수강권이 회수되며 포인트는 환불되지 않습니다."
+        message={(() => {
+          const target = purchases.find((p) => p.id === deleteTargetPurchase)
+          const paidWarn = target && target.price > 0
+            ? ` ⚠️ 결제 금액 ${target.price.toLocaleString()}원이 매출·구매 이력에서 함께 빠집니다.`
+            : ''
+          return `이 구매 내역을 삭제하시겠습니까? 수강권이 회수되며 포인트는 환불되지 않습니다.${paidWarn} 수강 기간만 바꾸려면 삭제하지 말고 '기간 수정'을 사용하세요.`
+        })()}
         confirmColor="red"
       />
 
