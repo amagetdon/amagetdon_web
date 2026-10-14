@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
@@ -78,7 +78,16 @@ export default function AdminMembers() {
 
   const fetchData = async () => {
     try {
-      setLoading(true)
+      // 처음 열 때만 로딩 표시 — 부여·포인트 등 작업 뒤 새로고침은 화면을 비우지 않고 조용히 갱신
+      if (members.length === 0) setLoading(true)
+
+      // 회원 + 회원별 구매 수·결제 합계를 DB 에서 한 번에 (RPC admin_members_overview).
+      // 예전엔 회원·구매를 1,000행씩 13번 나눠 받아 합산해 열 때 수 초 걸렸다. 함수가 아직 없으면 아래 예전 방식으로.
+      const { data: overview, error: overviewError } = await withTimeout(Promise.resolve(supabase.rpc('admin_members_overview')), 30000)
+      if (!overviewError && Array.isArray(overview)) {
+        setMembers(overview as unknown as MemberWithPurchases[])
+        return
+      }
 
       // 회원·구매가 1,000명/건을 넘으므로 끝까지 모은다 (lib/fetchAllRows) — 예전엔 최근 가입 1,000명만 목록에 나왔음
       const { data: profiles, error: profileError } = await withTimeout(fetchAllRows((from, to) => supabase
@@ -735,7 +744,7 @@ export default function AdminMembers() {
     return 'email'
   }
 
-  const filtered = members.filter((m) => {
+  const filtered = useMemo(() => members.filter((m) => {
     const matchesSearch = (m.name || '').includes(search)
       || (m.email || '').includes(search)
       || (m.phone || '').includes(search)
@@ -743,15 +752,16 @@ export default function AdminMembers() {
     if (!matchesSearch) return false
     if (memberTab === 'all') return true
     return resolveProvider(m) === memberTab
-  })
+  }), [members, search, memberTab])
 
-  const tabCounts = {
-    all: members.length,
-    email: members.filter((m) => resolveProvider(m) === 'email').length,
-    kakao: members.filter((m) => resolveProvider(m) === 'kakao').length,
-    google: members.filter((m) => resolveProvider(m) === 'google').length,
-    guest: members.filter((m) => resolveProvider(m) === 'guest').length,
-  }
+  const tabCounts = useMemo(() => {
+    const c = { all: members.length, email: 0, kakao: 0, google: 0, guest: 0 }
+    for (const m of members) {
+      const p = resolveProvider(m)
+      if (p in c) c[p as 'email' | 'kakao' | 'google' | 'guest']++
+    }
+    return c
+  }, [members])
 
   // 검색어 또는 탭(가입방법) 필터가 적용된 상태인지
   const hasFilter = search.trim() !== '' || memberTab !== 'all'
