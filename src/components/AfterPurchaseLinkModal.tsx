@@ -94,15 +94,8 @@ export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강�
           <i className="ti ti-message-circle text-xl" />
           오픈채팅 입장하기
         </a>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-2 w-full py-2.5 text-sm text-gray-400 bg-transparent border-none cursor-pointer hover:text-gray-600"
-        >
-          나중에 할게요
-        </button>
         {itemLabel === '강의' && (
-          <p className="text-[11px] text-gray-400 mt-1">나중에는 강의 화면의 '채팅방 이동하기'로 들어올 수 있어요.</p>
+          <p className="text-[11px] text-gray-400 mt-3">나중에는 강의 화면의 '채팅방 이동하기'로 들어올 수 있어요.</p>
         )}
       </div>
     </div>
