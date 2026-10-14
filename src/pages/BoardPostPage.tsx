@@ -83,32 +83,35 @@ export default function BoardPostPage() {
     boardService.getBoardInstructors().then(setInstructors).catch(() => {})
   }, [])
 
-  // 본문 끝의 태그 블록(<div class="btags" data-tags="a,b">)은 하단 태그 영역으로
+  // 본문 끝의 태그 블록(<div class="btags" data-tags="a,b">)은 하단 태그 영역으로.
+  // 본문 속 우리 강의·전자책 링크: 같은 창으로 열고, UTM 이 있으면 소재 구분(utm_content)을 채운다
+  //   광고로 이 글에 들어온 방문자는 그 광고의 utm_content 를 그대로 넘기고, 없으면 글 번호(post_N).
+  //   예전엔 화면에 그린 뒤 DOM 을 고쳤는데, 블로그형 화면이 다시 그려지면 고친 링크가 원래대로 돌아가
+  //   소재값이 빠지고 새 창으로 열렸다(2026-10-14 데이블 B 글에서 확인). 본문 HTML 을 넣기 전에 고친다.
   const { bodyHtml, tags } = useMemo(() => {
-    const html = textToHtml(post?.content ?? '')
+    let html = textToHtml(post?.content ?? '')
     const m = html.match(/<div class="btags" data-tags="([^"]*)"[^>]*>[\s\S]*?<\/div>/)
+    if (m) html = html.replace(m[0], '')
+    if (post && typeof DOMParser !== 'undefined') {
+      const arrival = new URLSearchParams(window.location.search).get('utm_content')
+      const doc = new DOMParser().parseFromString(`<div id="__body">${html}</div>`, 'text/html')
+      const root = doc.getElementById('__body')
+      root?.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((a) => {
+        let u: URL
+        try { u = new URL(a.getAttribute('href') || '', window.location.origin) } catch { return }
+        const ours = u.origin === window.location.origin || /(^|\.)amag-class\.com$/.test(u.hostname)
+        if (!ours || !/^\/(course|ebook|landing)\//.test(u.pathname)) return
+        if (u.searchParams.get('utm_source')) u.searchParams.set('utm_content', arrival || u.searchParams.get('utm_content') || `post_${post.id}`)
+        a.setAttribute('href', u.pathname + u.search)
+        a.removeAttribute('target')
+      })
+      if (root) html = root.innerHTML
+    }
     return {
-      bodyHtml: m ? html.replace(m[0], '') : html,
+      bodyHtml: html,
       tags: m ? m[1].split(',').map((t) => t.trim()).filter(Boolean) : [],
     }
-  }, [post?.content])
-
-  // 본문 속 우리 강의·전자책 링크: 같은 창으로 열고, UTM 이 있으면 소재 구분(utm_content)을 채운다
-  //   광고로 이 글에 들어온 방문자는 그 광고의 utm_content 를 그대로 넘기고, 없으면 글 번호(post_N)
-  useEffect(() => {
-    const el = contentRef.current
-    if (!el || !post) return
-    const arrival = new URLSearchParams(window.location.search).get('utm_content')
-    el.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((a) => {
-      let u: URL
-      try { u = new URL(a.getAttribute('href') || '', window.location.origin) } catch { return }
-      const ours = u.origin === window.location.origin || /(^|\.)amag-class\.com$/.test(u.hostname)
-      if (!ours || !/^\/(course|ebook|landing)\//.test(u.pathname)) return
-      if (u.searchParams.get('utm_source')) u.searchParams.set('utm_content', arrival || u.searchParams.get('utm_content') || `post_${post.id}`)
-      a.href = u.origin === window.location.origin ? u.pathname + u.search : u.toString()
-      a.removeAttribute('target')
-    })
-  }, [post, bodyHtml])
+  }, [post])
 
   // 서버가 잘라 보낸 잠긴 글 — 미리보기 높이로 클리핑하고 CTA 를 노출한다.
   const teaser = status === 'ok' && !!post?.is_locked
