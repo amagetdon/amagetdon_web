@@ -381,7 +381,7 @@ export default function AdminLinkpay() {
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <div>
             <h2 className="font-bold text-gray-900">링크 ↔ 강의 매핑 만들기</h2>
-            <p className="text-xs text-gray-400 mt-0.5">① 토스 상품 선택 → ② 아래 강의 표에서 연결할 강의의 "연결" 클릭</p>
+            <p className="text-xs text-gray-400 mt-0.5">① 왼쪽에서 상품 선택 → ② 오른쪽 강의 표에서 "연결" 클릭</p>
           </div>
           <div className="flex gap-2">
             <button
