@@ -239,8 +239,9 @@ Deno.serve(async (req: Request) => {
           contentSubcategory = lc?.name ?? null
         }
       }
-      if (course.enrollment_deadline && course.duration_days && course.duration_days > 0) {
-        const base = new Date(course.enrollment_deadline)
+      // 수강 기간: 모집 마감일이 있으면 마감일부터, 없으면 결제 시점부터 다시보기 일수 (0 이면 무제한)
+      if (course.duration_days && course.duration_days > 0) {
+        const base = course.enrollment_deadline ? new Date(course.enrollment_deadline) : new Date()
         base.setDate(base.getDate() + course.duration_days)
         expiresAt = base.toISOString()
       }
