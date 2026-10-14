@@ -3,54 +3,15 @@ import toast from 'react-hot-toast'
 import { withTimeout } from '../../lib/fetchWithTimeout'
 import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
 import AdminLayout from '../../components/admin/AdminLayout'
-import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ManualPaymentSection from '../../components/admin/ManualPaymentSection'
-import { supabase } from '../../lib/supabase'
+import LinkpayInbox from '../../components/admin/LinkpayInbox'
 import { courseService } from '../../services/courseService'
 import { linkpayService, type LinkpayLink, type LinkpayPayment, type TossProduct } from '../../services/linkpayService'
 import type { CourseWithInstructor } from '../../types'
+import { courseExpiry, itemCodeFromName } from '../../lib/linkpayMatch'
 
-interface MemberHit { id: string; name: string | null; phone: string | null; email: string | null }
 type CourseSortKey = 'title' | 'instructor' | 'price' | 'created'
-
-/** 강의 마감일·수강기간 기준 수강권 만료일 (AdminMembers 수동 부여와 동일 규칙) */
-function courseExpiry(course: CourseWithInstructor | undefined): string | null {
-  if (!course) return null
-  const c = course as unknown as { enrollment_deadline: string | null; duration_days: number | null }
-  // 마감일이 있으면 마감일부터, 없으면 지금부터 다시보기 일수 (0 이면 무제한)
-  if (c.duration_days && c.duration_days > 0) {
-    const base = c.enrollment_deadline ? new Date(c.enrollment_deadline).getTime() : Date.now()
-    return new Date(base + c.duration_days * 86400000).toISOString()
-  }
-  return null
-}
-
-// 상품명 강의 번호 규칙 — 개인결제 상품 이름에 [C112](강의) / [E5](전자책)를 넣으면 갱신·결제 때 자동 연결된다.
-const ITEM_CODE_RE = /\[(C|E)(\d+)\]/i
-function itemCodeFromName(name: string | null | undefined): { courseId: number | null; ebookId: number | null } | null {
-  const m = name ? ITEM_CODE_RE.exec(name) : null
-  if (!m) return null
-  const id = Number(m[2])
-  return m[1].toUpperCase() === 'C' ? { courseId: id, ebookId: null } : { courseId: null, ebookId: id }
-}
-
-// 상품명("권승미_[프리미엄] N억 버는 자사몰…")으로 강의 추천 — 고객 이름 접두어를 떼고 제목 단어가 가장 많이 겹치는 강의(2단어 이상)
-function guessCourseId(orderName: string | null, courses: CourseWithInstructor[]): number | null {
-  if (!orderName) return null
-  const code = itemCodeFromName(orderName)
-  if (code?.courseId && courses.some((c) => c.id === code.courseId)) return code.courseId
-  const name = orderName.includes('_') ? orderName.slice(orderName.indexOf('_') + 1) : orderName
-  const words = (t: string) => new Set(t.replace(/[[\]()'"·\-_/]/g, ' ').split(/\s+/).filter((w) => w.length >= 2))
-  const target = words(name)
-  let best: { id: number; score: number } | null = null
-  for (const c of courses) {
-    let score = 0
-    for (const w of words(c.title)) if (target.has(w)) score++
-    if (score >= 2 && (!best || score > best.score)) best = { id: c.id, score }
-  }
-  return best?.id ?? null
-}
 
 function coursePrice(c: CourseWithInstructor): number {
   return c.sale_price ?? c.original_price ?? 0
@@ -80,15 +41,6 @@ export default function AdminLinkpay() {
   const [linkInfoCourseId, setLinkInfoCourseId] = useState<number | null>(null)
   // 개인결제창 상품은 사람마다 따로라 자동 연결 이득이 없고 계정이 틀릴 위험만 있어 기본 숨김 (결제 내역에서 수동 부여)
   const [showPersonal, setShowPersonal] = useState(false)
-
-  // 수동 부여 모달
-  const [grantTarget, setGrantTarget] = useState<LinkpayPayment | null>(null)
-  const [grantSaving, setGrantSaving] = useState(false)
-  const [memberQuery, setMemberQuery] = useState('')
-  const [memberHits, setMemberHits] = useState<MemberHit[]>([])
-  const [grantUserId, setGrantUserId] = useState('')
-  const [grantCourseId, setGrantCourseId] = useState<number | ''>('')
-  const [grantCourseSearch, setGrantCourseSearch] = useState('')
 
   const fetchData = async () => {
     try {
@@ -201,62 +153,6 @@ export default function AdminLinkpay() {
     }
   }
 
-  const searchMembers = async (q: string) => {
-    setMemberQuery(q)
-    if (!q.trim()) { setMemberHits([]); return }
-    try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, name, phone, email')
-        .or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
-        .limit(20)
-      setMemberHits((data ?? []) as MemberHit[])
-    } catch {
-      setMemberHits([])
-    }
-  }
-
-  // 수동 부여 창에서 고른 수강생 이름 (검색 결과에서 고른 경우)
-  const [selectedMemberLabel, setSelectedMemberLabel] = useState('')
-
-  const openGrant = (p: LinkpayPayment) => {
-    setSelectedMemberLabel('')
-    setGrantTarget(p)
-    setGrantUserId(p.matched_user_id ?? '')
-    setGrantCourseId(p.course_id ?? guessCourseId(p.order_name, courses) ?? '')
-    setMemberQuery('')
-    setMemberHits([])
-    setGrantCourseSearch('')
-  }
-
-  const handleManualGrant = async () => {
-    if (!grantTarget) return
-    if (!grantUserId) { toast.error('회원을 선택해주세요.'); return }
-    if (grantCourseId === '') { toast.error('강의를 선택해주세요.'); return }
-    const course = courses.find((c) => c.id === grantCourseId)
-    try {
-      setGrantSaving(true)
-      const { mode } = await linkpayService.manualGrant(grantTarget, {
-        userId: grantUserId,
-        courseId: grantCourseId as number,
-        ebookId: null,
-        title: course?.title || grantTarget.order_name || '링크페이 결제',
-        expiresAt: courseExpiry(course),
-      })
-      toast.success(
-        mode === 'attached' ? '기존 0원 수강권에 결제를 연결했습니다. (수강 기간 유지, 매출 반영)'
-          : mode === 'top_up' ? '이미 결제한 구매에 추가 결제 금액을 더했습니다. (차액·분할 결제)'
-            : '수강권이 부여되었습니다.',
-      )
-      setGrantTarget(null)
-      await fetchData()
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : '부여에 실패했습니다.')
-    } finally {
-      setGrantSaving(false)
-    }
-  }
-
   // 토스 상품 → 매핑된 강의
   const productMapping = (productKey: string) => links.find((l) => l.product_key === productKey)
 
@@ -277,10 +173,6 @@ export default function AdminLinkpay() {
 
   const sortArrow = (key: CourseSortKey) => courseSort.key === key ? (courseSort.dir === 'asc' ? ' ▲' : ' ▼') : ''
 
-  const filteredGrantCourses = [...courses]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .filter((c) => !grantCourseSearch || c.title.includes(grantCourseSearch) || (c.instructor?.name || '').includes(grantCourseSearch))
-
   return (
     <AdminLayout>
       <div className="mb-6">
@@ -288,80 +180,8 @@ export default function AdminLinkpay() {
         <p className="text-sm text-gray-400 mt-0.5">링크페이 결제와 무통장 입금을 수강생 계정·강의에 연결해 수강권과 매출을 함께 기록합니다.</p>
       </div>
 
-      {/* 결제 내역 */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-8">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="font-bold text-gray-900">링크페이 결제 내역 <span className="text-gray-400 font-normal">({payments.length})</span></h2>
-        </div>
-        {(() => {
-          const pending = payments.filter((p) => !p.granted && p.status === 'DONE')
-          if (pending.length === 0) return null
-          const sum = pending.reduce((s, p) => s + (p.amount ?? 0), 0)
-          return (
-            <div className="mx-5 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 leading-relaxed">
-              <p className="font-bold text-sm mb-1"><i className="ti ti-alert-triangle" /> 수강권 미부여 결제 {pending.length}건 · {sum.toLocaleString()}원 (매출 미반영)</p>
-              <p>아래 표에서 <b>수동 부여</b> → <b>수강생 계정</b> 확인(결제자와 다르면 검색해서 변경) → <b>강의</b> 확인 → 부여하기.</p>
-              <p className="mt-1">수강생이 아직 회원이 아니면 <a href="/admin/members" className="font-bold text-amber-900 underline">회원 관리</a>에서 회원을 먼저 만든 뒤 부여하세요. 결제는 그동안 여기 그대로 남아 있습니다.</p>
-              <p className="mt-1 text-amber-700">회원 관리에서 0원 수강권을 따로 주지 마세요 — 결제 금액이 매출에 잡히지 않습니다. 이미 0원으로 준 회원도 여기서 부여하면 그 수강권에 금액이 채워집니다(기간 유지, 분할 결제는 합산).</p>
-            </div>
-          )
-        })()}
-        {payments.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-gray-400">아직 링크페이 결제 내역이 없습니다.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-bold text-gray-600">결제일</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-600">구매자</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-600">상품/강의</th>
-                  <th className="px-4 py-3 text-right font-bold text-gray-600">금액</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600">상태</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600">수강권</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {payments.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
-                      {new Date(p.approved_at ?? p.created_at).toLocaleString('ko-KR')}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="font-medium text-gray-800">{p.customer_name || '-'}</span>
-                      <span className="block text-xs text-gray-400">{p.customer_phone || '-'}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {p.course_id ? courseTitle(p.course_id) : (p.order_name || '-')}
-                      {!p.course_id && <span className="block text-[11px] text-amber-600">미매핑 링크</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{(p.amount ?? 0).toLocaleString()}원</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {p.status === 'DONE' ? '결제완료' : p.status === 'CANCELED' ? '취소' : p.status || '-'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {p.granted ? (
-                        <span className="text-xs text-emerald-600 font-bold"><i className="ti ti-check" /> 부여됨</span>
-                      ) : p.status === 'DONE' ? (
-                        <button
-                          onClick={() => openGrant(p)}
-                          className="text-xs font-bold text-white bg-[#2ED573] hover:bg-[#25B866] px-3 py-1.5 rounded-lg border-none cursor-pointer transition-colors"
-                        >
-                          수동 부여
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {/* 링크페이 결제 처리함: 왼쪽 목록 · 오른쪽 처리 패널 */}
+      <LinkpayInbox payments={payments} courses={courses} onChanged={fetchData} />
 
       {/* 무통장(계좌이체·현금) 입금 수동 등록 */}
       <ManualPaymentSection courses={courses} courseExpiry={courseExpiry} />
@@ -588,81 +408,6 @@ export default function AdminLinkpay() {
         </div>
       </details>
 
-      {/* 수동 부여 모달 */}
-      <AdminFormModal
-        isOpen={!!grantTarget}
-        onClose={() => setGrantTarget(null)}
-        title="수강권 수동 부여"
-        onSubmit={handleManualGrant}
-        loading={grantSaving}
-        submitText="부여하기"
-      >
-        {grantTarget && (
-          <div className="space-y-4">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-sm">
-              <p className="text-gray-800 font-medium">{grantTarget.customer_name || '-'} · {grantTarget.customer_phone || '-'}</p>
-              <p className="text-xs text-gray-400 mt-0.5">{grantTarget.order_name || '-'} · {(grantTarget.amount ?? 0).toLocaleString()}원</p>
-            </div>
-            <p className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 leading-relaxed">
-              위는 <b>결제한 사람</b> 정보입니다. 수업 듣는 사람이 다르면 아래에서 <b>수강생 계정</b>을 검색해 바꾸세요. 수강생이 회원이 아니면 회원 관리에서 회원을 먼저 만들어 주세요.
-            </p>
-            <div>
-              <label className="text-sm font-bold block mb-1">회원 선택 *</label>
-              <input
-                value={memberQuery}
-                onChange={(e) => searchMembers(e.target.value)}
-                placeholder="이름 또는 전화번호로 검색"
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573]"
-              />
-              {memberHits.length > 0 && (
-                <div className="border border-gray-200 rounded-lg mt-1 max-h-[160px] overflow-y-auto">
-                  {memberHits.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => { setGrantUserId(m.id); setSelectedMemberLabel(`${m.name || '(이름없음)'} ${m.phone || ''}`.trim()) }}
-                      className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer flex items-center justify-between ${grantUserId === m.id ? 'bg-[#2ED573]/10' : 'bg-white hover:bg-gray-50'}`}
-                    >
-                      <span>{m.name || '(이름없음)'} <span className="text-xs text-gray-400">{m.phone || ''}</span></span>
-                      {grantUserId === m.id && <i className="ti ti-check text-[#2ED573]" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {grantUserId && (
-                <p className="text-[11px] text-emerald-600 mt-1">
-                  수강생 계정: <b>{selectedMemberLabel || '결제 전화번호로 찾은 회원'}</b>
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="text-sm font-bold block mb-1">연결할 강의 *</label>
-              <div className="border border-gray-300 rounded-xl overflow-hidden">
-                <input
-                  value={grantCourseSearch}
-                  onChange={(e) => setGrantCourseSearch(e.target.value)}
-                  placeholder="강의 검색..."
-                  className="w-full px-3 py-2 text-sm border-none outline-none"
-                  style={{ borderBottom: '1px solid #e5e7eb' }}
-                />
-                <div className="max-h-[180px] overflow-y-auto">
-                  {filteredGrantCourses.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setGrantCourseId(grantCourseId === c.id ? '' : c.id)}
-                      className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer flex items-center justify-between ${grantCourseId === c.id ? 'bg-[#2ED573]/10 text-gray-900' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                    >
-                      <span>{c.instructor?.name && <span className="text-xs text-gray-400 mr-1">[{c.instructor.name}]</span>}{c.title}</span>
-                      {grantCourseId === c.id && <i className="ti ti-check text-[#2ED573]" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </AdminFormModal>
 
       <ConfirmDialog
         isOpen={deleteLinkId != null}
