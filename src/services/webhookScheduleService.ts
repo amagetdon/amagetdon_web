@@ -1,4 +1,36 @@
 import { supabase } from '../lib/supabase'
+import { fetchAllRows } from '../lib/fetchAllRows'
+
+// 구매자 일괄 발송(fanOut·backfill)용 — 1,000명 넘는 강의(웨비나 등)도 전원에게 가도록.
+// PostgREST 는 한 번에 1,000행만 돌려주고, .in('id', [...]) 에 수천 개 UUID 를 넣으면 주소 길이 제한에 걸린다.
+type RecipientProfile = { id: string; name?: string | null; phone?: string | null; email?: string | null }
+
+async function fetchPurchaserIds(colName: 'course_id' | 'ebook_id', scopeId: number): Promise<string[]> {
+  const { data } = await fetchAllRows<{ user_id: string }>((from, to) =>
+    supabase.from('purchases').select('user_id').eq(colName, scopeId).order('id').range(from, to))
+  return Array.from(new Set(data.map((p) => p.user_id).filter(Boolean)))
+}
+
+async function fetchProfilesByIds(userIds: string[]): Promise<Map<string, RecipientProfile>> {
+  const map = new Map<string, RecipientProfile>()
+  for (let i = 0; i < userIds.length; i += 200) {
+    const { data } = await supabase.from('profiles').select('id, name, phone, email').in('id', userIds.slice(i, i + 200))
+    for (const p of (data as RecipientProfile[] | null) ?? []) map.set(p.id, p)
+  }
+  return map
+}
+
+// 한 번에 너무 많은 행을 넣으면 요청 크기 제한에 걸리므로 500행씩 나눠 넣는다. 실패하면 그때까지 넣은 수를 돌려준다.
+async function insertRunsInChunks(rows: Record<string, unknown>[]): Promise<{ inserted: number; error: unknown }> {
+  let inserted = 0
+  for (let i = 0; i < rows.length; i += 500) {
+    const chunk = rows.slice(i, i + 500)
+    const { error } = await supabase.from('webhook_schedule_runs').insert(chunk as never)
+    if (error) return { inserted, error }
+    inserted += chunk.length
+  }
+  return { inserted, error: null }
+}
 
 export type TriggerType = 'time_offset' | 'enrollment_full' | 'manual'
 
@@ -136,23 +168,11 @@ export const webhookScheduleService = {
 
     // 1) 구매자 user_id 목록
     const colName = s.scope === 'course' ? 'course_id' : 'ebook_id'
-    const { data: purchases } = await supabase
-      .from('purchases')
-      .select('user_id')
-      .eq(colName, s.scope_id)
-    const userIdSet = new Set(((purchases as Array<{ user_id: string }> | null) ?? []).map((p) => p.user_id).filter(Boolean))
-    const userIds = Array.from(userIdSet)
+    const userIds = await fetchPurchaserIds(colName, s.scope_id)
     if (userIds.length === 0) return { inserted: 0, recipients: 0 }
 
-    // 2) 프로필 일괄 조회
-    const { data: profiles } = await supabase
-      .from('profiles')
-      .select('id, name, phone, email')
-      .in('id', userIds)
-    const profileMap = new Map<string, { name?: string | null; phone?: string | null; email?: string | null }>(
-      ((profiles as Array<{ id: string; name?: string | null; phone?: string | null; email?: string | null }> | null) ?? [])
-        .map((p) => [p.id, p]),
-    )
+    // 2) 프로필 일괄 조회 (200명씩)
+    const profileMap = await fetchProfilesByIds(userIds)
 
     // 3) 강의/전자책 정보
     let courseTitle = ''
@@ -182,9 +202,9 @@ export const webhookScheduleService = {
         fire_at: now,
       }
     })
-    const { error } = await supabase.from('webhook_schedule_runs').insert(rows as never)
-    if (error) { console.error('fanOut insert failed', error); return { inserted: 0, recipients: userIds.length } }
-    return { inserted: rows.length, recipients: userIds.length }
+    const { inserted, error } = await insertRunsInChunks(rows)
+    if (error) console.error('fanOut insert failed', error)
+    return { inserted, recipients: userIds.length }
   },
 
   // 기존 구매자에게도 schedule 적용 — schedule 등록 후 'D-N' 알림톡을 받아야 할 사용자에게 큐 backfill.
@@ -204,15 +224,11 @@ export const webhookScheduleService = {
 
     // 구매자
     const colName = s.scope === 'course' ? 'course_id' : 'ebook_id'
-    const { data: purchases } = await supabase.from('purchases').select('user_id').eq(colName, s.scope_id)
-    const userIds = Array.from(new Set(((purchases as Array<{ user_id: string }> | null) ?? []).map((p) => p.user_id).filter(Boolean)))
+    const userIds = await fetchPurchaserIds(colName, s.scope_id)
     if (userIds.length === 0) return { inserted: 0, skipped: 0, recipients: 0 }
 
-    // 프로필
-    const { data: profiles } = await supabase.from('profiles').select('id, name, phone, email').in('id', userIds)
-    const profileMap = new Map<string, { name?: string | null; phone?: string | null; email?: string | null }>(
-      ((profiles as Array<{ id: string; name?: string | null; phone?: string | null; email?: string | null }> | null) ?? []).map((p) => [p.id, p]),
-    )
+    // 프로필 (200명씩)
+    const profileMap = await fetchProfilesByIds(userIds)
 
     // 강의 제목
     let courseTitle = ''
@@ -222,14 +238,10 @@ export const webhookScheduleService = {
     }
 
     // 이미 이 schedule 로 적재된 (user_id, course_schedule_id) 조합 — 중복 방지
-    const { data: existingRuns } = await supabase
-      .from('webhook_schedule_runs')
-      .select('user_id, course_schedule_id')
-      .eq('webhook_schedule_id', s.id)
-    const existingSet = new Set(
-      ((existingRuns as Array<{ user_id: string; course_schedule_id: number | null }> | null) ?? [])
-        .map((r) => `${r.user_id}:${r.course_schedule_id ?? 'null'}`),
-    )
+    // 1,000건에서 잘리면 이미 적재된 사람을 못 걸러 중복 발송되므로 끝까지 조회
+    const { data: existingRuns } = await fetchAllRows<{ user_id: string; course_schedule_id: number | null }>((from, to) =>
+      supabase.from('webhook_schedule_runs').select('user_id, course_schedule_id').eq('webhook_schedule_id', s.id).order('id').range(from, to))
+    const existingSet = new Set(existingRuns.map((r) => `${r.user_id}:${r.course_schedule_id ?? 'null'}`))
 
     const now = Date.now()
     const rows: Record<string, unknown>[] = []
@@ -273,9 +285,9 @@ export const webhookScheduleService = {
     }
 
     if (rows.length === 0) return { inserted: 0, skipped, recipients: userIds.length }
-    const { error } = await supabase.from('webhook_schedule_runs').insert(rows as never)
-    if (error) { console.error('backfill insert failed', error); return { inserted: 0, skipped, recipients: userIds.length } }
-    return { inserted: rows.length, skipped, recipients: userIds.length }
+    const { inserted, error } = await insertRunsInChunks(rows)
+    if (error) console.error('backfill insert failed', error)
+    return { inserted, skipped, recipients: userIds.length }
   },
 
   // 정원 도달 시 자동 트리거 (구매 직후 호출)
