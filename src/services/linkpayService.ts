@@ -105,38 +105,25 @@ export const linkpayService = {
     return (data ?? []) as LinkpayPayment[]
   },
 
-  /** 미매칭 결제를 회원·강의에 수동 연결해 수강권 부여 */
+  /**
+   * 미부여 결제를 회원·강의에 연결 (RPC admin_attach_linkpay_payment).
+   * 같은 회원·강의에 0원 수강권이 있으면 거기에 결제를 붙이고(attached), 유료 구매가 있으면 금액을 더하고(top_up, 차액·분할),
+   * 없으면 새 구매를 만든다(inserted). 예전엔 늘 새로 만들어 팀이 준 0원 수강권과 중복됐다.
+   */
   async manualGrant(
     payment: LinkpayPayment,
     opts: { userId: string; courseId: number | null; ebookId: number | null; title: string; expiresAt: string | null },
-  ): Promise<void> {
-    const { data: purchase, error } = await supabase
-      .from('purchases')
-      .insert({
-        user_id: opts.userId,
-        course_id: opts.courseId,
-        ebook_id: opts.ebookId,
-        title: opts.title,
-        price: payment.amount ?? 0,
-        payment_key: payment.payment_key,
-        payment_method: 'linkpay',
-        expires_at: opts.expiresAt,
-      } as never)
-      .select('id')
-      .single()
+  ): Promise<{ mode: 'attached' | 'top_up' | 'inserted'; purchaseId: number }> {
+    const { data, error } = await supabase.rpc('admin_attach_linkpay_payment', {
+      p_linkpay_id: payment.id,
+      p_user_id: opts.userId,
+      p_course_id: opts.courseId,
+      p_ebook_id: opts.ebookId,
+      p_title: opts.title,
+      p_expires_at: opts.expiresAt,
+    } as never)
     if (error) throw error
-
-    const { error: upErr } = await supabase
-      .from('linkpay_payments')
-      .update({
-        granted: true,
-        purchase_id: (purchase as { id: number }).id,
-        matched_user_id: opts.userId,
-        course_id: opts.courseId,
-        ebook_id: opts.ebookId,
-        updated_at: new Date().toISOString(),
-      } as never)
-      .eq('id', payment.id)
-    if (upErr) throw upErr
+    const r = (data ?? {}) as { mode?: 'attached' | 'top_up' | 'inserted'; purchase_id?: number }
+    return { mode: r.mode ?? 'inserted', purchaseId: r.purchase_id ?? 0 }
   },
 }

@@ -25,6 +25,32 @@ function courseExpiry(course: CourseWithInstructor | undefined): string | null {
   return null
 }
 
+// 상품명 강의 번호 규칙 — 개인결제 상품 이름에 [C112](강의) / [E5](전자책)를 넣으면 갱신·결제 때 자동 연결된다.
+const ITEM_CODE_RE = /\[(C|E)(\d+)\]/i
+function itemCodeFromName(name: string | null | undefined): { courseId: number | null; ebookId: number | null } | null {
+  const m = name ? ITEM_CODE_RE.exec(name) : null
+  if (!m) return null
+  const id = Number(m[2])
+  return m[1].toUpperCase() === 'C' ? { courseId: id, ebookId: null } : { courseId: null, ebookId: id }
+}
+
+// 상품명("권승미_[프리미엄] N억 버는 자사몰…")으로 강의 추천 — 고객 이름 접두어를 떼고 제목 단어가 가장 많이 겹치는 강의(2단어 이상)
+function guessCourseId(orderName: string | null, courses: CourseWithInstructor[]): number | null {
+  if (!orderName) return null
+  const code = itemCodeFromName(orderName)
+  if (code?.courseId && courses.some((c) => c.id === code.courseId)) return code.courseId
+  const name = orderName.includes('_') ? orderName.slice(orderName.indexOf('_') + 1) : orderName
+  const words = (t: string) => new Set(t.replace(/[[\]()'"·\-_/]/g, ' ').split(/\s+/).filter((w) => w.length >= 2))
+  const target = words(name)
+  let best: { id: number; score: number } | null = null
+  for (const c of courses) {
+    let score = 0
+    for (const w of words(c.title)) if (target.has(w)) score++
+    if (score >= 2 && (!best || score > best.score)) best = { id: c.id, score }
+  }
+  return best?.id ?? null
+}
+
 function coursePrice(c: CourseWithInstructor): number {
   return c.sale_price ?? c.original_price ?? 0
 }
@@ -91,16 +117,52 @@ export default function AdminLinkpay() {
       setLoadingTossProducts(true)
       const { products, syncedCount } = await linkpayService.syncTossProducts(full)
       setTossProducts(products)
+      // 상품명에 [C112] 규칙이 있고 아직 연결 안 된 상품은 자동 연결 (+ 그 상품의 지난 미부여 결제 부여)
+      let autoMapped = 0
+      for (const prod of products) {
+        const code = itemCodeFromName(prod.name)
+        if (!code?.courseId || links.some((l) => l.product_key === prod.productKey)) continue
+        const course = courses.find((c) => c.id === code.courseId)
+        if (!course) continue
+        try {
+          await linkpayService.createLink({ product_key: prod.productKey, course_id: course.id, ebook_id: null, label: prod.name || null })
+          await attachPastPayments(prod.productKey, course)
+          autoMapped++
+        } catch { /* 개별 실패는 매핑 표에서 확인 */ }
+      }
       toast.success(
-        full
+        (full
           ? `전체 ${syncedCount}건 동기화 완료`
-          : (syncedCount > 0 ? `신규 상품 ${syncedCount}건을 가져왔습니다.` : '신규 상품 없음 (이미 최신)'),
+          : (syncedCount > 0 ? `신규 상품 ${syncedCount}건을 가져왔습니다.` : '신규 상품 없음 (이미 최신)'))
+        + (autoMapped > 0 ? ` · [C번호] 상품 ${autoMapped}건 자동 연결` : ''),
       )
+      if (autoMapped > 0) await fetchData()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '토스 상품 동기화에 실패했습니다.')
     } finally {
       setLoadingTossProducts(false)
     }
+  }
+
+  // 상품을 강의에 연결하면, 연결 전에 들어온 그 상품의 미부여 결제(회원 확인된 결제완료 건)도 바로 부여한다
+  const attachPastPayments = async (productKey: string, course: CourseWithInstructor): Promise<{ n: number; amount: number }> => {
+    let n = 0
+    let amount = 0
+    const targets = payments.filter((p) => p.product_key === productKey && !p.granted && p.status === 'DONE' && p.matched_user_id)
+    for (const p of targets) {
+      try {
+        await linkpayService.manualGrant(p, {
+          userId: p.matched_user_id!,
+          courseId: course.id,
+          ebookId: null,
+          title: course.title || p.order_name || '링크페이 결제',
+          expiresAt: courseExpiry(course),
+        })
+        n++
+        amount += p.amount ?? 0
+      } catch { /* 이미 연결된 결제키 등 — 결제 내역에서 개별 확인 */ }
+    }
+    return { n, amount }
   }
 
   const createMapping = async (course: CourseWithInstructor) => {
@@ -113,7 +175,8 @@ export default function AdminLinkpay() {
         ebook_id: null,
         label: selectedProduct.name || null,
       })
-      toast.success(`"${selectedProduct.name}" → "${course.title}" 매핑 완료`)
+      const past = await attachPastPayments(selectedProduct.productKey, course)
+      toast.success(`"${selectedProduct.name}" → "${course.title}" 매핑 완료${past.n > 0 ? ` · 지난 결제 ${past.n}건(${past.amount.toLocaleString()}원) 부여` : ''}`)
       setSelectedProduct(null)
       await fetchData()
     } catch {
@@ -153,7 +216,7 @@ export default function AdminLinkpay() {
   const openGrant = (p: LinkpayPayment) => {
     setGrantTarget(p)
     setGrantUserId(p.matched_user_id ?? '')
-    setGrantCourseId(p.course_id ?? '')
+    setGrantCourseId(p.course_id ?? guessCourseId(p.order_name, courses) ?? '')
     setMemberQuery('')
     setMemberHits([])
     setGrantCourseSearch('')
@@ -166,18 +229,22 @@ export default function AdminLinkpay() {
     const course = courses.find((c) => c.id === grantCourseId)
     try {
       setGrantSaving(true)
-      await linkpayService.manualGrant(grantTarget, {
+      const { mode } = await linkpayService.manualGrant(grantTarget, {
         userId: grantUserId,
         courseId: grantCourseId as number,
         ebookId: null,
         title: course?.title || grantTarget.order_name || '링크페이 결제',
         expiresAt: courseExpiry(course),
       })
-      toast.success('수강권이 부여되었습니다.')
+      toast.success(
+        mode === 'attached' ? '기존 0원 수강권에 결제를 연결했습니다. (수강 기간 유지, 매출 반영)'
+          : mode === 'top_up' ? '이미 결제한 구매에 추가 결제 금액을 더했습니다. (차액·분할 결제)'
+            : '수강권이 부여되었습니다.',
+      )
       setGrantTarget(null)
       await fetchData()
-    } catch {
-      toast.error('부여에 실패했습니다.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '부여에 실패했습니다.')
     } finally {
       setGrantSaving(false)
     }
@@ -416,6 +483,18 @@ export default function AdminLinkpay() {
         <div className="px-5 py-4 border-b border-gray-100">
           <h2 className="font-bold text-gray-900">링크페이 결제 내역 <span className="text-gray-400 font-normal">({payments.length})</span></h2>
         </div>
+        {(() => {
+          const pending = payments.filter((p) => !p.granted && p.status === 'DONE')
+          if (pending.length === 0) return null
+          const sum = pending.reduce((s, p) => s + (p.amount ?? 0), 0)
+          return (
+            <div className="mx-5 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 leading-relaxed">
+              <p className="font-bold text-sm mb-1"><i className="ti ti-alert-triangle" /> 수강권 미부여 결제 {pending.length}건 · {sum.toLocaleString()}원 (매출 미반영)</p>
+              <p>상품이 강의에 연결되지 않았거나 회원을 못 찾은 결제입니다. 아래 <b>수동 부여</b>로 처리하세요 — 이미 회원 관리에서 0원 수강권을 줬다면 그 수강권에 결제가 붙고(기간 유지), 차액·분할 결제는 기존 구매 금액에 더해집니다.</p>
+              <p className="mt-1 text-amber-700">회원 관리에서 0원 수강권을 따로 주지 마세요. 개인결제 상품 이름에 <b>[C강의번호]</b>(예: 홍길동_[C112])를 넣으면 갱신할 때 자동 연결됩니다.</p>
+            </div>
+          )
+        })()}
         {payments.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-400">아직 링크페이 결제 내역이 없습니다.</p>
         ) : (
