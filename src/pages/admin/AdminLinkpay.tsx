@@ -409,137 +409,143 @@ export default function AdminLinkpay() {
           <b className="text-gray-600">전체 재동기화</b> — 토스 전체 상품을 다시 받아, 상품명·금액 <b>수정</b>이나 <b>삭제</b>된 항목까지 캐시에 반영합니다 (가끔 사용).
         </p>
 
-        {/* 토스 상품 목록 — 판매상품 / 개인결제창 좌우 분리 */}
-        {tossProducts.length > 0 && (() => {
-          const renderBtn = (p: TossProduct) => {
-            const mapped = productMapping(p.productKey)
-            const selected = selectedProduct?.productKey === p.productKey
-            return (
-              <button
-                key={p.productKey}
-                type="button"
-                onClick={() => setSelectedProduct(selected ? null : p)}
-                className={`w-full flex items-center gap-3 px-3 py-2 text-left border-none cursor-pointer transition-colors ${selected ? 'bg-[#2ED573]/10' : 'bg-white hover:bg-gray-50'}`}
-              >
-                <div className="w-9 h-9 rounded-md bg-gray-100 overflow-hidden shrink-0">
-                  {p.thumbnail && <img src={p.thumbnail} alt="" className="w-full h-full object-cover" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-800 truncate">{p.name}</p>
-                  <p className="text-[11px] text-gray-400">{p.amount.toLocaleString()}원
-                    {mapped && <span className="text-emerald-600 ml-2"><i className="ti ti-link" /> {courseTitle(mapped.course_id)}</span>}
-                  </p>
-                </div>
-                {selected && <i className="ti ti-check text-[#2ED573] shrink-0" />}
-              </button>
-            )
-          }
-          const sales = tossProducts.filter((p) => !isPersonalProduct(p))
-          const personal = tossProducts.filter((p) => isPersonalProduct(p))
-          return (
-            <div className={`grid ${showPersonal ? 'grid-cols-2' : 'grid-cols-1'} max-md:grid-cols-1 gap-3 mb-4`}>
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <p className="px-3 py-2 bg-orange-50 text-xs font-bold text-orange-600">판매상품 {sales.length}개</p>
-                <div className="max-h-[320px] overflow-y-auto divide-y divide-gray-50">
-                  {sales.length === 0
-                    ? <p className="px-3 py-5 text-xs text-gray-400 text-center">없음</p>
-                    : sales.map(renderBtn)}
-                </div>
-              </div>
-              {!showPersonal ? (
-                <button type="button" onClick={() => setShowPersonal(true)} className="text-left text-xs text-gray-400 bg-transparent border-none cursor-pointer p-0 hover:text-gray-600">
-                  개인결제창 상품 {personal.length}개 보기 — 개인결제창은 연결하지 말고 위 결제 내역에서 수동 부여하세요
-                </button>
-              ) : (
-              <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <p className="px-3 py-2 bg-blue-50 text-xs font-bold text-blue-600">개인결제창 {personal.length}개 <span className="font-normal text-blue-500">· 결제자와 수강자가 다르면 계정이 틀릴 수 있어 권장하지 않음</span></p>
-                <div className="max-h-[320px] overflow-y-auto divide-y divide-gray-50">
-                  {personal.length === 0
-                    ? <p className="px-3 py-5 text-xs text-gray-400 text-center">없음</p>
-                    : personal.map(renderBtn)}
-                </div>
-              </div>
-              )}
-            </div>
-          )
-        })()}
-
         {selectedProduct && (
           <div className="flex items-center gap-2 mb-3 bg-[#2ED573]/10 border border-[#2ED573]/30 rounded-lg px-3 py-2">
-            <i className="ti ti-arrow-down text-[#2ED573]" />
-            <span className="text-sm text-gray-700">선택됨: <b>{selectedProduct.name}</b> — 아래 강의 표에서 연결할 강의를 고르세요</span>
+            <i className="ti ti-arrow-right text-[#2ED573]" />
+            <span className="text-sm text-gray-700">선택됨: <b>{selectedProduct.name}</b> — 오른쪽 강의 표에서 연결할 강의의 "연결"을 누르세요</span>
             <button onClick={() => setSelectedProduct(null)} className="ml-auto text-xs text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer">선택 해제</button>
           </div>
         )}
 
-        {/* 강의 테이블 */}
-        <div className="relative mb-2 max-w-xs">
-          <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
-          <input
-            value={courseSearch}
-            onChange={(e) => setCourseSearch(e.target.value)}
-            placeholder="강의 검색..."
-            className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
-          />
-        </div>
-        <div className="border border-gray-200 rounded-xl overflow-hidden">
-          <div className="max-h-[460px] overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 sticky top-0 z-20">
-                <tr>
-                  <th className="px-3 py-2.5 text-left font-bold text-gray-600 w-[56px] bg-gray-50">썸네일</th>
-                  <th onClick={() => toggleSort('title')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none bg-gray-50">강의명{sortArrow('title')}</th>
-                  <th onClick={() => toggleSort('instructor')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">강사{sortArrow('instructor')}</th>
-                  <th onClick={() => toggleSort('price')} className="px-3 py-2.5 text-right font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">가격{sortArrow('price')}</th>
-                  <th onClick={() => toggleSort('created')} className="px-3 py-2.5 text-center font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">등록일{sortArrow('created')}</th>
-                  <th className="px-3 py-2.5 text-center font-bold text-gray-600 w-[90px] bg-gray-50">연결</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loading ? (
-                  <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">불러오는 중...</td></tr>
-                ) : displayCourses.length === 0 ? (
-                  <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">강의가 없습니다.</td></tr>
-                ) : displayCourses.map((c) => {
-                  const mappedCount = links.filter((l) => l.course_id === c.id).length
-                  return (
-                    <tr key={c.id} className="hover:bg-gray-50">
-                      <td className="px-3 py-2">
-                        <div className="w-10 h-10 rounded-md bg-gray-100 overflow-hidden">
-                          {c.thumbnail_url && <img src={c.thumbnail_url} alt="" className="w-full h-full object-cover" />}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-gray-800">
-                        {c.title}
-                        {mappedCount > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setLinkInfoCourseId(c.id)}
-                            aria-label={`연동된 링크페이 상품 ${mappedCount}개 보기`}
-                            title="연동된 링크페이 상품 보기"
-                            className="ml-1.5 text-[11px] text-emerald-600 whitespace-nowrap bg-transparent border-none cursor-pointer hover:underline inline-flex items-center gap-0.5"
-                          >
-                            <i className="ti ti-link" />{mappedCount}
-                          </button>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-gray-500 max-sm:hidden whitespace-nowrap">{c.instructor?.name || '-'}</td>
-                      <td className="px-3 py-2 text-right text-gray-600 max-sm:hidden whitespace-nowrap">{coursePrice(c).toLocaleString()}원</td>
-                      <td className="px-3 py-2 text-center text-gray-400 text-xs max-sm:hidden whitespace-nowrap">{new Date(c.created_at).toLocaleDateString('ko-KR')}</td>
-                      <td className="px-3 py-2 text-center">
-                        <button
-                          onClick={() => createMapping(c)}
-                          disabled={!selectedProduct || creatingLink}
-                          className="text-xs font-bold text-white bg-[#2ED573] hover:bg-[#25B866] px-3 py-1.5 rounded-lg border-none cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        >
-                          연결
-                        </button>
-                      </td>
+        {/* 상품(왼쪽) ↔ 강의(오른쪽) 반반 — 고르고 바로 옆에서 연결 */}
+        <div className="grid lg:grid-cols-2 gap-4 items-start">
+          <div className="min-w-0">
+            {/* 왼쪽: 토스 상품 목록 (판매상품, 펼치면 개인결제창) */}
+            {tossProducts.length > 0 && (() => {
+              const renderBtn = (p: TossProduct) => {
+                const mapped = productMapping(p.productKey)
+                const selected = selectedProduct?.productKey === p.productKey
+                return (
+                  <button
+                    key={p.productKey}
+                    type="button"
+                    onClick={() => setSelectedProduct(selected ? null : p)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left border-none cursor-pointer transition-colors ${selected ? 'bg-[#2ED573]/10' : 'bg-white hover:bg-gray-50'}`}
+                  >
+                    <div className="w-9 h-9 rounded-md bg-gray-100 overflow-hidden shrink-0">
+                      {p.thumbnail && <img src={p.thumbnail} alt="" className="w-full h-full object-cover" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-800 truncate">{p.name}</p>
+                      <p className="text-[11px] text-gray-400">{p.amount.toLocaleString()}원
+                        {mapped && <span className="text-emerald-600 ml-2"><i className="ti ti-link" /> {courseTitle(mapped.course_id)}</span>}
+                      </p>
+                    </div>
+                    {selected && <i className="ti ti-check text-[#2ED573] shrink-0" />}
+                  </button>
+                )
+              }
+              const sales = tossProducts.filter((p) => !isPersonalProduct(p))
+              const personal = tossProducts.filter((p) => isPersonalProduct(p))
+              return (
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <p className="px-3 py-2 bg-orange-50 text-xs font-bold text-orange-600">판매상품 {sales.length}개</p>
+                    <div className="max-h-[460px] overflow-y-auto divide-y divide-gray-50">
+                      {sales.length === 0
+                        ? <p className="px-3 py-5 text-xs text-gray-400 text-center">없음</p>
+                        : sales.map(renderBtn)}
+                    </div>
+                  </div>
+                  {!showPersonal ? (
+                    <button type="button" onClick={() => setShowPersonal(true)} className="text-left text-xs text-gray-400 bg-transparent border-none cursor-pointer p-0 hover:text-gray-600">
+                      개인결제창 상품 {personal.length}개 보기 — 개인결제창은 연결하지 말고 위 결제 내역에서 수동 부여하세요
+                    </button>
+                  ) : (
+                  <div className="border border-gray-200 rounded-xl overflow-hidden">
+                    <p className="px-3 py-2 bg-blue-50 text-xs font-bold text-blue-600">개인결제창 {personal.length}개 <span className="font-normal text-blue-500">· 결제자와 수강자가 다르면 계정이 틀릴 수 있어 권장하지 않음</span></p>
+                    <div className="max-h-[320px] overflow-y-auto divide-y divide-gray-50">
+                      {personal.length === 0
+                        ? <p className="px-3 py-5 text-xs text-gray-400 text-center">없음</p>
+                        : personal.map(renderBtn)}
+                    </div>
+                  </div>
+                  )}
+                </div>
+              )
+            })()}
+          </div>
+          <div className="min-w-0">
+            {/* 오른쪽: 강의 표 */}
+            <div className="relative mb-2">
+              <i className="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+              <input
+                value={courseSearch}
+                onChange={(e) => setCourseSearch(e.target.value)}
+                placeholder="강의 검색..."
+                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573]"
+              />
+            </div>
+            <div className="border border-gray-200 rounded-xl overflow-hidden">
+              <div className="max-h-[460px] overflow-y-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0 z-20">
+                    <tr>
+                      <th className="px-3 py-2.5 text-left font-bold text-gray-600 w-[56px] bg-gray-50">썸네일</th>
+                      <th onClick={() => toggleSort('title')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none bg-gray-50">강의명{sortArrow('title')}</th>
+                      <th onClick={() => toggleSort('instructor')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">강사{sortArrow('instructor')}</th>
+                      <th onClick={() => toggleSort('price')} className="px-3 py-2.5 text-right font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">가격{sortArrow('price')}</th>
+                      <th onClick={() => toggleSort('created')} className="px-3 py-2.5 text-center font-bold text-gray-600 cursor-pointer select-none max-2xl:hidden bg-gray-50">등록일{sortArrow('created')}</th>
+                      <th className="px-3 py-2.5 text-center font-bold text-gray-600 w-[90px] bg-gray-50">연결</th>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {loading ? (
+                      <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">불러오는 중...</td></tr>
+                    ) : displayCourses.length === 0 ? (
+                      <tr><td colSpan={6} className="px-3 py-8 text-center text-gray-400">강의가 없습니다.</td></tr>
+                    ) : displayCourses.map((c) => {
+                      const mappedCount = links.filter((l) => l.course_id === c.id).length
+                      return (
+                        <tr key={c.id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2">
+                            <div className="w-10 h-10 rounded-md bg-gray-100 overflow-hidden">
+                              {c.thumbnail_url && <img src={c.thumbnail_url} alt="" className="w-full h-full object-cover" />}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-gray-800">
+                            {c.title}
+                            {mappedCount > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => setLinkInfoCourseId(c.id)}
+                                aria-label={`연동된 링크페이 상품 ${mappedCount}개 보기`}
+                                title="연동된 링크페이 상품 보기"
+                                className="ml-1.5 text-[11px] text-emerald-600 whitespace-nowrap bg-transparent border-none cursor-pointer hover:underline inline-flex items-center gap-0.5"
+                              >
+                                <i className="ti ti-link" />{mappedCount}
+                              </button>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-gray-500 max-sm:hidden whitespace-nowrap">{c.instructor?.name || '-'}</td>
+                          <td className="px-3 py-2 text-right text-gray-600 max-sm:hidden whitespace-nowrap">{coursePrice(c).toLocaleString()}원</td>
+                          <td className="px-3 py-2 text-center text-gray-400 text-xs max-2xl:hidden whitespace-nowrap">{new Date(c.created_at).toLocaleDateString('ko-KR')}</td>
+                          <td className="px-3 py-2 text-center">
+                            <button
+                              onClick={() => createMapping(c)}
+                              disabled={!selectedProduct || creatingLink}
+                              className="text-xs font-bold text-white bg-[#2ED573] hover:bg-[#25B866] px-3 py-1.5 rounded-lg border-none cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            >
+                              연결
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </div>
