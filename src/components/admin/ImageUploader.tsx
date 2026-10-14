@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import { storageService } from '../../services/storageService'
+import { storageService, warnLargeGif } from '../../services/storageService'
 import ImageCropDialog from './ImageCropDialog'
 
 interface ImageUploaderProps {
@@ -39,6 +39,7 @@ export default function ImageUploader({ bucket, path, currentUrl, onUpload, clas
     : 'image/*'
 
   const doUpload = async (file: File) => {
+    warnLargeGif(file)
     const fileIsVideo = file.type.startsWith('video/')
     setIsVideo(fileIsVideo)
     setPreview(URL.createObjectURL(file))

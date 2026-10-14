@@ -1,4 +1,5 @@
 import imageCompression from 'browser-image-compression'
+import toast from 'react-hot-toast'
 import * as tus from 'tus-js-client'
 import { supabase } from '../lib/supabase'
 
@@ -309,4 +310,15 @@ export const storageService = {
     }
     throw lastError
   },
+}
+
+/**
+ * 큰 GIF 업로드 안내 — GIF 는 압축 없이 그대로 올라가 상세 페이지를 무겁게 만든다
+ * (10/14 129 상세: GIF 8장 11.7MB, 움직이는 webp 로 바꾸면 약 1/4). 업로드는 막지 않고 알리기만 한다.
+ */
+export function warnLargeGif(file: File) {
+  const MB = file.size / 1048576
+  if (file.type === 'image/gif' && MB > 2) {
+    toast(`${file.name}: GIF ${MB.toFixed(1)}MB — 상세 페이지가 느려질 수 있어요. 움직이는 webp(또는 mp4)로 줄여 올리는 걸 권장합니다.`, { icon: '⚠️', duration: 7000 })
+  }
 }
