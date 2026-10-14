@@ -5,6 +5,7 @@ import { useVisibilityRefresh } from '../../hooks/useVisibilityRefresh'
 import AdminLayout from '../../components/admin/AdminLayout'
 import AdminFormModal from '../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
+import ManualPaymentSection from '../../components/admin/ManualPaymentSection'
 import { supabase } from '../../lib/supabase'
 import { courseService } from '../../services/courseService'
 import { linkpayService, type LinkpayLink, type LinkpayPayment, type TossProduct } from '../../services/linkpayService'
@@ -77,6 +78,8 @@ export default function AdminLinkpay() {
   const [courseSort, setCourseSort] = useState<{ key: CourseSortKey; dir: 'asc' | 'desc' }>({ key: 'created', dir: 'desc' })
   const [deleteLinkId, setDeleteLinkId] = useState<number | null>(null)
   const [linkInfoCourseId, setLinkInfoCourseId] = useState<number | null>(null)
+  // 개인결제창 상품은 사람마다 따로라 자동 연결 이득이 없고 계정이 틀릴 위험만 있어 기본 숨김 (결제 내역에서 수동 부여)
+  const [showPersonal, setShowPersonal] = useState(false)
 
   // 수동 부여 모달
   const [grantTarget, setGrantTarget] = useState<LinkpayPayment | null>(null)
@@ -213,7 +216,11 @@ export default function AdminLinkpay() {
     }
   }
 
+  // 수동 부여 창에서 고른 수강생 이름 (검색 결과에서 고른 경우)
+  const [selectedMemberLabel, setSelectedMemberLabel] = useState('')
+
   const openGrant = (p: LinkpayPayment) => {
+    setSelectedMemberLabel('')
     setGrantTarget(p)
     setGrantUserId(p.matched_user_id ?? '')
     setGrantCourseId(p.course_id ?? guessCourseId(p.order_name, courses) ?? '')
@@ -277,10 +284,98 @@ export default function AdminLinkpay() {
   return (
     <AdminLayout>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">링크페이 연동</h1>
-        <p className="text-sm text-gray-400 mt-0.5">토스 링크페이로 결제하면 수강권이 자동 부여됩니다. 링크별 강의 매핑을 등록하세요.</p>
+        <h1 className="text-2xl font-bold text-gray-900">링크페이·무통장 결제</h1>
+        <p className="text-sm text-gray-400 mt-0.5">링크페이 결제와 무통장 입금을 수강생 계정·강의에 연결해 수강권과 매출을 함께 기록합니다.</p>
       </div>
 
+      {/* 결제 내역 */}
+      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-8">
+        <div className="px-5 py-4 border-b border-gray-100">
+          <h2 className="font-bold text-gray-900">링크페이 결제 내역 <span className="text-gray-400 font-normal">({payments.length})</span></h2>
+        </div>
+        {(() => {
+          const pending = payments.filter((p) => !p.granted && p.status === 'DONE')
+          if (pending.length === 0) return null
+          const sum = pending.reduce((s, p) => s + (p.amount ?? 0), 0)
+          return (
+            <div className="mx-5 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 leading-relaxed">
+              <p className="font-bold text-sm mb-1"><i className="ti ti-alert-triangle" /> 수강권 미부여 결제 {pending.length}건 · {sum.toLocaleString()}원 (매출 미반영)</p>
+              <p>아래 표에서 <b>수동 부여</b> → <b>수강생 계정</b> 확인(결제자와 다르면 검색해서 변경) → <b>강의</b> 확인 → 부여하기.</p>
+              <p className="mt-1">수강생이 아직 회원이 아니면 <a href="/admin/members" className="font-bold text-amber-900 underline">회원 관리</a>에서 회원을 먼저 만든 뒤 부여하세요. 결제는 그동안 여기 그대로 남아 있습니다.</p>
+              <p className="mt-1 text-amber-700">회원 관리에서 0원 수강권을 따로 주지 마세요 — 결제 금액이 매출에 잡히지 않습니다. 이미 0원으로 준 회원도 여기서 부여하면 그 수강권에 금액이 채워집니다(기간 유지, 분할 결제는 합산).</p>
+            </div>
+          )
+        })()}
+        {payments.length === 0 ? (
+          <p className="px-5 py-8 text-center text-sm text-gray-400">아직 링크페이 결제 내역이 없습니다.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left font-bold text-gray-600">결제일</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-600">구매자</th>
+                  <th className="px-4 py-3 text-left font-bold text-gray-600">상품/강의</th>
+                  <th className="px-4 py-3 text-right font-bold text-gray-600">금액</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600">상태</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600">수강권</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {payments.map((p) => (
+                  <tr key={p.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                      {new Date(p.approved_at ?? p.created_at).toLocaleString('ko-KR')}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="font-medium text-gray-800">{p.customer_name || '-'}</span>
+                      <span className="block text-xs text-gray-400">{p.customer_phone || '-'}</span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-700">
+                      {p.course_id ? courseTitle(p.course_id) : (p.order_name || '-')}
+                      {!p.course_id && <span className="block text-[11px] text-amber-600">미매핑 링크</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{(p.amount ?? 0).toLocaleString()}원</td>
+                    <td className="px-4 py-3 text-center">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
+                        {p.status === 'DONE' ? '결제완료' : p.status === 'CANCELED' ? '취소' : p.status || '-'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {p.granted ? (
+                        <span className="text-xs text-emerald-600 font-bold"><i className="ti ti-check" /> 부여됨</span>
+                      ) : p.status === 'DONE' ? (
+                        <button
+                          onClick={() => openGrant(p)}
+                          className="text-xs font-bold text-white bg-[#2ED573] hover:bg-[#25B866] px-3 py-1.5 rounded-lg border-none cursor-pointer transition-colors"
+                        >
+                          수동 부여
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">-</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* 무통장(계좌이체·현금) 입금 수동 등록 */}
+      <ManualPaymentSection courses={courses} courseExpiry={courseExpiry} />
+
+      {/* 판매상품 자동 연결 (선택) — 같은 상품으로 여러 명이 결제하는 판매상품용. 개인결제창은 위 결제 내역에서 수동 부여 */}
+      <details className="mb-8 group">
+        <summary className="cursor-pointer list-none bg-white rounded-2xl border border-gray-100 px-5 py-4 flex items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
+          <span>
+            <span className="font-bold text-gray-900">판매상품 자동 연결 <span className="text-xs font-normal text-gray-400">(선택)</span></span>
+            <span className="block text-xs text-gray-400 mt-0.5">같은 상품으로 여러 명이 결제하는 <b>판매상품</b>만 한 번 연결해 두면, 이후 결제는 수동 부여 없이 자동 처리됩니다. 개인결제창은 연결하지 마세요.</span>
+          </span>
+          <i className="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform" />
+        </summary>
+        <div className="mt-3">
       {/* 매핑 만들기 */}
       <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-8">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -342,7 +437,7 @@ export default function AdminLinkpay() {
           const sales = tossProducts.filter((p) => !isPersonalProduct(p))
           const personal = tossProducts.filter((p) => isPersonalProduct(p))
           return (
-            <div className="grid grid-cols-2 max-md:grid-cols-1 gap-3 mb-4">
+            <div className={`grid ${showPersonal ? 'grid-cols-2' : 'grid-cols-1'} max-md:grid-cols-1 gap-3 mb-4`}>
               <div className="border border-gray-200 rounded-xl overflow-hidden">
                 <p className="px-3 py-2 bg-orange-50 text-xs font-bold text-orange-600">판매상품 {sales.length}개</p>
                 <div className="max-h-[320px] overflow-y-auto divide-y divide-gray-50">
@@ -351,14 +446,20 @@ export default function AdminLinkpay() {
                     : sales.map(renderBtn)}
                 </div>
               </div>
+              {!showPersonal ? (
+                <button type="button" onClick={() => setShowPersonal(true)} className="text-left text-xs text-gray-400 bg-transparent border-none cursor-pointer p-0 hover:text-gray-600">
+                  개인결제창 상품 {personal.length}개 보기 — 개인결제창은 연결하지 말고 위 결제 내역에서 수동 부여하세요
+                </button>
+              ) : (
               <div className="border border-gray-200 rounded-xl overflow-hidden">
-                <p className="px-3 py-2 bg-blue-50 text-xs font-bold text-blue-600">개인결제창 {personal.length}개</p>
+                <p className="px-3 py-2 bg-blue-50 text-xs font-bold text-blue-600">개인결제창 {personal.length}개 <span className="font-normal text-blue-500">· 결제자와 수강자가 다르면 계정이 틀릴 수 있어 권장하지 않음</span></p>
                 <div className="max-h-[320px] overflow-y-auto divide-y divide-gray-50">
                   {personal.length === 0
                     ? <p className="px-3 py-5 text-xs text-gray-400 text-center">없음</p>
                     : personal.map(renderBtn)}
                 </div>
               </div>
+              )}
             </div>
           )
         })()}
@@ -478,79 +579,8 @@ export default function AdminLinkpay() {
         )}
       </div>
 
-      {/* 결제 내역 */}
-      <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100">
-          <h2 className="font-bold text-gray-900">링크페이 결제 내역 <span className="text-gray-400 font-normal">({payments.length})</span></h2>
         </div>
-        {(() => {
-          const pending = payments.filter((p) => !p.granted && p.status === 'DONE')
-          if (pending.length === 0) return null
-          const sum = pending.reduce((s, p) => s + (p.amount ?? 0), 0)
-          return (
-            <div className="mx-5 mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 leading-relaxed">
-              <p className="font-bold text-sm mb-1"><i className="ti ti-alert-triangle" /> 수강권 미부여 결제 {pending.length}건 · {sum.toLocaleString()}원 (매출 미반영)</p>
-              <p>상품이 강의에 연결되지 않았거나 회원을 못 찾은 결제입니다. 아래 <b>수동 부여</b>로 처리하세요 — 이미 회원 관리에서 0원 수강권을 줬다면 그 수강권에 결제가 붙고(기간 유지), 차액·분할 결제는 기존 구매 금액에 더해집니다.</p>
-              <p className="mt-1 text-amber-700">회원 관리에서 0원 수강권을 따로 주지 마세요. 개인결제 상품 이름에 <b>[C강의번호]</b>(예: 홍길동_[C112])를 넣으면 갱신할 때 자동 연결됩니다.</p>
-            </div>
-          )
-        })()}
-        {payments.length === 0 ? (
-          <p className="px-5 py-8 text-center text-sm text-gray-400">아직 링크페이 결제 내역이 없습니다.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-bold text-gray-600">결제일</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-600">구매자</th>
-                  <th className="px-4 py-3 text-left font-bold text-gray-600">상품/강의</th>
-                  <th className="px-4 py-3 text-right font-bold text-gray-600">금액</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600">상태</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600">수강권</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {payments.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
-                      {new Date(p.approved_at ?? p.created_at).toLocaleString('ko-KR')}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <span className="font-medium text-gray-800">{p.customer_name || '-'}</span>
-                      <span className="block text-xs text-gray-400">{p.customer_phone || '-'}</span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700">
-                      {p.course_id ? courseTitle(p.course_id) : (p.order_name || '-')}
-                      {!p.course_id && <span className="block text-[11px] text-amber-600">미매핑 링크</span>}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-700 whitespace-nowrap">{(p.amount ?? 0).toLocaleString()}원</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.status === 'DONE' ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
-                        {p.status === 'DONE' ? '결제완료' : p.status === 'CANCELED' ? '취소' : p.status || '-'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {p.granted ? (
-                        <span className="text-xs text-emerald-600 font-bold"><i className="ti ti-check" /> 부여됨</span>
-                      ) : p.status === 'DONE' ? (
-                        <button
-                          onClick={() => openGrant(p)}
-                          className="text-xs font-bold text-white bg-[#2ED573] hover:bg-[#25B866] px-3 py-1.5 rounded-lg border-none cursor-pointer transition-colors"
-                        >
-                          수동 부여
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      </details>
 
       {/* 수동 부여 모달 */}
       <AdminFormModal
@@ -567,6 +597,9 @@ export default function AdminLinkpay() {
               <p className="text-gray-800 font-medium">{grantTarget.customer_name || '-'} · {grantTarget.customer_phone || '-'}</p>
               <p className="text-xs text-gray-400 mt-0.5">{grantTarget.order_name || '-'} · {(grantTarget.amount ?? 0).toLocaleString()}원</p>
             </div>
+            <p className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 leading-relaxed">
+              위는 <b>결제한 사람</b> 정보입니다. 수업 듣는 사람이 다르면 아래에서 <b>수강생 계정</b>을 검색해 바꾸세요. 수강생이 회원이 아니면 회원 관리에서 회원을 먼저 만들어 주세요.
+            </p>
             <div>
               <label className="text-sm font-bold block mb-1">회원 선택 *</label>
               <input
@@ -581,7 +614,7 @@ export default function AdminLinkpay() {
                     <button
                       key={m.id}
                       type="button"
-                      onClick={() => setGrantUserId(m.id)}
+                      onClick={() => { setGrantUserId(m.id); setSelectedMemberLabel(`${m.name || '(이름없음)'} ${m.phone || ''}`.trim()) }}
                       className={`w-full text-left px-3 py-2 text-sm border-none cursor-pointer flex items-center justify-between ${grantUserId === m.id ? 'bg-[#2ED573]/10' : 'bg-white hover:bg-gray-50'}`}
                     >
                       <span>{m.name || '(이름없음)'} <span className="text-xs text-gray-400">{m.phone || ''}</span></span>
@@ -590,7 +623,11 @@ export default function AdminLinkpay() {
                   ))}
                 </div>
               )}
-              {grantUserId && <p className="text-[11px] text-emerald-600 mt-1">회원 선택됨</p>}
+              {grantUserId && (
+                <p className="text-[11px] text-emerald-600 mt-1">
+                  수강생 계정: <b>{selectedMemberLabel || '결제 전화번호로 찾은 회원'}</b>
+                </p>
+              )}
             </div>
             <div>
               <label className="text-sm font-bold block mb-1">연결할 강의 *</label>

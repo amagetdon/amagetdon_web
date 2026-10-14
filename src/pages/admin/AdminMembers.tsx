@@ -410,6 +410,9 @@ export default function AdminMembers() {
     setRefunding(true)
     try {
       const isToss = refundTarget.payment_method === 'toss' && refundTarget.payment_key
+      // 링크페이·무통장은 돈이 사이트 밖(토스 링크페이·계좌)에서 오갔으므로 포인트로 돌려주지 않는다 — 환불은 해당 경로에서 직접
+      const isExternal = ['linkpay', 'bank', 'cash'].includes(refundTarget.payment_method ?? '')
+      const refundPoints = !isToss && !isExternal ? refundTarget.price : 0
 
       // 카드 결제인 경우 토스 결제 취소
       if (isToss) {
@@ -426,12 +429,12 @@ export default function AdminMembers() {
       if (error) throw error
 
       // 2. 포인트 환불 (포인트 결제인 경우만)
-      if (!isToss && refundTarget.price > 0) {
-        await supabase.rpc('admin_add_points', { user_id_input: viewing.id, amount_input: refundTarget.price } as never)
+      if (refundPoints > 0) {
+        await supabase.rpc('admin_add_points', { user_id_input: viewing.id, amount_input: refundPoints } as never)
         await supabase.rpc('admin_insert_point_log', {
           p_user_id: viewing.id,
-          p_amount: refundTarget.price,
-          p_balance: viewing.points + refundTarget.price,
+          p_amount: refundPoints,
+          p_balance: viewing.points + refundPoints,
           p_type: 'refund',
           p_memo: `${refundTarget.title} 환불`,
         } as never)
@@ -459,7 +462,7 @@ export default function AdminMembers() {
           await supabase.rpc('admin_insert_point_log', {
             p_user_id: viewing.id,
             p_amount: -reward,
-            p_balance: viewing.points + (isToss ? 0 : refundTarget.price) - reward,
+            p_balance: viewing.points + refundPoints - reward,
             p_type: 'deduct',
             p_memo: `${refundTarget.title} 수강 적립 회수`,
           } as never)
@@ -470,8 +473,10 @@ export default function AdminMembers() {
       const msgs = [`${refundTarget.title} 환불 완료`]
       if (isToss) {
         msgs.push('카드 결제 취소')
-      } else if (refundTarget.price > 0) {
-        msgs.push(`+${refundTarget.price.toLocaleString()}P`)
+      } else if (isExternal) {
+        msgs.push('결제 금액은 링크페이·계좌에서 직접 환불해 주세요')
+      } else if (refundPoints > 0) {
+        msgs.push(`+${refundPoints.toLocaleString()}P`)
       }
       if (rewardDeducted > 0) msgs.push(`적립 회수 -${rewardDeducted.toLocaleString()}P`)
       if (refundRestoreCoupon && refundTarget.coupon_id) msgs.push('쿠폰 복구됨')
@@ -495,7 +500,7 @@ export default function AdminMembers() {
         webhookScheduleService.cancelForUserScope(viewing.id, refundTarget.course_id ? 'course' : 'ebook', productId).catch(() => {})
       }
 
-      const pointsChange = (isToss ? 0 : refundTarget.price) - rewardDeducted
+      const pointsChange = refundPoints - rewardDeducted
       setRefundTarget(null)
       setRefundRestoreCoupon(true)
       await handleViewMember({ ...viewing, points: viewing.points + pointsChange })
@@ -1480,13 +1485,16 @@ export default function AdminMembers() {
                               {p.payment_method === 'toss' && (
                                 <span className="text-[9px] px-1 py-0.5 bg-blue-50 text-blue-600 rounded shrink-0">카드</span>
                               )}
+                              {(p.payment_method === 'bank' || p.payment_method === 'cash') && (
+                                <span className="text-[9px] px-1 py-0.5 bg-amber-50 text-amber-700 rounded shrink-0">{p.payment_method === 'cash' ? '현금' : '무통장'}</span>
+                              )}
                               {p.payment_method === 'linkpay' && (
                                 <span className="text-[9px] px-1 py-0.5 bg-emerald-50 text-emerald-600 rounded shrink-0">링크페이</span>
                               )}
                             </div>
                             <span className="text-[10px] text-gray-400">
                               {(() => {
-                                const unit = (p.payment_method === 'toss' || p.payment_method === 'linkpay') ? '원' : 'P'
+                                const unit = (p.payment_method === 'toss' || p.payment_method === 'linkpay' || p.payment_method === 'bank' || p.payment_method === 'cash') ? '원' : 'P'
                                 if (p.original_price && p.original_price !== p.price) {
                                   return <><span className="line-through">{p.original_price.toLocaleString()}{unit}</span> → <span className="text-[#2ED573] font-bold">{p.price > 0 ? `${p.price.toLocaleString()}${unit}` : '무료'}</span> (쿠폰)</>
                                 }
@@ -1868,7 +1876,9 @@ export default function AdminMembers() {
                   "{refundTarget.title}" 수강권이 회수되고<br />
                   {refundTarget.payment_method === 'toss'
                     ? `${refundTarget.price.toLocaleString()}원 카드 결제가 취소됩니다.`
-                    : refundTarget.price > 0 ? `${refundTarget.price.toLocaleString()}P가 환불됩니다.` : '무료 항목입니다.'}
+                    : ['linkpay', 'bank', 'cash'].includes(refundTarget.payment_method ?? '')
+                      ? `${refundTarget.price.toLocaleString()}원은 자동으로 돌려주지 않습니다. 링크페이(토스)·계좌에서 직접 환불해 주세요.`
+                      : refundTarget.price > 0 ? `${refundTarget.price.toLocaleString()}P가 환불됩니다.` : '무료 항목입니다.'}
                 </p>
                 {refundTarget.coupon_id ? (
                   <label className="flex items-center gap-2 cursor-pointer bg-gray-50 rounded-lg px-3 py-2.5 mb-4">
