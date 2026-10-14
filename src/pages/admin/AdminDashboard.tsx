@@ -74,6 +74,15 @@ const defaultData: DashboardData = {
 
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData>(defaultData)
+  // 링크페이 결제 완료인데 수강권·구매 기록이 안 생긴 건 — 매출에 안 잡히므로 눈에 띄게 알린다
+  const [linkpayPending, setLinkpayPending] = useState<{ n: number; amount: number }>({ n: 0, amount: 0 })
+  useEffect(() => {
+    supabase.from('linkpay_payments').select('amount').eq('status', 'DONE').eq('granted', false)
+      .then(({ data: rows }) => {
+        const list = (rows ?? []) as { amount: number | null }[]
+        setLinkpayPending({ n: list.length, amount: list.reduce((s, r) => s + (r.amount ?? 0), 0) })
+      })
+  }, [])
   const [loading, setLoading] = useState(true)
   const [umamiOpen, setUmamiOpen] = useState(() => localStorage.getItem('admin_umami_open') === '1')
 
@@ -345,6 +354,12 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
         <p className="text-sm text-gray-500 mt-1">아마겟돈 클래스 운영 현황</p>
       </div>
+
+      {linkpayPending.n > 0 && (
+        <a href="/admin/linkpay" className="block mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 no-underline hover:bg-amber-100 transition-colors">
+          <i className="ti ti-alert-triangle" /> 링크페이 결제 <b>{linkpayPending.n}건 · {linkpayPending.amount.toLocaleString()}원</b>이 수강권 미부여 상태라 매출에 잡히지 않았습니다. 링크페이 연동에서 처리하기 →
+        </a>
+      )}
 
       {/* ── 핵심 지표 ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">

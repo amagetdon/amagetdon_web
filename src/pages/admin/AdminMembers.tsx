@@ -1745,7 +1745,8 @@ export default function AdminMembers() {
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <DialogPanel className="bg-white rounded-xl p-6 max-w-sm w-full shadow-xl">
             <DialogTitle className="text-base font-bold text-gray-900 mb-4">수강권 수기 부여</DialogTitle>
-            <p className="text-xs text-gray-400 mb-4">{viewing?.name || '회원'}에게 강의/전자책/뉴스레터 수강권을 부여합니다.</p>
+            <p className="text-xs text-gray-400 mb-2">{viewing?.name || '회원'}에게 강의/전자책/뉴스레터 수강권을 부여합니다.</p>
+            <p className="text-[11px] text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mb-4 leading-relaxed">링크페이로 결제한 회원이면 여기서 주지 말고 <b>링크페이 연동 → 수동 부여</b>를 쓰세요. 여기서 주면 0원 수강권이라 결제 금액이 매출에 잡히지 않습니다.</p>
 
             <div className="space-y-3">
               {renderGrantFields(true)}

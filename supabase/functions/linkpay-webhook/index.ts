@@ -150,6 +150,15 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
     boardInstructorId = l?.board_instructor_id ?? null
   }
 
+  // 상품이 강의에 연결되지 않았어도 상품명에 [C112](강의) / [E5](전자책) 규칙이 있으면 그 상품으로 본다 (관리자 화면 갱신 규칙과 동일)
+  if (!courseId && !ebookId && !boardPostId && !boardInstructorId && orderName) {
+    const m = /\[(C|E)(\d+)\]/i.exec(orderName)
+    if (m) {
+      if (m[1].toUpperCase() === 'C') courseId = Number(m[2])
+      else ebookId = Number(m[2])
+    }
+  }
+
   // 전화번호 → 회원
   let matchedUserId: string | null = null
   if (customerPhone) {
