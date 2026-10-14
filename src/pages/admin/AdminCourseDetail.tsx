@@ -897,7 +897,7 @@ export default function AdminCourseDetail() {
                   onChange={(e) => setEditing({ ...editing, duration_days: e.target.value === '' ? 0 : Number(e.target.value) })}
                   placeholder="40"
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
-                <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">마감일시 이후 N일간 다시보기 가능</p>
+                <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">마감일시(없으면 신청일) 이후 N일 · 0 = 무제한</p>
               </div>
               <div className="w-full">
                 <label className="text-sm font-bold block mb-1">신청자 수 표시 (지금 N명 신청 중)</label>

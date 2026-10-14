@@ -17,8 +17,10 @@ type CourseSortKey = 'title' | 'instructor' | 'price' | 'created'
 function courseExpiry(course: CourseWithInstructor | undefined): string | null {
   if (!course) return null
   const c = course as unknown as { enrollment_deadline: string | null; duration_days: number | null }
-  if (c.enrollment_deadline && c.duration_days && c.duration_days > 0) {
-    return new Date(new Date(c.enrollment_deadline).getTime() + c.duration_days * 86400000).toISOString()
+  // 마감일이 있으면 마감일부터, 없으면 지금부터 다시보기 일수 (0 이면 무제한)
+  if (c.duration_days && c.duration_days > 0) {
+    const base = c.enrollment_deadline ? new Date(c.enrollment_deadline).getTime() : Date.now()
+    return new Date(base + c.duration_days * 86400000).toISOString()
   }
   return null
 }

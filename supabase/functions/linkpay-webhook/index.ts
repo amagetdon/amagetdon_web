@@ -72,8 +72,10 @@ async function computeExpiry(
       .eq('id', courseId)
       .maybeSingle()
     const c = data as { enrollment_deadline: string | null; duration_days: number | null } | null
-    if (c?.enrollment_deadline && c.duration_days && c.duration_days > 0) {
-      return new Date(new Date(c.enrollment_deadline).getTime() + c.duration_days * 86400000).toISOString()
+    // 모집 마감일이 있으면 마감일부터, 없으면 결제 시점부터 다시보기 일수 (0 이면 무제한)
+    if (c?.duration_days && c.duration_days > 0) {
+      const base = c.enrollment_deadline ? new Date(c.enrollment_deadline).getTime() : Date.now()
+      return new Date(base + c.duration_days * 86400000).toISOString()
     }
     return null
   }

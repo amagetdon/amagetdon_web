@@ -244,10 +244,10 @@ export default function AdminMembers() {
     const item = items.find((i) => i.id === itemId)
     if (grantMode === 'deadline') {
       const courseItem = item as { duration_days?: number; enrollment_deadline?: string | null } | undefined
-      if (courseItem?.enrollment_deadline && courseItem?.duration_days && courseItem.duration_days > 0) {
-        return new Date(new Date(courseItem.enrollment_deadline).getTime() + courseItem.duration_days * 86400000).toISOString()
-      }
-      return null
+      // 신청·결제와 같은 규칙: 마감일이 있으면 마감일부터, 없으면 지금부터 다시보기 일수 (0 이면 무제한)
+      if (!courseItem?.duration_days || courseItem.duration_days <= 0) return null
+      const base = courseItem.enrollment_deadline ? new Date(courseItem.enrollment_deadline).getTime() : Date.now()
+      return new Date(base + courseItem.duration_days * 86400000).toISOString()
     }
     if (grantMode === 'days') {
       const days = Number(grantDays)
@@ -795,7 +795,7 @@ export default function AdminMembers() {
     : grantExpiry
       ? `만료일: ${formatDate(grantExpiry)}`
       : grantMode === 'deadline'
-        ? '무제한 (강의에 마감일·수강 기간 미설정)'
+        ? '무제한 (강의 다시보기 0일)'
         : grantMode === 'days'
           ? '무제한 (0일 또는 미입력)'
           : '날짜를 선택하세요'

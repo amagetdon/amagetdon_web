@@ -294,7 +294,10 @@ function MyClassroomPage() {
             <div className="flex flex-col gap-0.5 text-xs text-gray-400 mt-2">
               <span>최초 수강일: {formatKoDateTime(purchase.purchased_at)}</span>
               <span>
-                수강 만료일: {course.enrollment_deadline ? formatKoDateTime(course.enrollment_deadline) : '무제한'}
+                {/* 마감일이 없는 강의는 신청일 기준으로 잡힌 이 구매의 만료일을 보여준다 */}
+                수강 만료일: {course.enrollment_deadline
+                  ? formatKoDateTime(course.enrollment_deadline)
+                  : purchase.expires_at ? formatKoDateTime(purchase.expires_at) : '무제한'}
                 {course.enrollment_deadline && (course.duration_days ?? 0) > 0 && (
                   <> (다시보기 {course.duration_days}일)</>
                 )}
