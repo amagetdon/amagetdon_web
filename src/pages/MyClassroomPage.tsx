@@ -231,10 +231,12 @@ function MyClassroomPage() {
   }
 
   // 강의 상태 — 진행중 / 다시보기(마감 후 다시보기 기한 내) / 만료
+  // 만료 여부는 이 구매의 수강 만료일(expires_at)만 본다. 비어 있으면 무제한(서버 영상 권한 확인과 같은 규칙).
+  // 예전엔 비어 있을 때 모집 마감일로 대신 판단해서, 다시보기 0일인 무료 라이브(마감=라이브 시작)는
+  // 라이브 시작 순간 '수강 기간 만료'가 되고 라이브·영상 버튼이 막혔다(10/15 129에서 확인).
   const courseStatus = (p: CoursePurchase): 'progressing' | 'replay' | 'expired' => {
     const c = p.course
-    const effectiveExpiry = p.expires_at ?? c?.enrollment_deadline ?? null
-    if (isExpired(effectiveExpiry)) return 'expired'
+    if (isExpired(p.expires_at)) return 'expired'
     if (p.expires_at && c?.enrollment_deadline && isExpired(c.enrollment_deadline)) return 'replay'
     return 'progressing'
   }
@@ -261,8 +263,7 @@ function MyClassroomPage() {
   const renderCourse = (purchase: CoursePurchase) => {
     const course = purchase.course
     if (!course) return null
-    const effectiveExpiry = purchase.expires_at ?? course.enrollment_deadline
-    const expired = isExpired(effectiveExpiry)
+    const expired = isExpired(purchase.expires_at)
     const deadlinePassed = isExpired(course.enrollment_deadline)
     const deadlineDDay = getDDay(course.enrollment_deadline)
     const reviewDDay = purchase.expires_at ? getDDay(purchase.expires_at) : null
@@ -285,10 +286,7 @@ function MyClassroomPage() {
               {expired ? (
                 <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full">수강 기간 만료</span>
               ) : deadlinePassed && reviewDDay !== null ? (
-                <>
-                  <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full">수강 기간 만료</span>
-                  <span className="bg-[#2ED573] text-white text-xs font-bold px-3 py-1 rounded-full">다시보기 D-{reviewDDay}</span>
-                </>
+                <span className="bg-[#2ED573] text-white text-xs font-bold px-3 py-1 rounded-full">다시보기 D-{reviewDDay}</span>
               ) : deadlineDDay !== null ? (
                 <span className="bg-[#2ED573] text-white text-xs font-bold px-3 py-1 rounded-full">마감 D-{deadlineDDay}</span>
               ) : null}
@@ -298,14 +296,13 @@ function MyClassroomPage() {
             <div className="flex flex-col gap-0.5 text-xs text-gray-400 mt-2">
               <span>최초 수강일: {formatKoDateTime(purchase.purchased_at)}</span>
               <span>
-                {/* 마감일이 없는 강의는 신청일 기준으로 잡힌 이 구매의 만료일을 보여준다 */}
-                수강 만료일: {course.enrollment_deadline
-                  ? formatKoDateTime(course.enrollment_deadline)
-                  : purchase.expires_at ? formatKoDateTime(purchase.expires_at) : '무제한'}
+                {/* 이 구매에 저장된 수강 만료일 그대로(비어 있으면 무제한) — 모집 마감일과 따로 보여 준다 */}
+                수강 만료일: {purchase.expires_at ? formatKoDateTime(purchase.expires_at) : '무제한'}
                 {course.enrollment_deadline && (course.duration_days ?? 0) > 0 && (
                   <> (다시보기 {course.duration_days}일)</>
                 )}
               </span>
+              {course.enrollment_deadline && <span>모집 마감: {formatKoDateTime(course.enrollment_deadline)}</span>}
             </div>
             {course.curriculum_items.length > 0 && (
               <div className="mt-3">
