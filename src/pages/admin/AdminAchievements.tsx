@@ -142,14 +142,15 @@ export default function AdminAchievements() {
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">작성자</th>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">제목</th>
-                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">강의</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">좋아요</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">날짜</th>
+                <th className="px-4 py-3 text-left font-bold text-gray-600">강의</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">좋아요</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">날짜</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">공개</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
               </tr>
@@ -165,13 +166,13 @@ export default function AdminAchievements() {
                 <tr key={item.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{item.author_name}</td>
                   <td className="px-4 py-3 text-gray-700 max-w-[200px] truncate">{item.title}</td>
-                  <td className="px-4 py-3 text-gray-500 text-xs max-sm:hidden max-w-[150px] truncate">
+                  <td className="px-4 py-3 text-gray-500 text-xs max-w-[150px] truncate">
                     {item.course?.title || '-'}
                   </td>
-                  <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">
+                  <td className="px-4 py-3 text-center text-gray-500">
                     {item.likes_count}
                   </td>
-                  <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">
+                  <td className="px-4 py-3 text-center text-gray-400 text-xs">
                     {new Date(item.created_at).toLocaleDateString('ko-KR')}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -210,6 +211,7 @@ export default function AdminAchievements() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

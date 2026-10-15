@@ -1573,13 +1573,13 @@ export default function AdminCourseDetail() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left font-bold text-gray-600">이름</th>
-                      <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">이메일</th>
-                      <th className="px-4 py-3 text-left font-bold text-gray-600 max-md:hidden">전화</th>
-                      <th className="px-4 py-3 text-center font-bold text-gray-600 max-md:hidden">결제일</th>
-                      <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">결제수단</th>
-                      <th className="px-4 py-3 text-center font-bold text-gray-600 max-md:hidden">금액</th>
+                      <th className="px-4 py-3 text-left font-bold text-gray-600">이메일</th>
+                      <th className="px-4 py-3 text-left font-bold text-gray-600">전화</th>
+                      <th className="px-4 py-3 text-center font-bold text-gray-600">결제일</th>
+                      <th className="px-4 py-3 text-center font-bold text-gray-600">결제수단</th>
+                      <th className="px-4 py-3 text-center font-bold text-gray-600">금액</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600">진도율</th>
-                      <th className="px-4 py-3 text-left font-bold text-gray-600 max-lg:hidden" title="가입: 회원가입 시점 경로(최초) / 구매: 이번 구매 직전 30일 내 마지막 경로">유입 경로</th>
+                      <th className="px-4 py-3 text-left font-bold text-gray-600" title="가입: 회원가입 시점 경로(최초) / 구매: 이번 구매 직전 30일 내 마지막 경로">유입 경로</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600" title="구매 직후 안내 링크(오픈채팅) 진입 — 카톡방 실제 참여 여부는 알 수 없음">오픈채팅</th>
                     </tr>
                   </thead>
@@ -1589,10 +1589,10 @@ export default function AdminCourseDetail() {
                         className="hover:bg-gray-50 cursor-pointer"
                         onClick={() => navigate(`/admin/members?user=${m.user_id}`)}>
                         <td className="px-4 py-3 font-medium">{m.user_name || '-'}</td>
-                        <td className="px-4 py-3 text-gray-500 max-sm:hidden">{m.user_email || '-'}</td>
-                        <td className="px-4 py-3 text-gray-500 max-md:hidden">{m.user_phone || '-'}</td>
-                        <td className="px-4 py-3 text-center text-gray-400 text-xs max-md:hidden">{formatKoDate(m.purchased_at)}</td>
-                        <td className="px-4 py-3 text-center max-sm:hidden">
+                        <td className="px-4 py-3 text-gray-500">{m.user_email || '-'}</td>
+                        <td className="px-4 py-3 text-gray-500">{m.user_phone || '-'}</td>
+                        <td className="px-4 py-3 text-center text-gray-400 text-xs">{formatKoDate(m.purchased_at)}</td>
+                        <td className="px-4 py-3 text-center">
                           {m.payment_method === 'toss' ? (
                             <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">카드</span>
                           ) : m.price > 0 ? (
@@ -1601,7 +1601,7 @@ export default function AdminCourseDetail() {
                             <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">무료/부여</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center text-gray-500 max-md:hidden">
+                        <td className="px-4 py-3 text-center text-gray-500">
                           {m.price > 0 ? (
                             <>
                               {m.original_price && m.original_price !== m.price && (
@@ -1619,7 +1619,7 @@ export default function AdminCourseDetail() {
                             <span className="text-xs text-gray-500 w-9 text-right">{m.completion_rate}%</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-xs max-lg:hidden">
+                        <td className="px-4 py-3 text-xs">
                           <div className="text-gray-400 truncate max-w-[220px]" title={firstTouchLabel(m)}>가입 · {firstTouchLabel(m) || '-'}</div>
                           <div className="text-gray-700 truncate max-w-[220px]" title={formatTouch(m.purchase_touch)}>구매 · {formatTouch(m.purchase_touch) || '-'}</div>
                         </td>

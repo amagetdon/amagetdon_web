@@ -187,15 +187,16 @@ export default function AdminCoupons() {
         <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-400">등록된 쿠폰이 없습니다.</div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">쿠폰</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">할인</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">조건</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">코드</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">발급</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">기간</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">할인</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">조건</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">코드</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">발급</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">기간</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">상태</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
               </tr>
@@ -216,22 +217,22 @@ export default function AdminCoupons() {
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-center max-sm:hidden">
+                    <td className="px-4 py-3 text-center">
                       <span className="font-bold text-gray-900">{c.discount_type === 'percent' ? `${c.discount_value}%` : `${c.discount_value.toLocaleString()}원`}</span>
                       {c.discount_type === 'percent' && c.max_discount && (
                         <p className="text-[10px] text-gray-400">최대 {c.max_discount.toLocaleString()}원</p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-400 max-sm:hidden">
+                    <td className="px-4 py-3 text-center text-xs text-gray-400">
                       {c.min_purchase > 0 ? `${c.min_purchase.toLocaleString()}P 이상` : '제한 없음'}
                     </td>
-                    <td className="px-4 py-3 text-center max-sm:hidden">
+                    <td className="px-4 py-3 text-center">
                       <code className="bg-gray-100 px-2 py-0.5 rounded text-xs">{c.code}</code>
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">
+                    <td className="px-4 py-3 text-center text-gray-500">
                       {c.claims_count}{c.max_claims ? `/${c.max_claims}` : ''}
                     </td>
-                    <td className="px-4 py-3 text-center text-xs text-gray-400 max-sm:hidden">
+                    <td className="px-4 py-3 text-center text-xs text-gray-400">
                       {c.expires_at ? new Date(c.expires_at).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul' }) : c.use_days ? `발급 후 ${c.use_days}일` : '무기한'}
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -263,6 +264,7 @@ export default function AdminCoupons() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

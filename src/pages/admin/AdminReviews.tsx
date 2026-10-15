@@ -174,14 +174,15 @@ export default function AdminReviews() {
       ) : (
         <>
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">작성자</th>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">제목</th>
-                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">강의명</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">별점</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">날짜</th>
+                <th className="px-4 py-3 text-left font-bold text-gray-600">강의명</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">별점</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">날짜</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
               </tr>
             </thead>
@@ -192,9 +193,9 @@ export default function AdminReviews() {
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 font-medium">{r.author_name}</td>
                   <td className="px-4 py-3 text-gray-700">{r.title}</td>
-                  <td className="px-4 py-3 text-gray-500 max-sm:hidden">{r.course?.title ?? '-'}</td>
-                  <td className="px-4 py-3 text-center text-yellow-500 max-sm:hidden">{'★'.repeat(r.rating)}</td>
-                  <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{new Date(r.created_at).toLocaleDateString('ko-KR')}</td>
+                  <td className="px-4 py-3 text-gray-500">{r.course?.title ?? '-'}</td>
+                  <td className="px-4 py-3 text-center text-yellow-500">{'★'.repeat(r.rating)}</td>
+                  <td className="px-4 py-3 text-center text-gray-400 text-xs">{new Date(r.created_at).toLocaleDateString('ko-KR')}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button
@@ -217,6 +218,7 @@ export default function AdminReviews() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
         {totalPages > 1 && (
           <div className="flex items-center justify-center gap-1 mt-4">

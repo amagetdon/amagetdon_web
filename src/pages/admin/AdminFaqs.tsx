@@ -61,6 +61,7 @@ export default function AdminFaqs() {
         <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">{[1, 2, 3].map((i) => <div key={i} className="animate-pulse h-12 bg-gray-100 rounded" />)}</div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50"><tr>
               <th className="px-4 py-3 text-left font-bold text-gray-600">질문</th>
@@ -88,6 +89,7 @@ export default function AdminFaqs() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

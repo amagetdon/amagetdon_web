@@ -414,6 +414,7 @@ export default function AdminCrmLeads() {
 
       {/* 테이블 */}
       <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
@@ -452,6 +453,7 @@ export default function AdminCrmLeads() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* 페이지네이션 */}

@@ -242,6 +242,7 @@ export default function AdminStorageCleanup() {
           </div>
 
           <div className="max-h-[640px] overflow-y-auto">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
@@ -297,6 +298,7 @@ export default function AdminStorageCleanup() {
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}
