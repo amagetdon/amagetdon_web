@@ -1,6 +1,8 @@
 import { useRef } from 'react'
 import { trackOpenChatJoin } from '../lib/tracking'
 import { logOpenChat } from '../lib/openchatLog'
+import LiveCalendarCta from './LiveCalendarCta'
+import type { LiveEvent } from '../lib/liveCalendar'
 
 interface Props {
   url: string | null
@@ -20,6 +22,8 @@ interface Props {
   title?: string
   // 미리보기·테스트용: 앱 안 브라우저(같은 탭 이동) 동작을 강제
   forceSameTab?: boolean
+  // 라이브 예정 강의면 오픈채팅 버튼 아래에 '캘린더에 추가'
+  live?: LiveEvent | null
 }
 
 // 카카오톡·인스타그램·페이스북·라인·네이버·밴드 등 앱 안 브라우저 — 새 창이 막히거나 무시되는 경우가 많아 같은 탭으로 이동
@@ -32,7 +36,7 @@ const IN_APP_RE = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|FB4A|Line\/|NAVER\(inapp
  * 지금은 큰 '오픈채팅 입장하기' 버튼을 누를 때 연다 — 사용자 터치로 여는 창은 차단되지 않는다.
  * 앱 안 브라우저면 같은 탭에서 이동하되, 이동 전에 입장 기록·전환 이벤트를 먼저 보낸다.
  */
-export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강의', tracking, title = '신청이 완료됐어요!', forceSameTab }: Props) {
+export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강의', tracking, title = '신청이 완료됐어요!', forceSameTab, live }: Props) {
   const navigatingRef = useRef(false)
   if (!url) return null
 
@@ -97,6 +101,7 @@ export default function AfterPurchaseLinkModal({ url, onClose, itemLabel = '강�
         {itemLabel === '강의' && (
           <p className="text-[11px] text-gray-400 mt-3">나중에는 강의 화면의 '채팅방 이동하기'로 들어올 수 있어요.</p>
         )}
+        {live && <LiveCalendarCta event={live} className="mt-4 text-left" />}
       </div>
     </div>
   )

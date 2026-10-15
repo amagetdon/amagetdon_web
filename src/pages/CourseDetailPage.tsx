@@ -26,6 +26,7 @@ import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAcc
 import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, trackOpenChatJoin, buildContentId, courseCategoryLabel } from '../lib/tracking'
 import { logOpenChat } from '../lib/openchatLog'
 import { r2Proxy } from '../lib/image'
+import { isUpcomingLive } from '../lib/liveCalendar'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 
@@ -1232,6 +1233,7 @@ function CourseDetailPage() {
         url={afterPurchaseLink}
         onClose={() => setAfterPurchaseLink(null)}
         itemLabel="강의"
+        live={isUpcomingLive(course.scheduled_at) ? { courseId: course.id, title: course.title, startsAt: course.scheduled_at, openchatUrl: course.after_purchase_url } : null}
         tracking={{
           contentId: buildContentId('course', course.id),
           contentName: course.title,
