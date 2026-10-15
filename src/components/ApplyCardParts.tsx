@@ -44,7 +44,7 @@ export function PriceCard({ accent, title, original, priceText, discountLabel, s
   return (
     <div className="mt-5 rounded-2xl border border-gray-200 bg-white px-5 py-4">
       <p className={`m-0 flex items-center gap-1.5 text-sm font-bold ${a.text}`}>
-        <i className="ti ti-circle-check-filled text-base" /> {title}
+        <i className="ti ti-circle-check text-base" /> {title}
       </p>
       <div className="mt-2 flex items-end justify-between gap-3 flex-wrap">
         <div className="min-w-0">
