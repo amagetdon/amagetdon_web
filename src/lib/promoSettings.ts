@@ -16,6 +16,11 @@ export interface ApplyCardSettings {
   discount_label?: string | null
   button_label?: string | null
   seats?: number | null
+  // 남은 자리 표시 방식: manual=직접 숫자(seats) / range=최소~최대 범위 안에서 자동 / 없으면 표시 안 함
+  seats_mode?: 'manual' | 'range' | null
+  seats_min?: number | null
+  seats_max?: number | null
+  accent?: 'green' | 'blue' | null // 신청 카드 강조색(버튼·체크)
   countdown?: PromoCountdown | null
 }
 
@@ -47,12 +52,41 @@ export function remainingMs(endAt: string | null | undefined, loopMinutes: numbe
   return period - ((now - end) % period)
 }
 
-/** 3일 22시간 41분 29초 / 00:10:28 두 가지 모양 */
-export function formatLong(ms: number): string {
+/**
+ * 남은 시간 조각 — 하루 이상: N일 N시간 N분 / 하루 미만: N시간 N분 N초 / 1시간 미만: N분 N초
+ * (대표님 요청 10/16: '189:29:53'처럼 시간이 100 넘게 나오는 표기 금지)
+ */
+export function timeParts(ms: number): { v: number; u: string }[] {
   const s = Math.max(0, Math.floor(ms / 1000))
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
-  return `${d > 0 ? `${d}일 ` : ''}${h}시간 ${m}분 ${sec}초`
+  if (d > 0) return [{ v: d, u: '일' }, { v: h, u: '시간' }, { v: m, u: '분' }]
+  if (h > 0) return [{ v: h, u: '시간' }, { v: m, u: '분' }, { v: sec, u: '초' }]
+  return [{ v: m, u: '분' }, { v: sec, u: '초' }]
 }
+export function formatLong(ms: number): string {
+  return timeParts(ms).map((p) => `${p.v}${p.u}`).join(' ')
+}
+
+/**
+ * 남은 자리 표시 숫자.
+ * range: 같은 강의는 모든 방문자에게 같은 숫자 — 하루(한국 시간) 동안 최대→최소 쪽으로 천천히 줄고,
+ *        30분마다 0~1 정도만 흔들려서 새로고침해도 크게 튀지 않는다. 범위를 바꾸면 바로 새 범위 안 숫자가 된다.
+ */
+export function displaySeats(card: ApplyCardSettings | null | undefined, seed: number, now = Date.now()): number | null {
+  if (!card) return null
+  const mode = card.seats_mode ?? (card.seats != null ? 'manual' : null)
+  if (mode === 'manual') return card.seats ?? null
+  if (mode !== 'range') return null
+  const lo = Math.max(0, Math.min(card.seats_min ?? 0, card.seats_max ?? 0))
+  const hi = Math.max(card.seats_min ?? 0, card.seats_max ?? 0)
+  if (hi <= 0) return null
+  const kstMin = Math.floor((now + 9 * 3600_000) / 60_000) % 1440
+  const bucket = Math.floor((now + 9 * 3600_000) / (30 * 60_000))
+  const jitter = ((bucket * 2654435761 + seed * 40503) >>> 0) % 2
+  const v = Math.round(hi - (kstMin / 1440) * (hi - lo)) - jitter
+  return Math.min(hi, Math.max(lo, v))
+}
+/** @deprecated 표기 통일(10/16) 이후 쓰지 않음 */
 export function formatClock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000))
   // 하루가 넘으면 "7일 21:30:17" (예전엔 189:30:17 처럼 시간이 크게 보였다)
