@@ -5,9 +5,19 @@
     <link rel="icon" type="image/webp" href="/favicon.webp" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>아마겟돈 클래스</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
-    <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.49.0/dist/tabler-icons.min.css" rel="stylesheet" />
-    <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+    <!-- 글꼴·아이콘 CSS 는 화면 그리기를 막지 않게 받는다 (받는 동안은 기본 글꼴로 먼저 보임).
+         우편번호 스크립트는 가입·온보딩·마이페이지에서만 받는다 (src/lib/daumPostcode.ts). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link rel="preconnect" href="https://uxpihuccunqqtdbxszqa.supabase.co" crossorigin />
+    <link rel="preconnect" href="https://pub-95b8f0f45b784ba4a86ae023b75f8940.r2.dev" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.49.0/dist/tabler-icons.min.css" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet" />
+      <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.49.0/dist/tabler-icons.min.css" rel="stylesheet" />
+    </noscript>
 
     <!-- Umami 분석 — 1st-party 경로(/u/*)로 프록시해 추적기 차단·ISP 경로 간섭 회피.
          실제 라우팅은 vercel.json 의 `/u/(.*)` rewrite 가 처리. -->

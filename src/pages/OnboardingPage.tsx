@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { profileService } from '../services/profileService'
 import { takeReturnPath } from '../lib/postLogin'
+import { isDaumPostcodeReady, loadDaumPostcode } from '../lib/daumPostcode'
 import TypeformQuestion, { TYPEFORM_SCALE_IN } from '../components/auth/TypeformQuestion'
 
 declare global {
@@ -256,9 +257,14 @@ function OnboardingPage() {
     }
   }
 
+  // 주소 단계 전에 미리 받아 둔다 (클릭 순간에 이미 준비돼 있어야 팝업이 막히지 않음)
+  useEffect(() => { loadDaumPostcode().catch(() => {}) }, [])
+
   const openPostcode = () => {
-    if (!window.daum?.Postcode) {
-      setError('우편번호 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.')
+    if (!isDaumPostcodeReady()) {
+      loadDaumPostcode()
+        .then(openPostcode)
+        .catch(() => setError('우편번호 서비스를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.'))
       return
     }
     new window.daum.Postcode({
