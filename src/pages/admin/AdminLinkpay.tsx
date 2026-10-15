@@ -6,6 +6,7 @@ import AdminLayout from '../../components/admin/AdminLayout'
 import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ManualPaymentSection from '../../components/admin/ManualPaymentSection'
 import LinkpayInbox from '../../components/admin/LinkpayInbox'
+import BankDepositInbox from '../../components/admin/BankDepositInbox'
 import { courseService } from '../../services/courseService'
 import { linkpayService, type LinkpayLink, type LinkpayPayment, type TossProduct } from '../../services/linkpayService'
 import type { CourseWithInstructor } from '../../types'
@@ -182,6 +183,9 @@ export default function AdminLinkpay() {
 
       {/* 링크페이 결제 처리함: 왼쪽 목록 · 오른쪽 처리 패널 */}
       <LinkpayInbox payments={payments} courses={courses} onChanged={fetchData} />
+
+      {/* 무통장 입금함: 은행 입금 자동 수집 → 회원·강의 지정해 등록 */}
+      <BankDepositInbox courses={courses} />
 
       {/* 무통장(계좌이체·현금) 입금 수동 등록 */}
       <ManualPaymentSection courses={courses} courseExpiry={courseExpiry} />
