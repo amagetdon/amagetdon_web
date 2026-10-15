@@ -85,10 +85,11 @@ export default function AdminSchedules() {
         <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">{[1, 2, 3].map((i) => <div key={i} className="animate-pulse h-12 bg-gray-100 rounded" />)}</div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50"><tr>
               <th className="px-4 py-3 text-left font-bold text-gray-600">제목</th>
-              <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">강사</th>
+              <th className="px-4 py-3 text-left font-bold text-gray-600">강사</th>
               <th className="px-4 py-3 text-center font-bold text-gray-600">일시</th>
               <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
             </tr></thead>
@@ -103,7 +104,7 @@ export default function AdminSchedules() {
                       {s.is_hidden && <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 text-[11px] font-bold"><i className="ti ti-eye-off text-xs" /> 숨김</span>}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-gray-500 max-sm:hidden">{s.instructor?.name || '-'}</td>
+                  <td className="px-4 py-3 text-gray-500">{s.instructor?.name || '-'}</td>
                   <td className="px-4 py-3 text-center text-gray-500 text-xs">{new Date(s.scheduled_at).toLocaleString('ko-KR')}</td>
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
@@ -116,6 +117,7 @@ export default function AdminSchedules() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

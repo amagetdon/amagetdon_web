@@ -80,9 +80,9 @@ export default function AdminEbooks() {
               <thead className="bg-gray-50"><tr>
                 <th className="px-4 py-3 text-left font-bold text-gray-600 w-[100px]">표지</th>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">제목</th>
-                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">강사</th>
+                <th className="px-4 py-3 text-left font-bold text-gray-600">강사</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">가격</th>
-                <th className="px-4 py-3 text-center font-bold text-gray-600 max-md:hidden">구매자 / 정원</th>
+                <th className="px-4 py-3 text-center font-bold text-gray-600">구매자 / 정원</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-100">
@@ -102,9 +102,9 @@ export default function AdminEbooks() {
                       </div>
                     </td>
                     <td className="px-4 py-3 font-medium">{eb.title}{eb.is_hot && <span className="ml-2 text-xs bg-[#2ED573] text-white px-1.5 py-0.5 rounded">HOT</span>}</td>
-                    <td className="px-4 py-3 text-gray-500 max-sm:hidden">{eb.instructor?.name || '-'}</td>
+                    <td className="px-4 py-3 text-gray-500">{eb.instructor?.name || '-'}</td>
                     <td className="px-4 py-3 text-center text-gray-500">{eb.is_free ? '무료' : eb.sale_price ? `${eb.sale_price.toLocaleString()}원` : '-'}</td>
-                    <td className="px-4 py-3 text-center text-gray-700 text-xs max-md:hidden">
+                    <td className="px-4 py-3 text-center text-gray-700 text-xs">
                       {s.buyerCount.toLocaleString()} / {eb.max_purchases != null && eb.max_purchases > 0 ? `${eb.max_purchases.toLocaleString()}명` : '무제한'}
                     </td>
                     <td className="px-4 py-3 text-center">

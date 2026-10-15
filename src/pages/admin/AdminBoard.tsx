@@ -132,13 +132,14 @@ export default function AdminBoard() {
         <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">{[1, 2, 3].map((i) => <div key={i} className="animate-pulse h-12 bg-gray-100 rounded" />)}</div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50"><tr>
               <th className="px-4 py-3 text-left font-bold text-gray-600">제목</th>
-              <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">강사</th>
+              <th className="px-4 py-3 text-center font-bold text-gray-600">강사</th>
               <th className="px-4 py-3 text-center font-bold text-gray-600">공유</th>
               <th className="px-4 py-3 text-center font-bold text-gray-600">상태</th>
-              <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">작성일</th>
+              <th className="px-4 py-3 text-center font-bold text-gray-600">작성일</th>
               <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
             </tr></thead>
             <tbody className="divide-y divide-gray-100">
@@ -149,7 +150,7 @@ export default function AdminBoard() {
                   <td className="px-4 py-3 font-medium max-w-0">
                     <p className="truncate">{post.title}</p>
                   </td>
-                  <td className="px-4 py-3 text-center text-xs text-gray-500 whitespace-nowrap max-sm:hidden">
+                  <td className="px-4 py-3 text-center text-xs text-gray-500 whitespace-nowrap">
                     {instructors.find((i) => i.id === post.instructor_id)?.name ?? '-'}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -177,7 +178,7 @@ export default function AdminBoard() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">
+                  <td className="px-4 py-3 text-center text-gray-400 text-xs">
                     {new Date(post.created_at).toLocaleDateString('ko-KR')}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -190,6 +191,7 @@ export default function AdminBoard() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

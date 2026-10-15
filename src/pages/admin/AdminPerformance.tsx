@@ -270,6 +270,7 @@ export default function AdminPerformance() {
                         <summary className="text-[11px] text-gray-400 cursor-pointer hover:text-gray-600">
                           모든 마운트 보기 ({infra.disk.all_mounts.length}개)
                         </summary>
+                        <div className="overflow-x-auto">
                         <table className="w-full text-xs mt-2 border-t border-gray-100">
                           <thead>
                             <tr className="text-gray-400">
@@ -290,6 +291,7 @@ export default function AdminPerformance() {
                             ))}
                           </tbody>
                         </table>
+                        </div>
                       </details>
                     )}
                   </div>

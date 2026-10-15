@@ -88,13 +88,14 @@ export default function AdminInstructors() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">강사</th>
-                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider max-sm:hidden">직함</th>
-                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider max-sm:hidden">소개</th>
-                <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider max-sm:hidden">순서</th>
+                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">직함</th>
+                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">소개</th>
+                <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">순서</th>
                 <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider">상태</th>
                 <th className="px-5 py-3.5 text-center text-xs font-semibold text-gray-400 uppercase tracking-wider w-[100px]">관리</th>
               </tr>
@@ -118,9 +119,9 @@ export default function AdminInstructors() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-gray-500 max-sm:hidden">{inst.title || '-'}</td>
-                  <td className="px-5 py-3.5 text-gray-400 text-xs max-sm:hidden max-w-[200px] truncate">{htmlToPlainText(inst.bio).split('\n')[0] || '-'}</td>
-                  <td className="px-5 py-3.5 text-center text-gray-400 text-xs max-sm:hidden">{inst.sort_order}</td>
+                  <td className="px-5 py-3.5 text-gray-500">{inst.title || '-'}</td>
+                  <td className="px-5 py-3.5 text-gray-400 text-xs max-w-[200px] truncate">{htmlToPlainText(inst.bio).split('\n')[0] || '-'}</td>
+                  <td className="px-5 py-3.5 text-center text-gray-400 text-xs">{inst.sort_order}</td>
                   <td className="px-5 py-3.5 text-center">
                     <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full font-medium ${inst.is_published ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${inst.is_published ? 'bg-emerald-500' : 'bg-gray-400'}`} />
@@ -141,6 +142,7 @@ export default function AdminInstructors() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

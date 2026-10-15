@@ -1169,18 +1169,18 @@ export default function AdminMembers() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">이름</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">이메일</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">전화번호</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">성별</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">생년월일</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">주소</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">이메일</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">전화번호</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">성별</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">생년월일</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">주소</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">권한</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">포인트</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">구매</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">총 결제</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">UTM</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">가입일</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden whitespace-nowrap">마지막 접속</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">포인트</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">구매</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">총 결제</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">UTM</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">가입일</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">마지막 접속</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600 whitespace-nowrap">관리</th>
                 </tr>
               </thead>
@@ -1200,11 +1200,11 @@ export default function AdminMembers() {
                         return <span className="ml-1.5 text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">이메일</span>
                       })()}
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs">{m.email || '-'}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden whitespace-nowrap">{m.phone || '-'}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{formatGender(m.gender)}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs whitespace-nowrap">{m.birth_date ? formatDate(m.birth_date) : '-'}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs max-w-[150px] truncate">{m.address ? m.address.split('|').slice(1).join(' ') : '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 text-xs">{m.email || '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 whitespace-nowrap">{m.phone || '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500">{formatGender(m.gender)}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 text-xs whitespace-nowrap">{m.birth_date ? formatDate(m.birth_date) : '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 text-xs max-w-[150px] truncate">{m.address ? m.address.split('|').slice(1).join(' ') : '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${
                         m.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-600'
@@ -1212,22 +1212,22 @@ export default function AdminMembers() {
                         {m.role === 'admin' ? '관리자' : '회원'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center max-sm:hidden">
+                    <td className="px-4 py-3 text-center">
                       <span className={`text-sm font-medium ${m.points > 0 ? 'text-[#2ED573]' : 'text-gray-400'}`}>
                         {m.points > 0 ? `${m.points.toLocaleString()}P` : '0P'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{m.purchaseCount}</td>
-                    <td className="px-4 py-3 text-center text-gray-700 max-sm:hidden">{m.totalSpent > 0 ? `${m.totalSpent.toLocaleString()}원` : '-'}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden text-xs">
+                    <td className="px-4 py-3 text-center text-gray-500">{m.purchaseCount}</td>
+                    <td className="px-4 py-3 text-center text-gray-700">{m.totalSpent > 0 ? `${m.totalSpent.toLocaleString()}원` : '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-500 text-xs">
                       {m.utm_campaign || m.utm_source ? (
                         <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded" title={[m.utm_source, m.utm_medium, m.utm_campaign].filter(Boolean).join(' / ')}>
                           {m.utm_campaign || m.utm_source}
                         </span>
                       ) : '-'}
                     </td>
-                    <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden whitespace-nowrap">{formatDate(m.created_at)}</td>
-                    <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden whitespace-nowrap">{m.last_active_at ? formatDate(m.last_active_at) : '-'}</td>
+                    <td className="px-4 py-3 text-center text-gray-400 text-xs whitespace-nowrap">{formatDate(m.created_at)}</td>
+                    <td className="px-4 py-3 text-center text-gray-400 text-xs whitespace-nowrap">{m.last_active_at ? formatDate(m.last_active_at) : '-'}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button

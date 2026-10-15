@@ -334,14 +334,14 @@ export default function AdminCourses() {
                   <tr>
                     <th className="px-4 py-3 text-left font-bold text-gray-600 w-[220px]">썸네일</th>
                     <SortHeader label="강의명" k="title" className="text-left" />
-                    <SortHeader label="강사" k="instructor" className="text-left max-sm:hidden" />
+                    <SortHeader label="강사" k="instructor" className="text-left" />
                     <SortHeader label="유형" k="type" className="text-center" />
-                    <SortHeader label="가격" k="price" className="text-center max-md:hidden" />
-                    <SortHeader label="수강생 / 정원" k="enrollments" className="text-center max-md:hidden" />
-                    <SortHeader label="후기" k="reviews" className="text-center max-md:hidden" />
-                    <SortHeader label="평점" k="rating" className="text-center max-md:hidden" />
-                    <SortHeader label="강의일시" k="scheduled" className="text-center max-lg:hidden" />
-                    <SortHeader label="등록일" k="created" className="text-center max-lg:hidden" />
+                    <SortHeader label="가격" k="price" className="text-center" />
+                    <SortHeader label="수강생 / 정원" k="enrollments" className="text-center" />
+                    <SortHeader label="후기" k="reviews" className="text-center" />
+                    <SortHeader label="평점" k="rating" className="text-center" />
+                    <SortHeader label="강의일시" k="scheduled" className="text-center" />
+                    <SortHeader label="등록일" k="created" className="text-center" />
                     <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
                   </tr>
                 </thead>
@@ -362,13 +362,13 @@ export default function AdminCourses() {
                         </div>
                       </td>
                       <td className="px-4 py-3 font-medium">{course.title}</td>
-                      <td className="px-4 py-3 text-gray-500 max-sm:hidden">{course.instructor?.name || '-'}</td>
+                      <td className="px-4 py-3 text-gray-500">{course.instructor?.name || '-'}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${course.course_type === 'free' ? 'bg-blue-100 text-blue-700' : course.course_type === 'pre_alert' ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'}`}>
                           {course.course_type === 'free' ? '무료' : course.course_type === 'pre_alert' ? '사전 알림' : '프리미엄'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-500 max-md:hidden">
+                      <td className="px-4 py-3 text-center text-gray-500">
                         {(() => {
                           // pre_alert 은 무료강의와 동일 동작 — 가격 표시도 '무료' 로 통일.
                           if (course.course_type === 'free' || course.course_type === 'pre_alert' || course.sale_price === 0) return '무료'
@@ -377,13 +377,13 @@ export default function AdminCourses() {
                           return `${price.toLocaleString()}원`
                         })()}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-700 text-xs max-md:hidden">
+                      <td className="px-4 py-3 text-center text-gray-700 text-xs">
                         {s.enrollmentCount.toLocaleString()} / {course.max_enrollments != null && course.max_enrollments > 0 ? `${course.max_enrollments.toLocaleString()}명` : '무제한'}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-700 text-xs max-md:hidden">
+                      <td className="px-4 py-3 text-center text-gray-700 text-xs">
                         {s.reviewCount.toLocaleString()}개
                       </td>
-                      <td className="px-4 py-3 text-center text-xs max-md:hidden">
+                      <td className="px-4 py-3 text-center text-xs">
                         {s.reviewCount > 0 ? (
                           <span className="inline-flex items-center gap-0.5 text-gray-700">
                             <span className="text-yellow-400">★</span>{s.avgRating.toFixed(1)}
@@ -392,12 +392,12 @@ export default function AdminCourses() {
                           <span className="text-gray-300">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-500 text-xs max-lg:hidden whitespace-nowrap">
+                      <td className="px-4 py-3 text-center text-gray-500 text-xs whitespace-nowrap">
                         {course.scheduled_at
                           ? new Date(course.scheduled_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })
                           : '-'}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-400 text-xs max-lg:hidden">
+                      <td className="px-4 py-3 text-center text-gray-400 text-xs">
                         {new Date(course.created_at).toLocaleDateString('ko-KR')}
                       </td>
                       <td className="px-4 py-3 text-center">

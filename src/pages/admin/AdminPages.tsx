@@ -468,6 +468,7 @@ export default function AdminPages() {
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
@@ -529,6 +530,7 @@ export default function AdminPages() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
@@ -1005,13 +1007,14 @@ export default function AdminPages() {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left font-bold text-gray-600">작성자</th>
                   <th className="px-4 py-3 text-left font-bold text-gray-600">제목</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">좋아요</th>
-                  <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">날짜</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600">좋아요</th>
+                  <th className="px-4 py-3 text-center font-bold text-gray-600">날짜</th>
                   <th className="px-4 py-3 text-center font-bold text-gray-600">관리</th>
                 </tr>
               </thead>
@@ -1022,8 +1025,8 @@ export default function AdminPages() {
                   <tr key={r.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 font-medium">{r.author_name}</td>
                     <td className="px-4 py-3 text-gray-700">{r.title}</td>
-                    <td className="px-4 py-3 text-center text-gray-500 max-sm:hidden">{r.likes_count}</td>
-                    <td className="px-4 py-3 text-center text-gray-400 text-xs max-sm:hidden">{new Date(r.created_at).toLocaleDateString('ko-KR')}</td>
+                    <td className="px-4 py-3 text-center text-gray-500">{r.likes_count}</td>
+                    <td className="px-4 py-3 text-center text-gray-400 text-xs">{new Date(r.created_at).toLocaleDateString('ko-KR')}</td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setResultEditing(r as unknown as Record<string, unknown>)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 bg-transparent border-none cursor-pointer transition-colors" aria-label="수정"><i className="ti ti-pencil text-sm" /></button>
@@ -1034,6 +1037,7 @@ export default function AdminPages() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </>
       ) : tab === 'visibility' ? (

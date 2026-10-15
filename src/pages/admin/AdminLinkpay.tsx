@@ -308,13 +308,14 @@ export default function AdminLinkpay() {
             </div>
             <div className="border border-gray-200 rounded-xl overflow-hidden">
               <div className="max-h-[460px] overflow-y-auto">
+                <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 sticky top-0 z-20">
                     <tr>
                       <th className="px-3 py-2.5 text-left font-bold text-gray-600 w-[56px] bg-gray-50">썸네일</th>
                       <th onClick={() => toggleSort('title')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none bg-gray-50">강의명{sortArrow('title')}</th>
-                      <th onClick={() => toggleSort('instructor')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">강사{sortArrow('instructor')}</th>
-                      <th onClick={() => toggleSort('price')} className="px-3 py-2.5 text-right font-bold text-gray-600 cursor-pointer select-none max-sm:hidden bg-gray-50">가격{sortArrow('price')}</th>
+                      <th onClick={() => toggleSort('instructor')} className="px-3 py-2.5 text-left font-bold text-gray-600 cursor-pointer select-none bg-gray-50">강사{sortArrow('instructor')}</th>
+                      <th onClick={() => toggleSort('price')} className="px-3 py-2.5 text-right font-bold text-gray-600 cursor-pointer select-none bg-gray-50">가격{sortArrow('price')}</th>
                       <th onClick={() => toggleSort('created')} className="px-3 py-2.5 text-center font-bold text-gray-600 cursor-pointer select-none max-2xl:hidden bg-gray-50">등록일{sortArrow('created')}</th>
                       <th className="px-3 py-2.5 text-center font-bold text-gray-600 w-[90px] bg-gray-50">연결</th>
                     </tr>
@@ -347,8 +348,8 @@ export default function AdminLinkpay() {
                               </button>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-gray-500 max-sm:hidden whitespace-nowrap">{c.instructor?.name || '-'}</td>
-                          <td className="px-3 py-2 text-right text-gray-600 max-sm:hidden whitespace-nowrap">{coursePrice(c).toLocaleString()}원</td>
+                          <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.instructor?.name || '-'}</td>
+                          <td className="px-3 py-2 text-right text-gray-600 whitespace-nowrap">{coursePrice(c).toLocaleString()}원</td>
                           <td className="px-3 py-2 text-center text-gray-400 text-xs max-2xl:hidden whitespace-nowrap">{new Date(c.created_at).toLocaleDateString('ko-KR')}</td>
                           <td className="px-3 py-2 text-center">
                             <button
@@ -364,6 +365,7 @@ export default function AdminLinkpay() {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           </div>
@@ -378,12 +380,13 @@ export default function AdminLinkpay() {
         {links.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-gray-400">등록된 링크 매핑이 없습니다.</p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">상품(링크)</th>
                 <th className="px-4 py-3 text-left font-bold text-gray-600">연결 강의</th>
-                <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">productKey</th>
+                <th className="px-4 py-3 text-left font-bold text-gray-600">productKey</th>
                 <th className="px-4 py-3 text-center font-bold text-gray-600 w-[80px]">관리</th>
               </tr>
             </thead>
@@ -392,7 +395,7 @@ export default function AdminLinkpay() {
                 <tr key={l.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-gray-800">{l.label || '-'}</td>
                   <td className="px-4 py-3 text-gray-700">{courseTitle(l.course_id)}</td>
-                  <td className="px-4 py-3 font-mono text-[11px] text-gray-400 max-sm:hidden">{l.product_key}</td>
+                  <td className="px-4 py-3 font-mono text-[11px] text-gray-400">{l.product_key}</td>
                   <td className="px-4 py-3 text-center">
                     <button onClick={() => setDeleteLinkId(l.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors mx-auto" aria-label="삭제">
                       <i className="ti ti-trash text-sm" />
@@ -402,6 +405,7 @@ export default function AdminLinkpay() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

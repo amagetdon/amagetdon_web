@@ -85,6 +85,7 @@ function ReservedWordTable({ title, rows, onInsert, defaultOpen = false }: { tit
       </button>
       {open && (
         <div className="border border-gray-200 rounded-lg overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-gray-50">
               <tr>
@@ -114,6 +115,7 @@ function ReservedWordTable({ title, rows, onInsert, defaultOpen = false }: { tit
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

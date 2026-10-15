@@ -877,17 +877,17 @@ export default function AdminEbookDetail() {
           ) : (
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm whitespace-nowrap">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left font-bold text-gray-600">이름</th>
-                      <th className="px-4 py-3 text-left font-bold text-gray-600 max-sm:hidden">이메일</th>
-                      <th className="px-4 py-3 text-left font-bold text-gray-600 max-md:hidden">전화</th>
-                      <th className="px-4 py-3 text-center font-bold text-gray-600 max-md:hidden">구매일</th>
-                      <th className="px-4 py-3 text-center font-bold text-gray-600 max-sm:hidden">결제수단</th>
-                      <th className="px-4 py-3 text-center font-bold text-gray-600 max-md:hidden">금액</th>
-                      <th className="px-4 py-3 text-center font-bold text-gray-600 max-md:hidden">만료일</th>
-                      <th className="px-4 py-3 text-left font-bold text-gray-600 max-lg:hidden" title="가입: 회원가입 시점 경로(최초) / 구매: 이번 구매 직전 30일 내 마지막 경로">유입 경로</th>
+                      <th className="px-4 py-3 text-left font-bold text-gray-600">이메일</th>
+                      <th className="px-4 py-3 text-left font-bold text-gray-600">전화</th>
+                      <th className="px-4 py-3 text-center font-bold text-gray-600">구매일</th>
+                      <th className="px-4 py-3 text-center font-bold text-gray-600">결제수단</th>
+                      <th className="px-4 py-3 text-center font-bold text-gray-600">금액</th>
+                      <th className="px-4 py-3 text-center font-bold text-gray-600">만료일</th>
+                      <th className="px-4 py-3 text-left font-bold text-gray-600" title="가입: 회원가입 시점 경로(최초) / 구매: 이번 구매 직전 30일 내 마지막 경로">유입 경로</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -896,10 +896,10 @@ export default function AdminEbookDetail() {
                         className="hover:bg-gray-50 cursor-pointer"
                         onClick={() => navigate(`/admin/members?user=${b.user_id}`)}>
                         <td className="px-4 py-3 font-medium">{b.user_name || '-'}</td>
-                        <td className="px-4 py-3 text-gray-500 max-sm:hidden">{b.user_email || '-'}</td>
-                        <td className="px-4 py-3 text-gray-500 max-md:hidden">{b.user_phone || '-'}</td>
-                        <td className="px-4 py-3 text-center text-gray-400 text-xs max-md:hidden">{formatKoDate(b.purchased_at)}</td>
-                        <td className="px-4 py-3 text-center max-sm:hidden">
+                        <td className="px-4 py-3 text-gray-500">{b.user_email || '-'}</td>
+                        <td className="px-4 py-3 text-gray-500">{b.user_phone || '-'}</td>
+                        <td className="px-4 py-3 text-center text-gray-400 text-xs">{formatKoDate(b.purchased_at)}</td>
+                        <td className="px-4 py-3 text-center">
                           {b.payment_method === 'toss' ? (
                             <span className="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full">카드</span>
                           ) : b.price > 0 ? (
@@ -908,7 +908,7 @@ export default function AdminEbookDetail() {
                             <span className="text-[10px] px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full">무료/부여</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center text-gray-500 max-md:hidden">
+                        <td className="px-4 py-3 text-center text-gray-500">
                           {b.price > 0 ? (
                             <>
                               {b.original_price && b.original_price !== b.price && (
@@ -918,8 +918,8 @@ export default function AdminEbookDetail() {
                             </>
                           ) : '무료'}
                         </td>
-                        <td className="px-4 py-3 text-center text-gray-400 text-xs max-md:hidden">{b.expires_at ? formatKoDate(b.expires_at) : '무제한'}</td>
-                        <td className="px-4 py-3 text-xs max-lg:hidden">
+                        <td className="px-4 py-3 text-center text-gray-400 text-xs">{b.expires_at ? formatKoDate(b.expires_at) : '무제한'}</td>
+                        <td className="px-4 py-3 text-xs">
                           <div className="text-gray-400 truncate max-w-[220px]" title={firstTouchLabel(b)}>가입 · {firstTouchLabel(b) || '-'}</div>
                           <div className="text-gray-700 truncate max-w-[220px]" title={formatTouch(b.purchase_touch)}>구매 · {formatTouch(b.purchase_touch) || '-'}</div>
                         </td>
