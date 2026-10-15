@@ -1,6 +1,13 @@
 {
   "headers": [
     {
+      "source": "/r2/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
+        { "key": "CDN-Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
       "source": "/assets/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
@@ -14,6 +21,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/r2/(.*)", "destination": "https://pub-95b8f0f45b784ba4a86ae023b75f8940.r2.dev/$1" },
     { "source": "/u/(.*)", "destination": "https://umami-ama.vercel.app/$1" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/llms.txt", "destination": "/api/llms" },
