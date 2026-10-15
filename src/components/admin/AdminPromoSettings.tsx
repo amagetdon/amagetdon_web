@@ -77,9 +77,38 @@ export default function AdminPromoSettings({ kind, id }: { kind: 'course' | 'ebo
             <input className={input} value={card.button_label ?? ''} placeholder="무료 강의 참여하기" onChange={(e) => setCard({ ...card, button_label: e.target.value })} />
           </div>
           <div>
-            <span className={label}>남은 자리 (버튼 배지, 비우면 안 보임)</span>
-            <input className={input} type="number" min={0} value={card.seats ?? ''} placeholder="12" onChange={(e) => setCard({ ...card, seats: numOrNull(e.target.value) })} />
+            <span className={label}>강조색 (버튼·체크)</span>
+            <select className={input} value={card.accent ?? 'green'} onChange={(e) => setCard({ ...card, accent: e.target.value as 'green' | 'blue' })}>
+              <option value="green">초록 (사이트 기본색)</option>
+              <option value="blue">파랑</option>
+            </select>
           </div>
+        </div>
+        <div className="grid grid-cols-3 max-sm:grid-cols-1 gap-3">
+          <div>
+            <span className={label}>남은 자리 배지</span>
+            <select className={input} value={(card.seats_mode ?? (card.seats != null ? 'manual' : ''))} onChange={(e) => setCard({ ...card, seats_mode: (e.target.value || null) as 'manual' | 'range' | null })}>
+              <option value="">표시 안 함</option>
+              <option value="manual">직접 입력한 숫자</option>
+              <option value="range">범위 안에서 자동 (하루 동안 천천히 줄어듦)</option>
+            </select>
+          </div>
+          {(card.seats_mode ?? (card.seats != null ? 'manual' : '')) === 'manual' && (
+            <div>
+              <span className={label}>남은 자리 숫자</span>
+              <input className={input} type="number" min={0} value={card.seats ?? ''} placeholder="12" onChange={(e) => setCard({ ...card, seats: numOrNull(e.target.value) })} />
+            </div>
+          )}
+          {(card.seats_mode ?? (card.seats != null ? 'manual' : '')) === 'range' && (<>
+            <div>
+              <span className={label}>최소</span>
+              <input className={input} type="number" min={0} value={card.seats_min ?? ''} placeholder="20" onChange={(e) => setCard({ ...card, seats_min: numOrNull(e.target.value) })} />
+            </div>
+            <div>
+              <span className={label}>최대</span>
+              <input className={input} type="number" min={0} value={card.seats_max ?? ''} placeholder="30" onChange={(e) => setCard({ ...card, seats_max: numOrNull(e.target.value) })} />
+            </div>
+          </>)}
         </div>
         <div className="grid grid-cols-3 max-sm:grid-cols-1 gap-3">
           <div>

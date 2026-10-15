@@ -18,9 +18,9 @@ import type { EbookWithInstructor, Coupon } from '../types'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
 import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId, ebookCategoryLabel } from '../lib/tracking'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
-import { usePromoSettings } from '../lib/promoSettings'
+import { usePromoSettings, displaySeats } from '../lib/promoSettings'
 import PromoTopBanner from '../components/PromoTopBanner'
-import { PromoCountdownBlock, SeatsBadge } from '../components/ApplyCardParts'
+import { PromoCountdownBlock, SeatsBadge, PriceCard, ACCENT } from '../components/ApplyCardParts'
 
 function EbookDetailPage() {
   const { id } = useParams()
@@ -28,6 +28,8 @@ function EbookDetailPage() {
   // 신청 카드·상단 배너 설정 — 캐시 없이 바로 읽어 관리자 변경이 즉시 보이게
   const promo = usePromoSettings('ebook', ebookId)
   const applyCard = promo?.apply_card?.enabled ? promo.apply_card : null
+  const accent = applyCard?.accent === 'blue' ? 'blue' : 'green'
+  const seats = displaySeats(applyCard, ebookId ?? 0)
   const navigate = useNavigate()
   const { user, profile, refreshProfile, isAdmin } = useAuth()
   const { blockIfClosed } = useClosedAccessGuard()
@@ -458,10 +460,12 @@ function EbookDetailPage() {
       <button
         onClick={handlePurchaseClick}
         disabled={purchasing}
-        className="w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-6 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
+        className={applyCard
+          ? `w-full py-[18px] ${ACCENT[accent].bg} ${ACCENT[accent].hover} text-white text-[17px] font-extrabold text-center rounded-2xl mt-5 cursor-pointer border-none shadow-lg ${ACCENT[accent].shadow} transition-colors disabled:opacity-50 disabled:cursor-not-allowed`
+          : 'w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-6 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed'}
       >
         {purchasing ? '처리 중...' : (applyCard?.button_label?.trim() || (isFree ? '무료로 받기' : '구매하기'))}
-        {!purchasing && applyCard?.seats != null && <SeatsBadge seats={applyCard.seats} />}
+        {!purchasing && seats != null && <SeatsBadge seats={seats} accent={accent} />}
       </button>
     )
   }
@@ -575,18 +579,25 @@ function EbookDetailPage() {
 
                 <div className="border-t border-gray-200 my-6" />
 
+                {applyCard ? (
+                  <PriceCard
+                    accent={accent}
+                    title={isFree || displayedPrice === 0 ? '무료 전자책' : '가격'}
+                    original={ebook.original_price != null && ebook.original_price > displayedPrice ? ebook.original_price : null}
+                    priceText={`${(isFree ? 0 : displayedPrice).toLocaleString()} 원`}
+                    discountLabel={applyCard.discount_label}
+                  />
+                ) : (<>
                 <p className="font-bold text-gray-900">가격</p>
                 {discountActive && ebook.original_price != null && ebook.original_price > 0 && ebook.sale_price != null && ebook.sale_price < ebook.original_price && (
                   <p className="text-sm text-gray-400 line-through mt-2">
                     정가 {ebook.original_price.toLocaleString()}원
                   </p>
                 )}
-                {applyCard?.discount_label?.trim() && (
-                  <p className="inline-block mt-2 mb-0 bg-[#fee2e2] text-[#dc2626] text-xs font-bold rounded-md px-2 py-0.5">{applyCard.discount_label}</p>
-                )}
                 <p className="text-4xl font-extrabold text-gray-900 mt-1">
                   {isFree || displayedPrice === 0 ? '무료' : `${displayedPrice.toLocaleString()}원`}
                 </p>
+                </>)}
 
                 {user && profile && !isFree && (
                   <p className="text-sm text-gray-500 mt-2">
@@ -607,7 +618,13 @@ function EbookDetailPage() {
                   </div>
                 </div>
 
-                {applyCard?.countdown?.end_at && <PromoCountdownBlock countdown={applyCard.countdown} />}
+                {applyCard && (applyCard.countdown?.end_at || ebook.close_date) && (
+                  <PromoCountdownBlock
+                    label={applyCard.countdown?.label}
+                    endAt={applyCard.countdown?.end_at || ebook.close_date}
+                    loopMinutes={applyCard.countdown?.end_at ? applyCard.countdown?.loop_minutes : null}
+                  />
+                )}
                 {renderActionButton()}
                 {isAdmin && !owned && (
                   <button

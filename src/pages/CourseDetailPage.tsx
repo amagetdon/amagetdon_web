@@ -27,9 +27,9 @@ import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, trac
 import { logOpenChat } from '../lib/openchatLog'
 import { r2Proxy } from '../lib/image'
 import { isUpcomingLive } from '../lib/liveCalendar'
-import { usePromoSettings } from '../lib/promoSettings'
+import { usePromoSettings, displaySeats, formatLong } from '../lib/promoSettings'
 import PromoTopBanner from '../components/PromoTopBanner'
-import { ScheduleBlock, PromoCountdownBlock, SeatsBadge } from '../components/ApplyCardParts'
+import { ScheduleBlock, PromoCountdownBlock, SeatsBadge, PriceCard, ACCENT } from '../components/ApplyCardParts'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 
@@ -39,6 +39,8 @@ function CourseDetailPage() {
   // 신청 카드·상단 배너 설정 — 캐시 없이 바로 읽어 관리자 변경이 즉시 보이게
   const promo = usePromoSettings('course', courseId)
   const applyCard = promo?.apply_card?.enabled ? promo.apply_card : null
+  const accent = applyCard?.accent === 'blue' ? 'blue' : 'green'
+  const seats = displaySeats(applyCard, courseId ?? 0)
   const { course: serverCourse, loading } = useCourse(courseId)
   const [searchParams] = useSearchParams()
   const isClosed = searchParams.get('closed') === 'true'
@@ -257,10 +259,10 @@ function CourseDetailPage() {
   })
   const relatedCourses = relatedQ.data ?? []
 
-  const pad = (n: number) => String(n).padStart(2, '0')
   const hasDeadline = !!course?.enrollment_deadline
   const isExpired = isClosed || (hasDeadline && timeLeft.hours === 0 && timeLeft.minutes === 0 && timeLeft.seconds === 0)
-  const countdownText = isExpired ? '00:00:00' : `${pad(timeLeft.hours)}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
+  // 'N일 N시간 N분' / 'N시간 N분 N초' / 'N분 N초' (10/16: 189:29:53 같은 표기 금지)
+  const countdownText = isExpired ? '마감' : formatLong(((timeLeft.hours * 60 + timeLeft.minutes) * 60 + timeLeft.seconds) * 1000)
 
   const isFree = course?.course_type === 'free'
   const isPreAlert = course?.course_type === 'pre_alert'
@@ -720,10 +722,12 @@ function CourseDetailPage() {
       <button
         onClick={handlePurchaseClick}
         disabled={purchasing}
-        className="w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        className={applyCard
+          ? `w-full py-[18px] ${ACCENT[accent].bg} ${ACCENT[accent].hover} text-white text-[17px] font-extrabold text-center rounded-2xl mt-4 cursor-pointer border-none shadow-lg ${ACCENT[accent].shadow} transition-colors disabled:opacity-50 disabled:cursor-not-allowed`
+          : 'w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed'}
       >
         {purchasing ? '처리 중...' : (applyCard?.button_label?.trim() || (isPreAlert ? '사전 알림 신청하기' : isFree ? '강의 신청하기' : '선착순 마감 전에 신청하기'))}
-        {!purchasing && applyCard?.seats != null && <SeatsBadge seats={applyCard.seats} />}
+        {!purchasing && seats != null && <SeatsBadge seats={seats} accent={accent} />}
       </button>
     )
   }
@@ -851,14 +855,21 @@ function CourseDetailPage() {
                 <h1 className="text-xl font-bold text-gray-900 mt-1">{course.title}</h1>
                 {applyCard && applyCard.show_schedule !== false && course.scheduled_at && <ScheduleBlock startsAt={course.scheduled_at} />}
 
+                {applyCard ? (
+                  <PriceCard
+                    accent={accent}
+                    title={isExplicitlyFree ? '무료 강의' : '결제 예상 금액'}
+                    original={course.original_price != null && course.original_price > displayedPrice ? course.original_price : null}
+                    priceText={installmentMonths > 0 && !isExplicitlyFree ? `월 ${Math.round(displayedPrice / installmentMonths).toLocaleString()}원` : `${(isExplicitlyFree ? 0 : displayedPrice).toLocaleString()} 원`}
+                    discountLabel={applyCard.discount_label}
+                    sub={installmentMonths > 0 && !isExplicitlyFree ? `${installmentMonths}개월 할부 시` : null}
+                  />
+                ) : (<>
                 <div className="border-t border-gray-200 my-6" />
 
                 <p className="font-bold text-gray-900">결제 예상 금액</p>
                 {discountActive && course.original_price != null && course.original_price > 0 && course.sale_price != null && course.sale_price < course.original_price && (
                   <p className="text-sm text-gray-400 line-through mt-2">정가 {course.original_price.toLocaleString()}원</p>
-                )}
-                {applyCard?.discount_label?.trim() && (
-                  <p className="inline-block mt-2 mb-0 bg-[#fee2e2] text-[#dc2626] text-xs font-bold rounded-md px-2 py-0.5">{applyCard.discount_label}</p>
                 )}
                 {isExplicitlyFree ? (
                   <p className="text-4xl font-extrabold text-gray-900 mt-1">무료</p>
@@ -881,6 +892,7 @@ function CourseDetailPage() {
                     할인 종료: {new Date(course.discount_end).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}
                   </p>
                 )}
+                </>)}
 
                 {user && profile && !isFree && (
                   <p className="text-sm text-gray-500 mt-5">
@@ -888,7 +900,13 @@ function CourseDetailPage() {
                   </p>
                 )}
 
-                {applyCard?.countdown?.end_at ? <PromoCountdownBlock countdown={applyCard.countdown} /> : course.enrollment_deadline && (
+                {applyCard ? (
+                  <PromoCountdownBlock
+                    label={applyCard.countdown?.label}
+                    endAt={applyCard.countdown?.end_at || (isClosed ? null : course.enrollment_deadline)}
+                    loopMinutes={applyCard.countdown?.end_at ? applyCard.countdown?.loop_minutes : null}
+                  />
+                ) : course.enrollment_deadline && (
                   <div className="text-center mt-10">
                     <p className="text-sm text-gray-600">강의 모집 마감까지</p>
                     <p className={`text-2xl font-bold mt-1 ${isExpired ? 'text-gray-400' : 'text-[#2ED573]'}`}>
