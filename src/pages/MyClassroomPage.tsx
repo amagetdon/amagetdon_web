@@ -8,6 +8,8 @@ import VideoPlayerModal from '../components/VideoPlayerModal'
 import ReviewForm from '../components/ReviewForm'
 import ProgressBar from '../components/ProgressBar'
 import toast from 'react-hot-toast'
+import LiveCalendarCta from '../components/LiveCalendarCta'
+import { isUpcomingLive } from '../lib/liveCalendar'
 
 interface CurriculumVideo {
   url: string
@@ -36,6 +38,8 @@ interface CoursePurchase {
     thumbnail_url: string | null
     enrollment_deadline: string | null
     duration_days: number | null
+    scheduled_at?: string | null
+    after_purchase_url?: string | null
     instructor: { id: number; name: string } | null
     curriculum_items: CurriculumItem[]
   } | null
@@ -324,6 +328,14 @@ function MyClassroomPage() {
             </div>
           </div>
         </div>
+
+        {/* 라이브 예정이면 캘린더에 추가 (라이브 시작 시각이 지나면 사라짐) */}
+        {isUpcomingLive(course.scheduled_at) && (
+          <LiveCalendarCta
+            className="mt-4"
+            event={{ courseId: course.id, title: course.title, startsAt: course.scheduled_at, openchatUrl: course.after_purchase_url }}
+          />
+        )}
 
         {course.curriculum_items.length === 0 ? (
           <div className="border border-gray-200 rounded-xl mt-4">
