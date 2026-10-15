@@ -55,9 +55,10 @@ export function formatLong(ms: number): string {
 }
 export function formatClock(ms: number): string {
   const s = Math.max(0, Math.floor(ms / 1000))
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+  // 하루가 넘으면 "7일 21:30:17" (예전엔 189:30:17 처럼 시간이 크게 보였다)
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(h)}:${pad(m)}:${pad(sec)}`
+  return `${d > 0 ? `${d}일 ` : ''}${pad(h)}:${pad(m)}:${pad(sec)}`
 }
 
 /** 1초마다 다시 그리기 */
