@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import AdminDataChat from './AdminDataChat'
 
 const NAV_GROUPS = [
   {
@@ -165,6 +166,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main className="flex-1 bg-[#f8f9fb] p-6 max-sm:p-4 overflow-x-hidden">
         {children}
       </main>
+      <AdminDataChat />
     </div>
   )
 }
