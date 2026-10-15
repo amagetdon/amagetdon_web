@@ -25,6 +25,7 @@ import { textToHtml } from '../utils/richText'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
 import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, trackOpenChatJoin, buildContentId, courseCategoryLabel } from '../lib/tracking'
 import { logOpenChat } from '../lib/openchatLog'
+import { r2Proxy } from '../lib/image'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 
@@ -736,7 +737,7 @@ function CourseDetailPage() {
                 <VideoEmbed url={course.video_url} className="w-full" />
               ) : course.promo_image_url ? (
                 // 맨 위 홍보 이미지는 첫 화면 대표 이미지라 늦게 받지 않고 우선 받는다
-                <img src={course.promo_image_url} alt={course.title} className="w-full rounded-xl block" fetchPriority="high" decoding="async" />
+                <img src={r2Proxy(course.promo_image_url)} alt={course.title} className="w-full rounded-xl block" fetchPriority="high" decoding="async" />
               ) : null}
             </div>
 

@@ -37,6 +37,17 @@ interface TransformOptions {
   resize?: 'cover' | 'contain' | 'fill'
 }
 
+// R2 공개 주소(r2.dev)는 브라우저 캐시 지시(Cache-Control)가 없어 재방문 때마다 다시 확인·다운로드한다.
+// 우리 도메인의 /r2/ 경로로 바꿔 Vercel 이 중계 + 1년 캐시(vercel.json)하게 한다. 파일 이름이 업로드마다
+// 새로 붙는 구조(시각+무작위)라 같은 주소의 내용이 바뀌지 않아 오래 캐시해도 안전하다.
+// 로컬 개발(vite)에는 /r2 중계가 없으므로 원래 주소 그대로.
+const R2_PUBLIC_PREFIX = 'https://pub-95b8f0f45b784ba4a86ae023b75f8940.r2.dev/'
+const R2_PROXY = typeof window !== 'undefined' && !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname)
+
+export function r2Proxy(url: string): string {
+  return R2_PROXY && url.startsWith(R2_PUBLIC_PREFIX) ? `/r2/${url.slice(R2_PUBLIC_PREFIX.length)}` : url
+}
+
 function isSupabaseStorage(url: string) {
   return SUPABASE_URL.length > 0 && url.startsWith(STORAGE_OBJECT_PREFIX)
 }
@@ -64,8 +75,8 @@ export function imgUrl(
   _force = false,
 ): string {
   if (!url) return ''
-  if (!_force) return url
-  if (!isSupabaseStorage(url)) return url
+  if (!_force) return r2Proxy(url)
+  if (!isSupabaseStorage(url)) return r2Proxy(url)
   const opts = typeof _presetOrOpts === 'string' ? PRESETS[_presetOrOpts] : _presetOrOpts
   return applyTransform(url, opts)
 }
