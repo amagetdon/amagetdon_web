@@ -30,11 +30,27 @@ export function guessCourseId(orderName: string | null, courses: CourseWithInstr
   const name = orderName.includes('_') ? orderName.slice(orderName.indexOf('_') + 1) : orderName
   const words = (t: string) => new Set(t.replace(/[[\]()'"·\-_/]/g, ' ').split(/\s+/).filter((w) => w.length >= 2))
   const target = words(name)
-  let best: { id: number; score: number } | null = null
-  for (const c of courses) {
+  // 기수(3기)·등급(프리미엄·마스터·베이직·연장권)은 단어 수보다 우선한다 — 강의 이름이 바뀐 기수에서
+  // 단어가 더 많이 겹치는 이전 기수 강의가 추천되던 문제(10/15, 3기 결제 → 이름이 같은 옛 강의).
+  // 주문명에 있는 기수·등급과 같은 강의가 하나라도 있으면 그 강의들 안에서만 고른다.
+  const cohort = /(\d+)\s*기/.exec(name)?.[1]
+  const level = /(프리미엄|마스터|베이직|연장권)/.exec(name)?.[1]
+  let pool = courses
+  for (const keep of [
+    (t: string) => !cohort || new RegExp(`(^|[^\\d])${cohort}\\s*기`).test(t),
+    (t: string) => !level || t.includes(level),
+  ]) {
+    const narrowed = pool.filter((c) => keep(c.title))
+    if (narrowed.length) pool = narrowed
+  }
+  // 겹치는 단어가 같으면 주문명에 없는 단어가 적은 강의(예: '2기'가 붙지 않은 쪽)를 고른다
+  let best: { id: number; score: number; extra: number } | null = null
+  for (const c of pool) {
+    const titleWords = words(c.title)
     let score = 0
-    for (const w of words(c.title)) if (target.has(w)) score++
-    if (score >= 2 && (!best || score > best.score)) best = { id: c.id, score }
+    for (const w of titleWords) if (target.has(w)) score++
+    const extra = titleWords.size - score
+    if (score >= 2 && (!best || score > best.score || (score === best.score && extra < best.extra))) best = { id: c.id, score, extra }
   }
   return best?.id ?? null
 }
