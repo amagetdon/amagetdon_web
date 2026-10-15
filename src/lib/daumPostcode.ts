@@ -1,31 +1,27 @@
-// 다음(카카오) 우편번호 검색 스크립트를 필요한 페이지(가입·온보딩·마이페이지)에서만 불러온다.
-// 예전엔 index.html 에서 모든 페이지가 열릴 때마다 먼저 받고 나서야 화면을 그렸다(렌더 차단).
-// 뒤에서 넣는 방식이라 autoload=false 로 받고 daum.postcode.load() 로 본체를 마저 받는다 (다음 공식 안내 방식).
-const SRC = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js?autoload=false'
+// 다음(카카오) 우편번호 검색 — 스크립트는 index.html 에서 원래 방식(파라미터 없는 일반 script 태그)으로 받는다.
+// 10/15 '필요할 때 뒤에서 넣기(autoload=false)'로 바꿨더니 인스타그램 인앱 브라우저에서
+// "[우편번호 서비스 로딩 오류] API 로딩시 허용되지 않는 파라미터" 알림창이 떠서 원래 방식으로 되돌렸다.
+// 여기서는 스크립트를 직접 넣지 않고, 준비될 때까지(최대 8초) 기다리기만 한다.
 
-type DaumGlobal = { daum?: { Postcode?: unknown; postcode?: { load: (cb: () => void) => void } } }
-
-let loading: Promise<void> | null = null
+type DaumGlobal = { daum?: { Postcode?: unknown } }
 
 export function isDaumPostcodeReady(): boolean {
   return !!(window as unknown as DaumGlobal).daum?.Postcode
 }
 
+let waiting: Promise<void> | null = null
+
 export function loadDaumPostcode(): Promise<void> {
   if (isDaumPostcodeReady()) return Promise.resolve()
-  if (loading) return loading
-  loading = new Promise<void>((resolve, reject) => {
-    const fail = () => { loading = null; script.remove(); reject(new Error('postcode load failed')) }
-    const script = document.createElement('script')
-    script.src = SRC
-    script.async = true
-    script.onload = () => {
-      const w = window as unknown as DaumGlobal
-      if (!w.daum?.postcode?.load) { fail(); return }
-      w.daum.postcode.load(() => resolve())
+  if (waiting) return waiting
+  waiting = new Promise<void>((resolve, reject) => {
+    const started = Date.now()
+    const tick = () => {
+      if (isDaumPostcodeReady()) { resolve(); return }
+      if (Date.now() - started > 8000) { waiting = null; reject(new Error('postcode not ready')); return }
+      setTimeout(tick, 200)
     }
-    script.onerror = fail
-    document.head.appendChild(script)
+    tick()
   })
-  return loading
+  return waiting
 }
