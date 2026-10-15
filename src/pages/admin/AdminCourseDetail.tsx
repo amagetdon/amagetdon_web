@@ -22,6 +22,7 @@ import { formatTouch, type PurchaseTouch } from '../../lib/attribution'
 import { supabase } from '../../lib/supabase'
 import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { CourseWithCurriculum, Review, Instructor, LandingCategory } from '../../types'
+import AdminPagination from '../../components/admin/AdminPagination'
 
 interface CurriculumVideo {
   url: string
@@ -1501,26 +1502,7 @@ export default function AdminCourseDetail() {
             </div>
           )}
 
-          {reviewsTotalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <button onClick={() => setReviewsPage(Math.max(1, reviewsPage - 1))} disabled={reviewsPage <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                <i className="ti ti-chevron-left" />
-              </button>
-              {Array.from({ length: reviewsTotalPages }, (_, i) => i + 1).map((p) => (
-                <button key={p} onClick={() => setReviewsPage(p)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-full text-sm border-none cursor-pointer ${
-                    p === reviewsPage ? 'bg-[#2ED573] text-white' : 'bg-white text-gray-500 border border-gray-300'
-                  }`}>
-                  {p}
-                </button>
-              ))}
-              <button onClick={() => setReviewsPage(Math.min(reviewsTotalPages, reviewsPage + 1))} disabled={reviewsPage >= reviewsTotalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                <i className="ti ti-chevron-right" />
-              </button>
-            </div>
-          )}
+          <AdminPagination page={reviewsPage} totalPages={reviewsTotalPages} onChange={setReviewsPage} className="mt-6" />
 
           <ConfirmDialog
             isOpen={!!reviewDeleteTarget}
@@ -1640,26 +1622,7 @@ export default function AdminCourseDetail() {
             </div>
           )}
 
-          {membersTotalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <button onClick={() => setMembersPage(Math.max(1, membersPage - 1))} disabled={membersPage <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                <i className="ti ti-chevron-left" />
-              </button>
-              {Array.from({ length: membersTotalPages }, (_, i) => i + 1).map((p) => (
-                <button key={p} onClick={() => setMembersPage(p)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-full text-sm border-none cursor-pointer ${
-                    p === membersPage ? 'bg-[#2ED573] text-white' : 'bg-white text-gray-500 border border-gray-300'
-                  }`}>
-                  {p}
-                </button>
-              ))}
-              <button onClick={() => setMembersPage(Math.min(membersTotalPages, membersPage + 1))} disabled={membersPage >= membersTotalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                <i className="ti ti-chevron-right" />
-              </button>
-            </div>
-          )}
+          <AdminPagination page={membersPage} totalPages={membersTotalPages} onChange={setMembersPage} className="mt-6" />
         </div>
       ) : tab === 'webhooks' ? (
         courseId ? (

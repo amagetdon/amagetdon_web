@@ -11,6 +11,7 @@ import { courseService } from '../../services/courseService'
 import { supabase } from '../../lib/supabase'
 import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { CourseWithInstructor } from '../../types'
+import AdminPagination from '../../components/admin/AdminPagination'
 
 interface CourseStats {
   enrollmentCount: number
@@ -413,26 +414,7 @@ export default function AdminCourses() {
             </div>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-4">
-              <button onClick={() => setPage(Math.max(1, page - 1))} disabled={page <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                <i className="ti ti-chevron-left" />
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button key={p} onClick={() => setPage(p)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-full text-sm border-none cursor-pointer ${
-                    p === page ? 'bg-[#2ED573] text-white' : 'bg-white text-gray-500 hover:bg-gray-100'
-                  }`}>
-                  {p}
-                </button>
-              ))}
-              <button onClick={() => setPage(Math.min(totalPages, page + 1))} disabled={page >= totalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                <i className="ti ti-chevron-right" />
-              </button>
-            </div>
-          )}
+          <AdminPagination page={page} totalPages={totalPages} onChange={setPage} className="mt-4" />
         </>
       )}
 

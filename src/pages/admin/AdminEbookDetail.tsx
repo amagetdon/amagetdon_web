@@ -16,6 +16,7 @@ import { formatTouch, type PurchaseTouch } from '../../lib/attribution'
 import { supabase } from '../../lib/supabase'
 import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { EbookWithInstructor, Instructor } from '../../types'
+import AdminPagination from '../../components/admin/AdminPagination'
 
 interface EbookSeoShape {
   title?: string
@@ -930,26 +931,7 @@ export default function AdminEbookDetail() {
             </div>
           )}
 
-          {buyersTotalPages > 1 && (
-            <div className="flex items-center justify-center gap-2 mt-6">
-              <button onClick={() => setBuyersPage(Math.max(1, buyersPage - 1))} disabled={buyersPage <= 1}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                <i className="ti ti-chevron-left" />
-              </button>
-              {Array.from({ length: buyersTotalPages }, (_, i) => i + 1).map((p) => (
-                <button key={p} onClick={() => setBuyersPage(p)}
-                  className={`w-8 h-8 flex items-center justify-center rounded-full text-sm border-none cursor-pointer ${
-                    p === buyersPage ? 'bg-[#2ED573] text-white' : 'bg-white text-gray-500 border border-gray-300'
-                  }`}>
-                  {p}
-                </button>
-              ))}
-              <button onClick={() => setBuyersPage(Math.min(buyersTotalPages, buyersPage + 1))} disabled={buyersPage >= buyersTotalPages}
-                className="w-8 h-8 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 cursor-pointer text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                <i className="ti ti-chevron-right" />
-              </button>
-            </div>
-          )}
+          <AdminPagination page={buyersPage} totalPages={buyersTotalPages} onChange={setBuyersPage} className="mt-6" />
         </div>
       ) : tab === 'webhooks' ? (
         ebookId ? (
