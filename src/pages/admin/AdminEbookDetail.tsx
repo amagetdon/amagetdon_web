@@ -876,7 +876,7 @@ export default function AdminEbookDetail() {
           ) : (
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm whitespace-nowrap">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-4 py-3 text-left font-bold text-gray-600">이름</th>
