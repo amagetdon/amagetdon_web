@@ -717,7 +717,6 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-400 max-sm:hidden">계정: admin / didwkwndcjq159</span>
             <a
               href={UMAMI_DASHBOARD_URL}
               target="_blank"
