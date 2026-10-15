@@ -11,6 +11,9 @@ function LoginPage() {
   const navigate = useNavigate()
   const externalServices = useExternalServices()
   const kakaoLoginEnabled = !!externalServices.KAKAO_LOGIN?.enabled
+  // 아이폰 앱 안 브라우저(인스타·페북 등) — 구글은 앱 안 로그인을 막고, 아이폰은 Safari 로 자동 전환이 안 돼서 안내만 한다
+  // (안드로이드 앱 안 브라우저는 버튼을 누르면 크롬으로 자동 전환 — handleOAuth)
+  const iosInApp = (() => { const i = detectInAppBrowser(); return i.isInApp && i.isIOS })()
   const location = useLocation()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/'
 
@@ -208,6 +211,12 @@ function LoginPage() {
             </svg>
             Google로 로그인
           </button>
+          {iosInApp && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-900 leading-relaxed text-left">
+              <p className="font-bold">구글 로그인은 Safari에서 가능해요</p>
+              <p className="mt-0.5">화면의 <b>⋯</b> 메뉴 → <b>Safari로 열기</b>(외부 브라우저로 열기)를 누른 뒤 로그인해 주세요. 지금 화면에서는 <b>카카오</b> 또는 <b>이메일</b> 로그인을 추천해요.</p>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-3 text-gray-400 text-xs my-6">
