@@ -27,12 +27,18 @@ import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, trac
 import { logOpenChat } from '../lib/openchatLog'
 import { r2Proxy } from '../lib/image'
 import { isUpcomingLive } from '../lib/liveCalendar'
+import { usePromoSettings } from '../lib/promoSettings'
+import PromoTopBanner from '../components/PromoTopBanner'
+import { ScheduleBlock, PromoCountdownBlock, SeatsBadge } from '../components/ApplyCardParts'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 
 function CourseDetailPage() {
   const { id } = useParams()
   const courseId = id ? Number(id) : null
+  // 신청 카드·상단 배너 설정 — 캐시 없이 바로 읽어 관리자 변경이 즉시 보이게
+  const promo = usePromoSettings('course', courseId)
+  const applyCard = promo?.apply_card?.enabled ? promo.apply_card : null
   const { course: serverCourse, loading } = useCourse(courseId)
   const [searchParams] = useSearchParams()
   const isClosed = searchParams.get('closed') === 'true'
@@ -716,7 +722,8 @@ function CourseDetailPage() {
         disabled={purchasing}
         className="w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-4 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {purchasing ? '처리 중...' : isPreAlert ? '사전 알림 신청하기' : isFree ? '강의 신청하기' : '선착순 마감 전에 신청하기'}
+        {purchasing ? '처리 중...' : (applyCard?.button_label?.trim() || (isPreAlert ? '사전 알림 신청하기' : isFree ? '강의 신청하기' : '선착순 마감 전에 신청하기'))}
+        {!purchasing && applyCard?.seats != null && <SeatsBadge seats={applyCard.seats} />}
       </button>
     )
   }
@@ -729,6 +736,7 @@ function CourseDetailPage() {
           미리보기 모드 — 저장하지 않은 편집 상태입니다. 실제 화면과 다를 수 있어요.
         </div>
       )}
+      <PromoTopBanner settings={promo?.top_banner} />
       <SeoHead override={{
         title: course.seo?.title || course.title,
         description: course.seo?.description || undefined,
@@ -841,12 +849,16 @@ function CourseDetailPage() {
               <div className="md:sticky md:top-4">
                 <p className="text-sm text-[#2ED573] font-medium">{course.instructor?.name} 강사</p>
                 <h1 className="text-xl font-bold text-gray-900 mt-1">{course.title}</h1>
+                {applyCard && applyCard.show_schedule !== false && course.scheduled_at && <ScheduleBlock startsAt={course.scheduled_at} />}
 
                 <div className="border-t border-gray-200 my-6" />
 
                 <p className="font-bold text-gray-900">결제 예상 금액</p>
                 {discountActive && course.original_price != null && course.original_price > 0 && course.sale_price != null && course.sale_price < course.original_price && (
                   <p className="text-sm text-gray-400 line-through mt-2">정가 {course.original_price.toLocaleString()}원</p>
+                )}
+                {applyCard?.discount_label?.trim() && (
+                  <p className="inline-block mt-2 mb-0 bg-[#fee2e2] text-[#dc2626] text-xs font-bold rounded-md px-2 py-0.5">{applyCard.discount_label}</p>
                 )}
                 {isExplicitlyFree ? (
                   <p className="text-4xl font-extrabold text-gray-900 mt-1">무료</p>
@@ -876,7 +888,7 @@ function CourseDetailPage() {
                   </p>
                 )}
 
-                {course.enrollment_deadline && (
+                {applyCard?.countdown?.end_at ? <PromoCountdownBlock countdown={applyCard.countdown} /> : course.enrollment_deadline && (
                   <div className="text-center mt-10">
                     <p className="text-sm text-gray-600">강의 모집 마감까지</p>
                     <p className={`text-2xl font-bold mt-1 ${isExpired ? 'text-gray-400' : 'text-[#2ED573]'}`}>
