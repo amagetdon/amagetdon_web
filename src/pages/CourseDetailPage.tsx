@@ -630,6 +630,17 @@ function CourseDetailPage() {
     )
   }
 
+  // 상세 이미지 속 신청 버튼 그림(#apply) — 아래 신청 버튼과 같은 조건: 판매 준비 중·정원 마감·모집 마감이면 신청하지 않는다
+  const applyFromImage = () => {
+    if (!course || ownershipLoading) return
+    const full = course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments
+    if (!owned && (course.is_on_sale === false || full || isExpired)) {
+      toast('지금은 신청할 수 없는 강의예요.')
+      return
+    }
+    handlePurchaseClick()
+  }
+
   const renderActionButton = () => {
     if (course && course.is_on_sale === false && !owned) {
       return (
@@ -763,6 +774,15 @@ function CourseDetailPage() {
                       // 홍보 영상·이미지가 없으면 첫 장이 첫 화면 대표 이미지 — 그 장만 바로, 나머지는 가까워질 때
                       const img = <LandingImage src={url} alt={`${course.title} 상세 ${idx + 1}`} eager={idx === 0 && !hasPromo} />
                       if (!link) return <Fragment key={key}>{img}</Fragment>
+                      // #apply: 상세 이미지 속 '신청' 버튼 그림 — 아래 신청 버튼과 같은 흐름(비로그인 → 로그인 후 복귀해 신청 이어짐)
+                      if (link === '#apply') {
+                        return (
+                          <button key={key} type="button" onClick={applyFromImage} disabled={purchasing} aria-label="강의 신청하기"
+                            className="block w-full p-0 m-0 border-none bg-transparent cursor-pointer disabled:cursor-wait">
+                            {img}
+                          </button>
+                        )
+                      }
                       // 내부 경로(/...)는 SPA 이동, 그 외(http 등)는 새 탭으로 연다.
                       if (link.startsWith('/')) return <Link key={key} to={link} className="block">{img}</Link>
                       return <a key={key} href={link} target="_blank" rel="noopener noreferrer" className="block">{img}</a>

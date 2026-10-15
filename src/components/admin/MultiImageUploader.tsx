@@ -182,7 +182,7 @@ export default function MultiImageUploader({
                       type="text"
                       value={linkList[idx]}
                       onChange={(e) => setLink(idx, e.target.value)}
-                      placeholder="클릭 시 이동할 링크 (예: /course/12 또는 https://...)"
+                      placeholder="클릭 시 이동할 링크 (예: /course/12, https://... · 신청 버튼으로 쓰려면 #apply)"
                       className="flex-1 min-w-0 border border-gray-300 rounded-md px-2 py-1 text-xs outline-none focus:border-[#2ED573]"
                     />
                   </div>
