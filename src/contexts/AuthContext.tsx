@@ -114,15 +114,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
 
-            // Umami 유저 식별
+            // Umami 유저 식별 — 회원 ID만 보낸다. 이메일·이름은 통계 도구에 쌓지 않음(개인정보, 10/15).
+            // (이메일·이름을 같이 보낼 때 Umami 가 세션 정보 갱신에서 500 오류를 냈음 — 줄어드는지 로그로 확인)
             try {
               if (prof && typeof window !== 'undefined' && (window as unknown as Record<string, unknown>).umami) {
                 const umami = (window as unknown as Record<string, { identify: (data: Record<string, string>) => void }>).umami
-                umami.identify({
-                  userId: newSession.user.id,
-                  email: prof.email || '',
-                  name: prof.name || '',
-                })
+                umami.identify({ userId: newSession.user.id })
               }
             } catch { /* Umami 오류 무시 */ }
 
