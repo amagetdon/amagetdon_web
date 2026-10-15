@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import toast from 'react-hot-toast'
-import { storageService } from '../../services/storageService'
+import { storageService, warnLargeGif } from '../../services/storageService'
 
 interface MultiImageUploaderProps {
   bucket: string
@@ -44,6 +44,7 @@ export default function MultiImageUploader({
       const uploaded: string[] = []
       const newNames: Record<string, string> = {}
       for (const file of list) {
+        warnLargeGif(file)
         try {
           const url = await storageService.uploadImage(bucket, pathPrefix, file, { compress })
           uploaded.push(url)
@@ -79,6 +80,7 @@ export default function MultiImageUploader({
     const idx = replaceIdxRef.current
     replaceIdxRef.current = null
     if (!file || idx === null || idx < 0 || idx >= values.length) return
+    warnLargeGif(file)
     try {
       setUploading(true)
       const url = await storageService.uploadImage(bucket, pathPrefix, file, { compress })
