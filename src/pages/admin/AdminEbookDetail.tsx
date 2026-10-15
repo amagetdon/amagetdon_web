@@ -17,6 +17,7 @@ import { supabase } from '../../lib/supabase'
 import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { EbookWithInstructor, Instructor } from '../../types'
 import AdminPagination from '../../components/admin/AdminPagination'
+import AdminPromoSettings from '../../components/admin/AdminPromoSettings'
 
 interface EbookSeoShape {
   title?: string
@@ -39,10 +40,11 @@ const toKstDatetimeLocal = (iso: string | null | undefined) => {
   return kst.toISOString().slice(0, 16)
 }
 
-type DetailTab = 'info' | 'buyers' | 'webhooks' | 'dashboard'
+type DetailTab = 'info' | 'promo' | 'buyers' | 'webhooks' | 'dashboard'
 
 const TABS: { key: DetailTab; label: string; icon: string }[] = [
   { key: 'info', label: '기본 정보', icon: 'ti-info-circle' },
+  { key: 'promo', label: '신청 카드·배너', icon: 'ti-speakerphone' },
   { key: 'buyers', label: '구매자', icon: 'ti-users' },
   { key: 'webhooks', label: '예약 알림톡', icon: 'ti-bell-ringing' },
   { key: 'dashboard', label: '통합 대시보드', icon: 'ti-chart-bar' },
@@ -933,6 +935,12 @@ export default function AdminEbookDetail() {
 
           <AdminPagination page={buyersPage} totalPages={buyersTotalPages} onChange={setBuyersPage} className="mt-6" />
         </div>
+      ) : tab === 'promo' ? (
+        ebookId ? (
+          <AdminPromoSettings kind="ebook" id={ebookId} />
+        ) : (
+          <p className="text-sm text-gray-400 text-center py-12">전자책을(를) 먼저 저장한 뒤 설정할 수 있습니다.</p>
+        )
       ) : tab === 'webhooks' ? (
         ebookId ? (
           <WebhookScheduleEditor scope="ebook" scopeId={ebookId} />

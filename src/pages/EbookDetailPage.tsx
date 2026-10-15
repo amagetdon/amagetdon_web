@@ -18,10 +18,16 @@ import type { EbookWithInstructor, Coupon } from '../types'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
 import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId, ebookCategoryLabel } from '../lib/tracking'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
+import { usePromoSettings } from '../lib/promoSettings'
+import PromoTopBanner from '../components/PromoTopBanner'
+import { PromoCountdownBlock, SeatsBadge } from '../components/ApplyCardParts'
 
 function EbookDetailPage() {
   const { id } = useParams()
   const ebookId = id ? Number(id) : null
+  // 신청 카드·상단 배너 설정 — 캐시 없이 바로 읽어 관리자 변경이 즉시 보이게
+  const promo = usePromoSettings('ebook', ebookId)
+  const applyCard = promo?.apply_card?.enabled ? promo.apply_card : null
   const navigate = useNavigate()
   const { user, profile, refreshProfile, isAdmin } = useAuth()
   const { blockIfClosed } = useClosedAccessGuard()
@@ -454,7 +460,8 @@ function EbookDetailPage() {
         disabled={purchasing}
         className="w-full py-4 bg-[#2ED573] text-white font-bold text-center rounded-xl mt-6 cursor-pointer border-none disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {purchasing ? '처리 중...' : isFree ? '무료로 받기' : '구매하기'}
+        {purchasing ? '처리 중...' : (applyCard?.button_label?.trim() || (isFree ? '무료로 받기' : '구매하기'))}
+        {!purchasing && applyCard?.seats != null && <SeatsBadge seats={applyCard.seats} />}
       </button>
     )
   }
@@ -467,6 +474,7 @@ function EbookDetailPage() {
           미리보기 모드 — 저장하지 않은 편집 상태입니다. 실제 화면과 다를 수 있어요.
         </div>
       )}
+      <PromoTopBanner settings={promo?.top_banner} />
       <SeoHead override={{
         title: ebook.seo?.title || ebook.title,
         description: ebook.seo?.description || undefined,
@@ -573,6 +581,9 @@ function EbookDetailPage() {
                     정가 {ebook.original_price.toLocaleString()}원
                   </p>
                 )}
+                {applyCard?.discount_label?.trim() && (
+                  <p className="inline-block mt-2 mb-0 bg-[#fee2e2] text-[#dc2626] text-xs font-bold rounded-md px-2 py-0.5">{applyCard.discount_label}</p>
+                )}
                 <p className="text-4xl font-extrabold text-gray-900 mt-1">
                   {isFree || displayedPrice === 0 ? '무료' : `${displayedPrice.toLocaleString()}원`}
                 </p>
@@ -596,6 +607,7 @@ function EbookDetailPage() {
                   </div>
                 </div>
 
+                {applyCard?.countdown?.end_at && <PromoCountdownBlock countdown={applyCard.countdown} />}
                 {renderActionButton()}
                 {isAdmin && !owned && (
                   <button

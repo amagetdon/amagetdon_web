@@ -23,6 +23,7 @@ import { supabase } from '../../lib/supabase'
 import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { CourseWithCurriculum, Review, Instructor, LandingCategory } from '../../types'
 import AdminPagination from '../../components/admin/AdminPagination'
+import AdminPromoSettings from '../../components/admin/AdminPromoSettings'
 
 interface CurriculumVideo {
   url: string
@@ -61,10 +62,11 @@ const toKstDatetimeLocal = (iso: string | null | undefined) => {
   return kst.toISOString().slice(0, 16)
 }
 
-type DetailTab = 'info' | 'curriculum' | 'reviews' | 'members' | 'webhooks' | 'dashboard'
+type DetailTab = 'info' | 'promo' | 'curriculum' | 'reviews' | 'members' | 'webhooks' | 'dashboard'
 
 const TABS: { key: DetailTab; label: string; icon: string }[] = [
   { key: 'info', label: '기본 정보', icon: 'ti-info-circle' },
+  { key: 'promo', label: '신청 카드·배너', icon: 'ti-speakerphone' },
   { key: 'curriculum', label: '커리큘럼', icon: 'ti-list' },
   { key: 'reviews', label: '수강 후기', icon: 'ti-message-star' },
   { key: 'members', label: '수강생', icon: 'ti-users' },
@@ -1624,6 +1626,12 @@ export default function AdminCourseDetail() {
 
           <AdminPagination page={membersPage} totalPages={membersTotalPages} onChange={setMembersPage} className="mt-6" />
         </div>
+      ) : tab === 'promo' ? (
+        courseId ? (
+          <AdminPromoSettings kind="course" id={courseId} />
+        ) : (
+          <p className="text-sm text-gray-400 text-center py-12">강의을(를) 먼저 저장한 뒤 설정할 수 있습니다.</p>
+        )
       ) : tab === 'webhooks' ? (
         courseId ? (
           <div className="space-y-6">
