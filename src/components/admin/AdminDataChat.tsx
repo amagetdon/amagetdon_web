@@ -14,7 +14,7 @@ const EXAMPLES = [
 ]
 const TOOL_LABEL: Record<string, string> = {
   list_products: '상품 찾기', applicants: '신청·결제 집계', visits: '방문 집계', ad_spend: '광고비 집계',
-  product_funnel: '통합 대시보드', board_post_funnel: '게시글 경유', umami_visits: 'Umami 방문',
+  product_funnel: '통합 대시보드', board_post_funnel: '게시글 경유', umami_visits: 'Umami 방문', payments_received: '실제 입금',
 }
 const USD_KRW = 1400
 const STORE_KEY = 'admin_data_chat'
