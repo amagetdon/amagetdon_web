@@ -1014,7 +1014,7 @@ export default function AdminCourseDetail() {
                   enableLinks
                   onChange={(urls, links) => setEditing({ ...editing, landing_image_urls: urls, landing_image_links: links })}
                   compress={false}
-                  helperText="여러 장을 선택하면 한 번에 업로드됩니다. 위→아래 순서로 강의 상세 페이지에 표시됩니다. 각 이미지에 링크를 넣으면 클릭 시 해당 페이지로 이동합니다."
+                  helperText="여러 장을 선택하면 한 번에 업로드됩니다. 위→아래 순서로 강의 상세 페이지에 표시됩니다. 각 이미지에 링크를 넣으면 클릭 시 해당 페이지로 이동합니다. 링크에 #apply 를 넣으면 그 이미지가 신청 버튼처럼 동작합니다(로그인 전이면 로그인 후 신청 이어짐)."
                 />
               </div>
               <div className="w-full">
