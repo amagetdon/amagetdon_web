@@ -9,7 +9,16 @@ import ReviewForm from '../components/ReviewForm'
 import ProgressBar from '../components/ProgressBar'
 import toast from 'react-hot-toast'
 import LiveCalendarCta from '../components/LiveCalendarCta'
-import { isUpcomingLive } from '../lib/liveCalendar'
+import { isUpcomingLive, liveLabel } from '../lib/liveCalendar'
+
+// 무료 강의(무료·사전 알림·0원) = 유튜브 라이브만 하고 다시보기 없음 → 수강 만료일 대신 라이브 일시를 보여 준다.
+// 라이브 시작 3시간 뒤를 '라이브 종료'로 보고 '종료·만료' 탭으로 옮긴다(안내·오픈채팅은 막지 않음).
+const LIVE_END_MS = 3 * 60 * 60 * 1000
+type CourseLite = { course_type?: string | null; sale_price?: number | null; original_price?: number | null; scheduled_at?: string | null }
+const isFreeCourse = (c: CourseLite) =>
+  c.course_type === 'free' || c.course_type === 'pre_alert' || (c.sale_price ?? c.original_price ?? 0) === 0
+const isLiveEnded = (c: CourseLite) =>
+  isFreeCourse(c) && !!c.scheduled_at && Date.now() > new Date(c.scheduled_at).getTime() + LIVE_END_MS
 
 interface CurriculumVideo {
   url: string
@@ -40,6 +49,9 @@ interface CoursePurchase {
     duration_days: number | null
     scheduled_at?: string | null
     after_purchase_url?: string | null
+    course_type?: string | null
+    sale_price?: number | null
+    original_price?: number | null
     instructor: { id: number; name: string } | null
     curriculum_items: CurriculumItem[]
   } | null
@@ -237,6 +249,7 @@ function MyClassroomPage() {
   const courseStatus = (p: CoursePurchase): 'progressing' | 'replay' | 'expired' => {
     const c = p.course
     if (isExpired(p.expires_at)) return 'expired'
+    if (c && isLiveEnded(c)) return 'expired'
     if (p.expires_at && c?.enrollment_deadline && isExpired(c.enrollment_deadline)) return 'replay'
     return 'progressing'
   }
@@ -251,7 +264,7 @@ function MyClassroomPage() {
   const courseTabs = [
     { key: 'progressing' as const, label: `진행 중 (${progressingCourses.length})`, list: progressingCourses },
     { key: 'replay' as const, label: `다시보기 (${replayCourses.length})`, list: replayCourses },
-    { key: 'expired' as const, label: `만료됨 (${expiredCourses.length})`, list: expiredCourses },
+    { key: 'expired' as const, label: `종료·만료 (${expiredCourses.length})`, list: expiredCourses },
   ]
   const ebookTabs = [
     { key: 'active' as const, label: `진행 중 (${activeEbooks.length})`, list: activeEbooks },
@@ -264,6 +277,8 @@ function MyClassroomPage() {
     const course = purchase.course
     if (!course) return null
     const expired = isExpired(purchase.expires_at)
+    const free = isFreeCourse(course)
+    const liveEnded = isLiveEnded(course)
     const deadlinePassed = isExpired(course.enrollment_deadline)
     const deadlineDDay = getDDay(course.enrollment_deadline)
     const reviewDDay = purchase.expires_at ? getDDay(purchase.expires_at) : null
@@ -285,6 +300,8 @@ function MyClassroomPage() {
               <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">강의</span>
               {expired ? (
                 <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full">수강 기간 만료</span>
+              ) : liveEnded ? (
+                <span className="bg-gray-400 text-white text-xs font-bold px-3 py-1 rounded-full">라이브 종료</span>
               ) : deadlinePassed && reviewDDay !== null ? (
                 <span className="bg-[#2ED573] text-white text-xs font-bold px-3 py-1 rounded-full">다시보기 D-{reviewDDay}</span>
               ) : deadlineDDay !== null ? (
@@ -295,6 +312,9 @@ function MyClassroomPage() {
             <p className="text-sm text-gray-400 mt-1">{course.instructor?.name} 강사</p>
             <div className="flex flex-col gap-0.5 text-xs text-gray-400 mt-2">
               <span>최초 수강일: {formatKoDateTime(purchase.purchased_at)}</span>
+              {free ? (
+                course.scheduled_at && <span>라이브: {liveLabel(course.scheduled_at)} (유튜브 라이브)</span>
+              ) : (<>
               <span>
                 {/* 이 구매에 저장된 수강 만료일 그대로(비어 있으면 무제한) — 모집 마감일과 따로 보여 준다 */}
                 수강 만료일: {purchase.expires_at ? formatKoDateTime(purchase.expires_at) : '무제한'}
@@ -303,6 +323,7 @@ function MyClassroomPage() {
                 )}
               </span>
               {course.enrollment_deadline && <span>모집 마감: {formatKoDateTime(course.enrollment_deadline)}</span>}
+              </>)}
             </div>
             {course.curriculum_items.length > 0 && (
               <div className="mt-3">
@@ -334,7 +355,21 @@ function MyClassroomPage() {
           />
         )}
 
-        {course.curriculum_items.length === 0 ? (
+        {course.curriculum_items.length === 0 && free ? (
+          <div className="border border-gray-200 rounded-xl mt-4 px-5 py-4 flex items-center gap-3 max-sm:flex-col max-sm:items-start">
+            <i className="ti ti-brand-youtube text-2xl text-[#ff0000] shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-800 m-0">{liveEnded ? '라이브가 끝났어요' : '라이브는 유튜브에서 진행돼요'}</p>
+              <p className="text-xs text-gray-500 mt-0.5 mb-0">{liveEnded ? '안내와 자료는 오픈채팅방에서 확인해 주세요.' : '참여 링크는 오픈채팅방과 알림톡으로 보내 드려요.'}</p>
+            </div>
+            {course.after_purchase_url && (
+              <a href={course.after_purchase_url} target="_blank" rel="noopener noreferrer"
+                className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#2ED573] text-white text-sm font-bold no-underline hover:bg-[#25B866]">
+                <i className="ti ti-message-circle" /> 오픈채팅방 입장
+              </a>
+            )}
+          </div>
+        ) : course.curriculum_items.length === 0 ? (
           <div className="border border-gray-200 rounded-xl mt-4">
             <div className="flex items-center gap-3 px-6 py-4 opacity-60">
               <div className="w-5 h-5 rounded border-2 border-gray-300 shrink-0" />
