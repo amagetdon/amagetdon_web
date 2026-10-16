@@ -4,6 +4,8 @@
 //   → bank_deposits 에 '새 줄 추가'만 한다. 같은 external_id 는 무시(중복 방지). 읽기·수정·삭제 불가.
 // 서버 전용 키(SUPABASE_SERVICE_ROLE_KEY)는 이 표 추가에만 쓴다.
 
+import { isSameDeposit, loadNearby, sameSecret } from './_lib/bank-sms'
+
 export const config = { runtime: 'edge' }
 
 const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env
@@ -13,14 +15,6 @@ const IMPORT_SECRET = env.BANK_IMPORT_SECRET || ''
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' } })
-
-// 길이가 달라도 시간 차이로 비밀키를 짐작하지 못하게 끝까지 비교
-function sameSecret(a: string, b: string) {
-  if (!a || !b) return false
-  let diff = a.length ^ b.length
-  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0)
-  return diff === 0
-}
 
 const clip = (v: unknown, n: number) => (typeof v === 'string' ? v.trim().slice(0, n) || null : null)
 
@@ -57,25 +51,20 @@ export default async function handler(request: Request): Promise<Response> {
     })
   })
 
-  // 첫 적재(OM 매칭표, source=seed)와 같은 입금(같은 날짜·금액·입금자)은 건너뛴다 — 매칭표엔 클로브 거래 ID가 없어서
-  const kstDate = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600_000).toISOString().slice(0, 10)
-  const keyOf = (r: { deposited_at: unknown; amount: unknown; depositor: unknown }) =>
-    `${kstDate(String(r.deposited_at))}|${r.amount}|${String(r.depositor ?? '').replace(/\s/g, '')}`
+  // 이미 입금함에 같은 입금이 있으면 건너뛴다 — 입금 문자(sms, 분 단위)·첫 적재(seed, 날짜만)는 클로브 거래 ID가 없어서
+  // 같은 금액·입금자 + 시각 2분 이내(첫 적재는 같은 날짜)면 같은 입금으로 본다 (api/_lib/bank-sms.ts)
   let seedSkipped = 0
   if (rows.length) {
     const times = rows.map((r) => new Date(String(r.deposited_at)).getTime())
-    const from = new Date(Math.min(...times) - 86400_000).toISOString()
-    const to = new Date(Math.max(...times) + 86400_000).toISOString()
-    const seedRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/bank_deposits?select=deposited_at,amount,depositor&source=eq.seed&deposited_at=gte.${encodeURIComponent(from)}&deposited_at=lte.${encodeURIComponent(to)}`,
-      { headers: { apikey: SERVICE_KEY, authorization: `Bearer ${SERVICE_KEY}` } },
-    )
-    if (seedRes.ok) {
-      const seeds = new Set(((await seedRes.json()) as { deposited_at: string; amount: number; depositor: string | null }[]).map(keyOf))
-      const before = rows.length
-      for (let i = rows.length - 1; i >= 0; i--) if (seeds.has(keyOf(rows[i] as never))) rows.splice(i, 1)
-      seedSkipped = before - rows.length
+    const nearby = await loadNearby(SUPABASE_URL, SERVICE_KEY, new Date(Math.min(...times) - 86400_000).toISOString(),
+      new Date(Math.max(...times) + 86400_000).toISOString(), rows.map((r) => Number(r.amount)))
+      .catch(() => [])
+    const before = rows.length
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const r = rows[i] as { deposited_at: string; amount: number; depositor: string | null }
+      if (nearby.some((e) => e.source !== 'clobe' && isSameDeposit(r, e))) rows.splice(i, 1)
     }
+    seedSkipped = before - rows.length
   }
 
   let inserted = 0
