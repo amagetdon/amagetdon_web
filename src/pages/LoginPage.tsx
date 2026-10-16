@@ -176,23 +176,20 @@ function LoginPage() {
 
   const handleOAuth = async (provider: 'google' | 'kakao') => {
     // 인스타/페북 앱 안 브라우저에서는 카카오/구글 로그인이 막히므로 안드로이드는 크롬으로 자동 전환한다.
-    // (UTM·돌아갈 곳·이어서 할 일은 URL 에 실어 보존) 아이폰은 시험 켠 기기(?ios_safari=1)만 Safari 로 넘기고,
-    // 안 넘어가면(또는 시험 꺼짐) 기존 OAuth 흐름 그대로 진행한다.
-    const start = async () => {
-      try {
-        sessionStorage.setItem('pendingSignIn', '1')
-        await authService.signInWithOAuth(provider)
-      } catch (err) {
-        if (err instanceof Error) setError(err.message)
-      }
-    }
+    // (UTM·돌아갈 곳·이어서 할 일은 URL 에 실어 보존) iOS 는 강제 전환이 불가해 기존 OAuth 흐름 그대로 진행한다.
     const inApp = detectInAppBrowser()
-    if (inApp.isInApp && (inApp.isAndroid || inApp.isIOS)) {
+    if (inApp.isInApp && inApp.isAndroid) {
       const saved = peekPostLogin()
-      const params: Record<string, string> = saved ? { ext_next: saved.path, ...(saved.action ? { ext_act: saved.action } : {}) } : {}
-      if (openExternalBrowser({ params, onIosFail: () => { void start() } })) return
+      openExternalBrowser({ params: saved ? { ext_next: saved.path, ...(saved.action ? { ext_act: saved.action } : {}) } : {} })
+      return
     }
-    await start()
+
+    try {
+      sessionStorage.setItem('pendingSignIn', '1')
+      await authService.signInWithOAuth(provider)
+    } catch (err) {
+      if (err instanceof Error) setError(err.message)
+    }
   }
 
   return (

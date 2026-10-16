@@ -333,14 +333,11 @@ function CourseDetailPage() {
       }
       // 안드로이드 인앱 브라우저(인스타/페북)면 카카오 로그인이 막히므로, 강의 URL+UTM 을
       // 보존한 채 크롬으로 자동 전환한다. 크롬에서는 ?ext_act=purchase 를 보고 신청을 바로 이어서 한다(아래 extResume).
-      // 아이폰은 시험 켠 기기(?ios_safari=1)만 Safari 로 넘기고, 안 넘어가면 기존 로그인 흐름으로 진행한다.
+      // iOS 는 강제 전환 불가(Safari 열기 주소도 인스타에서 막힘) — 기존 로그인 흐름(아래)으로 진행한다.
       const inApp = detectInAppBrowser()
-      if (inApp.isInApp && (inApp.isAndroid || inApp.isIOS)) {
-        const opened = openExternalBrowser({
-          params: { ext_act: 'purchase' },
-          onIosFail: () => { rememberPostLogin('purchase'); navigate('/login') },
-        })
-        if (opened) return
+      if (inApp.isInApp && inApp.isAndroid) {
+        openExternalBrowser({ params: { ext_act: 'purchase' } })
+        return
       }
       // 로그인(가입·회원정보 입력 포함)을 마치면 이 강의로 돌아와 신청을 이어서 한다 (아래 resume effect)
       rememberPostLogin('purchase')
