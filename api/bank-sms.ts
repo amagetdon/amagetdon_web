@@ -1,5 +1,5 @@
 // 입금 문자 → 무통장 입금함 — POST /api/bank-sms  (대표님 안드로이드 폰의 'Incoming SMS to URL forwarder' 앱이 보냄)
-//   헤더 x-sms-key: Vercel 환경변수 BANK_SMS_SECRET 와 같아야 함 (클로브용 BANK_IMPORT_SECRET 과 별개 — 폰 분실 시 이것만 교체)
+//   비밀키: 헤더 x-sms-key 또는 본문 "key" — Vercel 환경변수 BANK_SMS_SECRET 와 같아야 함 (클로브용 BANK_IMPORT_SECRET 과 별개 — 폰 분실 시 이것만 교체)
 //   본문(앱 기본 형식): { "from": "15778000", "text": "[Web발신]\n신한08/26 09:26\n...", "receivedStamp": 1792000000000 }
 //     (from/sender, text/message, receivedStamp/received_at 아무 이름이나 받음)
 //   → 신한 입금 문자만 읽어 입금함에 '미처리'로 추가. 출금·인증번호 등은 무시.
@@ -40,10 +40,11 @@ async function insert(row: Record<string, unknown>) {
 export default async function handler(request: Request): Promise<Response> {
   if (request.method !== 'POST') return json({ error: 'POST only' }, 405)
   if (!SMS_SECRET || !SERVICE_KEY) return json({ error: '서버 설정이 아직 없습니다 (BANK_SMS_SECRET / SUPABASE_SERVICE_ROLE_KEY).' }, 500)
-  if (!sameSecret(request.headers.get('x-sms-key') || '', SMS_SECRET)) return json({ error: 'forbidden' }, 403)
-
   let b: Record<string, unknown>
   try { b = await request.json() } catch { return json({ error: '잘못된 요청' }, 400) }
+  // 비밀키: 헤더 x-sms-key 또는 (앱에 헤더 칸이 없을 때) 본문 "key"
+  const key = request.headers.get('x-sms-key') || (typeof b.key === 'string' ? b.key : '')
+  if (!sameSecret(key, SMS_SECRET)) return json({ error: 'forbidden' }, 403)
   const sender = String(b.from ?? b.sender ?? '').replace(/[^\d]/g, '').replace(/^82/, '0')
   const text = String(b.text ?? b.message ?? '').slice(0, 1000)
   const stamp = b.receivedStamp ?? b.received_at ?? b.sentStamp
