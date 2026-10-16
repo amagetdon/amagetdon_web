@@ -16,6 +16,7 @@ interface Deposit {
   amount: number
   depositor: string | null
   memo: string | null
+  raw_text?: string | null
   hint: { label?: string; user_label?: string; course_id?: number; course?: string; reason?: string } | null
   status: 'pending' | 'processed' | 'excluded'
   exclude_reason: string | null
@@ -237,9 +238,15 @@ export default function BankDepositInbox({ courses }: { courses: CourseWithInstr
           {!selected ? <p className="text-sm text-gray-400 m-0">왼쪽에서 입금을 고르세요.</p> : (
             <div className="space-y-4">
               <div>
-                <p className="text-xs text-gray-400 m-0">{when(selected.deposited_at)} · {selected.source === 'excel' ? '엑셀' : selected.source === 'seed' ? '첫 적재' : '자동'}</p>
+                <p className="text-xs text-gray-400 m-0">{when(selected.deposited_at)} · {selected.source === 'excel' ? '엑셀' : selected.source === 'seed' ? '첫 적재' : selected.source === 'sms' ? '입금 문자' : '클로브 자동'}</p>
                 <p className="text-lg font-bold m-0 mt-0.5">{selected.depositor || '(입금자 없음)'} · {won(selected.amount)}</p>
                 {selected.memo && <p className="text-xs text-gray-500 m-0 mt-0.5">{selected.memo}</p>}
+                {selected.raw_text && (
+                  <details className="mt-1.5">
+                    <summary className="text-[11px] text-gray-400 cursor-pointer">문자 원문 보기</summary>
+                    <pre className="text-[11px] text-gray-600 bg-gray-50 rounded-lg p-2 mt-1 whitespace-pre-wrap break-all m-0">{selected.raw_text}</pre>
+                  </details>
+                )}
                 {selected.hint?.label && (
                   <p className="text-xs bg-gray-50 rounded-lg px-2 py-1.5 mt-2 mb-0 text-gray-600">
                     매칭표: <b>{selected.hint.label}</b>{selected.hint.user_label ? ` · ${selected.hint.user_label}` : ''}{selected.hint.course ? ` · ${selected.hint.course}` : selected.hint.course_id ? ` · 강의 ${selected.hint.course_id}` : ''}{selected.hint.reason ? ` · ${selected.hint.reason}` : ''}
