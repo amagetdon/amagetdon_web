@@ -12,6 +12,10 @@ interface Props {
   signupReferrer?: string
   /** 모달 상단 안내 문구 (강의명 등) */
   description?: string
+  /** apply: 무료 강의 신청 문구(아이폰 인스타 앱 안 등) — 기본은 구매 문구 */
+  variant?: 'purchase' | 'apply'
+  /** 있으면 '이미 회원이면 로그인' 버튼을 보여준다 */
+  onLogin?: () => void
 }
 
 function formatPhoneKR(raw: string): string {
@@ -21,7 +25,8 @@ function formatPhoneKR(raw: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
 }
 
-export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupReferrer, description }: Props) {
+export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupReferrer, description, variant = 'purchase', onLogin }: Props) {
+  const apply = variant === 'apply'
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -77,7 +82,7 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
         email: trimmedEmail,
         signup_referrer: signupReferrer,
       }, captchaToken)
-      toast.success('가입 완료! 구매를 진행합니다.')
+      toast.success(apply ? '신청을 진행합니다.' : '가입 완료! 구매를 진행합니다.')
       onSuccess()
     } catch (err) {
       const msg = err instanceof Error ? err.message : '가입에 실패했습니다.'
@@ -98,7 +103,7 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
           <div>
             <h3 className="text-lg font-bold text-gray-900 flex items-center gap-1.5">
               <i className="ti ti-bolt text-[#2ED573]" />
-              비회원으로 바로 구매
+              {apply ? '이름·전화번호만으로 바로 신청' : '비회원으로 바로 구매'}
             </h3>
             {description && (
               <p className="text-xs text-gray-500 mt-1">{description}</p>
@@ -164,9 +169,9 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
 
           <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2.5 text-[11px] text-emerald-800 leading-relaxed">
             <i className="ti ti-info-circle mr-1" />
-            비밀번호 없이 위 정보만으로 바로 구매하세요.
+            비밀번호 없이 위 정보만으로 바로 {apply ? '신청' : '구매'}하세요.
             <br />
-            다음 접속 시에는 <strong>이메일로 받는 로그인 링크</strong>로 들어와 구매한 강의를 시청하실 수 있습니다.
+            다음 접속 시에는 <strong>이메일로 받는 로그인 링크</strong>로 들어와 {apply ? '신청한' : '구매한'} 강의를 시청하실 수 있습니다.
           </div>
 
           <Turnstile onVerify={setCaptchaToken} onExpire={() => setCaptchaToken('')} className="flex justify-center" />
@@ -185,16 +190,27 @@ export default function GuestSignupModal({ isOpen, onClose, onSuccess, signupRef
               disabled={submitting}
               className="flex-1 px-4 py-2.5 rounded-xl bg-[#2ED573] text-white text-sm font-bold cursor-pointer border-none hover:bg-[#25B866] disabled:opacity-50"
             >
-              {submitting ? '처리 중...' : '바로 구매하기'}
+              {submitting ? '처리 중...' : apply ? '바로 신청하기' : '바로 구매하기'}
             </button>
           </div>
         </form>
 
-        <p className="text-[11px] text-gray-400 text-center mt-4">
-          이미 회원이신가요? 취소 후 로그인해서 구매해주세요.
-          <br />
-          구매 후 마이페이지에서 언제든 <strong>정식 회원 전환</strong>이 가능합니다.
-        </p>
+        {onLogin ? (
+          <button
+            type="button"
+            onClick={onLogin}
+            disabled={submitting}
+            className="w-full mt-4 text-[13px] text-gray-500 underline bg-transparent border-none cursor-pointer disabled:opacity-50"
+          >
+            이미 회원이신가요? 로그인하고 {apply ? '신청' : '구매'}하기
+          </button>
+        ) : (
+          <p className="text-[11px] text-gray-400 text-center mt-4">
+            이미 회원이신가요? 취소 후 로그인해서 구매해주세요.
+            <br />
+            구매 후 마이페이지에서 언제든 <strong>정식 회원 전환</strong>이 가능합니다.
+          </p>
+        )}
       </div>
     </div>
   )

@@ -85,6 +85,8 @@ function CourseDetailPage() {
   const fromSlug = searchParams.get('from')
   const [guestPurchaseAllowed, setGuestPurchaseAllowed] = useState(false)
   const [guestModalOpen, setGuestModalOpen] = useState(false)
+  // 아이폰 인스타 등 앱 안 브라우저의 무료 강의 신청 — 카카오·구글 로그인이 사실상 막혀 간편 신청 창을 띄운다 (10/16)
+  const [guestApplyMode, setGuestApplyMode] = useState(false)
   // 비회원 가입 직후 user/profile state 가 업데이트되면 자동으로 구매 플로우 진행
   const [pendingAutoPurchase, setPendingAutoPurchase] = useState(false)
   // 구매 직후 안내 링크 (오픈채팅방 등) 카운트다운 모달
@@ -333,10 +335,16 @@ function CourseDetailPage() {
       }
       // 안드로이드 인앱 브라우저(인스타/페북)면 카카오 로그인이 막히므로, 강의 URL+UTM 을
       // 보존한 채 크롬으로 자동 전환한다. 크롬에서는 ?ext_act=purchase 를 보고 신청을 바로 이어서 한다(아래 extResume).
-      // iOS 는 강제 전환 불가(Safari 열기 주소도 인스타에서 막힘) — 기존 로그인 흐름(아래)으로 진행한다.
+      // iOS 는 강제 전환 불가(Safari 열기 주소도 인스타에서 막힘) — 무료·사전 알림 강의는 이름·전화·이메일만 받는
+      // 간편 신청 창을 띄우고(카카오 아이디·비번 입력 없이 신청 완료), 유료는 기존 로그인 흐름(아래)으로 진행한다.
       const inApp = detectInAppBrowser()
       if (inApp.isInApp && inApp.isAndroid) {
         openExternalBrowser({ params: { ext_act: 'purchase' } })
+        return
+      }
+      if (inApp.isInApp && inApp.isIOS && (isFree || isPreAlert)) {
+        setGuestApplyMode(true)
+        setGuestModalOpen(true)
         return
       }
       // 로그인(가입·회원정보 입력 포함)을 마치면 이 강의로 돌아와 신청을 이어서 한다 (아래 resume effect)
@@ -1274,9 +1282,11 @@ function CourseDetailPage() {
       {/* 비회원 간편 가입 모달 — allow_guest_purchase=true 인 랜딩에서 진입했을 때 */}
       <GuestSignupModal
         isOpen={guestModalOpen}
-        onClose={() => setGuestModalOpen(false)}
+        onClose={() => { setGuestModalOpen(false); setGuestApplyMode(false) }}
         signupReferrer={fromSlug ? `/landing/${fromSlug}` : undefined}
-        description={course?.title ? `"${course.title}" 을(를) 회원가입 없이 바로 구매하세요.` : undefined}
+        description={course?.title ? `"${course.title}" 을(를) 회원가입 없이 바로 ${guestApplyMode ? '신청' : '구매'}하세요.` : undefined}
+        variant={guestApplyMode ? 'apply' : 'purchase'}
+        onLogin={guestApplyMode ? () => { setGuestModalOpen(false); setGuestApplyMode(false); rememberPostLogin('purchase'); navigate('/login') } : undefined}
         onSuccess={() => {
           // 모달만 닫고 플래그 세팅 → useEffect 가 user 준비되는 순간 자동으로 구매 플로우 진행
           setGuestModalOpen(false)
