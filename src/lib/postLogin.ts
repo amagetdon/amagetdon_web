@@ -57,3 +57,9 @@ export function takePostLoginAction(pathname = window.location.pathname): PostLo
   write(null)
   return saved.action
 }
+
+/** 지우지 않고 보기만 — 앱 안 브라우저에서 크롬·Safari 로 넘길 때 '돌아갈 곳'을 주소에 실어 보내기 위함 */
+export function peekPostLogin(): { path: string; action?: PostLoginAction } | null {
+  const saved = read()
+  return saved && !saved.redirected ? { path: saved.path, action: saved.action } : null
+}

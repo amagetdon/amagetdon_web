@@ -50,13 +50,44 @@ export function buildUrlWithStoredUtm(): string {
   return url.toString()
 }
 
+// 아이폰 앱 안 브라우저 → Safari 열기(x-safari-https://, iOS 17+)는 인스타 등에서 되는지 아직 시험 전이라
+// ?ios_safari=1 로 들어온 사람에게만 켠다(이 기기에 기억). 시험이 끝나면 기본으로 켤 예정. (10/16)
+const IOS_SAFARI_FLAG = 'amag_ios_safari'
+export function iosSafariJumpEnabled(): boolean {
+  try {
+    if (new URLSearchParams(window.location.search).get('ios_safari') === '1') localStorage.setItem(IOS_SAFARI_FLAG, '1')
+    return localStorage.getItem(IOS_SAFARI_FLAG) === '1'
+  } catch { return false }
+}
+
+type OpenOptions = {
+  /** 넘어간 브라우저에서 이어서 할 일 — 주소에 실어 보낸다(앱 안 ↔ 외부 브라우저는 저장소를 공유하지 않음) */
+  params?: Record<string, string>
+  /** 아이폰: Safari 로 안 넘어갔을 때(2.5초 뒤에도 화면이 그대로) 실행 — 원래 흐름으로 진행 */
+  onIosFail?: () => void
+}
+
 // 외부 브라우저로 유도한다.
 // - Android: intent:// 스킴으로 크롬을 강제로 연다(URL=UTM 포함 → 보존). 성공 시 true.
-// - iOS: WebView 에서 사파리로의 강제 리다이렉트는 애플이 차단되어 불가능하므로 false 를 반환한다.
-//        (호출부는 isAndroid 일 때만 호출하며, iOS 인앱은 개입 없이 기존 로그인 흐름을 그대로 둔다)
-export function openExternalBrowser(): boolean {
-  const { isAndroid } = detectInAppBrowser()
-  const target = buildUrlWithStoredUtm()
+// - iOS: 시험 켠 기기만 x-safari-https:// 로 Safari 를 연다. 안 열리면 onIosFail. 시험 꺼진 기기는 false.
+export function openExternalBrowser(opts: OpenOptions = {}): boolean {
+  const { isAndroid, isIOS } = detectInAppBrowser()
+  const url = new URL(buildUrlWithStoredUtm())
+  for (const [k, v] of Object.entries(opts.params ?? {})) url.searchParams.set(k, v)
+  const target = url.toString()
+
+  if (isIOS && iosSafariJumpEnabled()) {
+    // Safari 로 넘어가면 이 화면이 가려진다 — 한 번이라도 가려졌으면 성공으로 보고, 돌아와도 원래 흐름을 다시 돌리지 않는다
+    let left = false
+    const onHide = () => { if (document.visibilityState === 'hidden') left = true }
+    document.addEventListener('visibilitychange', onHide)
+    window.location.href = target.replace(/^https?:\/\//, 'x-safari-https://')
+    window.setTimeout(() => {
+      document.removeEventListener('visibilitychange', onHide)
+      if (!left && document.visibilityState === 'visible') opts.onIosFail?.()
+    }, 2500)
+    return true
+  }
 
   if (isAndroid) {
     const withoutScheme = target.replace(/^https?:\/\//, '')

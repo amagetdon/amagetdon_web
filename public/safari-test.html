@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Safari 열기 시험</title>
+<style>
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; padding: 32px 20px; background: #fff; color: #111; line-height: 1.5; }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { margin: 0 0 16px; color: #444; font-size: 15px; }
+  a.btn { display: block; text-align: center; background: #2ED573; color: #fff; font-weight: 700; font-size: 17px; padding: 16px; border-radius: 12px; text-decoration: none; margin: 0 0 12px; }
+  #where { font-size: 18px; font-weight: 700; padding: 14px; border-radius: 12px; background: #f3f4f6; margin: 0 0 20px; }
+  #ua { font-size: 11px; color: #999; word-break: break-all; }
+</style>
+</head>
+<body>
+  <!-- 아이폰 인스타 등 앱 안 브라우저에서 x-safari-https:// 로 Safari 가 열리는지 시험하는 페이지 (10/16, 시험 후 삭제) -->
+  <h1>Safari 열기 시험</h1>
+  <div id="where"></div>
+  <p>아래 버튼을 눌러 주세요. Safari가 열리고 "지금 Safari예요"가 보이면 성공이에요.</p>
+  <a class="btn" id="go" href="#">Safari로 열기 시험</a>
+  <p id="result"></p>
+  <p id="ua"></p>
+<script>
+  var ua = navigator.userAgent
+  var inApp = /Instagram|FBAN|FBAV|FB_IAB|FB4A|Line\//i.test(ua)
+  var opened = new URLSearchParams(location.search).get('opened') === '1'
+  document.getElementById('where').textContent = inApp
+    ? '지금: 앱 안 브라우저 (' + (/Instagram/i.test(ua) ? '인스타그램' : '페이스북 등') + ')'
+    : (opened ? '지금 Safari예요 — 성공!' : '지금: 앱 밖 브라우저')
+  document.getElementById('ua').textContent = ua
+  document.getElementById('go').addEventListener('click', function (e) {
+    e.preventDefault()
+    var left = false
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') left = true })
+    location.href = 'x-safari-https://' + location.host + '/safari-test.html?opened=1'
+    setTimeout(function () {
+      if (!left) document.getElementById('result').textContent = '2.5초가 지나도 그대로예요 — 이 앱에서는 Safari로 안 넘어가는 것 같아요.'
+    }, 2500)
+  })
+</script>
+</body>
+</html>
