@@ -66,7 +66,7 @@ function CourseDetailPage() {
   }, [serverCourse, previewOverrides])
   useEffect(() => { webhookService.markLandingEntry() }, [])
   const navigate = useNavigate()
-  const { user, profile, refreshProfile, isAdmin } = useAuth()
+  const { user, profile, refreshProfile, isAdmin, loading: authLoading } = useAuth()
   const { blockIfClosed } = useClosedAccessGuard()
 
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 })
@@ -332,11 +332,11 @@ function CourseDetailPage() {
         return
       }
       // 안드로이드 인앱 브라우저(인스타/페북)면 카카오 로그인이 막히므로, 강의 URL+UTM 을
-      // 보존한 채 크롬으로 자동 전환한다. iOS 는 강제 전환 불가 + 안내 화면이 이탈을 키우므로
-      // 개입하지 않고 기존 로그인 흐름(아래)으로 진행한다.
+      // 보존한 채 크롬으로 자동 전환한다. 크롬에서는 ?ext_act=purchase 를 보고 신청을 바로 이어서 한다(아래 extResume).
+      // iOS 는 강제 전환 불가(Safari 열기 주소도 인스타에서 막힘) — 기존 로그인 흐름(아래)으로 진행한다.
       const inApp = detectInAppBrowser()
       if (inApp.isInApp && inApp.isAndroid) {
-        openExternalBrowser()
+        openExternalBrowser({ params: { ext_act: 'purchase' } })
         return
       }
       // 로그인(가입·회원정보 입력 포함)을 마치면 이 강의로 돌아와 신청을 이어서 한다 (아래 resume effect)
@@ -427,6 +427,33 @@ function CourseDetailPage() {
       .catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile, course, courseId, enrollmentQ.isFetched, landingInfo])
+
+  // 앱 안 브라우저(인스타 등)에서 '신청'을 누르고 크롬·Safari 로 넘어온 경우(?ext_act=purchase) — 그 신청을 이어서 한다.
+  // 주소에서 표시를 지우고 '로그인 후 이어서 신청'으로 기억 → 로그인돼 있으면 위 resume effect 가 바로 신청,
+  // 로그인 전이면 아래에서 로그인 화면(비회원 신청 허용 강의는 간편 신청 창)으로 보낸다.
+  const [extResume] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search)
+      if (p.get('ext_act') !== 'purchase' || detectInAppBrowser().isInApp) return false
+      p.delete('ext_act')
+      const clean = window.location.pathname + (p.toString() ? `?${p}` : '')
+      window.history.replaceState(window.history.state, '', clean)
+      rememberPostLogin('purchase', clean)
+      return true
+    } catch { return false }
+  })
+  const extTriedRef = useRef(false)
+  useEffect(() => {
+    if (!extResume || extTriedRef.current || authLoading || user || !course || landingInfo.resolvedFor !== course.id) return
+    extTriedRef.current = true
+    if (course.allow_guest_purchase || guestPurchaseAllowed) {
+      takePostLoginAction() // 간편 신청 창이 신청까지 이어서 하므로 기억해 둔 건 지운다(중복 신청 방지)
+      setGuestModalOpen(true)
+      return
+    }
+    navigate('/login')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extResume, authLoading, user, course, landingInfo, guestPurchaseAllowed])
 
 
   const handleEnrollFree = async () => {

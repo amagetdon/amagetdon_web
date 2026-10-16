@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { useExternalServices } from '../hooks/useExternalServices'
 import Turnstile from '../components/Turnstile'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
-import { takeReturnPath } from '../lib/postLogin'
+import { takeReturnPath, rememberPostLogin, peekPostLogin, type PostLoginAction } from '../lib/postLogin'
 
 function LoginPage() {
   const navigate = useNavigate()
@@ -14,6 +14,18 @@ function LoginPage() {
   // 아이폰 앱 안 브라우저(인스타·페북 등) — 구글은 앱 안 로그인을 막고, 아이폰은 Safari 로 자동 전환이 안 돼서 안내만 한다
   // (안드로이드 앱 안 브라우저는 버튼을 누르면 크롬으로 자동 전환 — handleOAuth)
   const iosInApp = (() => { const i = detectInAppBrowser(); return i.isInApp && i.isIOS })()
+  // 앱 안 브라우저에서 로그인 버튼을 누르고 크롬·Safari 로 넘어온 경우 — 주소에 실려 온 '돌아갈 곳·이어서 할 일'을 다시 기억한다
+  useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search)
+      const next = p.get('ext_next')
+      if (!next || !next.startsWith('/') || next.startsWith('//')) return
+      const act = p.get('ext_act')
+      rememberPostLogin(act === 'purchase' || act === 'checkout_post' || act === 'checkout_subscription' ? act as PostLoginAction : undefined, next)
+      p.delete('ext_next'); p.delete('ext_act')
+      window.history.replaceState(window.history.state, '', window.location.pathname + (p.toString() ? `?${p}` : ''))
+    } catch { /* 무시 — 로그인은 정상, 복귀만 홈으로 */ }
+  })
   const location = useLocation()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/'
 
@@ -163,12 +175,12 @@ function LoginPage() {
   }
 
   const handleOAuth = async (provider: 'google' | 'kakao') => {
-    // 안드로이드 인앱 브라우저(인스타/페북)에서만 카카오/구글 로그인이 막히므로 크롬으로 자동 전환한다.
-    // (UTM 은 URL 에 실어 보존) iOS 는 강제 전환이 불가하고 안내 화면이 오히려 이탈을 키우므로
-    // 개입하지 않고 기존 OAuth 흐름 그대로 진행한다.
+    // 인스타/페북 앱 안 브라우저에서는 카카오/구글 로그인이 막히므로 안드로이드는 크롬으로 자동 전환한다.
+    // (UTM·돌아갈 곳·이어서 할 일은 URL 에 실어 보존) iOS 는 강제 전환이 불가해 기존 OAuth 흐름 그대로 진행한다.
     const inApp = detectInAppBrowser()
     if (inApp.isInApp && inApp.isAndroid) {
-      openExternalBrowser()
+      const saved = peekPostLogin()
+      openExternalBrowser({ params: saved ? { ext_next: saved.path, ...(saved.action ? { ext_act: saved.action } : {}) } : {} })
       return
     }
 

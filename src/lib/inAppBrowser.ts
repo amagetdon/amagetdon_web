@@ -50,13 +50,20 @@ export function buildUrlWithStoredUtm(): string {
   return url.toString()
 }
 
+type OpenOptions = {
+  /** 넘어간 브라우저에서 이어서 할 일 — 주소에 실어 보낸다(앱 안 ↔ 외부 브라우저는 저장소를 공유하지 않음) */
+  params?: Record<string, string>
+}
+
 // 외부 브라우저로 유도한다.
 // - Android: intent:// 스킴으로 크롬을 강제로 연다(URL=UTM 포함 → 보존). 성공 시 true.
-// - iOS: WebView 에서 사파리로의 강제 리다이렉트는 애플이 차단되어 불가능하므로 false 를 반환한다.
-//        (호출부는 isAndroid 일 때만 호출하며, iOS 인앱은 개입 없이 기존 로그인 흐름을 그대로 둔다)
-export function openExternalBrowser(): boolean {
+// - iOS: 앱 안 → Safari 강제 전환은 막혀 있다(x-safari-https:// 도 인스타 iOS 에서 안 열림 — 10/16 대표님 아이폰 시험).
+//        false 를 반환하고, 호출부는 기존 흐름 그대로 진행한다.
+export function openExternalBrowser(opts: OpenOptions = {}): boolean {
   const { isAndroid } = detectInAppBrowser()
-  const target = buildUrlWithStoredUtm()
+  const url = new URL(buildUrlWithStoredUtm())
+  for (const [k, v] of Object.entries(opts.params ?? {})) url.searchParams.set(k, v)
+  const target = url.toString()
 
   if (isAndroid) {
     const withoutScheme = target.replace(/^https?:\/\//, '')
