@@ -18,6 +18,7 @@ import { webhookService } from '../services/webhookService'
 import { webhookScheduleService } from '../services/webhookScheduleService'
 import { landingCategoryService } from '../services/landingCategoryService'
 import LiveCalendarCta from '../components/LiveCalendarCta'
+import SeoHead from '../components/SeoHead'
 import { WEBTOON_LANDINGS, CONCERN_MAX, type Bubble, type WebtoonCut, type WebtoonLanding, type AskStep } from '../lib/webtoonLandings'
 
 // 웹툰식 랜딩 /w/:slug — 표지(W1) → 웹툰(W2) → 카카오 신청(W3) → 자동 신청 저장(W4) → 선택 질문 3개(W5·W6) → 완료(W7).
@@ -249,6 +250,7 @@ export default function WebtoonLandingPage() {
 
   return (
     <div className="bg-black min-h-[100dvh] text-white">
+      <SeoHead override={{ title: cfg.seo.title, description: cfg.seo.description, ogImage: cfg.seo.image, twitterImage: cfg.seo.image }} />
       {step === 'cover' && <Cover cfg={cfg} fill={fill} onNext={() => go('webtoon')} />}
       {step === 'webtoon' && (
         <Webtoon cfg={cfg} onNext={(via) => { pushEvent(via === 'skip' ? 'webtoon_skip' : 'webtoon_end_click', { landing: slug }); go('signup') }} />

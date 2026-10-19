@@ -35,6 +35,8 @@ export interface WebtoonLanding {
   slug: string
   courseId: number
   liveFallback: string
+  /** 탭 제목·공유 미리보기(OG). 서버(api/_lib/render-page)와 화면이 같이 쓴다. image 는 1200×630 */
+  seo: { title: string; description: string; image: string }
   cover: {
     poster: string
     video?: string
@@ -73,6 +75,11 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
     slug: 'minroro-blog',
     courseId: 129,
     liveFallback: '○월 ○일(○) 저녁 7시 30분',
+    seo: {
+      title: 'AI 블로그 정답지 | 민로로 무료 라이브',
+      description: '접기 전에, 딱 한 번만 제대로 봐요. 민로로가 AI로 블로그 글을 쓰고 노출시키는 순서를 유튜브 무료 라이브에서 보여 드려요.',
+      image: `${BASE}/og.jpg`,
+    },
     cover: {
       poster: `${BASE}/00.webp`,
       video: `${BASE}/cover.mp4`,
