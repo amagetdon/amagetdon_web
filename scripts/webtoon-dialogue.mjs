@@ -34,7 +34,15 @@ const cuts = data.cuts.map((c) => {
   return {
     id: c.cut,
     n: num(c.image),
-    bubbles: (c.bubbles ?? []).map((b) => ({ type: TYPE[b.type] ?? 'narration', ...(b.speaker ? { speaker: b.speaker } : {}), ...pos(b.position), text: b.text })),
+    bubbles: (c.bubbles ?? []).map((b) => {
+      // 선택 항목: 폭(width "45%"·w), 꼬리 방향(tail up/down/none), 꼬리 가로 위치(tail_x %)
+      const w = b.w ?? (b.width != null ? parseFloat(String(b.width)) : undefined)
+      const tailX = b.tailX ?? b.tail_x
+      return {
+        type: TYPE[b.type] ?? 'narration', ...(b.speaker ? { speaker: b.speaker } : {}), ...pos(b.position), text: b.text,
+        ...(Number.isFinite(w) ? { w } : {}), ...(b.tail ? { tail: b.tail } : {}), ...(tailX != null ? { tailX: Number(tailX) } : {}),
+      }
+    }),
   }
 })
 

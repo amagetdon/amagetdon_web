@@ -84,6 +84,18 @@ export default function WebtoonLandingPage() {
     window.scrollTo(0, 0)
   }, [setParams])
 
+  // 효과음 손글씨 글꼴 — 효과음에 쓰는 글자만 받는다(Google Fonts text= 로 몇 KB)
+  useEffect(() => {
+    if (!cfg) return
+    const chars = [...new Set(cfg.webtoon.cuts.flatMap((c) => c.bubbles.filter((b) => b.type === 'sfx').map((b) => b.text)).join(''))].join('')
+    if (!chars || document.getElementById('wt-sfx-font')) return
+    const link = document.createElement('link')
+    link.id = 'wt-sfx-font'
+    link.rel = 'stylesheet'
+    link.href = `https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap&text=${encodeURIComponent(chars)}`
+    document.head.appendChild(link)
+  }, [cfg])
+
   // 사이트 머리글·바닥글·상담 버튼 숨김
   useEffect(() => {
     setChromeHidden(true)
@@ -517,25 +529,44 @@ function BubbleView({ b }: { b: Bubble }) {
   const tx = b.align === 'center' ? 'translateX(-50%)' : ''
   const ty = b.top > 60 ? 'translateY(-100%)' : ''
   if (tx || ty) pos.transform = `${tx} ${ty}`.trim()
-  const base = 'absolute max-w-[78%] w-max'
+  // 청월당 웹툰과 같은 모양(2026-10-19 원본 캡처 기준): 글자는 가운데 정렬·보통 굵기·짧은 줄, 줄바꿈은 단어 단위
+  const text = { wordBreak: 'keep-all', textWrap: 'balance' } as React.CSSProperties
+  if (b.w) pos.width = `${b.w}%`
   switch (b.type) {
     case 'narration':
-      return <p className={`${base} bg-white text-black border-[1.5px] border-black px-3 py-2 text-[14px] leading-snug font-medium text-center`} style={pos}>{b.text}</p>
-    case 'dark_box':
-      return <p className={`${base} bg-black text-white px-4 py-2 text-[15px] font-bold text-center`} style={pos}>{b.text}</p>
-    case 'sfx':
-      return <p className={`${base} text-[40px] font-black italic text-white [-webkit-text-stroke:2px_black]`} style={{ ...pos, rotate: '-8deg' }}>{b.text}</p>
-    case 'caption':
-      return <p className={`${base} text-[11px] text-white/85 bg-black/50 px-2 py-1 rounded`} style={pos}>{b.text}</p>
-    default:
+      // 흰 사각 + 얇은 검은 테두리, 넓게(화면 폭 55~72%), 여백 넉넉히
       return (
-        <div className={base} style={pos}>
-          <p className="relative bg-white text-black rounded-[24px] px-4 py-2.5 text-[15px] leading-snug font-semibold text-center shadow">
+        <p className="absolute bg-[#fbfbf9] text-[#111] border-[1.5px] border-[#111] px-6 py-5 text-[14.5px] leading-[1.7] font-normal text-center"
+          style={{ ...pos, ...text, minWidth: b.w ? undefined : '55%', maxWidth: '72%' }}>{b.text}</p>
+      )
+    case 'dark_box':
+      // 검은 사각 + 흰 글자(전환)
+      return <p className="absolute bg-black text-white px-5 py-3 text-[14px] leading-[1.6] font-normal text-center" style={{ ...pos, ...text, maxWidth: '60%' }}>{b.text}</p>
+    case 'sfx':
+      // 손글씨 효과음: 흰 글자 + 얇은 검은 외곽선, 기울임
+      return (
+        <p className="absolute text-[48px] font-extrabold text-white tracking-[-0.02em] [-webkit-text-stroke:1.2px_#111] [paint-order:stroke_fill] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
+          style={{ ...pos, rotate: '-12deg', fontFamily: '"Nanum Pen Script","Gaegu",cursive', fontStyle: 'italic' }}>{b.text}</p>
+      )
+    case 'caption':
+      return <p className="absolute text-[10.5px] leading-[1.5] text-white/85 bg-black/55 px-2.5 py-1.5" style={{ ...pos, ...text, maxWidth: '80%' }}>{b.text}</p>
+    default: {
+      // 대사: 거의 둥근 흰 타원 + 얇은 회색 테두리 + 가는 선 꼬리(말하는 사람 쪽). 아래쪽 말풍선은 꼬리를 위로
+      const up = b.tail === 'up' || (b.tail == null && b.top > 60)
+      const tailX = b.tailX ?? (b.align === 'right' ? 35 : b.align === 'left' ? 65 : 50)
+      return (
+        <div className="absolute" style={{ ...pos, maxWidth: '50%', minWidth: '34%' }}>
+          <p className="relative bg-[#f8fafc] text-[#111] rounded-[50%] border border-black/30 shadow-[0_1px_3px_rgba(0,0,0,0.35)] px-6 py-6 text-[13.5px] leading-[1.6] font-normal text-center"
+            style={text}>
             {b.text}
-            <span className={`absolute -bottom-2 ${b.align === 'right' ? 'right-6' : 'left-6'} w-0 h-0 border-l-[8px] border-r-[8px] border-t-[10px] border-l-transparent border-r-transparent border-t-white`} />
           </p>
+          {b.tail !== 'none' && (
+            <span className="absolute w-[1.5px] h-[22px] bg-[#f8fafc] shadow-[0_0_1px_rgba(0,0,0,0.6)]"
+              style={{ left: `${tailX}%`, ...(up ? { bottom: '100%' } : { top: '100%' }), rotate: `${tailX < 50 ? 12 : tailX > 50 ? -12 : 0}deg` }} />
+          )}
         </div>
       )
+    }
   }
 }
 

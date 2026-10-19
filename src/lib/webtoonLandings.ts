@@ -12,6 +12,11 @@ export interface Bubble {
   /** 그림 높이 기준 위치(%) — 말풍선 위쪽 기준 */
   top: number
   align: 'left' | 'center' | 'right'
+  /** 폭(그림 폭 기준 %). 없으면 종류별 기본 */
+  w?: number
+  /** 대사 꼬리 방향(기본: 위쪽 말풍선은 아래로, 아래쪽 말풍선은 위로) · 꼬리 가로 위치(말풍선 폭 기준 %) */
+  tail?: 'up' | 'down' | 'none'
+  tailX?: number
 }
 
 export interface WebtoonCut {
