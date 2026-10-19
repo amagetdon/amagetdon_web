@@ -407,7 +407,8 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
           <span>스크롤</span><span>▼</span>
         </div>
       )}
-      {cfg.webtoon.cuts.map((c, i) => <Cut key={c.id} cut={c} eager={i < 2} />)}
+      {groupCuts(cfg.webtoon.cuts).map((g, i) =>
+        Array.isArray(g) ? <ReviewDeck key={g[0].id} cuts={g} /> : <Cut key={g.id} cut={g} eager={i < 2} />)}
       <div ref={endRef} className="px-6 pt-10 pb-[calc(env(safe-area-inset-bottom)+48px)] flex flex-col items-center gap-3">
         <button
           type="button" onClick={() => onNext('end')}
@@ -436,9 +437,20 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
   )
 }
 
+/** 연달아 있는 후기 컷은 한 묶음(배열)으로 — 휴대폰 틀 하나에서 넘겨 보게 */
+function groupCuts(cuts: WebtoonCut[]): (WebtoonCut | WebtoonCut[])[] {
+  const out: (WebtoonCut | WebtoonCut[])[] = []
+  for (const c of cuts) {
+    const last = out[out.length - 1]
+    if (c.review && Array.isArray(last)) last.push(c)
+    else out.push(c.review ? [c] : c)
+  }
+  return out
+}
+
 function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
   if (!cut.src) return <TextScene card={cut.card ?? { lines: [] }} />
-  if (cut.review) return <ReviewCard src={cut.src} review={cut.review} />
+  if (cut.review) return <ReviewDeck cuts={[cut]} />
   return (
     <div className="relative" style={{ aspectRatio: `1 / ${cut.ratio}` }}>
       <img
@@ -498,24 +510,62 @@ function TextScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
   )
 }
 
-/** 실제 후기 카드 — 휴대폰 화면 틀 안에 가림 처리한 캡처. 화면에 들어오면 아래에서 올라오듯 나타난다 */
-function ReviewCard({ src, review }: { src: string; review: NonNullable<WebtoonCut['review']> }) {
+/** 실제 후기 — 연달아 있는 후기 컷을 휴대폰 화면 틀 하나에 넣고 한 장씩 넘긴다(옆으로 밀기 + 화면에 보이면 4초마다 자동).
+ *  카드마다 note(원문·개인의 경험) 작은 글 */
+function ReviewDeck({ cuts }: { cuts: WebtoonCut[] }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [shown, setShown] = useState(false)
+  const track = useRef<HTMLDivElement>(null)
+  const [idx, setIdx] = useState(0)
+  const [visible, setVisible] = useState(false)
+  const [touched, setTouched] = useState(false)
+  const header = cuts.find((c) => c.review?.header)?.review?.header
+
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setShown(true); io.disconnect() } }, { threshold: 0.25 })
+    const io = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold: 0.5 })
     io.observe(el)
     return () => io.disconnect()
   }, [])
+  const goTo = useCallback((i: number) => {
+    const t = track.current
+    if (t) t.scrollTo({ left: i * t.clientWidth, behavior: 'smooth' })
+  }, [])
+  // 자동 넘김 — 화면에 보일 때만, 사용자가 직접 넘기면 멈춤
+  useEffect(() => {
+    if (!visible || touched || cuts.length < 2) return
+    const t = window.setTimeout(() => goTo((idx + 1) % cuts.length), 4000)
+    return () => window.clearTimeout(t)
+  }, [visible, touched, idx, cuts.length, goTo])
+  const onScroll = () => {
+    const t = track.current
+    if (t) setIdx(Math.round(t.scrollLeft / Math.max(1, t.clientWidth)))
+  }
+
   return (
     <div ref={ref} className="bg-[#0b0f14] px-6 pt-10 pb-8 flex flex-col items-center">
-      {review.header && <p className="text-[17px] font-bold text-white mb-5">{review.header}</p>}
-      <div className={`w-[86%] rounded-[28px] border-[6px] border-[#1f2937] bg-[#111] p-2 shadow-2xl transition-all duration-700 ${shown ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
-        <img src={r2Proxy(src)} alt="수강생 후기" loading="lazy" decoding="async" className="w-full block rounded-[20px]" />
+      {header && <p className="text-[17px] font-bold text-white mb-5">{header}</p>}
+      <div className="w-[86%] rounded-[30px] border-[6px] border-[#1f2937] bg-[#111] p-2 shadow-2xl">
+        <div
+          ref={track} onScroll={onScroll} onTouchStart={() => setTouched(true)} onMouseDown={() => setTouched(true)}
+          className="flex overflow-x-auto snap-x snap-mandatory rounded-[22px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {cuts.map((c) => (
+            <div key={c.id} className="w-full shrink-0 snap-center flex items-center bg-[#111]">
+              <img src={r2Proxy(c.src ?? '')} alt="수강생 후기" decoding="async" className="w-full block" />
+            </div>
+          ))}
+        </div>
       </div>
-      <p className="mt-3 text-[11px] text-white/55 text-center" style={{ wordBreak: 'keep-all' }}>{review.note}</p>
+      {cuts.length > 1 && (
+        <div className="flex gap-1.5 mt-3" aria-label={`${idx + 1}/${cuts.length}`}>
+          {cuts.map((c, i) => (
+            <button key={c.id} type="button" aria-label={`후기 ${i + 1}`} onClick={() => { setTouched(true); goTo(i) }}
+              className="w-2 h-2 rounded-full" style={{ background: i === idx ? GREEN : 'rgba(255,255,255,0.3)' }} />
+          ))}
+        </div>
+      )}
+      <p className="mt-2 text-[11px] text-white/55 text-center min-h-[2.4em]" style={{ wordBreak: 'keep-all' }}>{cuts[idx]?.review?.note}</p>
     </div>
   )
 }
