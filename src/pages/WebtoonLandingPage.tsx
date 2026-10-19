@@ -480,7 +480,7 @@ function Webtoon({ cfg, onNext, footer, liveAt, unlocked }: {
 
       {/* P7 떠 있는 바 — 위 20% 지나면, 오퍼 카드가 보이면 숨김. 이미 신청했으면 없음 */}
       {footer && !unlocked && pastTop && !offerVisible && (
-        <div className="fixed z-40 bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 bg-gradient-to-t from-black via-black/90 to-transparent">
+        <div className="fixed z-40 bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3" style={{ background: 'linear-gradient(to top, var(--wt-bg), var(--wt-bg) 55%, transparent)' }}>
           <button type="button" onClick={toOffer} className="w-full h-14 rounded-xl text-black font-bold flex items-center justify-between px-5" style={{ background: GREEN }}>
             <span className="text-[13px] font-semibold">{liveRemain(liveAt, now) ?? '유튜브 무료 라이브'}</span>
             <span className="text-[16px]">{cfg.paywall?.floatButton ?? '신청하기'} ›</span>
