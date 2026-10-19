@@ -46,7 +46,16 @@ export interface WebtoonCut {
   review?: { header?: string; note: string }
   /** 실제 자료(증빙·근거 화면·프로그램 화면) — 검은 띠 안에 앞 문구 + 그림(여러 장이면 세로로) + 출처 작은 글.
    *  pending: 공개 전 확인이 끝나지 않아 그림 대신 자리 표시 */
-  real?: { before?: { type: 'narration' | 'speech'; text: string; speaker?: string }; images: string[]; note?: string; pending?: string }
+  real?: {
+    before?: { type: 'narration' | 'speech'; text: string; speaker?: string }
+    images: string[]
+    note?: string
+    pending?: string
+    /** 그림 바로 아래 작은 출처 글(있으면 note 대신 보여 줌 — note 는 내부 메모일 수 있음) */
+    after?: string
+    /** 작게: 폭 90%W 이하, 원본보다 크게 늘리지 않음(보도 인용 등) */
+    small?: boolean
+  }
   /** 후기 여러 장 넘기기(휴대폰 틀, 자동 넘김) */
   carousel?: { before?: { type: 'narration' | 'speech'; text: string; speaker?: string }; images: string[]; note: string; intervalMs?: number }
   /** 컷 이음새(청월당 측정값, 그림 폭 %) — 위·아래 가장자리를 color 로 흐리는 길이, 아래에 붙는 띠 */

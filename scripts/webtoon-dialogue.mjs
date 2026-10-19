@@ -68,6 +68,9 @@ const cuts = data.cuts.map((c) => {
       images: shown.map(({ i }) => realName(c.cut, i)),
       ...(c.note ? { note: c.note } : {}),
       ...(shown.length === 0 ? { pending: '실제 자료 · 공개 전 확인 중' } : {}),
+      // after: 그림 바로 아래 작은 출처 글 / display '작게…': 폭 90%W 이하로 작게
+      ...(c.after ? { after: typeof c.after === 'string' ? c.after : c.after.text } : {}),
+      ...(/작게/.test(String(c.display || '')) ? { small: true } : {}),
     }
     return { kind: 'real', id: c.cut, real }
   }

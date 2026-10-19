@@ -595,9 +595,14 @@ function RealBlock({ cut }: { cut: WebtoonCut }) {
         {r.pending ? (
           <div className="mx-[7.7cqw] rounded-xl border border-dashed border-[var(--wt-line)] py-[14cqw] text-center text-[var(--wt-faint)]" style={{ fontSize: '3.4cqw' }}>{r.pending}</div>
         ) : (
-          r.images.map((src) => <img key={src} src={r2Proxy(src)} alt="실제 자료" loading="lazy" decoding="async" className="w-full block mb-[2cqw]" />)
+          r.images.map((src) => (
+            // small(보도 인용 등): 폭 90%W 이하, 원본보다 크게 늘리지 않음(max-width: 원본 크기)
+            <img key={src} src={r2Proxy(src)} alt="실제 자료" loading="lazy" decoding="async"
+              className={r.small ? 'block mx-auto mb-[2cqw] w-auto max-w-[90cqw]' : 'w-full block mb-[2cqw]'} />
+          ))
         )}
-        {r.note && <p className="px-[7.7cqw] pt-[2cqw] text-center text-[var(--wt-muted)]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.note}</p>}
+        {/* after(그림 바로 아래 출처)가 있으면 그것만 — note 는 내부 메모일 수 있음 */}
+        {(r.after ?? r.note) && <p className="px-[7.7cqw] pt-[2cqw] text-center text-[var(--wt-muted)]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.after ?? r.note}</p>}
       </div>
       <Band cut={cut.band ? cut : { ...cut, band: { size: 18, color: 'var(--wt-band)' } }} />
     </>

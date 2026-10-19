@@ -1,4 +1,4 @@
-// 자동 생성 — scripts/webtoon-dialogue.mjs (대사목록_vF.json, 보류: E1b). 직접 고치지 말고 대사 목록을 고쳐 다시 만든다.
+// 자동 생성 — scripts/webtoon-dialogue.mjs (대사목록_vF.json, 보류: E1b,NEWS1,NEWS2). 직접 고치지 말고 대사 목록을 고쳐 다시 만든다.
 import type { Bubble, WebtoonCut } from '../webtoonLandings'
 
 const BASE = '/webtoon/minroro-blog'
@@ -17,9 +17,11 @@ const carouselCut = (id: string, carousel: NonNullable<WebtoonCut['carousel']>):
 
 export const CUTS: WebtoonCut[] = [
   { ...cut("01", "K01", [{"type":"narration","top":3,"align":"left","anchor":"top","text":"지금, 세상이 좀 이상해."}], 1.2414), fadeBottom: {"size":15,"color":"#f5f5f3"}, band: {"size":10,"color":"#f5f5f3"} },
-  { ...cut("02", "K02", [{"type":"narration","top":3,"align":"left","anchor":"top","text":"사람들이 고액 강의를 줄 서서 사거든."}], 1.2414), fadeTop: {"size":15,"color":"#f5f5f3"}, fadeBottom: {"size":15,"color":"#edf1f4"}, band: {"size":10,"color":"#edf1f4"} },
-  { ...cut("03", "K03", [{"type":"narration","top":80,"align":"left","anchor":"bottom","text":"누군가는 이 흐름을 나쁘게 보지만,"},{"type":"narration","top":97,"align":"right","anchor":"bottom","text":"사실, 그냥 자연스러운 현상이지."}], 1.2414), fadeTop: {"size":15,"color":"#edf1f4"}, fadeBottom: {"size":15,"color":"#f0edea"}, band: {"size":10,"color":"#f0edea"} },
-  { ...cut("04", "K04", [{"type":"narration","top":3,"align":"left","anchor":"top","text":"돈이라는 건 모든 인간이 갈망하는 것. 그걸 가지게 해 준다는 안내는, 당연히 달콤하고."}], 1.2414), fadeTop: {"size":15,"color":"#f0edea"}, fadeBottom: {"size":15,"color":"#f3efed"}, band: {"size":10,"color":"#f3efed"} },
+  { ...cut("02", "K02", [{"type":"narration","top":3,"align":"left","anchor":"top","text":"사람들이 고액 강의를 줄 서서 사거든."}], 1.2414), fadeTop: {"size":15,"color":"#f5f5f3"}, band: {"size":10,"color":"#f3f1f1"} },
+  { ...realCut("NEWS1", {"before":{"type":"narration","text":"방송에서 따로 다룰 정도로."},"images":[],"note":"KBS 추적60분 유튜브 [full] 고액 강의 시장 - 불안 비즈니스의 민낯(2026.04.03 방송) 화면 캡처, 대표님 제공 · 조회수·좋아요는 화면 그대로 · 썸네일 속 인물은 원래 흐림 처리돼 있어 그대로 둠","pending":"실제 자료 · 공개 전 확인 중","after":"KBS 추적60분 유튜브, 2026.04.03 방송","small":true}), band: {"size":10,"color":"#f7fcfe"} },
+  { ...cut("03", "K03", [{"type":"narration","top":97,"align":"left","anchor":"bottom","text":"누군가는 이 흐름을 나쁘게 보지만,"}], 1.2414), band: {"size":10,"color":"#efeeec"} },
+  { ...realCut("NEWS2", {"before":{"type":"narration","text":"이 방송 댓글처럼."},"images":[],"note":"KBS 추적60분 유튜브 [full] 고액 강의 시장 - 불안 비즈니스의 민낯(2026.04.03 방송) 화면 캡처, 대표님 제공 · 조회수·좋아요는 화면 그대로 · 작성자 닉네임·프로필 사진, 특정 강사 이름(2곳)을 불투명 회색 상자로 가림(원본은 저장소에 넣지 않음)","pending":"실제 자료 · 공개 전 확인 중","after":"KBS 추적60분 유튜브, 2026.04.03 방송","small":true}), band: {"size":10,"color":"#fdfcfa"} },
+  { ...cut("04", "K04", [{"type":"narration","top":3,"align":"left","anchor":"top","text":"사실, 그냥 자연스러운 현상이지."},{"type":"narration","top":20,"align":"right","anchor":"top","text":"돈이라는 건 모든 인간이 갈망하는 것. 그걸 가지게 해 준다는 안내는, 당연히 달콤하고.","maxW":62}], 1.2414), fadeBottom: {"size":15,"color":"#f3efed"}, band: {"size":10,"color":"#f3efed"} },
   { ...cut("05", "K05", [{"type":"narration","top":3,"align":"left","anchor":"top","text":"특히 은퇴가 다가와 새 일자리를 구하기 어려운 세대에게,"},{"type":"narration","top":97,"align":"right","anchor":"bottom","text":"'집에서 노트북 한 대로 월 300'이라는 유혹은, 뿌리치기 쉽지 않은 게 당연해."}], 1.2414), fadeTop: {"size":15,"color":"#f3efed"}, fadeBottom: {"size":15,"color":"#f2eeeb"}, band: {"size":10,"color":"#f2eeeb"} },
   { ...cut("06", "K06", [{"type":"dark_box","top":3,"align":"left","anchor":"top","text":"하지만, 그게 마냥 옳을까?"},{"type":"narration","top":97,"align":"right","anchor":"bottom","text":"아니. 문제는 따로 있어."}], 1), fadeTop: {"size":15,"color":"#f2eeeb"}, fadeBottom: {"size":12,"color":"#FFFDF8"} },
   { ...textCut("K07", {"lines":["요즘 고액 강의가 문제 되는 지점은, 크게 두 가지.","하나, 말처럼 쉽지 않다.","둘, 가르치는 사람의 자질."]}), fadeTop: {"size":12,"color":"#FFFDF8"}, fadeBottom: {"size":12,"color":"#FFFDF8"} },
