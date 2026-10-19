@@ -401,7 +401,7 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
   }, [])
 
   return (
-    <section className="max-w-[480px] mx-auto bg-[#0b0f14]">
+    <section className="max-w-[480px] mx-auto bg-[#0b0f14]" style={{ containerType: 'inline-size' }}>
       {!scrolled && (
         <div className="fixed left-6 bottom-[calc(env(safe-area-inset-bottom)+30px)] z-30 text-white/80 text-xs flex flex-col items-center animate-bounce pointer-events-none">
           <span>스크롤</span><span>▼</span>
@@ -438,6 +438,7 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
 
 function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
   if (!cut.src) return <TextScene card={cut.card ?? { lines: [] }} />
+  if (cut.review) return <ReviewCard src={cut.src} review={cut.review} />
   return (
     <div className="relative" style={{ aspectRatio: `1 / ${cut.ratio}` }}>
       <img
@@ -497,6 +498,28 @@ function TextScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
   )
 }
 
+/** 실제 후기 카드 — 휴대폰 화면 틀 안에 가림 처리한 캡처. 화면에 들어오면 아래에서 올라오듯 나타난다 */
+function ReviewCard({ src, review }: { src: string; review: NonNullable<WebtoonCut['review']> }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [shown, setShown] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setShown(true); io.disconnect() } }, { threshold: 0.25 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  return (
+    <div ref={ref} className="bg-[#0b0f14] px-6 pt-10 pb-8 flex flex-col items-center">
+      {review.header && <p className="text-[17px] font-bold text-white mb-5">{review.header}</p>}
+      <div className={`w-[86%] rounded-[28px] border-[6px] border-[#1f2937] bg-[#111] p-2 shadow-2xl transition-all duration-700 ${shown ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}>
+        <img src={r2Proxy(src)} alt="수강생 후기" loading="lazy" decoding="async" className="w-full block rounded-[20px]" />
+      </div>
+      <p className="mt-3 text-[11px] text-white/55 text-center" style={{ wordBreak: 'keep-all' }}>{review.note}</p>
+    </div>
+  )
+}
+
 /** 빈 글쓰기 화면 → 커서 깜빡임 → AI 초안이 한 줄씩 채워짐(약 2.5초) */
 function TypingDraft({ run, className = '' }: { run: boolean; className?: string }) {
   const [n, setN] = useState(0)
@@ -520,49 +543,69 @@ function TypingDraft({ run, className = '' }: { run: boolean; className?: string
   )
 }
 
+// 말풍선 — PM 대사목록_v6 '말풍선규격'(청월당 원본 11장 측정값). 크기는 모두 그림 폭(W) 기준이라 cqw(웹툰 영역 폭의 %)로 쓴다.
+const SIDE = '7.7cqw' // 좌우 바깥 여백
 function BubbleView({ b }: { b: Bubble }) {
-  // 위치: 그림 높이 기준 %. 아래쪽(60% 넘음)은 말풍선 아래 끝을 그 위치에 맞춘다
-  const pos: React.CSSProperties = { top: `${Math.min(b.top, 94)}%` }
-  if (b.align === 'left') pos.left = 12
-  else if (b.align === 'right') pos.right = 12
+  const anchorBottom = b.anchor ? b.anchor === 'bottom' : b.top > 60
+  const pos: React.CSSProperties = { top: `${b.top}%` }
+  if (b.align === 'left') pos.left = SIDE
+  else if (b.align === 'right') pos.right = SIDE
   else pos.left = '50%'
   const tx = b.align === 'center' ? 'translateX(-50%)' : ''
-  const ty = b.top > 60 ? 'translateY(-100%)' : ''
+  const ty = anchorBottom ? 'translateY(-100%)' : ''
   if (tx || ty) pos.transform = `${tx} ${ty}`.trim()
-  // 청월당 웹툰과 같은 모양(2026-10-19 원본 캡처 기준): 글자는 가운데 정렬·보통 굵기·짧은 줄, 줄바꿈은 단어 단위
-  const text = { wordBreak: 'keep-all', textWrap: 'balance' } as React.CSSProperties
-  if (b.w) pos.width = `${b.w}%`
+  const text: React.CSSProperties = { wordBreak: 'keep-all', textWrap: 'balance', fontSize: '4cqw', lineHeight: '7.2cqw', fontWeight: 500 }
+  const maxW = b.maxW ? `${b.maxW}cqw` : undefined
   switch (b.type) {
     case 'narration':
-      // 흰 사각 + 얇은 검은 테두리, 넓게(화면 폭 55~72%), 여백 넉넉히
+      // 흰 사각, 모서리·그림자 없음, 0.36%W 검은 테두리, 폭 50~80%W(글자에 맞춤)
       return (
-        <p className="absolute bg-[#fbfbf9] text-[#111] border-[1.5px] border-[#111] px-6 py-5 text-[14.5px] leading-[1.7] font-normal text-center"
-          style={{ ...pos, ...text, minWidth: b.w ? undefined : '55%', maxWidth: '72%' }}>{b.text}</p>
+        <p className="absolute bg-white text-[#111] text-center"
+          style={{ ...pos, ...text, border: '0.36cqw solid #111', padding: '4.6cqw 5.3cqw', minWidth: b.maxW ? undefined : '50cqw', maxWidth: maxW ?? '80cqw', width: b.w ? `${b.w}cqw` : 'max-content' }}>
+          {b.text}
+        </p>
       )
     case 'dark_box':
-      // 검은 사각 + 흰 글자(전환)
-      return <p className="absolute bg-black text-white px-5 py-3 text-[14px] leading-[1.6] font-normal text-center" style={{ ...pos, ...text, maxWidth: '60%' }}>{b.text}</p>
-    case 'sfx':
-      // 손글씨 효과음: 흰 글자 + 얇은 검은 외곽선, 기울임
+      // 검은 사각, 테두리 없음, 폭 약 41%W, 한 줄 높이 약 22%W
       return (
-        <p className="absolute text-[48px] font-extrabold text-white tracking-[-0.02em] [-webkit-text-stroke:1.2px_#111] [paint-order:stroke_fill] drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)]"
-          style={{ ...pos, rotate: '-12deg', fontFamily: '"Nanum Pen Script","Gaegu",cursive', fontStyle: 'italic' }}>{b.text}</p>
+        <p className="absolute bg-black text-white text-center flex items-center justify-center"
+          style={{ ...pos, ...text, width: b.w ? `${b.w}cqw` : '41cqw', minHeight: '22cqw', padding: '4cqw 5cqw' }}>
+          {b.text}
+        </p>
+      )
+    case 'sfx':
+      // 굵은 손글씨, 흰 글자 + 0.5%W 검은 외곽선, 글자 높이 12~20%W, -8°~-15°
+      return (
+        <p className="absolute text-white leading-none [paint-order:stroke_fill]"
+          style={{ ...pos, fontSize: '14cqw', fontWeight: 900, WebkitTextStroke: '0.5cqw #111', rotate: '-10deg', fontFamily: '"Nanum Pen Script","Gaegu",cursive' }}>
+          {b.text}
+        </p>
       )
     case 'caption':
-      return <p className="absolute text-[10.5px] leading-[1.5] text-white/85 bg-black/55 px-2.5 py-1.5" style={{ ...pos, ...text, maxWidth: '80%' }}>{b.text}</p>
-    default: {
-      // 대사: 거의 둥근 흰 타원 + 얇은 회색 테두리 + 가는 선 꼬리(말하는 사람 쪽). 아래쪽 말풍선은 꼬리를 위로
-      const up = b.tail === 'up' || (b.tail == null && b.top > 60)
-      const tailX = b.tailX ?? (b.align === 'right' ? 35 : b.align === 'left' ? 65 : 50)
+      // 작은 출처·주석: 2.4%W 흰색 70%, 그림 맨 아래 가운데
       return (
-        <div className="absolute" style={{ ...pos, maxWidth: '50%', minWidth: '34%' }}>
-          <p className="relative bg-[#f8fafc] text-[#111] rounded-[50%] border border-black/30 shadow-[0_1px_3px_rgba(0,0,0,0.35)] px-6 py-6 text-[13.5px] leading-[1.6] font-normal text-center"
-            style={text}>
+        <p className="absolute text-center text-white/70"
+          style={{ ...pos, left: '50%', right: undefined, transform: `translateX(-50%)${anchorBottom ? ' translateY(-100%)' : ''}`, width: '90cqw', fontSize: '2.4cqw', lineHeight: 1.35, wordBreak: 'keep-all' }}>
+          {b.text}
+        </p>
+      )
+    default: {
+      // 대사: 타원(#F7F8FB, 0.22%W 테두리), 폭 42~53%W(기본 48%W), 꼬리는 얇은 삼각형(밑변 2.7%W, 길이 약 8%W) — 말하는 사람 쪽
+      const up = b.tail === 'up' || (b.tail == null && anchorBottom)
+      const tailX = b.tailX ?? (b.align === 'right' ? 30 : b.align === 'left' ? 70 : 50)
+      const width = b.w ? `${b.w}cqw` : maxW ? `min(48cqw, ${maxW})` : '48cqw'
+      return (
+        <div className="absolute" style={{ ...pos, width }}>
+          <p className="relative bg-[#F7F8FB] text-[#111] text-center rounded-[50%] flex items-center justify-center"
+            style={{ ...text, border: '0.22cqw solid #111', padding: '7cqw 6cqw', minHeight: `calc(${width} * 0.85)` }}>
             {b.text}
           </p>
           {b.tail !== 'none' && (
-            <span className="absolute w-[1.5px] h-[22px] bg-[#f8fafc] shadow-[0_0_1px_rgba(0,0,0,0.6)]"
-              style={{ left: `${tailX}%`, ...(up ? { bottom: '100%' } : { top: '100%' }), rotate: `${tailX < 50 ? 12 : tailX > 50 ? -12 : 0}deg` }} />
+            <svg className="absolute overflow-visible" width="1" height="1" aria-hidden="true"
+              style={{ left: `${tailX}%`, ...(up ? { top: 0 } : { bottom: 0 }), width: '2.7cqw', height: '8cqw', transform: `translate(-50%, ${up ? '-85%' : '85%'}) rotate(${tailX < 45 ? (up ? -18 : 18) : tailX > 55 ? (up ? 18 : -18) : 0}deg)` }}
+              viewBox="0 0 10 30" preserveAspectRatio="none">
+              <path d={up ? 'M0 30 L5 0 L10 30' : 'M0 0 L5 30 L10 0'} fill="#F7F8FB" stroke="#111" strokeWidth="0.8" vectorEffect="non-scaling-stroke" />
+            </svg>
           )}
         </div>
       )

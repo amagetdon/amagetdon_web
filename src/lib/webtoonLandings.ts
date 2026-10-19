@@ -9,11 +9,14 @@ export interface Bubble {
   type: BubbleType
   text: string
   speaker?: string
-  /** 그림 높이 기준 위치(%) — 말풍선 위쪽 기준 */
+  /** 그림 높이 기준 위치(%) — anchor 가 top 이면 말풍선 위 끝, bottom 이면 아래 끝(없으면 60% 넘을 때 bottom) */
   top: number
   align: 'left' | 'center' | 'right'
+  anchor?: 'top' | 'bottom'
   /** 폭(그림 폭 기준 %). 없으면 종류별 기본 */
   w?: number
+  /** 최대 폭(그림 폭 기준 %) — 옆 얼굴을 피하려고 줄을 더 일찍 바꿀 때 */
+  maxW?: number
   /** 대사 꼬리 방향(기본: 위쪽 말풍선은 아래로, 아래쪽 말풍선은 위로) · 꼬리 가로 위치(말풍선 폭 기준 %) */
   tail?: 'up' | 'down' | 'none'
   tailX?: number
@@ -37,6 +40,8 @@ export interface WebtoonCut {
     /** typing: 빈 화면에 초안이 한 줄씩 채워지는 연출 */
     animation?: 'typing'
   }
+  /** 실제 후기 카드(src = 가림 처리한 캡처) — 휴대폰 화면 틀 안에 넣어 보여 준다 */
+  review?: { header?: string; note: string }
 }
 
 export interface AskStep {
@@ -87,7 +92,7 @@ import { CUTS as MINRORO_CUTS } from './webtoon-cuts/minroro-blog'
 
 const BASE = '/webtoon/minroro-blog'
 
-// 스토리보드 v5(교안 그대로 소구, 2026-10-19 PM) — 그림 번호 = PM 데모_v5 파일 앞 두 자리. C14·C22·C23·C26 은 글자 장면
+// 스토리보드 v6(교안 + 129 상세 실제 후기, 2026-10-19 PM) — 그림 번호 = PM 데모_v6 파일 앞 두 자리
 export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
   'minroro-blog': {
     slug: 'minroro-blog',
@@ -95,7 +100,7 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
     liveFallback: '○월 ○일(○) 저녁 7시 30분',
     seo: {
       title: 'AI 블로그 수익화 정답지 | 민로로 무료 라이브',
-      description: '방향부터 잡고, AI로 빠르게. 블로그로 돈이 되는 방향과 AI로 빠르게 실행하는 방법을 유튜브 무료 라이브에서 보여 드려요.',
+      description: '누가, 왜 돈을 주는지부터. 블로그로 돈을 주는 사람(사장님·업체·판매자·네이버)과 AI로 빠르게 실행하는 방법을 유튜브 무료 라이브에서 보여 드려요.',
       image: `${BASE}/og.jpg`,
     },
     cover: {
@@ -103,13 +108,13 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
       video: `${BASE}/cover.mp4`,
       kicker: '민로로',
       title: 'AI 블로그 수익화 정답지',
-      quote: '방향부터 잡고, AI로 빠르게.',
+      quote: '누가, 왜 돈을 주는지부터.',
       cta: 'AI 블로그 수익화 정답지 받아보기',
       ctaSub: '무료 · 1분',
       note: '유튜브 무료 라이브 · {live}',
       detailsSummary: '무료 라이브 더 알아보기',
       details: [
-        '무엇을 하나요? 블로그로 돈이 되는 방향(누가, 무엇에 돈을 주는지)과 AI로 빠르게 실행하는 방법을 실제 도구 화면으로 보여 드려요.',
+        '무엇을 하나요? 블로그로 누가, 왜 돈을 주는지(사장님·업체·판매자·네이버)와 AI로 빠르게 실행하는 방법을 실제 도구 화면으로 보여 드려요.',
         '참여하면 네 가지 자료를 드려요: AI 블로그 수익화 정답지 · 온라인 수익화 로드맵 · 돈 되는 비밀링크 175개 · AI 분석 미니 봇.',
         '무료 라이브는 다시보기가 없어요. 시간 맞춰 들어와 주세요.',
         '라이브 안에서 유료 과정 안내가 있을 수 있어요. 본 강의는 수익을 보장하지 않으며, 결과는 개인의 실행에 따라 다릅니다.',
@@ -119,11 +124,11 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
       skipBubble: '웹툰은 다음에, 바로 신청할게요!',
       endCta: '내 블로그 방향 확인하기',
       endNote: '유튜브 무료 라이브 · 다시보기 없음',
-      // 컷·말풍선은 PM 대사목록_v5.json 에서 자동 생성(scripts/webtoon-dialogue.mjs → src/lib/webtoon-cuts/minroro-blog.ts)
+      // 컷·말풍선은 PM 대사목록_v6.json 에서 자동 생성(scripts/webtoon-dialogue.mjs → src/lib/webtoon-cuts/minroro-blog.ts)
       cuts: MINRORO_CUTS,
     },
-    chatBg: `${BASE}/31.webp`,
-    doneBg: `${BASE}/30.webp`,
+    chatBg: `${BASE}/35.webp`,
+    doneBg: `${BASE}/34.webp`,
     speaker: '민로로',
     signup: {
       line: '어서 오세요, 민로로예요.\n무료 라이브 자리는 카카오로 1초면 잡아 드려요.',
