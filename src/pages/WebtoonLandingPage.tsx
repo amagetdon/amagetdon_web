@@ -19,15 +19,16 @@ import { webhookScheduleService } from '../services/webhookScheduleService'
 import { landingCategoryService } from '../services/landingCategoryService'
 import LiveCalendarCta from '../components/LiveCalendarCta'
 import SeoHead from '../components/SeoHead'
-import { WEBTOON_LANDINGS, CONCERN_MAX, type Bubble, type WebtoonCut, type WebtoonLanding, type AskStep } from '../lib/webtoonLandings'
+import { WEBTOON_LANDINGS, CONCERN_MAX, type Bubble, type WebtoonCut, type WebtoonLanding, type AskStep, type Paywall } from '../lib/webtoonLandings'
 
 // 웹툰식 랜딩 /w/:slug — 표지(W1) → 웹툰(W2) → 카카오 신청(W3) → 자동 신청 저장(W4) → 선택 질문 3개(W5·W6) → 완료(W7).
 // 화면 흐름: PM 스토리보드 v3 '5 · 화면 흐름표' + 6장 권장안 R1~R5. 강의 상세·기존 신청 흐름과는 별개 페이지이고,
 // 신청은 강의 상세와 같은 서버 함수(enroll_free)·알림톡·전환 이벤트를 쓴다.
 // 단계는 주소 ?step= 로 나누고 새로고침 없이 바꾼다(뒤로 가기 = 앞 단계, 새로고침해도 그 단계에서 이어 보기).
 
-type Step = 'cover' | 'webtoon' | 'signup' | 'saved' | 'ask1' | 'ask2' | 'ask3' | 'done'
-const STEPS: Step[] = ['cover', 'webtoon', 'signup', 'saved', 'ask1', 'ask2', 'ask3', 'done']
+// confirm = v7.1 페이월의 신청 확인 화면(P8). signup = 예전 대화형 카카오 화면
+type Step = 'cover' | 'webtoon' | 'confirm' | 'signup' | 'saved' | 'ask1' | 'ask2' | 'ask3' | 'done'
+const STEPS: Step[] = ['cover', 'webtoon', 'confirm', 'signup', 'saved', 'ask1', 'ask2', 'ask3', 'done']
 const ASK_STEPS: Step[] = ['ask1', 'ask2', 'ask3']
 const GREEN = '#2ED573'
 const IN_APP_RE = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|FB4A|Line\/|NAVER\(inapp|DaumApps|BAND\/|everytimeApp/i
@@ -152,7 +153,7 @@ export default function WebtoonLandingPage() {
     if ((ASK_STEPS.includes(step) || step === 'done') && !user) { go('cover', true); return }
     if (step === 'done' && owned === false) { go('cover', true); return }
     // 이미 신청한 사람이 신청 화면에 오면 바로 완료 화면
-    if (step === 'signup' && user && owned === true) {
+    if ((step === 'signup' || step === 'confirm') && user && owned === true) {
       ss.set(`wt_already_${slug}`, '1')
       go('done', true)
     }
@@ -245,7 +246,8 @@ export default function WebtoonLandingPage() {
       })
       setOwnedBy({ uid: user.id, value: true }); ss.del(`wt_already_${slug}`)
       refreshProfile().catch(() => {})
-      window.setTimeout(() => go('ask1', true), 1200)
+      // 선택 질문이 있으면 질문으로, 없으면(v7.1) 바로 완료 — 안쪽이 열림
+      window.setTimeout(() => go(cfg.asks.length ? 'ask1' : 'done', true), 1200)
     })()
   }, [step, authLoading, user, profile, course, landingName, profileComplete, cfg, slug, savedPath, go, navigate, refreshProfile])
 
@@ -265,7 +267,21 @@ export default function WebtoonLandingPage() {
       <SeoHead override={{ title: cfg.seo.title, description: cfg.seo.description, ogImage: cfg.seo.image, twitterImage: cfg.seo.image }} />
       {step === 'cover' && <Cover cfg={cfg} fill={fill} onNext={() => go('webtoon')} />}
       {step === 'webtoon' && (
-        <Webtoon cfg={cfg} onNext={(via) => { pushEvent(via === 'skip' ? 'webtoon_skip' : 'webtoon_end_click', { landing: slug }); go('signup') }} />
+        <Webtoon
+          cfg={cfg} liveAt={course?.scheduled_at ?? null} unlocked={owned === true}
+          onNext={(via) => { pushEvent(via === 'skip' ? 'webtoon_skip' : 'webtoon_end_click', { landing: slug }); go('signup') }}
+          footer={cfg.paywall ? (
+            <Paywall
+              pw={cfg.paywall} fill={fill} unlocked={owned === true}
+              onApply={() => { pushEvent('offer_click', { landing: slug }); go('confirm') }}
+              openChatUrl={course?.after_purchase_url ?? null}
+              tracking={course ? { contentId: buildContentId('course', course.id), contentName: course.title, instructorName: course.instructor?.name ?? null, email: profile?.email, phone: profile?.phone } : null}
+            />
+          ) : undefined}
+        />
+      )}
+      {step === 'confirm' && cfg.paywall && (
+        <ConfirmScreen cfg={cfg} pw={cfg.paywall} fill={fill} onApply={startSignup} onBack={() => go('webtoon')} busy={authLoading} loggedIn={!!user} />
       )}
       {step === 'signup' && (
         <ChatScreen bg={cfg.chatBg} speaker={cfg.speaker} line={fill(cfg.signup.line)} onBack={() => go('webtoon')}>
@@ -339,7 +355,7 @@ function Cover({ cfg, fill, onNext }: { cfg: WebtoonLanding; fill: (s: string) =
             className="w-full h-[60px] rounded-xl border-2 border-white bg-white/10 backdrop-blur-sm text-white font-bold active:scale-[0.98] transition flex flex-col items-center justify-center"
           >
             <span className="text-[17px]">{c.cta}</span>
-            <span className="text-[11px] font-medium text-white/80">{c.ctaSub}</span>
+            {c.ctaSub && <span className="text-[11px] font-medium text-white/80">{c.ctaSub}</span>}
           </button>
           <p className="mt-3 text-[12px] text-white/70">{fill(c.note)}</p>
           <a href="#more" className="mt-2 text-[11px] text-white/50 underline">{c.detailsSummary} ▾</a>
@@ -354,8 +370,27 @@ function Cover({ cfg, fill, onNext }: { cfg: WebtoonLanding; fill: (s: string) =
 }
 
 /* ───────── W2 웹툰 ───────── */
-function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 'end') => void }) {
+function Webtoon({ cfg, onNext, footer, liveAt, unlocked }: {
+  cfg: WebtoonLanding; onNext: (via: 'skip' | 'end') => void; footer?: ReactNode; liveAt?: string | null; unlocked?: boolean
+}) {
   const [scrolled, setScrolled] = useState(false)
+  const [pastTop, setPastTop] = useState(false)
+  const [offerVisible, setOfferVisible] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 60000)
+    return () => window.clearInterval(t)
+  }, [])
+  useEffect(() => {
+    if (!footer) return
+    const el = document.getElementById('wt-offer')
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => setOfferVisible(e.isIntersecting), { threshold: 0.2 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [footer])
+  const toPaywall = () => document.getElementById('paywall')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const toOffer = () => document.getElementById('wt-offer')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   const [endVisible, setEndVisible] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const sent = useRef(new Set<number>())
@@ -377,6 +412,7 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
       raf = requestAnimationFrame(() => {
         raf = 0
         if (window.scrollY > 20) setScrolled(true)
+        setPastTop(window.scrollY > document.documentElement.scrollHeight * 0.2)
         ss.set(key, String(Math.round(window.scrollY)))
         const max = document.documentElement.scrollHeight - window.innerHeight
         const pct = max > 0 ? (window.scrollY / max) * 100 : 100
@@ -409,24 +445,38 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
       )}
       {groupCuts(cfg.webtoon.cuts).map((g, i) =>
         Array.isArray(g) ? <ReviewDeck key={g[0].id} cuts={g} /> : <Cut key={g.id} cut={g} eager={i < 2} />)}
-      <div ref={endRef} className="px-6 pt-10 pb-[calc(env(safe-area-inset-bottom)+48px)] flex flex-col items-center gap-3">
-        <button
-          type="button" onClick={() => onNext('end')}
-          className="w-full h-14 rounded-xl text-black font-bold text-[17px] active:scale-[0.98] transition"
-          style={{ background: GREEN }}
-        >
-          {cfg.webtoon.endCta}
-        </button>
-        <p className="text-[12px] text-white/60">{cfg.webtoon.endNote}</p>
-      </div>
+      {footer ? (
+        <div ref={endRef}>{footer}</div>
+      ) : (
+        <div ref={endRef} className="px-6 pt-10 pb-[calc(env(safe-area-inset-bottom)+48px)] flex flex-col items-center gap-3">
+          <button
+            type="button" onClick={() => onNext('end')}
+            className="w-full h-14 rounded-xl text-black font-bold text-[17px] active:scale-[0.98] transition"
+            style={{ background: GREEN }}
+          >
+            {cfg.webtoon.endCta}
+          </button>
+          <p className="text-[12px] text-white/60">{cfg.webtoon.endNote}</p>
+        </div>
+      )}
 
-      {!endVisible && (
+      {/* P7 떠 있는 바 — 위 20% 지나면, 오퍼 카드가 보이면 숨김. 이미 신청했으면 없음 */}
+      {footer && !unlocked && pastTop && !offerVisible && (
+        <div className="fixed z-40 bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[480px] px-4 pb-[calc(env(safe-area-inset-bottom)+12px)] pt-3 bg-gradient-to-t from-black via-black/90 to-transparent">
+          <button type="button" onClick={toOffer} className="w-full h-14 rounded-xl text-black font-bold flex items-center justify-between px-5" style={{ background: GREEN }}>
+            <span className="text-[13px] font-semibold">{liveRemain(liveAt, now) ?? '유튜브 무료 라이브'}</span>
+            <span className="text-[16px]">{cfg.paywall?.floatButton ?? '신청하기'} ›</span>
+          </button>
+        </div>
+      )}
+
+      {!endVisible && !(footer && pastTop) && (
         <div className="fixed z-40 right-[max(22px,calc(50vw-240px+22px))] bottom-[calc(env(safe-area-inset-bottom)+26px)] flex items-center gap-2">
           {!scrolled && (
             <span className="bg-white text-black text-[12px] font-bold rounded-full px-3 py-2 shadow-lg">{cfg.webtoon.skipBubble}</span>
           )}
           <button
-            type="button" aria-label="웹툰 건너뛰기" onClick={() => onNext('skip')}
+            type="button" aria-label="웹툰 건너뛰기" onClick={() => { if (footer) { pushEvent('webtoon_skip', { landing: cfg.slug }); toPaywall() } else onNext('skip') }}
             className="w-10 h-10 rounded-full bg-white text-black font-black text-lg shadow-lg flex items-center justify-center active:scale-95"
           >
             »
@@ -770,46 +820,68 @@ function Ask({ cfg, slug, ask, index, total, fill, onBack, onNext }: {
   )
 }
 
-/* ───────── W7 완료 ───────── */
-function Done({ cfg, fill, already, openChatUrl, tracking, liveEvent }: {
-  cfg: WebtoonLanding; fill: (s: string) => string; already: boolean; openChatUrl: string | null
-  tracking: { contentId: string; contentName: string; instructorName: string | null; email?: string | null; phone?: string | null } | null
-  liveEvent: { courseId: number; title: string; startsAt: string; openchatUrl?: string | null } | null
-}) {
+/* ───────── 오픈채팅 입장 버튼 ───────── */
+type OpenChatTracking = { contentId: string; contentName: string; instructorName: string | null; email?: string | null; phone?: string | null } | null
+type LiveEventProp = { courseId: number; title: string; startsAt: string; openchatUrl?: string | null } | null
+
+// 사용자가 눌렀을 때만 연다(팝업 차단 방지). 입장 기록·전환 이벤트는 AfterPurchaseLinkModal 과 같게
+function OpenChatButton({ url, tracking }: { url: string; tracking: OpenChatTracking }) {
   const navigatingRef = useRef(false)
   const sameTab = useMemo(() => IN_APP_RE.test(navigator.userAgent), [])
-
-  // 오픈채팅 입장 — 사용자가 눌렀을 때만 연다(팝업 차단 방지). 입장 기록·전환 이벤트는 AfterPurchaseLinkModal 과 같게
   const recordJoin = () => {
     trackOpenChatJoin({
-      dedupeKey: openChatUrl ?? '',
+      dedupeKey: url,
       contentId: tracking?.contentId, contentName: tracking?.contentName, instructorName: tracking?.instructorName,
       user: { email: tracking?.email, phone: tracking?.phone },
     })
     return logOpenChat(tracking?.contentId, true)
   }
   const enter = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (!openChatUrl) return
     if (!sameTab) { void recordJoin(); return }
     e.preventDefault()
     if (navigatingRef.current) return
     navigatingRef.current = true
-    const goTo = () => { window.location.href = openChatUrl }
+    const goTo = () => { window.location.href = url }
     Promise.race([recordJoin(), new Promise((r) => setTimeout(r, 800))]).then(goTo, goTo)
   }
+  return (
+    <a
+      href={url} target={sameTab ? '_self' : '_blank'} rel="noopener noreferrer" onClick={enter}
+      className="w-full h-14 rounded-xl text-black font-bold text-[17px] flex items-center justify-center no-underline" style={{ background: GREEN }}
+    >
+      오픈채팅 입장하기
+    </a>
+  )
+}
 
+/* ───────── W7 완료 ───────── */
+function Done({ cfg, fill, already, openChatUrl, tracking, liveEvent }: {
+  cfg: WebtoonLanding; fill: (s: string) => string; already: boolean; openChatUrl: string | null
+  tracking: OpenChatTracking; liveEvent: LiveEventProp
+}) {
+  const pw = cfg.paywall
+  if (pw) {
+    // v7.1 P9 — 안쪽이 열림
+    return (
+      <section className="max-w-[480px] mx-auto min-h-[100dvh] bg-[#0b0f14] px-5 pt-[calc(env(safe-area-inset-top)+36px)] pb-[calc(env(safe-area-inset-bottom)+32px)]">
+        <img src={r2Proxy(pw.lastImage)} alt="" className="w-28 h-28 rounded-full object-cover mx-auto border-2" style={{ borderColor: GREEN }} />
+        <h1 className="mt-5 text-[24px] font-black text-center leading-snug">{fill(already ? pw.alreadyLine : pw.doneTitle)}</h1>
+        <div className="mt-6"><LockedList pw={pw} unlocked /></div>
+        <p className="mt-6 text-[16px] font-bold text-center leading-relaxed" style={{ color: GREEN }}>{fill(pw.doneLine)}</p>
+        <div className="mt-5 space-y-3">
+          {openChatUrl && <OpenChatButton url={openChatUrl} tracking={tracking} />}
+          {liveEvent && <div className="rounded-xl bg-white"><LiveCalendarCta event={liveEvent} /></div>}
+        </div>
+        <p className="mt-4 text-[13px] text-white/80 text-center">{cfg.done.notice}</p>
+        <p className="mt-4 text-[10px] text-white/45 leading-relaxed text-center">{cfg.done.legal}</p>
+      </section>
+    )
+  }
   return (
     <ChatScreen bg={cfg.doneBg} speaker={cfg.speaker} line={fill(already ? cfg.done.already : cfg.done.line)}>
       <p className="text-[13px] text-white/85 mb-3">{cfg.done.notice}</p>
       {cfg.done.gift && <p className="text-[13px] mb-3" style={{ color: GREEN }}>{cfg.done.gift}</p>}
-      {openChatUrl && (
-        <a
-          href={openChatUrl} target={sameTab ? '_self' : '_blank'} rel="noopener noreferrer" onClick={enter}
-          className="w-full h-14 rounded-xl text-black font-bold text-[17px] flex items-center justify-center no-underline" style={{ background: GREEN }}
-        >
-          오픈채팅 입장하기
-        </a>
-      )}
+      {openChatUrl && <OpenChatButton url={openChatUrl} tracking={tracking} />}
       {liveEvent && (
         <div className="mt-3 rounded-xl bg-white">
           <LiveCalendarCta event={liveEvent} />
@@ -817,6 +889,169 @@ function Done({ cfg, fill, already, openChatUrl, tracking, liveEvent }: {
       )}
       <p className="mt-4 text-[10px] text-white/50 leading-relaxed">{cfg.done.legal}</p>
     </ChatScreen>
+  )
+}
+
+/* ───────── 페이월(v7.1 P1~P7) — 웹툰 바로 아래, 같은 화면 ───────── */
+/** P2 잠긴 목차 — 제목은 보이고 설명만 흐림. unlocked 면 다 보임 */
+function LockedList({ pw, unlocked }: { pw: Paywall; unlocked: boolean }) {
+  const blur: React.CSSProperties = unlocked ? {} : { filter: 'blur(5px)', userSelect: 'none' }
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+      <p className="text-[12px] font-bold tracking-wide" style={{ color: GREEN }}>{pw.lockedKicker}</p>
+      <h2 className="mt-1 text-[20px] font-black">{pw.lockedTitle}</h2>
+      <ol className="mt-4 space-y-3">
+        {pw.items.map((it) => (
+          <li key={it.no} className="flex gap-3">
+            <span className="text-[15px] font-black w-7 shrink-0" style={{ color: GREEN }}>{it.no}</span>
+            <div className="min-w-0">
+              <p className="text-[15px] font-bold">{it.title}</p>
+              <p className="text-[13px] text-white/70 mt-0.5 transition-[filter] duration-700" style={blur} aria-hidden={!unlocked}>
+                {it.desc}
+              </p>
+            </div>
+            {!unlocked && <span className="ml-auto text-white/40 text-[13px] shrink-0" aria-label="잠김">🔒</span>}
+          </li>
+        ))}
+      </ol>
+      <p className="mt-5 text-[13px] font-bold text-white/80">{pw.extrasLabel}</p>
+      <ul className="mt-2 space-y-2">
+        {pw.extras.map((x) => (
+          <li key={x.label} className="flex gap-2 text-[13px]">
+            <span className="font-black shrink-0" style={{ color: GREEN }}>{x.label}</span>
+            <span className="text-white/80 transition-[filter] duration-700" style={blur}>{x.title}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function Paywall({ pw, fill, unlocked, onApply, openChatUrl, tracking }: {
+  pw: Paywall; fill: (s: string) => string; unlocked: boolean; onApply: () => void
+  openChatUrl: string | null; tracking: OpenChatTracking
+}) {
+  const reviewCuts: WebtoonCut[] = pw.reviews.map((r, i) => ({
+    id: `review-${i}`, src: r.src, ratio: 1, bubbles: [], review: { note: r.note, ...(i === 0 ? { header: pw.reviewsTitle } : {}) },
+  }))
+  return (
+    <div className="bg-[#0b0f14] text-white">
+      {/* P1 생각 말풍선 카드 */}
+      <div className="px-6 pt-12">
+        <div className="relative rounded-[28px] bg-[#F7F8FB] text-[#111] px-6 py-6 text-center text-[15px] leading-relaxed font-medium" style={{ wordBreak: 'keep-all' }}>
+          {pw.thought.map((l) => <p key={l}>{l}</p>)}
+          <span className="absolute -bottom-2 left-10 w-4 h-4 rotate-45 bg-[#F7F8FB]" />
+        </div>
+        <p className="mt-4 text-[12px] font-bold" style={{ color: GREEN }}>민로로</p>
+      </div>
+      {/* P2 잠긴 목차 */}
+      <div id="paywall" className="px-5 pt-8"><LockedList pw={pw} unlocked={unlocked} /></div>
+      {/* P3 들어야 하는 이유 */}
+      <div className="px-6 pt-10 text-center">
+        <h3 className="text-[18px] font-black">{pw.reasonsTitle}</h3>
+        <ul className="mt-4 space-y-3">
+          {pw.reasons.map((r) => (
+            <li key={r.main} className="rounded-xl bg-white/[0.05] px-4 py-3">
+              <p className="text-[15px] font-bold">“{r.main}”</p>
+              <p className="text-[12px] text-white/60 mt-0.5">{r.sub}</p>
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 text-[14px] font-bold" style={{ color: GREEN }}>{pw.reasonsTail}</p>
+      </div>
+      {/* P4 실제 후기 */}
+      <ReviewDeck cuts={reviewCuts} />
+      {/* P5 마지막 제안 */}
+      <div className="relative mx-5 mt-4 overflow-hidden rounded-2xl" style={{ aspectRatio: '4 / 5' }}>
+        <img src={r2Proxy(pw.lastImage)} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+        <p className="absolute left-4 right-4 bottom-4 rounded-[24px] bg-[#F7F8FB] text-[#111] px-5 py-4 text-center text-[15px] font-medium leading-relaxed" style={{ wordBreak: 'keep-all' }}>{pw.lastLine}</p>
+      </div>
+      {/* P6 오퍼 카드 (이미 신청했으면 보관 카드) */}
+      <div id="wt-offer" className="px-5 pt-8 pb-[calc(env(safe-area-inset-bottom)+40px)]">
+        {unlocked ? (
+          <div className="rounded-2xl border p-5 text-center" style={{ borderColor: GREEN }}>
+            <p className="text-[17px] font-black">{fill(pw.alreadyLine)}</p>
+            {openChatUrl && <div className="mt-4"><OpenChatButton url={openChatUrl} tracking={tracking} /></div>}
+          </div>
+        ) : (
+          <div className="rounded-2xl border-2 p-5 bg-white/[0.03]" style={{ borderColor: GREEN }}>
+            <p className="text-[12px] font-bold" style={{ color: GREEN }}>{pw.offer.kicker}</p>
+            <h3 className="mt-1 text-[19px] font-black">{pw.offer.title}</h3>
+            <ul className="mt-3 space-y-2">
+              {pw.offer.items.map((it, i) => (
+                <li key={it} className="flex items-center gap-2 text-[15px]">
+                  <span style={{ color: GREEN }}>✓</span>
+                  <span className="font-medium">{it}</span>
+                  {pw.offer.bonusLast && i === pw.offer.items.length - 1 && (
+                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-yellow-300 text-black">보너스</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-4 flex items-baseline justify-between border-t border-white/10 pt-4">
+              <span className="text-[13px] text-white/60">참여비</span>
+              <span className="text-[24px] font-black">{pw.offer.price}</span>
+            </div>
+            <button type="button" onClick={onApply} className="mt-4 w-full h-14 rounded-xl text-black font-bold text-[17px] active:scale-[0.98] transition" style={{ background: GREEN }}>
+              {pw.offer.button}
+            </button>
+            <p className="mt-2 text-[12px] text-white/60 text-center">{fill(pw.offer.note)}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** P7 떠 있는 바 — 실제 라이브까지 남은 시간(가짜 타이머 아님) + 안쪽 열어 보기 */
+function liveRemain(startsAt: string | null | undefined, now: number): string | null {
+  if (!startsAt) return null
+  const ms = new Date(startsAt).getTime() - now
+  if (!(ms > 0)) return null
+  const d = Math.floor(ms / 86400000)
+  const h = Math.floor((ms % 86400000) / 3600000)
+  const m = Math.floor((ms % 3600000) / 60000)
+  return d > 0 ? `라이브까지 ${d}일 ${h}시간` : `라이브까지 ${h}시간 ${m}분`
+}
+
+/* ───────── P8 신청 확인 ───────── */
+function ConfirmScreen({ cfg, pw, fill, onApply, onBack, busy, loggedIn }: {
+  cfg: WebtoonLanding; pw: Paywall; fill: (s: string) => string; onApply: () => void; onBack: () => void; busy: boolean; loggedIn: boolean
+}) {
+  return (
+    <section className="max-w-[480px] mx-auto min-h-[100dvh] bg-[#0b0f14] px-5 pt-[calc(env(safe-area-inset-top)+20px)] pb-[calc(env(safe-area-inset-bottom)+28px)] flex flex-col">
+      <button type="button" onClick={onBack} className="self-start h-9 px-3 rounded-full bg-white/10 text-white text-[13px]">‹ {pw.confirm.back}</button>
+      <div className="mt-8 text-center">
+        <p className="text-[12px] font-bold" style={{ color: GREEN }}>{pw.confirm.kicker}</p>
+        <h1 className="mt-2 text-[24px] font-black leading-snug">{pw.confirm.title}</h1>
+      </div>
+      <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <p className="text-[13px] font-bold text-white/70">받는 것</p>
+        <ul className="mt-2 space-y-1.5">
+          {pw.offer.items.map((it) => <li key={it} className="text-[15px]"><span style={{ color: GREEN }}>✓</span> {it}</li>)}
+        </ul>
+        <div className="mt-4 flex items-baseline justify-between border-t border-white/10 pt-4">
+          <span className="text-[13px] text-white/60">참여비</span>
+          <span className="text-[22px] font-black">{pw.confirm.price}</span>
+        </div>
+      </div>
+      <ul className="mt-5 space-y-2 text-[13px] text-white/80">
+        {pw.confirm.assurances.map((a) => <li key={a} className="flex gap-2"><span style={{ color: GREEN }}>•</span><span style={{ wordBreak: 'keep-all' }}>{fill(a)}</span></li>)}
+      </ul>
+      <div className="flex-1 min-h-6" />
+      <button
+        type="button" onClick={onApply} disabled={busy}
+        className="w-full h-[60px] rounded-xl bg-[#FEE500] text-[#191919] font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition disabled:opacity-60"
+      >
+        <KakaoIcon />{pw.confirm.button}
+      </button>
+      {!loggedIn && (
+        <p className="text-[11px] text-white/55 text-center mt-3 leading-relaxed">
+          가입하면 <Link to="/terms" className="underline">이용약관</Link>·<Link to="/privacy" className="underline">개인정보 처리방침</Link>에 동의하게 돼요. (만 14세 이상)
+        </p>
+      )}
+      <p className="mt-3 text-[10px] text-white/40 text-center">{cfg.done.legal}</p>
+    </section>
   )
 }
 

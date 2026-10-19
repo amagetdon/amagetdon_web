@@ -44,6 +44,40 @@ export interface WebtoonCut {
   review?: { header?: string; note: string }
 }
 
+/** 웹툰 뒤 페이월(v7.1 P1~P9) — 잠긴 안쪽 → 후기 → 마지막 제안 → 오퍼 카드 → 신청 확인 → 신청하면 안쪽이 열림.
+ *  결제 자리 = 무료 강의 신청(카카오 1초). 가짜 정가·할인율·반복 타이머는 쓰지 않는다 */
+export interface Paywall {
+  /** P1 민로로 생각 말풍선 카드 */
+  thought: string[]
+  /** P2 잠긴 목차 — 제목은 보이고 설명만 흐림(신청하면 열림) */
+  lockedKicker: string
+  lockedTitle: string
+  items: { no: string; title: string; desc: string }[]
+  extrasLabel: string
+  extras: { label: string; title: string }[]
+  /** P3 들어야 하는 이유 */
+  reasonsTitle: string
+  reasons: { main: string; sub: string }[]
+  reasonsTail: string
+  /** P4 실제 후기 */
+  reviewsTitle: string
+  reviews: { src: string; note: string }[]
+  /** P5 마지막 제안(컷 + 말풍선) */
+  lastImage: string
+  lastLine: string
+  /** P6 오퍼 카드 */
+  offer: { kicker: string; title: string; items: string[]; bonusLast?: boolean; price: string; button: string; note: string }
+  /** P7 떠 있는 바 버튼 */
+  floatButton: string
+  /** 이미 신청한 사람 — 오퍼 카드 자리 */
+  alreadyLine: string
+  /** P8 신청 확인 화면 */
+  confirm: { kicker: string; title: string; price: string; assurances: string[]; button: string; back: string; legal: string }
+  /** P9 신청 완료 */
+  doneTitle: string
+  doneLine: string
+}
+
 export interface AskStep {
   key: 'blog_exp' | 'daily_time' | 'concern'
   line: string
@@ -83,48 +117,51 @@ export interface WebtoonLanding {
   speaker: string
   signup: { line: string; buttonGuest: string; buttonMember: string; buttonSub: string; legal: string }
   saved: { line: string; full: string; fullButton: string }
+  /** 신청 뒤 선택 질문 화면. 비우면(v7.1) 신청 저장 → 바로 완료 */
   asks: AskStep[]
   skipNote: string
   done: { line: string; already: string; notice: string; gift?: string; legal: string }
+  /** 있으면 웹툰 아래에 페이월을 붙이고, 신청은 '신청 확인' 화면(P8)에서 한다(v7.1) */
+  paywall?: Paywall
 }
 
 import { CUTS as MINRORO_CUTS } from './webtoon-cuts/minroro-blog'
 
 const BASE = '/webtoon/minroro-blog'
 
-// 스토리보드 v6(교안 + 129 상세 실제 후기, 2026-10-19 PM) — 그림 번호 = PM 데모_v6 파일 앞 두 자리
+// 스토리보드 v7.1(흑월도령 오마주 · 페이월 구조 · 운 보기 문답 삭제, 2026-10-19 PM) — 그림 번호 = PM 데모_v72 파일 앞 두 자리
 export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
   'minroro-blog': {
     slug: 'minroro-blog',
     courseId: 129,
     liveFallback: '○월 ○일(○) 저녁 7시 30분',
     seo: {
-      title: 'AI 블로그 수익화 정답지 | 민로로 무료 라이브',
-      description: '누가, 왜 돈을 주는지부터. 블로그로 돈을 주는 사람(사장님·업체·판매자·네이버)과 AI로 빠르게 실행하는 방법을 유튜브 무료 라이브에서 보여 드려요.',
+      title: '민로로의 AI 블로그 수익화 | 무료 라이브',
+      description: '고액 강의 다 들어봐도, 돈 못 벌었지? 그 이유부터 바로 풀어준다. 민로로의 AI 블로그 수익화 유튜브 무료 라이브.',
       image: `${BASE}/og.jpg`,
     },
     cover: {
       poster: `${BASE}/00.webp`,
       video: `${BASE}/cover.mp4`,
-      kicker: '민로로',
-      title: 'AI 블로그 수익화 정답지',
-      quote: '누가, 왜 돈을 주는지부터.',
-      cta: 'AI 블로그 수익화 정답지 받아보기',
-      ctaSub: '무료 · 1분',
-      note: '유튜브 무료 라이브 · {live}',
+      kicker: '민로로의',
+      title: 'AI 블로그 수익화',
+      quote: '돈 못 버는 고액 강의 거르는 법까지.',
+      cta: 'AI 블로그로 월 300 바로가기',
+      ctaSub: '',
+      note: '유튜브 무료 라이브 · {live} · 무료 · 1분',
       detailsSummary: '무료 라이브 더 알아보기',
       details: [
-        '무엇을 하나요? 블로그로 누가, 왜 돈을 주는지(사장님·업체·판매자·네이버)와 AI로 빠르게 실행하는 방법을 실제 도구 화면으로 보여 드려요.',
+        '무엇을 하나요? 블로그로 누가, 왜 돈을 주는지와 AI로 빠르게 실행하는 방법을 실제 도구 화면으로 보여 드려요.',
         '참여하면 네 가지 자료를 드려요: AI 블로그 수익화 정답지 · 온라인 수익화 로드맵 · 돈 되는 비밀링크 175개 · AI 분석 미니 봇.',
         '무료 라이브는 다시보기가 없어요. 시간 맞춰 들어와 주세요.',
         '라이브 안에서 유료 과정 안내가 있을 수 있어요. 본 강의는 수익을 보장하지 않으며, 결과는 개인의 실행에 따라 다릅니다.',
       ],
     },
     webtoon: {
-      skipBubble: '웹툰은 다음에, 바로 신청할게요!',
-      endCta: '내 블로그 방향 확인하기',
+      skipBubble: '웹툰은 다음에, 안쪽부터 볼래요',
+      endCta: '안쪽 열어 보기',
       endNote: '유튜브 무료 라이브 · 다시보기 없음',
-      // 컷·말풍선은 PM 대사목록_v6.json 에서 자동 생성(scripts/webtoon-dialogue.mjs → src/lib/webtoon-cuts/minroro-blog.ts)
+      // 컷·말풍선은 PM 대사목록에서 자동 생성(scripts/webtoon-dialogue.mjs → src/lib/webtoon-cuts/minroro-blog.ts)
       cuts: MINRORO_CUTS,
     },
     chatBg: `${BASE}/35.webp`,
@@ -132,24 +169,82 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
     speaker: '민로로',
     signup: {
       line: '어서 오세요, 민로로예요.\n무료 라이브 자리는 카카오로 1초면 잡아 드려요.',
-      buttonGuest: '카카오로 1초 만에 신청하기',
-      buttonMember: '{name} 님 자리로 신청하기',
-      buttonSub: '1분이면 끝나요',
+      buttonGuest: '카카오로 1초 만에 무료 신청',
+      buttonMember: '{name} 님 자리로 무료 신청',
+      buttonSub: '',
       legal: '가입하면 이용약관·개인정보 처리방침에 동의하게 돼요. (만 14세 이상)',
     },
-    saved: { line: '자리 잡아 뒀어요, {name} 님!', full: '이번 라이브는 자리가 다 찼어요.', fullButton: '홈으로' },
-    asks: [
-      { key: 'blog_exp', line: '{name} 님, 지금 어디에 가장 가까우세요?', options: ['블로그가 처음이에요', '블로그를 하는데 수익이 적거나 없어요', '다른 부업을 해 봤어요', '은퇴 전후로 수입원을 찾아요'], why: '출발점에 따라 라이브에서 먼저 볼 부분이 달라서 여쭤봐요.', button: '다음' },
-      { key: 'daily_time', line: '하루에 블로그에 쓸 수 있는 시간은요?', options: ['30분', '1시간', '그 이상'], why: '쓸 수 있는 시간에 맞는 순서를 같이 볼게요.', button: '다음' },
-      { key: 'concern', line: '마지막으로, 블로그나 부업에서 제일 막혔던 걸 알려 주세요.\n라이브에서 같이 볼게요.', placeholder: '자유롭게 적어 주세요 (200자)', button: '신청 마치기' },
-    ],
-    skipNote: '답하지 않아도 다음으로 넘어갈 수 있어요.',
+    saved: { line: '자리 잡아 뒀다, {name}.', full: '이번 라이브는 자리가 다 찼어.', fullButton: '홈으로' },
+    // v7.1: 운 보기 문답·선택 질문 삭제(대표님) — 신청 저장 → 바로 완료
+    asks: [],
+    skipNote: '',
     done: {
-      line: '{name} 님, {live}\n유튜브 라이브에서 만나요.\n돈이 되는 기준과 자료 네 가지를 준비해 둘게요.',
-      already: '{name} 님은 이미 자리를 잡아 두셨어요.',
+      line: '전부, {live} 라이브에서 내가 직접 풀어 주지.',
+      already: '이미 자리를 잡아 뒀어. {live}에 보자.',
       notice: '무료 라이브는 다시보기가 없어요. 시간 맞춰 들어와 주세요.',
-      gift: '참여 혜택: AI 블로그 수익화 정답지 · 온라인 수익화 로드맵 · 돈 되는 비밀링크 175개 · AI 분석 미니 봇',
       legal: '본 강의는 수익을 보장하지 않으며, 결과는 개인의 실행에 따라 다릅니다. 무료 라이브에서 유료 과정 안내가 있을 수 있습니다.',
+    },
+    paywall: {
+      thought: ['혹시, 이런 생각이었냐.', "'무료 강의 다 거기서 거기 아닌가.'", '그럼 안쪽을 조금만 보여 주지.'],
+      lockedKicker: '민로로 무료 라이브의 안쪽',
+      lockedTitle: '이 라이브에서 받게 될 것',
+      items: [
+        { no: '01', title: '왜 돈을 줄까', desc: '돈을 주는 사람과 이유' },
+        { no: '02', title: '어떤 블로그에 돈을 줄까', desc: '돈 되는 손님이 오는 글' },
+        { no: '03', title: '무엇을 해 주면 되나', desc: '체험단·원고료 / 제휴·소개비 / 대행' },
+        { no: '04', title: 'AI가 해 주는 일', desc: '자료 넣기 → 초안 → 사실 확인 → 발행 실제 시연' },
+        { no: '05', title: '지금 바로 해야 할 일', desc: '내 첫 번째 고르기' },
+      ],
+      extrasLabel: '+ 라이브에서 더 풀어 주는 것',
+      extras: [
+        { label: 'LEVEL 1', title: '글 10개짜리 블로그로 당장 돈 버는 방법' },
+        { label: 'LEVEL 2', title: '클릭을 곧 수입으로 바꾸는 비밀 공식' },
+        { label: 'LEVEL 3', title: 'AI 딸깍으로 업로드할 때마다 돈 받는 방법' },
+        { label: 'LEVEL 4', title: '내 블로그에 매일 돈 붙는 자석 붙이기' },
+        { label: 'LEVEL MAX', title: '세상 모든 블로그를 나의 수입원으로 만들기' },
+      ],
+      reasonsTitle: '이 무료 강의를 들어야 하는 이유',
+      reasons: [
+        { main: '이렇게도 돈을 버는구나', sub: '가능성을 알고' },
+        { main: '나는 여기부터 하면 되겠네', sub: '내 출발점을 정하고' },
+        { main: '이건 직접 해 봐야겠다', sub: '작게라도 시작하도록' },
+      ],
+      reasonsTail: '무료 강의라도, 여러분의 시간은 쓰니까.',
+      reviewsTitle: '먼저 들은 사람들',
+      reviews: [
+        { src: `${BASE}/reviews/h1.webp`, note: '129 상세 수록 후기 원문 · 닉네임·프로필 가림 · 개인의 경험이며 결과는 사람마다 다릅니다' },
+        { src: `${BASE}/reviews/h2.webp`, note: '129 상세 수록 후기 원문 · 닉네임·프로필 가림 · 개인의 경험이며 결과는 사람마다 다릅니다' },
+        { src: `${BASE}/reviews/h3.webp`, note: '129 상세 수록 후기 원문 · 닉네임·프로필·멘션 가림 · 개인의 경험이며 결과는 사람마다 다릅니다' },
+      ],
+      lastImage: `${BASE}/24.webp`,
+      lastLine: '안쪽은 라이브에서 내가 직접 풀어 주지. 다시보기는 없어.',
+      offer: {
+        kicker: '민로로의 무료 LIVE 비책',
+        title: '참여하면 받는 것',
+        items: ['AI 블로그 수익화 정답지', '온라인 수익화 로드맵', '돈 되는 비밀링크 175개', 'AI 분석 미니 봇'],
+        bonusLast: true,
+        price: '무료',
+        button: '무료 강의 신청하고 안쪽 열기',
+        note: '카카오로 1초 · 유튜브 무료 라이브 {live}',
+      },
+      floatButton: '안쪽 열어 보기',
+      alreadyLine: '이미 자리를 잡아 뒀어. {live}에 보자.',
+      confirm: {
+        kicker: '마지막 문 · 민로로 무료 라이브',
+        title: '네 블로그, 끝까지 들어 볼 테냐.',
+        price: '0원 · 무료',
+        assurances: [
+          '유튜브 무료 라이브 · {live} · 다시보기 없음',
+          '카카오로 1초면 신청 끝',
+          '참여하면 자료 4가지',
+          '라이브에서 유료 과정 안내가 있을 수 있어요 · 수익을 보장하지 않아요',
+        ],
+        button: '카카오로 1초 만에 무료 신청',
+        back: '이전으로',
+        legal: '가입하면 이용약관·개인정보 처리방침에 동의하게 돼요. (만 14세 이상)',
+      },
+      doneTitle: '{name}, 안쪽이 열렸다.',
+      doneLine: '전부, {live} 라이브에서 내가 직접 풀어 주지.',
     },
   },
 }
