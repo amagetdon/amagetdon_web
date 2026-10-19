@@ -75,11 +75,11 @@ import type { Bubble, WebtoonCut } from '../webtoonLandings'
 const BASE = '/webtoon/${slug}'
 const R = 1376 / 768
 const cut = (n: string, id: string, bubbles: Bubble[]): WebtoonCut => ({ id, src: \`\${BASE}/\${n}.webp\`, ratio: R, bubbles })
-const textCut = (id: string, card: NonNullable<WebtoonCut['card']>): WebtoonCut => ({
+${cuts.some((c) => c.kind === 'text') ? `const textCut = (id: string, card: NonNullable<WebtoonCut['card']>): WebtoonCut => ({
   id, ratio: R, bubbles: [], card: { ...card, images: card.images?.map((n) => \`\${BASE}/\${n}.webp\`) },
 })
-const reviewCut = (n: string, id: string, review: NonNullable<WebtoonCut['review']>): WebtoonCut => ({ id, src: \`\${BASE}/\${n}.webp\`, ratio: 1, bubbles: [], review })
-
+` : ''}${cuts.some((c) => c.kind === 'review') ? `const reviewCut = (n: string, id: string, review: NonNullable<WebtoonCut['review']>): WebtoonCut => ({ id, src: \`\${BASE}/\${n}.webp\`, ratio: 1, bubbles: [], review })
+` : ''}
 export const CUTS: WebtoonCut[] = [
 ${lines.join('\n')}
 ]

@@ -96,6 +96,8 @@ export interface WebtoonLanding {
   cover: {
     poster: string
     video?: string
+    /** 있으면 맨 위 로고 + 글자를 화면 아래쪽에 모은다(얼굴이 위에 있는 표지, v7.2) */
+    logo?: string
     kicker: string
     title: string
     quote: string
@@ -129,7 +131,7 @@ import { CUTS as MINRORO_CUTS } from './webtoon-cuts/minroro-blog'
 
 const BASE = '/webtoon/minroro-blog'
 
-// 스토리보드 v7.1(흑월도령 오마주 · 페이월 구조 · 운 보기 문답 삭제, 2026-10-19 PM) — 그림 번호 = PM 데모_v72 파일 앞 두 자리
+// 스토리보드 v7.1 · 대사목록 v7.2(흑월도령 오마주 · 페이월 구조 · 운 보기 문답 삭제, 2026-10-19 PM) — 그림 번호 = PM 데모_v72 파일 앞 두 자리
 export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
   'minroro-blog': {
     slug: 'minroro-blog',
@@ -143,6 +145,7 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
     cover: {
       poster: `${BASE}/00.webp`,
       video: `${BASE}/cover.mp4`,
+      logo: '아마겟돈',
       kicker: '민로로의',
       title: 'AI 블로그 수익화',
       quote: '돈 못 버는 고액 강의 거르는 법까지.',
@@ -164,8 +167,8 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
       // 컷·말풍선은 PM 대사목록에서 자동 생성(scripts/webtoon-dialogue.mjs → src/lib/webtoon-cuts/minroro-blog.ts)
       cuts: MINRORO_CUTS,
     },
-    chatBg: `${BASE}/35.webp`,
-    doneBg: `${BASE}/34.webp`,
+    chatBg: `${BASE}/24.webp`,
+    doneBg: `${BASE}/24.webp`,
     speaker: '민로로',
     signup: {
       line: '어서 오세요, 민로로예요.\n무료 라이브 자리는 카카오로 1초면 잡아 드려요.',
@@ -185,7 +188,7 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
       legal: '본 강의는 수익을 보장하지 않으며, 결과는 개인의 실행에 따라 다릅니다. 무료 라이브에서 유료 과정 안내가 있을 수 있습니다.',
     },
     paywall: {
-      thought: ['혹시, 이런 생각이었냐.', "'무료 강의 다 거기서 거기 아닌가.'", '그럼 안쪽을 조금만 보여 주지.'],
+      thought: ["혹시, 이런 생각이었냐. '무료 강의 다 거기서 거기 아닌가.'", '그럼 안쪽을 조금만 보여 주지.'],
       lockedKicker: '민로로 무료 라이브의 안쪽',
       lockedTitle: '이 라이브에서 받게 될 것',
       items: [
@@ -219,8 +222,8 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
       lastImage: `${BASE}/24.webp`,
       lastLine: '안쪽은 라이브에서 내가 직접 풀어 주지. 다시보기는 없어.',
       offer: {
-        kicker: '민로로의 무료 LIVE 비책',
-        title: '참여하면 받는 것',
+        kicker: 'MINRORO FREE LIVE',
+        title: '민로로의 무료 LIVE 비책',
         items: ['AI 블로그 수익화 정답지', '온라인 수익화 로드맵', '돈 되는 비밀링크 175개', 'AI 분석 미니 봇'],
         bonusLast: true,
         price: '무료',

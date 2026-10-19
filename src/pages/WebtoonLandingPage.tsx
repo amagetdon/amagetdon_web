@@ -345,11 +345,14 @@ function Cover({ cfg, fill, onNext }: { cfg: WebtoonLanding; fill: (s: string) =
           <img className="absolute inset-0 w-full h-full object-cover" src={r2Proxy(c.poster)} alt="" fetchPriority="high" />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/85" />
-        <div className="relative h-full flex flex-col items-center px-6 pt-[9vh] pb-[calc(env(safe-area-inset-bottom)+20px)]">
+        <div className={`relative h-full flex flex-col items-center px-6 ${c.logo ? 'pt-[calc(env(safe-area-inset-top)+14px)]' : 'pt-[9vh]'} pb-[calc(env(safe-area-inset-bottom)+20px)]`}>
+          {/* 로고형(v7.2): 얼굴이 위에 있어 글자는 아래쪽에 모은다 */}
+          {c.logo && <p className="text-[13px] font-bold tracking-[0.2em] text-white/85">{c.logo}</p>}
+          {c.logo && <div className="flex-1" />}
           <p className="text-[15px] tracking-[0.3em] font-semibold" style={{ color: GREEN }}>{c.kicker}</p>
           <h1 className="mt-2 text-[40px] leading-tight font-black text-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">{c.title}</h1>
           <p className="mt-3 text-[16px] text-white/90 text-center">“ {c.quote} ”</p>
-          <div className="flex-1" />
+          <div className={c.logo ? 'h-6' : 'flex-1'} />
           <button
             type="button" onClick={onNext}
             className="w-full h-[60px] rounded-xl border-2 border-white bg-white/10 backdrop-blur-sm text-white font-bold active:scale-[0.98] transition flex flex-col items-center justify-center"
