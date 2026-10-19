@@ -300,7 +300,7 @@ export default function AdminCourseDetail() {
         surveyByUser.get(m.user_id)?.concern || '',
       ] : []),
     ])
-    if (hasSurvey) header.push('블로그 경험', '하루 시간', '막힌 점')
+    if (hasSurvey) header.push('지금 상황', '하루 시간', '막힌 점')
 
     // 광고 캠페인 ID 같은 12자리 이상 숫자·앞자리 0 숫자는 엑셀이 지수표기(1.2E+17)로 바꿔 값을 깨뜨리므로 텍스트 수식으로 강제
     const csvCell = (cell: unknown) => {

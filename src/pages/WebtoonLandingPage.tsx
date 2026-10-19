@@ -425,6 +425,20 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
 }
 
 function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
+  if (!cut.src) {
+    // 글자 장면 — 그림 없이 HTML 글자
+    const c = cut.card ?? { lines: [] }
+    return (
+      <div className="relative flex flex-col items-center justify-center gap-4 px-8 py-16 text-center bg-[#0b0f14] border-y border-white/5" style={{ minHeight: '70vh' }}>
+        {c.title && <p className="text-[24px] font-black leading-snug" style={{ color: GREEN }}>{c.title}</p>}
+        {c.lines.map((l, i) => (
+          <p key={i} className="text-[18px] leading-relaxed font-bold whitespace-pre-line" style={c.highlight?.includes(i) ? { color: GREEN } : undefined}>{l}</p>
+        ))}
+        {c.note && <p className="text-[11px] text-white/45 mt-2">{c.note}</p>}
+        {cut.bubbles.map((b, i) => <BubbleView key={i} b={b} />)}
+      </div>
+    )
+  }
   return (
     <div className="relative" style={{ aspectRatio: `1 / ${cut.ratio}` }}>
       <img
