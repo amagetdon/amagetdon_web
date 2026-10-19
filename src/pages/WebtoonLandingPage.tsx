@@ -860,7 +860,7 @@ function BubbleView({ b }: { b: Bubble }) {
   const tx = b.align === 'center' ? 'translateX(-50%)' : ''
   const ty = anchorBottom ? 'translateY(-100%)' : ''
   if (tx || ty) pos.transform = `${tx} ${ty}`.trim()
-  const text: React.CSSProperties = { wordBreak: 'keep-all', textWrap: 'balance', fontSize: '4cqw', lineHeight: '7.2cqw', fontWeight: 500 }
+  const text: React.CSSProperties = { wordBreak: 'keep-all', whiteSpace: 'pre-line', textWrap: 'balance', fontSize: '4cqw', lineHeight: '7.2cqw', fontWeight: 500 }
   const maxW = b.maxW ? `${b.maxW}cqw` : undefined
   switch (b.type) {
     case 'narration':
