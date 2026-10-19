@@ -46,7 +46,8 @@ function pos(b) {
 function tail(t) {
   if (!t) return {}
   if (['up', 'down', 'none'].includes(t)) return { tail: t }
-  const s = String(t)
+  // 괄호 안은 설명('손 아래로 가지 않게' 등)이라 방향으로 읽지 않는다
+  const s = String(t).split(/[(（]/)[0]
   const dir = /아래/.test(s) ? 'down' : /위/.test(s) ? 'up' : undefined
   const tailX = /오른쪽/.test(s) ? 78 : /왼쪽/.test(s) ? 22 : undefined
   return { ...(dir ? { tail: dir } : {}), ...(tailX != null ? { tailX } : {}) }
