@@ -39,9 +39,20 @@ export interface WebtoonCut {
     images?: string[]
     /** typing: 빈 화면에 초안이 한 줄씩 채워지는 연출 */
     animation?: 'typing'
+    /** 줄 안에서 초록으로 강조할 낱말 */
+    emphasis?: string[]
   }
   /** 실제 후기 카드(src = 가림 처리한 캡처) — 휴대폰 화면 틀 안에 넣어 보여 준다 */
   review?: { header?: string; note: string }
+  /** 실제 자료(증빙·근거 화면·프로그램 화면) — 검은 띠 안에 앞 문구 + 그림(여러 장이면 세로로) + 출처 작은 글.
+   *  pending: 공개 전 확인이 끝나지 않아 그림 대신 자리 표시 */
+  real?: { before?: { type: 'narration' | 'speech'; text: string; speaker?: string }; images: string[]; note?: string; pending?: string }
+  /** 후기 여러 장 넘기기(휴대폰 틀, 자동 넘김) */
+  carousel?: { before?: { type: 'narration' | 'speech'; text: string; speaker?: string }; images: string[]; note: string; intervalMs?: number }
+  /** 컷 이음새(청월당 측정값, 그림 폭 %) — 위·아래 가장자리를 color 로 흐리는 길이, 아래에 붙는 띠 */
+  fadeTop?: { size: number; color: string }
+  fadeBottom?: { size: number; color: string }
+  band?: { size: number; color: string }
 }
 
 /** 웹툰 뒤 페이월(v7.1 P1~P9) — 잠긴 안쪽 → 후기 → 마지막 제안 → 오퍼 카드 → 신청 확인 → 신청하면 안쪽이 열림.
@@ -131,7 +142,7 @@ import { CUTS as MINRORO_CUTS } from './webtoon-cuts/minroro-blog'
 
 const BASE = '/webtoon/minroro-blog'
 
-// 스토리보드 v7.1 · 대사목록 v7.2(흑월도령 오마주 · 페이월 구조 · 운 보기 문답 삭제, 2026-10-19 PM) — 그림 번호 = PM 데모_v72 파일 앞 두 자리
+// 스토리보드 v7.1 · 대사목록 v7.3(흑월도령 오마주 · 페이월 구조 · 운 보기 문답 삭제, 2026-10-19 PM) — 그림 번호 = PM 데모_v72 파일 앞 두 자리
 export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
   'minroro-blog': {
     slug: 'minroro-blog',
@@ -167,8 +178,8 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
       // 컷·말풍선은 PM 대사목록에서 자동 생성(scripts/webtoon-dialogue.mjs → src/lib/webtoon-cuts/minroro-blog.ts)
       cuts: MINRORO_CUTS,
     },
-    chatBg: `${BASE}/24.webp`,
-    doneBg: `${BASE}/24.webp`,
+    chatBg: `${BASE}/40.webp`,
+    doneBg: `${BASE}/40.webp`,
     speaker: '민로로',
     signup: {
       line: '어서 오세요, 민로로예요.\n무료 라이브 자리는 카카오로 1초면 잡아 드려요.',
@@ -192,11 +203,12 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
       lockedKicker: '민로로 무료 라이브의 안쪽',
       lockedTitle: '이 라이브에서 받게 될 것',
       items: [
-        { no: '01', title: '왜 돈을 줄까', desc: '돈을 주는 사람과 이유' },
-        { no: '02', title: '어떤 블로그에 돈을 줄까', desc: '돈 되는 손님이 오는 글' },
-        { no: '03', title: '무엇을 해 주면 되나', desc: '체험단·원고료 / 제휴·소개비 / 대행' },
-        { no: '04', title: 'AI가 해 주는 일', desc: '자료 넣기 → 초안 → 사실 확인 → 발행 실제 시연' },
-        { no: '05', title: '지금 바로 해야 할 일', desc: '내 첫 번째 고르기' },
+        { no: '01', title: '1단계 애드포스트', desc: '조회수가 수익이 되는 글과 승인 준비' },
+        { no: '02', title: '2단계 체험단', desc: '돈 받는 체험단·원고료까지 가는 순서' },
+        { no: '03', title: '3단계 제휴 마케팅', desc: '상품·상담 소개 수수료가 붙는 글 구조' },
+        { no: '04', title: '4단계 대행', desc: '사장님 블로그 운영을 맡는 방법' },
+        { no: '05', title: '자동화 시스템 실제 시연', desc: '주제 → 분석 → 원고 → 발행' },
+        { no: '06', title: '지금 바로 해야 할 일', desc: '내 첫 번째 고르기' },
       ],
       extrasLabel: '+ 라이브에서 더 풀어 주는 것',
       extras: [
@@ -219,7 +231,7 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
         { src: `${BASE}/reviews/h2.webp`, note: '129 상세 수록 후기 원문 · 닉네임·프로필 가림 · 개인의 경험이며 결과는 사람마다 다릅니다' },
         { src: `${BASE}/reviews/h3.webp`, note: '129 상세 수록 후기 원문 · 닉네임·프로필·멘션 가림 · 개인의 경험이며 결과는 사람마다 다릅니다' },
       ],
-      lastImage: `${BASE}/24.webp`,
+      lastImage: `${BASE}/40.webp`,
       lastLine: '안쪽은 라이브에서 내가 직접 풀어 주지. 다시보기는 없어.',
       offer: {
         kicker: 'MINRORO FREE LIVE',

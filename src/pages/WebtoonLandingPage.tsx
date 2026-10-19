@@ -440,7 +440,7 @@ function Webtoon({ cfg, onNext, footer, liveAt, unlocked }: {
   }, [])
 
   return (
-    <section className="max-w-[480px] mx-auto bg-[#0b0f14]" style={{ containerType: 'inline-size' }}>
+    <section className="max-w-[480px] mx-auto bg-black" style={{ containerType: 'inline-size' }}>
       {!scrolled && (
         <div className="fixed left-6 bottom-[calc(env(safe-area-inset-bottom)+30px)] z-30 text-white/80 text-xs flex flex-col items-center animate-bounce pointer-events-none">
           <span>스크롤</span><span>▼</span>
@@ -501,36 +501,99 @@ function groupCuts(cuts: WebtoonCut[]): (WebtoonCut | WebtoonCut[])[] {
   return out
 }
 
-// 컷 이음새(청월당 원본 캡처 기준): 그림 위아래 끝을 바탕색으로 흐려 다음 컷과 섞고(페이드), 컷 사이에 검은 여백을 둔다.
-// 그림끼리 살짝 겹쳐(OVERLAP) 페이드 구간이 이어지게 — 여백 + 페이드가 합쳐져 '딱딱 붙인' 느낌이 없어진다.
-const FADE = '9%'          // 그림 위아래 흐려지는 길이(그림 높이 기준)
-const GAP = '14cqw'        // 컷 사이 검은 여백(그림 폭 기준)
-const OVERLAP = '-9cqw'    // 다음 컷을 위로 살짝 겹침
-const FADE_MASK = `linear-gradient(to bottom, transparent 0, #000 ${FADE}, #000 calc(100% - ${FADE}), transparent 100%)`
+// 컷 이음새 — PM 대사목록 transitions(청월당 원본 측정값, 그림 폭 %): 위 그림 아래쪽을 띠 색으로 흐리고(fadeBottom),
+// 띠(band)를 두고, 다음 그림 위쪽을 같은 색에서 그림으로 흐린다(fadeTop). 겹치기 없음. 값이 없으면 기본(36·24·36, 검정).
+const DEFAULT_FADE = 36
+const DEFAULT_BAND = 24
+
+function Band({ cut, children }: { cut: WebtoonCut; children?: ReactNode }) {
+  const band = cut.band
+  if (!band && !children) return null
+  return (
+    <div className="relative z-10 flex flex-col items-center justify-start px-[7.7cqw]" style={{ background: band?.color ?? '#000', minHeight: band ? `${band.size}cqw` : undefined, paddingTop: children ? '2cqw' : undefined }}>
+      {children}
+    </div>
+  )
+}
+
+function Captions({ items }: { items: Bubble[] }) {
+  if (items.length === 0) return null
+  return (
+    <div className="text-center text-white/60 pb-[2cqw]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>
+      {items.map((c, i) => <p key={i}>{c.text}</p>)}
+    </div>
+  )
+}
+
+/** 띠 안에 얹는 앞 문구(실제 자료·후기 앞) — 내레이션은 흰 사각, 대사는 둥근 말풍선 모양 */
+function BeforeLine({ b }: { b: { type: 'narration' | 'speech'; text: string } }) {
+  const text: React.CSSProperties = { wordBreak: 'keep-all', textWrap: 'balance', fontSize: '4cqw', lineHeight: '7.2cqw', fontWeight: 500 }
+  return b.type === 'speech' ? (
+    <p className="bg-[#F7F8FB] text-[#111] text-center rounded-[999px]" style={{ ...text, border: '0.22cqw solid #111', padding: '4cqw 7cqw', maxWidth: '80cqw' }}>{b.text}</p>
+  ) : (
+    <p className="bg-white text-[#111] text-center" style={{ ...text, border: '0.36cqw solid #111', padding: '4.6cqw 5.3cqw', maxWidth: '80cqw' }}>{b.text}</p>
+  )
+}
 
 function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
-  if (!cut.src) return <TextScene card={cut.card ?? { lines: [] }} />
+  if (cut.real) return <RealBlock cut={cut} />
+  if (cut.carousel) {
+    const cuts: WebtoonCut[] = cut.carousel.images.map((src, i) => ({ id: `${cut.id}-${i}`, src, ratio: 1, bubbles: [], review: { note: cut.carousel!.note } }))
+    return (
+      <>
+        <div className="bg-black pt-[10cqw] flex justify-center px-[7.7cqw]">{cut.carousel.before && <BeforeLine b={cut.carousel.before} />}</div>
+        <ReviewDeck cuts={cuts} intervalMs={cut.carousel.intervalMs ?? 3000} />
+        <Band cut={cut} />
+      </>
+    )
+  }
+  if (!cut.src) return <><TextScene card={cut.card ?? { lines: [] }} /><Band cut={cut} /></>
   if (cut.review) return <ReviewDeck cuts={[cut]} />
-  // 작은 출처·주석 글은 그림 위가 아니라 컷 아래 여백에 — 내레이션 상자와 겹치지 않게(K17)
+  // 작은 출처·주석 글은 그림 위가 아니라 컷 아래 띠에 — 내레이션 상자와 겹치지 않게(K17)
   const captions = cut.bubbles.filter((b) => b.type === 'caption')
   const bubbles = cut.bubbles.filter((b) => b.type !== 'caption')
+  const top = cut.fadeTop
+  const bottom = cut.fadeBottom ?? (cut.band ? { size: DEFAULT_FADE, color: cut.band.color } : undefined)
   return (
-    <div className="relative" style={{ marginTop: OVERLAP, paddingBottom: GAP }}>
+    <>
       <div className="relative" style={{ aspectRatio: `1 / ${cut.ratio}` }}>
         <img
           src={r2Proxy(cut.src)} alt="" className="absolute inset-0 w-full h-full object-cover"
-          style={{ maskImage: FADE_MASK, WebkitMaskImage: FADE_MASK }}
           loading={eager ? 'eager' : 'lazy'} decoding="async"
         />
+        {top && <div className="absolute inset-x-0 top-0 pointer-events-none" style={{ height: `${top.size}cqw`, background: `linear-gradient(to bottom, ${top.color}, transparent)` }} />}
+        {bottom && <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{ height: `${bottom.size}cqw`, background: `linear-gradient(to top, ${bottom.color}, transparent)` }} />}
         {bubbles.map((b, i) => <BubbleView key={i} b={b} />)}
       </div>
-      {captions.length > 0 && (
-        <div className="relative z-10 -mt-[4cqw] px-[7.7cqw] text-center text-white/60" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>
-          {captions.map((c, i) => <p key={i}>{c.text}</p>)}
-        </div>
-      )}
-    </div>
+      {(cut.band || captions.length > 0) && <Band cut={cut.band ? cut : { ...cut, band: { size: DEFAULT_BAND / 2, color: '#000' } }}><Captions items={captions} /></Band>}
+    </>
   )
+}
+
+/** 실제 자료 — 검은 띠 안에 앞 문구, 그림(여러 장이면 세로로 이어 붙임), 출처 작은 글. 공개 전 확인 중이면 자리 표시 */
+function RealBlock({ cut }: { cut: WebtoonCut }) {
+  const r = cut.real!
+  return (
+    <>
+      <div className="bg-black px-[7.7cqw] pt-[10cqw] pb-[6cqw] flex justify-center">{r.before && <BeforeLine b={r.before} />}</div>
+      <div className="bg-black">
+        {r.pending ? (
+          <div className="mx-[7.7cqw] rounded-xl border border-dashed border-white/25 py-[14cqw] text-center text-white/50" style={{ fontSize: '3.4cqw' }}>{r.pending}</div>
+        ) : (
+          r.images.map((src) => <img key={src} src={r2Proxy(src)} alt="실제 자료" loading="lazy" decoding="async" className="w-full block mb-[2cqw]" />)
+        )}
+        {r.note && <p className="px-[7.7cqw] pt-[2cqw] text-center text-white/55" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.note}</p>}
+      </div>
+      <Band cut={cut.band ? cut : { ...cut, band: { size: 18, color: '#000' } }} />
+    </>
+  )
+}
+
+/** 줄 안의 강조 낱말을 초록·크게 */
+function emphasize(line: string, words?: string[]): ReactNode {
+  if (!words?.length) return line
+  const re = new RegExp(`(${words.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'g')
+  return line.split(re).map((part, i) => (words.includes(part) ? <span key={i} className="text-[1.25em] font-black" style={{ color: GREEN }}>{part}</span> : part))
 }
 
 /** 글자 장면 — 검은 바탕에 글자가 화면에 들어오면 한 줄씩 나타난다. 첫 줄이 질문(?)이거나 ①~⑤ 로 시작하면 제목 */
@@ -561,7 +624,7 @@ function TextScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
   const fade = (i: number) => `transition-all duration-700 ${shown > i ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`
   let k = 0
   return (
-    <div ref={ref} className="relative flex flex-col items-center justify-center gap-4 px-8 py-16 text-center bg-[#0b0f14] border-y border-white/5" style={{ minHeight: '75vh' }}>
+    <div ref={ref} className="relative flex flex-col items-center justify-center gap-4 px-8 py-16 text-center bg-black" style={{ minHeight: "75vh" }}>
       {card.images && card.images.length > 0 && (
         <div className="flex gap-2 w-full justify-center mb-2">
           {card.images.map((src) => <img key={src} src={r2Proxy(src)} alt="" loading="lazy" className="w-[42%] aspect-[3/4] object-cover rounded-lg opacity-80" />)}
@@ -573,7 +636,7 @@ function TextScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
         const idx = k++
         const hl = card.highlight?.includes(i + offset)
         return (
-          <p key={i} className={`${hl ? 'text-[26px] font-black' : 'text-[18px] font-bold'} leading-relaxed whitespace-pre-line ${fade(idx)}`} style={hl ? { color: GREEN } : undefined}>{l}</p>
+          <p key={i} className={`${hl ? 'text-[26px] font-black' : 'text-[18px] font-bold'} leading-relaxed whitespace-pre-line ${fade(idx)}`} style={hl ? { color: GREEN } : undefined}>{emphasize(l, card.emphasis)}</p>
         )
       })}
       {card.note && <p className={`text-[11px] text-white/45 mt-2 ${fade(total - 1)}`}>{card.note}</p>}
@@ -583,7 +646,7 @@ function TextScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
 
 /** 실제 후기 — 연달아 있는 후기 컷을 휴대폰 화면 틀 하나에 넣고 한 장씩 넘긴다(옆으로 밀기 + 화면에 보이면 4초마다 자동).
  *  카드마다 note(원문·개인의 경험) 작은 글 */
-function ReviewDeck({ cuts }: { cuts: WebtoonCut[] }) {
+function ReviewDeck({ cuts, intervalMs = 4000 }: { cuts: WebtoonCut[]; intervalMs?: number }) {
   const ref = useRef<HTMLDivElement>(null)
   const track = useRef<HTMLDivElement>(null)
   const [idx, setIdx] = useState(0)
@@ -605,16 +668,16 @@ function ReviewDeck({ cuts }: { cuts: WebtoonCut[] }) {
   // 자동 넘김 — 화면에 보일 때만, 사용자가 직접 넘기면 멈춤
   useEffect(() => {
     if (!visible || touched || cuts.length < 2) return
-    const t = window.setTimeout(() => goTo((idx + 1) % cuts.length), 4000)
+    const t = window.setTimeout(() => goTo((idx + 1) % cuts.length), intervalMs)
     return () => window.clearTimeout(t)
-  }, [visible, touched, idx, cuts.length, goTo])
+  }, [visible, touched, idx, cuts.length, goTo, intervalMs])
   const onScroll = () => {
     const t = track.current
     if (t) setIdx(Math.round(t.scrollLeft / Math.max(1, t.clientWidth)))
   }
 
   return (
-    <div ref={ref} className="bg-[#0b0f14] px-6 pt-10 pb-8 flex flex-col items-center">
+    <div ref={ref} className="bg-black px-6 pt-10 pb-8 flex flex-col items-center">
       {header && <p className="text-[17px] font-bold text-white mb-5">{header}</p>}
       <div className="w-[86%] rounded-[30px] border-[6px] border-[#1f2937] bg-[#111] p-2 shadow-2xl">
         <div
@@ -957,7 +1020,7 @@ function Paywall({ pw, fill, unlocked, onApply, openChatUrl, tracking }: {
     id: `review-${i}`, src: r.src, ratio: 1, bubbles: [], review: { note: r.note, ...(i === 0 ? { header: pw.reviewsTitle } : {}) },
   }))
   return (
-    <div className="bg-[#0b0f14] text-white">
+    <div className="bg-black text-white">
       {/* P1 생각 말풍선 카드 */}
       <div className="px-6 pt-12">
         <div className="relative rounded-[28px] bg-[#F7F8FB] text-[#111] px-6 py-6 text-center text-[15px] leading-relaxed font-medium" style={{ wordBreak: 'keep-all' }}>
