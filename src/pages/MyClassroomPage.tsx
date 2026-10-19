@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
 import { progressService } from '../services/progressService'
@@ -87,9 +87,13 @@ const formatKoDateTime = (iso: string | null | undefined) => {
 
 type CourseTab = 'progressing' | 'replay' | 'expired'
 type EbookTab = 'active' | 'expired'
+// 맨 위 '내 강의 | 내 전자책' 전환 — 주소(?tab=ebook)에 남겨 새로고침·뒤로 가기에도 유지(10/19 대표님)
+type Section = 'course' | 'ebook'
 
 function MyClassroomPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
   const [playingVideo, setPlayingVideo] = useState<{ url: string; title: string } | null>(null)
   const { user, profile } = useAuth()
   const [guestBannerDismissed, setGuestBannerDismissed] = useState<boolean>(() => {
@@ -270,6 +274,16 @@ function MyClassroomPage() {
     { key: 'active' as const, label: `진행 중 (${activeEbooks.length})`, list: activeEbooks },
     { key: 'expired' as const, label: `만료됨 (${expiredEbooks.length})`, list: expiredEbooks },
   ]
+  const section: Section = tabParam === 'ebook' ? 'ebook'
+    : tabParam === 'course' ? 'course'
+    : !loading && coursePurchases.length === 0 && ebookPurchases.length > 0 ? 'ebook' : 'course'
+  const selectSection = (next: Section) => {
+    if (next === section) return
+    const params = new URLSearchParams(searchParams)
+    params.set('tab', next)
+    setSearchParams(params)
+  }
+
   const courseList = courseTabs.find((t) => t.key === courseTab)?.list ?? []
   const ebookList = ebookTabs.find((t) => t.key === ebookTab)?.list ?? []
 
@@ -331,12 +345,6 @@ function MyClassroomPage() {
               </div>
             )}
             <div className="flex gap-2 mt-4 flex-wrap">
-              <button
-                onClick={() => navigate(`/course/${course.id}`)}
-                className="bg-[#2ED573] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
-              >
-                강의 상세보기
-              </button>
               <button
                 onClick={() => setReviewTarget({ courseId: course.id, courseName: course.title })}
                 className="bg-white border border-gray-300 text-gray-700 font-medium px-4 py-2 rounded-lg hover:border-[#2ED573] hover:text-[#2ED573] transition cursor-pointer text-sm"
@@ -538,15 +546,9 @@ function MyClassroomPage() {
           </div>
           <div className="flex gap-2 mt-4 flex-wrap">
             <button
-              onClick={() => navigate(`/ebook/${ebook.id}`)}
-              className="bg-[#2ED573] text-black font-bold px-5 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm"
-            >
-              전자책 상세보기
-            </button>
-            <button
               onClick={() => navigate(`/my-ebooks/${ebook.id}/read`)}
               disabled={!ebook.has_file || expired}
-              className="bg-white border border-gray-300 text-gray-700 font-medium px-5 py-2 rounded-lg hover:border-[#2ED573] hover:text-[#2ED573] transition cursor-pointer text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed disabled:border-gray-200"
+              className="bg-[#2ED573] text-black font-bold px-6 py-2 rounded-lg hover:brightness-110 transition cursor-pointer border-none text-sm disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
             >
               {!ebook.has_file ? 'PDF 준비중' : expired ? '열람 기간 만료' : '읽기'}
             </button>
@@ -621,9 +623,26 @@ function MyClassroomPage() {
           </div>
         )}
         {/* 내 강의실 */}
-        <h1 className="text-3xl font-bold mt-16 mb-6">내 강의실</h1>
+        <h1 className="text-3xl font-bold mt-16 mb-5 max-sm:mt-10">내 강의실</h1>
 
-        {loading ? (
+        <div className="grid grid-cols-2 gap-1 p-1 mb-6 bg-gray-100 rounded-xl" role="tablist" aria-label="내 강의실 보기">
+          {([['course', '내 강의', coursePurchases.length], ['ebook', '내 전자책', ebookPurchases.length]] as const).map(([key, label, count]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={section === key}
+              onClick={() => selectSection(key)}
+              className={`py-2.5 rounded-lg text-sm font-bold border-none cursor-pointer transition-colors ${
+                section === key ? 'bg-white text-gray-900 shadow-sm' : 'bg-transparent text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              {label}{!loading && <span className={`ml-1 ${section === key ? 'text-[#2ED573]' : ''}`}>{count}</span>}
+            </button>
+          ))}
+        </div>
+
+        {section === 'course' && (loading ? (
           courseSkeleton
         ) : (
           <>
@@ -640,12 +659,9 @@ function MyClassroomPage() {
               courseList.map(renderCourse)
             )}
           </>
-        )}
+        ))}
 
-        {/* 내 전자책 */}
-        <h1 className="text-3xl font-bold mt-30 mb-6">내 전자책</h1>
-
-        {loading ? (
+        {section === 'ebook' && (loading ? (
           courseSkeleton
         ) : (
           <>
@@ -662,7 +678,7 @@ function MyClassroomPage() {
               ebookList.map(renderEbook)
             )}
           </>
-        )}
+        ))}
       </div>
 
       {playingVideo && (

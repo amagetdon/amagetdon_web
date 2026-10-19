@@ -193,7 +193,7 @@ function EbookDetailPage() {
     }
 
     if (owned) {
-      navigate('/my-classroom')
+      navigate('/my-classroom?tab=ebook')
       return
     }
 
@@ -448,7 +448,7 @@ function EbookDetailPage() {
     if (owned) {
       return (
         <button
-          onClick={() => navigate('/my-classroom')}
+          onClick={() => navigate('/my-classroom?tab=ebook')}
           className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-6 cursor-pointer border-none"
         >
           내 강의실로 이동
