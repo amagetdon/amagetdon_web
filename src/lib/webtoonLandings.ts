@@ -245,9 +245,9 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
       reasonsTail: '무료 강의라도, 여러분의 시간은 쓰니까.',
       reviewsTitle: '먼저 들은 사람들',
       reviews: [
-        { src: `${BASE}/reviews/h1.webp`, note: '129 상세 수록 후기 원문 · 닉네임·프로필 가림 · 개인의 경험이며 결과는 사람마다 다릅니다' },
-        { src: `${BASE}/reviews/h2.webp`, note: '129 상세 수록 후기 원문 · 닉네임·프로필 가림 · 개인의 경험이며 결과는 사람마다 다릅니다' },
-        { src: `${BASE}/reviews/h3.webp`, note: '129 상세 수록 후기 원문 · 닉네임·프로필·멘션 가림 · 개인의 경험이며 결과는 사람마다 다릅니다' },
+        { src: `${BASE}/reviews/h1.webp`, note: '수강생 후기 원문 · 개인의 경험이며 결과를 보장하지 않음' },
+        { src: `${BASE}/reviews/h2.webp`, note: '수강생 후기 원문 · 개인의 경험이며 결과를 보장하지 않음' },
+        { src: `${BASE}/reviews/h3.webp`, note: '수강생 후기 원문 · 개인의 경험이며 결과를 보장하지 않음' },
       ],
       lastImage: `${BASE}/40.webp`,
       lastLine: '안쪽은 라이브에서 내가 직접 풀어 주지. 다시보기는 없어.',

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
@@ -640,9 +641,8 @@ function RealBlock({ cut }: { cut: WebtoonCut }) {
       <div className="bg-[var(--wt-bg)]">
         {r.images.map((src, i) => (
           <div key={src}>
-            // small(보도 인용 등): 폭 90%W 이하, 원본보다 크게 늘리지 않음(max-width: 원본 크기)
-            <img key={src} src={r2Proxy(src)} alt="실제 자료" loading="lazy" decoding="async"
-              className={r.small ? 'block mx-auto mb-[2cqw] w-auto max-w-[90cqw]' : 'w-full block mb-[2cqw]'} />
+            {/* small(보도 인용 등): 폭 90%W 이하, 원본보다 크게 늘리지 않음(max-width: 원본 크기). 누르면 화면 가득 크게 보기 */}
+            <ZoomableImg src={r2Proxy(src)} alt={r.captions?.[i] || r.after || '실제 자료'} small={r.small} />
             {r.captions?.[i] && <p className="px-[7.7cqw] -mt-[1cqw] mb-[3cqw] text-center text-[var(--wt-muted)]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.captions[i]}</p>}
           </div>
         ))}
@@ -652,6 +652,107 @@ function RealBlock({ cut }: { cut: WebtoonCut }) {
       {/* 아래 띠는 PM 전환 색(그림 가장자리 색이라 회색일 때가 많음) 대신 페이지 바탕색 — 10/19 대표님 '회색 박스 빼요' */}
       <Band cut={{ ...cut, band: { size: cut.band?.size ?? 10, color: 'var(--wt-bg)' } }} />
     </>
+  )
+}
+
+/* ───────── 실제 자료 크게 보기 ───────── */
+// 10/19 대표님: 애드포스트 그래프 숫자가 휴대폰에서 4~6px라 안 읽힘 → 누르면 화면 가득, 두 손가락 확대·끌기, 두 번 탭 확대, 닫기(X·Esc·바깥 탭)
+function ZoomIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5 21 21M10.5 7.5v6M7.5 10.5h6" />
+    </svg>
+  )
+}
+
+function ZoomableImg({ src, alt, small, eager }: { src: string; alt: string; small?: boolean; eager?: boolean }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)} aria-label={`${alt} 크게 보기`}
+        className={`relative block p-0 border-0 bg-transparent cursor-zoom-in ${small ? 'mx-auto mb-[2cqw] w-fit max-w-[90cqw]' : eager ? 'w-full' : 'w-full mb-[2cqw]'}`}>
+        <img src={src} alt={alt} loading={eager ? undefined : 'lazy'} decoding="async" className={small ? 'block w-auto max-w-full' : 'block w-full'} />
+        <span className="absolute right-[2cqw] bottom-[2cqw] w-[7cqw] h-[7cqw] min-w-6 min-h-6 rounded-full bg-black/55 text-white flex items-center justify-center pointer-events-none">
+          <ZoomIcon />
+        </span>
+      </button>
+      {open && <ZoomViewer src={src} alt={alt} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
+function ZoomViewer({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  const [view, setView] = useState({ s: 1, x: 0, y: 0 })
+  const pts = useRef(new Map<number, { x: number; y: number }>())
+  const pinch = useRef<{ d: number; s: number } | null>(null)
+  const lastTap = useRef(0)
+  const moved = useRef(false)
+  const [dragging, setDragging] = useState(false)
+
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => { document.body.style.overflow = prev; window.removeEventListener('keydown', onKey) }
+  }, [onClose])
+
+  const dist = () => {
+    const [a, b] = [...pts.current.values()]
+    return Math.hypot(a.x - b.x, a.y - b.y)
+  }
+  const onDown = (e: React.PointerEvent) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    moved.current = false
+    setDragging(true)
+    if (pts.current.size === 2) pinch.current = { d: dist(), s: view.s }
+  }
+  const onMove = (e: React.PointerEvent) => {
+    const p = pts.current.get(e.pointerId)
+    if (!p) return
+    const dx = e.clientX - p.x
+    const dy = e.clientY - p.y
+    pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (Math.abs(dx) + Math.abs(dy) > 2) moved.current = true
+    if (pts.current.size === 2 && pinch.current) {
+      const s = Math.min(5, Math.max(1, (pinch.current.s * dist()) / pinch.current.d))
+      setView((v) => (s === 1 ? { s: 1, x: 0, y: 0 } : { ...v, s }))
+    } else if (pts.current.size === 1) {
+      setView((v) => (v.s > 1 ? { ...v, x: v.x + dx, y: v.y + dy } : v))
+    }
+  }
+  const onUp = (e: React.PointerEvent) => {
+    pts.current.delete(e.pointerId)
+    if (pts.current.size < 2) pinch.current = null
+    if (pts.current.size === 0) setDragging(false)
+    if (pts.current.size === 0 && !moved.current) {
+      const now = Date.now()
+      if (now - lastTap.current < 300) {
+        setView((v) => (v.s > 1 ? { s: 1, x: 0, y: 0 } : { s: 2.5, x: 0, y: 0 }))
+        lastTap.current = 0
+      } else {
+        lastTap.current = now
+      }
+    }
+  }
+  const onWheel = (e: React.WheelEvent) => {
+    const s = Math.min(5, Math.max(1, view.s * (e.deltaY < 0 ? 1.15 : 1 / 1.15)))
+    setView((v) => (s === 1 ? { s: 1, x: 0, y: 0 } : { ...v, s }))
+  }
+
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={`${alt} 크게 보기`} className="fixed inset-0 z-[1000] bg-black/95 flex items-center justify-center"
+      onClick={(e) => { if (e.target === e.currentTarget && view.s === 1) onClose() }}>
+      <img src={src} alt={alt} draggable={false}
+        onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp} onPointerCancel={onUp} onWheel={onWheel}
+        className="max-w-full max-h-full object-contain select-none"
+        style={{ touchAction: 'none', transform: `translate(${view.x}px, ${view.y}px) scale(${view.s})`, transition: dragging ? 'none' : 'transform .15s' }} />
+      <button type="button" onClick={onClose} aria-label="닫기"
+        className="absolute top-3 right-3 w-11 h-11 rounded-full bg-white/15 text-white text-2xl leading-none border-0 cursor-pointer flex items-center justify-center">×</button>
+      <p className="absolute bottom-4 inset-x-0 text-center text-white/60 text-[12px] pointer-events-none">두 손가락으로 확대 · 두 번 탭하면 크게</p>
+    </div>,
+    document.body,
   )
 }
 
@@ -850,7 +951,7 @@ function ReviewDeck({ cuts, intervalMs = 4000 }: { cuts: WebtoonCut[]; intervalM
         >
           {cuts.map((c) => (
             <div key={c.id} className="w-full shrink-0 snap-center flex items-center bg-[#111]">
-              <img src={r2Proxy(c.src ?? '')} alt="수강생 후기" decoding="async" className="w-full block" />
+              <ZoomableImg src={r2Proxy(c.src ?? '')} alt="수강생 후기" eager />
             </div>
           ))}
         </div>
