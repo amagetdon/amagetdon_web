@@ -31,6 +31,21 @@ type Step = 'cover' | 'webtoon' | 'confirm' | 'signup' | 'saved' | 'ask1' | 'ask
 const STEPS: Step[] = ['cover', 'webtoon', 'confirm', 'signup', 'saved', 'ask1', 'ask2', 'ask3', 'done']
 const ASK_STEPS: Step[] = ['ask1', 'ask2', 'ask3']
 const GREEN = '#2ED573'
+
+/** 랜딩 색 테마 — 설정(cfg.theme) 한 곳에서 바탕·글자·덮개·기본 띠 색을 바꾼다. 기본 light(10/19 대표님: 밝은 톤).
+ *  컷 사이 띠·흐림 색은 PM 전환값(transitions.color)이 있으면 그 색이 우선 */
+const THEMES: Record<'dark' | 'light', React.CSSProperties> = {
+  dark: {
+    '--wt-bg': '#000', '--wt-fg': '#fff', '--wt-muted': 'rgba(255,255,255,0.62)', '--wt-faint': 'rgba(255,255,255,0.45)',
+    '--wt-line': 'rgba(255,255,255,0.12)', '--wt-card': 'rgba(255,255,255,0.05)', '--wt-band': '#000',
+    '--wt-cover-top': 'rgba(0,0,0,0.7)', '--wt-cover-bottom': 'rgba(0,0,0,0.85)',
+  } as React.CSSProperties,
+  light: {
+    '--wt-bg': '#f7f6f2', '--wt-fg': '#161616', '--wt-muted': 'rgba(22,22,22,0.62)', '--wt-faint': 'rgba(22,22,22,0.45)',
+    '--wt-line': 'rgba(0,0,0,0.1)', '--wt-card': 'rgba(0,0,0,0.035)', '--wt-band': '#f7f6f2',
+    '--wt-cover-top': 'rgba(247,246,242,0.82)', '--wt-cover-bottom': 'rgba(247,246,242,0.92)',
+  } as React.CSSProperties,
+}
 const IN_APP_RE = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|FB4A|Line\/|NAVER\(inapp|DaumApps|BAND\/|everytimeApp/i
 
 /** 랜딩 단계 이벤트 — GTM(dataLayer)에만. 광고 매체로는 보내지 않는다 */
@@ -263,7 +278,7 @@ export default function WebtoonLandingPage() {
   const askIndex = ASK_STEPS.indexOf(step)
 
   return (
-    <div className="bg-black min-h-[100dvh] text-white">
+    <div className="bg-[var(--wt-bg)] min-h-[100dvh] text-[var(--wt-fg)]" style={THEMES[cfg.theme ?? 'light']}>
       <SeoHead override={{ title: cfg.seo.title, description: cfg.seo.description, ogImage: cfg.seo.image, twitterImage: cfg.seo.image }} />
       {step === 'cover' && <Cover cfg={cfg} fill={fill} onNext={() => go('webtoon')} />}
       {step === 'webtoon' && (
@@ -344,28 +359,28 @@ function Cover({ cfg, fill, onNext }: { cfg: WebtoonLanding; fill: (s: string) =
         ) : (
           <img className="absolute inset-0 w-full h-full object-cover" src={r2Proxy(c.poster)} alt="" fetchPriority="high" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/85" />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, var(--wt-cover-top), transparent 45%, var(--wt-cover-bottom))' }} />
         <div className={`relative h-full flex flex-col items-center px-6 ${c.logo ? 'pt-[calc(env(safe-area-inset-top)+14px)]' : 'pt-[9vh]'} pb-[calc(env(safe-area-inset-bottom)+20px)]`}>
           {/* 로고형(v7.2): 얼굴이 위에 있어 글자는 아래쪽에 모은다 */}
-          {c.logo && <p className="text-[13px] font-bold tracking-[0.2em] text-white/85">{c.logo}</p>}
+          {c.logo && <p className="text-[13px] font-bold tracking-[0.2em] text-[var(--wt-fg)]">{c.logo}</p>}
           {c.logo && <div className="flex-1" />}
           <p className="text-[15px] tracking-[0.3em] font-semibold" style={{ color: GREEN }}>{c.kicker}</p>
           <h1 className="mt-2 text-[40px] leading-tight font-black text-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">{c.title}</h1>
-          <p className="mt-3 text-[16px] text-white/90 text-center">“ {c.quote} ”</p>
+          <p className="mt-3 text-[16px] text-[var(--wt-fg)] text-center">“ {c.quote} ”</p>
           <div className={c.logo ? 'h-6' : 'flex-1'} />
           <button
             type="button" onClick={onNext}
-            className="w-full h-[60px] rounded-xl border-2 border-white bg-white/10 backdrop-blur-sm text-white font-bold active:scale-[0.98] transition flex flex-col items-center justify-center"
+            className="w-full h-[60px] rounded-xl border-2 border-[var(--wt-fg)] bg-[var(--wt-card)] backdrop-blur-sm text-[var(--wt-fg)] font-bold active:scale-[0.98] transition flex flex-col items-center justify-center"
           >
             <span className="text-[17px]">{c.cta}</span>
-            {c.ctaSub && <span className="text-[11px] font-medium text-white/80">{c.ctaSub}</span>}
+            {c.ctaSub && <span className="text-[11px] font-medium text-[var(--wt-fg)]">{c.ctaSub}</span>}
           </button>
-          <p className="mt-3 text-[12px] text-white/70">{fill(c.note)}</p>
-          <a href="#more" className="mt-2 text-[11px] text-white/50 underline">{c.detailsSummary} ▾</a>
+          <p className="mt-3 text-[12px] text-[var(--wt-muted)]">{fill(c.note)}</p>
+          <a href="#more" className="mt-2 text-[11px] text-[var(--wt-faint)] underline">{c.detailsSummary} ▾</a>
         </div>
       </div>
-      <details id="more" className="px-6 py-6 bg-[#0b0f14] text-[13px] text-white/75 leading-relaxed">
-        <summary className="cursor-pointer font-bold text-white">{c.detailsSummary}</summary>
+      <details id="more" className="px-6 py-6 bg-[var(--wt-bg)] text-[13px] text-[var(--wt-muted)] leading-relaxed">
+        <summary className="cursor-pointer font-bold text-[var(--wt-fg)]">{c.detailsSummary}</summary>
         <div className="mt-3 space-y-3">{c.details.map((d) => <p key={d}>{d}</p>)}</div>
       </details>
     </section>
@@ -440,9 +455,9 @@ function Webtoon({ cfg, onNext, footer, liveAt, unlocked }: {
   }, [])
 
   return (
-    <section className="max-w-[480px] mx-auto bg-black" style={{ containerType: 'inline-size' }}>
+    <section className="max-w-[480px] mx-auto bg-[var(--wt-bg)]" style={{ containerType: 'inline-size' }}>
       {!scrolled && (
-        <div className="fixed left-6 bottom-[calc(env(safe-area-inset-bottom)+30px)] z-30 text-white/80 text-xs flex flex-col items-center animate-bounce pointer-events-none">
+        <div className="fixed left-6 bottom-[calc(env(safe-area-inset-bottom)+30px)] z-30 text-[var(--wt-fg)] text-xs flex flex-col items-center animate-bounce pointer-events-none">
           <span>스크롤</span><span>▼</span>
         </div>
       )}
@@ -459,7 +474,7 @@ function Webtoon({ cfg, onNext, footer, liveAt, unlocked }: {
           >
             {cfg.webtoon.endCta}
           </button>
-          <p className="text-[12px] text-white/60">{cfg.webtoon.endNote}</p>
+          <p className="text-[12px] text-[var(--wt-muted)]">{cfg.webtoon.endNote}</p>
         </div>
       )}
 
@@ -510,7 +525,7 @@ function Band({ cut, children }: { cut: WebtoonCut; children?: ReactNode }) {
   const band = cut.band
   if (!band && !children) return null
   return (
-    <div className="relative z-10 flex flex-col items-center justify-start px-[7.7cqw]" style={{ background: band?.color ?? '#000', minHeight: band ? `${band.size}cqw` : undefined, paddingTop: children ? '2cqw' : undefined }}>
+    <div className="relative z-10 flex flex-col items-center justify-start px-[7.7cqw]" style={{ background: band?.color ?? 'var(--wt-band)', minHeight: band ? `${band.size}cqw` : undefined, paddingTop: children ? '2cqw' : undefined }}>
       {children}
     </div>
   )
@@ -519,7 +534,7 @@ function Band({ cut, children }: { cut: WebtoonCut; children?: ReactNode }) {
 function Captions({ items }: { items: Bubble[] }) {
   if (items.length === 0) return null
   return (
-    <div className="text-center text-white/60 pb-[2cqw]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>
+    <div className="text-center text-[var(--wt-muted)] pb-[2cqw]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>
       {items.map((c, i) => <p key={i}>{c.text}</p>)}
     </div>
   )
@@ -541,7 +556,7 @@ function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
     const cuts: WebtoonCut[] = cut.carousel.images.map((src, i) => ({ id: `${cut.id}-${i}`, src, ratio: 1, bubbles: [], review: { note: cut.carousel!.note } }))
     return (
       <>
-        <div className="bg-black pt-[10cqw] flex justify-center px-[7.7cqw]">{cut.carousel.before && <BeforeLine b={cut.carousel.before} />}</div>
+        <div className="bg-[var(--wt-bg)] pt-[10cqw] flex justify-center px-[7.7cqw]">{cut.carousel.before && <BeforeLine b={cut.carousel.before} />}</div>
         <ReviewDeck cuts={cuts} intervalMs={cut.carousel.intervalMs ?? 3000} />
         <Band cut={cut} />
       </>
@@ -565,7 +580,7 @@ function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
         {bottom && <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{ height: `${bottom.size}cqw`, background: `linear-gradient(to top, ${bottom.color}, transparent)` }} />}
         {bubbles.map((b, i) => <BubbleView key={i} b={b} />)}
       </div>
-      {(cut.band || captions.length > 0) && <Band cut={cut.band ? cut : { ...cut, band: { size: DEFAULT_BAND / 2, color: '#000' } }}><Captions items={captions} /></Band>}
+      {(cut.band || captions.length > 0) && <Band cut={cut.band ? cut : { ...cut, band: { size: DEFAULT_BAND / 2, color: 'var(--wt-band)' } }}><Captions items={captions} /></Band>}
     </>
   )
 }
@@ -575,16 +590,16 @@ function RealBlock({ cut }: { cut: WebtoonCut }) {
   const r = cut.real!
   return (
     <>
-      <div className="bg-black px-[7.7cqw] pt-[10cqw] pb-[6cqw] flex justify-center">{r.before && <BeforeLine b={r.before} />}</div>
-      <div className="bg-black">
+      <div className="bg-[var(--wt-bg)] px-[7.7cqw] pt-[10cqw] pb-[6cqw] flex justify-center">{r.before && <BeforeLine b={r.before} />}</div>
+      <div className="bg-[var(--wt-bg)]">
         {r.pending ? (
-          <div className="mx-[7.7cqw] rounded-xl border border-dashed border-white/25 py-[14cqw] text-center text-white/50" style={{ fontSize: '3.4cqw' }}>{r.pending}</div>
+          <div className="mx-[7.7cqw] rounded-xl border border-dashed border-[var(--wt-line)] py-[14cqw] text-center text-[var(--wt-faint)]" style={{ fontSize: '3.4cqw' }}>{r.pending}</div>
         ) : (
           r.images.map((src) => <img key={src} src={r2Proxy(src)} alt="실제 자료" loading="lazy" decoding="async" className="w-full block mb-[2cqw]" />)
         )}
-        {r.note && <p className="px-[7.7cqw] pt-[2cqw] text-center text-white/55" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.note}</p>}
+        {r.note && <p className="px-[7.7cqw] pt-[2cqw] text-center text-[var(--wt-muted)]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.note}</p>}
       </div>
-      <Band cut={cut.band ? cut : { ...cut, band: { size: 18, color: '#000' } }} />
+      <Band cut={cut.band ? cut : { ...cut, band: { size: 18, color: 'var(--wt-band)' } }} />
     </>
   )
 }
@@ -624,7 +639,7 @@ function TextScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
   const fade = (i: number) => `transition-all duration-700 ${shown > i ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`
   let k = 0
   return (
-    <div ref={ref} className="relative flex flex-col items-center justify-center gap-4 px-8 py-16 text-center bg-black" style={{ minHeight: "75vh" }}>
+    <div ref={ref} className="relative flex flex-col items-center justify-center gap-4 px-8 py-16 text-center bg-[var(--wt-bg)]" style={{ minHeight: "50vh" }}>
       {card.images && card.images.length > 0 && (
         <div className="flex gap-2 w-full justify-center mb-2">
           {card.images.map((src) => <img key={src} src={r2Proxy(src)} alt="" loading="lazy" className="w-[42%] aspect-[3/4] object-cover rounded-lg opacity-80" />)}
@@ -639,7 +654,7 @@ function TextScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
           <p key={i} className={`${hl ? 'text-[26px] font-black' : 'text-[18px] font-bold'} leading-relaxed whitespace-pre-line ${fade(idx)}`} style={hl ? { color: GREEN } : undefined}>{emphasize(l, card.emphasis)}</p>
         )
       })}
-      {card.note && <p className={`text-[11px] text-white/45 mt-2 ${fade(total - 1)}`}>{card.note}</p>}
+      {card.note && <p className={`text-[11px] text-[var(--wt-faint)] mt-2 ${fade(total - 1)}`}>{card.note}</p>}
     </div>
   )
 }
@@ -677,8 +692,8 @@ function ReviewDeck({ cuts, intervalMs = 4000 }: { cuts: WebtoonCut[]; intervalM
   }
 
   return (
-    <div ref={ref} className="bg-black px-6 pt-10 pb-8 flex flex-col items-center">
-      {header && <p className="text-[17px] font-bold text-white mb-5">{header}</p>}
+    <div ref={ref} className="bg-[var(--wt-bg)] px-6 pt-10 pb-8 flex flex-col items-center">
+      {header && <p className="text-[17px] font-bold text-[var(--wt-fg)] mb-5">{header}</p>}
       <div className="w-[86%] rounded-[30px] border-[6px] border-[#1f2937] bg-[#111] p-2 shadow-2xl">
         <div
           ref={track} onScroll={onScroll} onTouchStart={() => setTouched(true)} onMouseDown={() => setTouched(true)}
@@ -699,7 +714,7 @@ function ReviewDeck({ cuts, intervalMs = 4000 }: { cuts: WebtoonCut[]; intervalM
           ))}
         </div>
       )}
-      <p className="mt-2 text-[11px] text-white/55 text-center min-h-[2.4em]" style={{ wordBreak: 'keep-all' }}>{cuts[idx]?.review?.note}</p>
+      <p className="mt-2 text-[11px] text-[var(--wt-muted)] text-center min-h-[2.4em]" style={{ wordBreak: 'keep-all' }}>{cuts[idx]?.review?.note}</p>
     </div>
   )
 }
@@ -948,7 +963,7 @@ function Done({ cfg, fill, already, openChatUrl, tracking, liveEvent }: {
   if (pw) {
     // v7.1 P9 — 안쪽이 열림
     return (
-      <section className="max-w-[480px] mx-auto min-h-[100dvh] bg-[#0b0f14] px-5 pt-[calc(env(safe-area-inset-top)+36px)] pb-[calc(env(safe-area-inset-bottom)+32px)]">
+      <section className="max-w-[480px] mx-auto min-h-[100dvh] bg-[var(--wt-bg)] px-5 pt-[calc(env(safe-area-inset-top)+36px)] pb-[calc(env(safe-area-inset-bottom)+32px)]">
         <img src={r2Proxy(pw.lastImage)} alt="" className="w-28 h-28 rounded-full object-cover mx-auto border-2" style={{ borderColor: GREEN }} />
         <h1 className="mt-5 text-[24px] font-black text-center leading-snug">{fill(already ? pw.alreadyLine : pw.doneTitle)}</h1>
         <div className="mt-6"><LockedList pw={pw} unlocked /></div>
@@ -957,14 +972,14 @@ function Done({ cfg, fill, already, openChatUrl, tracking, liveEvent }: {
           {openChatUrl && <OpenChatButton url={openChatUrl} tracking={tracking} />}
           {liveEvent && <div className="rounded-xl bg-white"><LiveCalendarCta event={liveEvent} /></div>}
         </div>
-        <p className="mt-4 text-[13px] text-white/80 text-center">{cfg.done.notice}</p>
-        <p className="mt-4 text-[10px] text-white/45 leading-relaxed text-center">{cfg.done.legal}</p>
+        <p className="mt-4 text-[13px] text-[var(--wt-fg)] text-center">{cfg.done.notice}</p>
+        <p className="mt-4 text-[10px] text-[var(--wt-faint)] leading-relaxed text-center">{cfg.done.legal}</p>
       </section>
     )
   }
   return (
     <ChatScreen bg={cfg.doneBg} speaker={cfg.speaker} line={fill(already ? cfg.done.already : cfg.done.line)}>
-      <p className="text-[13px] text-white/85 mb-3">{cfg.done.notice}</p>
+      <p className="text-[13px] text-[var(--wt-fg)] mb-3">{cfg.done.notice}</p>
       {cfg.done.gift && <p className="text-[13px] mb-3" style={{ color: GREEN }}>{cfg.done.gift}</p>}
       {openChatUrl && <OpenChatButton url={openChatUrl} tracking={tracking} />}
       {liveEvent && (
@@ -972,7 +987,7 @@ function Done({ cfg, fill, already, openChatUrl, tracking, liveEvent }: {
           <LiveCalendarCta event={liveEvent} />
         </div>
       )}
-      <p className="mt-4 text-[10px] text-white/50 leading-relaxed">{cfg.done.legal}</p>
+      <p className="mt-4 text-[10px] text-[var(--wt-faint)] leading-relaxed">{cfg.done.legal}</p>
     </ChatScreen>
   )
 }
@@ -982,7 +997,7 @@ function Done({ cfg, fill, already, openChatUrl, tracking, liveEvent }: {
 function LockedList({ pw, unlocked }: { pw: Paywall; unlocked: boolean }) {
   const blur: React.CSSProperties = unlocked ? {} : { filter: 'blur(5px)', userSelect: 'none' }
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+    <div className="rounded-2xl border border-[var(--wt-line)] bg-[var(--wt-card)] p-5">
       <p className="text-[12px] font-bold tracking-wide" style={{ color: GREEN }}>{pw.lockedKicker}</p>
       <h2 className="mt-1 text-[20px] font-black">{pw.lockedTitle}</h2>
       <ol className="mt-4 space-y-3">
@@ -991,20 +1006,20 @@ function LockedList({ pw, unlocked }: { pw: Paywall; unlocked: boolean }) {
             <span className="text-[15px] font-black w-7 shrink-0" style={{ color: GREEN }}>{it.no}</span>
             <div className="min-w-0">
               <p className="text-[15px] font-bold">{it.title}</p>
-              <p className="text-[13px] text-white/70 mt-0.5 transition-[filter] duration-700" style={blur} aria-hidden={!unlocked}>
+              <p className="text-[13px] text-[var(--wt-muted)] mt-0.5 transition-[filter] duration-700" style={blur} aria-hidden={!unlocked}>
                 {it.desc}
               </p>
             </div>
-            {!unlocked && <span className="ml-auto text-white/40 text-[13px] shrink-0" aria-label="잠김">🔒</span>}
+            {!unlocked && <span className="ml-auto text-[var(--wt-faint)] text-[13px] shrink-0" aria-label="잠김">🔒</span>}
           </li>
         ))}
       </ol>
-      <p className="mt-5 text-[13px] font-bold text-white/80">{pw.extrasLabel}</p>
+      <p className="mt-5 text-[13px] font-bold text-[var(--wt-fg)]">{pw.extrasLabel}</p>
       <ul className="mt-2 space-y-2">
         {pw.extras.map((x) => (
           <li key={x.label} className="flex gap-2 text-[13px]">
             <span className="font-black shrink-0" style={{ color: GREEN }}>{x.label}</span>
-            <span className="text-white/80 transition-[filter] duration-700" style={blur}>{x.title}</span>
+            <span className="text-[var(--wt-fg)] transition-[filter] duration-700" style={blur}>{x.title}</span>
           </li>
         ))}
       </ul>
@@ -1020,7 +1035,7 @@ function Paywall({ pw, fill, unlocked, onApply, openChatUrl, tracking }: {
     id: `review-${i}`, src: r.src, ratio: 1, bubbles: [], review: { note: r.note, ...(i === 0 ? { header: pw.reviewsTitle } : {}) },
   }))
   return (
-    <div className="bg-black text-white">
+    <div className="bg-[var(--wt-bg)] text-[var(--wt-fg)]">
       {/* P1 생각 말풍선 카드 */}
       <div className="px-6 pt-12">
         <div className="relative rounded-[28px] bg-[#F7F8FB] text-[#111] px-6 py-6 text-center text-[15px] leading-relaxed font-medium" style={{ wordBreak: 'keep-all' }}>
@@ -1036,9 +1051,9 @@ function Paywall({ pw, fill, unlocked, onApply, openChatUrl, tracking }: {
         <h3 className="text-[18px] font-black">{pw.reasonsTitle}</h3>
         <ul className="mt-4 space-y-3">
           {pw.reasons.map((r) => (
-            <li key={r.main} className="rounded-xl bg-white/[0.05] px-4 py-3">
+            <li key={r.main} className="rounded-xl bg-[var(--wt-card)] px-4 py-3">
               <p className="text-[15px] font-bold">“{r.main}”</p>
-              <p className="text-[12px] text-white/60 mt-0.5">{r.sub}</p>
+              <p className="text-[12px] text-[var(--wt-muted)] mt-0.5">{r.sub}</p>
             </li>
           ))}
         </ul>
@@ -1059,7 +1074,7 @@ function Paywall({ pw, fill, unlocked, onApply, openChatUrl, tracking }: {
             {openChatUrl && <div className="mt-4"><OpenChatButton url={openChatUrl} tracking={tracking} /></div>}
           </div>
         ) : (
-          <div className="rounded-2xl border-2 p-5 bg-white/[0.03]" style={{ borderColor: GREEN }}>
+          <div className="rounded-2xl border-2 p-5 bg-[var(--wt-card)]" style={{ borderColor: GREEN }}>
             <p className="text-[12px] font-bold" style={{ color: GREEN }}>{pw.offer.kicker}</p>
             <h3 className="mt-1 text-[19px] font-black">{pw.offer.title}</h3>
             <ul className="mt-3 space-y-2">
@@ -1073,14 +1088,14 @@ function Paywall({ pw, fill, unlocked, onApply, openChatUrl, tracking }: {
                 </li>
               ))}
             </ul>
-            <div className="mt-4 flex items-baseline justify-between border-t border-white/10 pt-4">
-              <span className="text-[13px] text-white/60">참여비</span>
+            <div className="mt-4 flex items-baseline justify-between border-t border-[var(--wt-line)] pt-4">
+              <span className="text-[13px] text-[var(--wt-muted)]">참여비</span>
               <span className="text-[24px] font-black">{pw.offer.price}</span>
             </div>
             <button type="button" onClick={onApply} className="mt-4 w-full h-14 rounded-xl text-black font-bold text-[17px] active:scale-[0.98] transition" style={{ background: GREEN }}>
               {pw.offer.button}
             </button>
-            <p className="mt-2 text-[12px] text-white/60 text-center">{fill(pw.offer.note)}</p>
+            <p className="mt-2 text-[12px] text-[var(--wt-muted)] text-center">{fill(pw.offer.note)}</p>
           </div>
         )}
       </div>
@@ -1104,23 +1119,23 @@ function ConfirmScreen({ cfg, pw, fill, onApply, onBack, busy, loggedIn }: {
   cfg: WebtoonLanding; pw: Paywall; fill: (s: string) => string; onApply: () => void; onBack: () => void; busy: boolean; loggedIn: boolean
 }) {
   return (
-    <section className="max-w-[480px] mx-auto min-h-[100dvh] bg-[#0b0f14] px-5 pt-[calc(env(safe-area-inset-top)+20px)] pb-[calc(env(safe-area-inset-bottom)+28px)] flex flex-col">
-      <button type="button" onClick={onBack} className="self-start h-9 px-3 rounded-full bg-white/10 text-white text-[13px]">‹ {pw.confirm.back}</button>
+    <section className="max-w-[480px] mx-auto min-h-[100dvh] bg-[var(--wt-bg)] px-5 pt-[calc(env(safe-area-inset-top)+20px)] pb-[calc(env(safe-area-inset-bottom)+28px)] flex flex-col">
+      <button type="button" onClick={onBack} className="self-start h-9 px-3 rounded-full bg-[var(--wt-card)] text-[var(--wt-fg)] text-[13px]">‹ {pw.confirm.back}</button>
       <div className="mt-8 text-center">
         <p className="text-[12px] font-bold" style={{ color: GREEN }}>{pw.confirm.kicker}</p>
         <h1 className="mt-2 text-[24px] font-black leading-snug">{pw.confirm.title}</h1>
       </div>
-      <div className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-        <p className="text-[13px] font-bold text-white/70">받는 것</p>
+      <div className="mt-6 rounded-2xl border border-[var(--wt-line)] bg-[var(--wt-card)] p-5">
+        <p className="text-[13px] font-bold text-[var(--wt-muted)]">받는 것</p>
         <ul className="mt-2 space-y-1.5">
           {pw.offer.items.map((it) => <li key={it} className="text-[15px]"><span style={{ color: GREEN }}>✓</span> {it}</li>)}
         </ul>
-        <div className="mt-4 flex items-baseline justify-between border-t border-white/10 pt-4">
-          <span className="text-[13px] text-white/60">참여비</span>
+        <div className="mt-4 flex items-baseline justify-between border-t border-[var(--wt-line)] pt-4">
+          <span className="text-[13px] text-[var(--wt-muted)]">참여비</span>
           <span className="text-[22px] font-black">{pw.confirm.price}</span>
         </div>
       </div>
-      <ul className="mt-5 space-y-2 text-[13px] text-white/80">
+      <ul className="mt-5 space-y-2 text-[13px] text-[var(--wt-fg)]">
         {pw.confirm.assurances.map((a) => <li key={a} className="flex gap-2"><span style={{ color: GREEN }}>•</span><span style={{ wordBreak: 'keep-all' }}>{fill(a)}</span></li>)}
       </ul>
       <div className="flex-1 min-h-6" />
@@ -1131,11 +1146,11 @@ function ConfirmScreen({ cfg, pw, fill, onApply, onBack, busy, loggedIn }: {
         <KakaoIcon />{pw.confirm.button}
       </button>
       {!loggedIn && (
-        <p className="text-[11px] text-white/55 text-center mt-3 leading-relaxed">
+        <p className="text-[11px] text-[var(--wt-muted)] text-center mt-3 leading-relaxed">
           가입하면 <Link to="/terms" className="underline">이용약관</Link>·<Link to="/privacy" className="underline">개인정보 처리방침</Link>에 동의하게 돼요. (만 14세 이상)
         </p>
       )}
-      <p className="mt-3 text-[10px] text-white/40 text-center">{cfg.done.legal}</p>
+      <p className="mt-3 text-[10px] text-[var(--wt-faint)] text-center">{cfg.done.legal}</p>
     </section>
   )
 }

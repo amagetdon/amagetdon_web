@@ -9,6 +9,17 @@
 // 표지·페이월 문구는 자동으로 바꾸지 않는다 → src/lib/webtoonLandings.ts 에서 직접 맞춘다.
 import fs from 'node:fs'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
+
+/** 변환된 그림(public/webtoon/<slug>/NN.webp)의 실제 세로/가로 비율 — 컷마다 4:5·1:1·9:16 이 섞여도 자리가 맞게.
+ *  읽지 못하면 null(→ 9:16 기본값) */
+function ratioOf(file) {
+  try {
+    const [w, h] = execFileSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', file])
+      .toString().trim().split(',').map(Number)
+    return w > 0 && h > 0 ? Math.round((h / w) * 10000) / 10000 : null
+  } catch { return null }
+}
 
 const args = process.argv.slice(2)
 const holdIdx = args.indexOf('--hold')
@@ -109,7 +120,9 @@ const lines = cuts.map((c) => {
   if (c.kind === 'review') return `  ${wrap(`reviewCut(${JSON.stringify(c.n)}, ${JSON.stringify(c.id)}, ${JSON.stringify(c.review)})`, c)},`
   if (c.kind === 'real') return `  ${wrap(`realCut(${JSON.stringify(c.id)}, ${JSON.stringify(c.real)})`, c)},`
   if (c.kind === 'carousel') return `  ${wrap(`carouselCut(${JSON.stringify(c.id)}, ${JSON.stringify(c.carousel)})`, c)},`
-  return `  ${wrap(`cut(${JSON.stringify(c.n)}, ${JSON.stringify(c.id)}, ${JSON.stringify(c.bubbles)})`, c)},`
+  const r = ratioOf(`public/webtoon/${slug}/${c.n}.webp`)
+  if (r == null) console.warn(`  (비율 못 읽음 → 9:16) ${c.id} ${c.n}.webp`)
+  return `  ${wrap(`cut(${JSON.stringify(c.n)}, ${JSON.stringify(c.id)}, ${JSON.stringify(c.bubbles)}${r != null ? `, ${r}` : ''})`, c)},`
 })
 const has = (k) => cuts.some((c) => c.kind === k)
 const out = `// 자동 생성 — scripts/webtoon-dialogue.mjs (${path.basename(src)}${hold.length ? `, 보류: ${hold.join(',')}` : ''}). 직접 고치지 말고 대사 목록을 고쳐 다시 만든다.
@@ -117,7 +130,8 @@ import type { Bubble, WebtoonCut } from '../webtoonLandings'
 
 const BASE = '/webtoon/${slug}'
 const R = 1376 / 768
-const cut = (n: string, id: string, bubbles: Bubble[]): WebtoonCut => ({ id, src: \`\${BASE}/\${n}.webp\`, ratio: R, bubbles })
+// ratio = 그림 실제 세로/가로(변환 때 그림 파일에서 읽음), 없으면 9:16
+const cut = (n: string, id: string, bubbles: Bubble[], ratio = R): WebtoonCut => ({ id, src: \`\${BASE}/\${n}.webp\`, ratio, bubbles })
 ${has('text') ? `const textCut = (id: string, card: NonNullable<WebtoonCut['card']>): WebtoonCut => ({
   id, ratio: R, bubbles: [], card: { ...card, images: card.images?.map((n) => \`\${BASE}/\${n}.webp\`) },
 })

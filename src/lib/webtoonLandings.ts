@@ -102,6 +102,8 @@ export interface WebtoonLanding {
   slug: string
   courseId: number
   liveFallback: string
+  /** 색 테마 — 바탕·글자·덮개·기본 띠 색(WebtoonLandingPage THEMES). 없으면 light */
+  theme?: 'dark' | 'light'
   /** 탭 제목·공유 미리보기(OG). 서버(api/_lib/render-page)와 화면이 같이 쓴다. image 는 1200×630 */
   seo: { title: string; description: string; image: string }
   cover: {
