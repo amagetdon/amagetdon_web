@@ -57,7 +57,10 @@ function tail(t) {
 const TYPE = { narration: 'narration', speech: 'speech', dark_box: 'dark_box', sfx: 'sfx', caption_small: 'caption', caption: 'caption' }
 const before = (b) => (b ? { type: b.type === 'speech' ? 'speech' : 'narration', text: b.text, ...(b.speaker ? { speaker: b.speaker } : {}) } : undefined)
 
-const cuts = data.cuts.map((c) => {
+// 보류로 보여 줄 그림이 하나도 없는 실제 자료 컷은 자리째 뺀다(회색 자리 표시 없음 — 10/19 대표님)
+const realFiles = (c) => c.images ?? (c.image ? [c.image] : [])
+const fullyHeld = (c) => c.type === "real" && (isHeld(c.cut) || realFiles(c).every((f) => isHeld(f)))
+const cuts = data.cuts.filter((c) => !fullyHeld(c)).map((c) => {
   if (c.type === 'review') {
     return { kind: 'review', id: c.cut, n: num(c.image), review: { ...(c.header ? { header: c.header } : {}), note: c.note || '' } }
   }
@@ -68,7 +71,6 @@ const cuts = data.cuts.map((c) => {
       ...(c.before ? { before: before(c.before) } : {}),
       images: shown.map(({ i }) => realName(c.cut, i)),
       ...(c.note ? { note: c.note } : {}),
-      ...(shown.length === 0 ? { pending: '실제 자료 · 공개 전 확인 중' } : {}),
       // after: 그림 바로 아래 작은 출처 글 / display '작게…': 폭 90%W 이하로 작게
       ...(c.after ? { after: typeof c.after === 'string' ? c.after : c.after.text } : {}),
       ...(/작게/.test(String(c.display || '')) ? { small: true } : {}),

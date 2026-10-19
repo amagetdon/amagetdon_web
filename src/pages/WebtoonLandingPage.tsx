@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
@@ -574,7 +574,7 @@ function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
   const bottom = cut.fadeBottom ?? (cut.band ? { size: DEFAULT_FADE, color: cut.band.color } : undefined)
   return (
     <>
-      <div className="relative" style={{ aspectRatio: `1 / ${cut.ratio}` }}>
+      <CutFrame ratio={cut.ratio}>
         <img
           src={r2Proxy(cut.src)} alt="" className="absolute inset-0 w-full h-full object-cover"
           loading={eager ? 'eager' : 'lazy'} decoding="async"
@@ -582,10 +582,53 @@ function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
         {top && <div className="absolute inset-x-0 top-0 pointer-events-none" style={{ height: `${top.size}cqw`, background: `linear-gradient(to bottom, ${top.color}, transparent)` }} />}
         {bottom && <div className="absolute inset-x-0 bottom-0 pointer-events-none" style={{ height: `${bottom.size}cqw`, background: `linear-gradient(to top, ${bottom.color}, transparent)` }} />}
         {bubbles.map((b, i) => <BubbleView key={i} b={b} />)}
-      </div>
+      </CutFrame>
       {(cut.band || captions.length > 0) && <Band cut={cut.band ? cut : { ...cut, band: { size: DEFAULT_BAND / 2, color: 'var(--wt-band)' } }}><Captions items={captions} /></Band>}
     </>
   )
+}
+
+/** 그림 컷 틀 — 같은 컷 안 말풍선·내레이션 상자가 서로 겹치면 아래 상자를 밀어 내려 약 2cqw 띄운다(10/19 대표님 '겹친거 떼요').
+ *  PM 위치값이 겹쳐도 화면에서 다시 겹치지 않게 하는 안전장치. 밀린 상자가 그림 아래로 넘치면 그만큼 컷 아래 여백을 둔다 */
+function CutFrame({ ratio, children }: { ratio: number; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const box = ref.current
+    if (!box) return
+    let raf = 0
+    const run = () => {
+      const els = [...box.querySelectorAll<HTMLElement>('[data-bubble]')]
+      els.forEach((e) => { e.style.marginTop = '' })
+      box.style.marginBottom = ''
+      const cb = box.getBoundingClientRect()
+      const gap = cb.width * 0.02
+      const placed: { left: number; right: number; top: number; bottom: number }[] = []
+      for (const { e, r } of els.map((e) => ({ e, r: e.getBoundingClientRect() })).sort((a, b) => a.r.top - b.r.top)) {
+        let { top, bottom } = r
+        let push = 0
+        for (let moved = true; moved;) {
+          moved = false
+          for (const p of placed) {
+            if (r.left < p.right && p.left < r.right && top < p.bottom + gap && p.top < bottom + gap) {
+              const d = p.bottom + gap - top
+              if (d > 0) { top += d; bottom += d; push += d; moved = true }
+            }
+          }
+        }
+        if (push) e.style.marginTop = `${push}px`
+        placed.push({ left: r.left, right: r.right, top, bottom })
+      }
+      const over = Math.max(0, ...placed.map((p) => p.bottom)) - cb.bottom
+      if (over > 0) box.style.marginBottom = `${over + gap}px`
+    }
+    const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(run) }
+    run()
+    const ro = new ResizeObserver(schedule)
+    ro.observe(box)
+    box.querySelectorAll('[data-bubble]').forEach((e) => ro.observe(e))
+    return () => { ro.disconnect(); cancelAnimationFrame(raf) }
+  }, [])
+  return <div ref={ref} className="relative" style={{ aspectRatio: `1 / ${ratio}` }}>{children}</div>
 }
 
 /** 실제 자료 — 검은 띠 안에 앞 문구, 그림(여러 장이면 세로로 이어 붙임), 출처 작은 글. 공개 전 확인 중이면 자리 표시 */
@@ -595,19 +638,16 @@ function RealBlock({ cut }: { cut: WebtoonCut }) {
     <>
       <div className="bg-[var(--wt-bg)] px-[7.7cqw] pt-[10cqw] pb-[6cqw] flex justify-center">{r.before && <BeforeLine b={r.before} />}</div>
       <div className="bg-[var(--wt-bg)]">
-        {r.pending ? (
-          <div className="mx-[7.7cqw] rounded-xl border border-dashed border-[var(--wt-line)] py-[14cqw] text-center text-[var(--wt-faint)]" style={{ fontSize: '3.4cqw' }}>{r.pending}</div>
-        ) : (
-          r.images.map((src) => (
+        {r.images.map((src) => (
             // small(보도 인용 등): 폭 90%W 이하, 원본보다 크게 늘리지 않음(max-width: 원본 크기)
             <img key={src} src={r2Proxy(src)} alt="실제 자료" loading="lazy" decoding="async"
               className={r.small ? 'block mx-auto mb-[2cqw] w-auto max-w-[90cqw]' : 'w-full block mb-[2cqw]'} />
-          ))
-        )}
+        ))}
         {/* after(그림 바로 아래 출처)가 있으면 그것만 — note 는 내부 메모일 수 있음 */}
         {(r.after ?? r.note) && <p className="px-[7.7cqw] pt-[2cqw] text-center text-[var(--wt-muted)]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.after ?? r.note}</p>}
       </div>
-      <Band cut={cut.band ? cut : { ...cut, band: { size: 18, color: 'var(--wt-band)' } }} />
+      {/* 아래 띠는 PM 전환 색(그림 가장자리 색이라 회색일 때가 많음) 대신 페이지 바탕색 — 10/19 대표님 '회색 박스 빼요' */}
+      <Band cut={{ ...cut, band: { size: cut.band?.size ?? 10, color: 'var(--wt-bg)' } }} />
     </>
   )
 }
@@ -866,7 +906,7 @@ function BubbleView({ b }: { b: Bubble }) {
     case 'narration':
       // 흰 사각, 모서리·그림자 없음, 0.36%W 검은 테두리, 폭 50~80%W(글자에 맞춤)
       return (
-        <p className="absolute bg-white text-[#111] text-center"
+        <p data-bubble className="absolute bg-white text-[#111] text-center"
           style={{ ...pos, ...text, border: '0.36cqw solid #111', padding: '4.6cqw 5.3cqw', minWidth: b.maxW ? undefined : '50cqw', maxWidth: maxW ?? '80cqw', width: b.w ? `${b.w}cqw` : 'max-content' }}>
           {b.text}
         </p>
@@ -874,7 +914,7 @@ function BubbleView({ b }: { b: Bubble }) {
     case 'dark_box':
       // 검은 사각, 테두리 없음, 폭 약 41%W, 한 줄 높이 약 22%W
       return (
-        <p className="absolute bg-black text-white text-center flex items-center justify-center"
+        <p data-bubble className="absolute bg-black text-white text-center flex items-center justify-center"
           style={{ ...pos, ...text, width: b.w ? `${b.w}cqw` : '41cqw', minHeight: '22cqw', padding: '4cqw 5cqw' }}>
           {b.text}
         </p>
@@ -901,7 +941,7 @@ function BubbleView({ b }: { b: Bubble }) {
       const tailX = b.tailX ?? (b.align === 'right' ? 30 : b.align === 'left' ? 70 : 50)
       const width = b.w ? `${b.w}cqw` : maxW ? `min(48cqw, ${maxW})` : '48cqw'
       return (
-        <div className="absolute" style={{ ...pos, width }}>
+        <div data-bubble className="absolute" style={{ ...pos, width }}>
           <p className="relative bg-[#F7F8FB] text-[#111] text-center rounded-[50%] flex items-center justify-center"
             style={{ ...text, border: '0.22cqw solid #111', padding: '7cqw 6cqw', minHeight: `calc(${width} * 0.85)` }}>
             {b.text}
