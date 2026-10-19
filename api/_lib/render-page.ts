@@ -454,6 +454,14 @@ const ROUTES: [RegExp, Handler][] = [
     }
   }],
 
+  // 마케팅 정보 수신 동의 안내(카카오싱크 약관 URL) — 내용은 화면 쪽 고정 문구
+  [/^\/marketing-consent$/, async () => ({
+    title: '마케팅 정보 수신 동의 | 아마겟돈 클래스',
+    description: '아마겟돈 클래스 마케팅 정보 수신 동의(선택) 안내',
+    h1: '마케팅 정보 수신 동의 (선택)',
+    noindex: true,
+  })],
+
   [/^\/(privacy|terms)$/, async (m) => {
     const h1 = m[1] === 'privacy' ? '개인정보처리방침' : '이용약관'
     const rows = (await q(`site_settings?key=eq.${m[1]}_html&select=value`)) as { value: { html?: string } }[] | null

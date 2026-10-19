@@ -15,6 +15,7 @@ import SeoHead from './components/SeoHead'
 import ExternalServicesInjector from './components/ExternalServicesInjector'
 import ExternalCodesInjector from './components/ExternalCodesInjector'
 import PixelInjector from './components/PixelInjector'
+import KakaoConsentSync from './components/KakaoConsentSync'
 import { captureLastTouch, logProductVisit } from './lib/attribution'
 import { useChromeHidden } from './lib/chrome'
 import { takeReturnPath } from './lib/postLogin'
@@ -42,6 +43,7 @@ const EbooksSecretPage = lazy(() => import('./pages/EbooksSecretPage'))
 const SearchPage = lazy(() => import('./pages/SearchPage'))
 const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage'))
 const TermsOfServicePage = lazy(() => import('./pages/TermsOfServicePage'))
+const MarketingConsentPage = lazy(() => import('./pages/MarketingConsentPage'))
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const AdminInstructors = lazy(() => import('./pages/admin/AdminInstructors'))
 const AdminCourses = lazy(() => import('./pages/admin/AdminCourses'))
@@ -200,6 +202,7 @@ function App() {
           <LoadingBar />
           <ScrollToTop />
           <PostLoginRedirect />
+          <KakaoConsentSync />
           <UtmCapture />
           <DynamicMeta />
           <SeoHead />
@@ -243,6 +246,7 @@ function App() {
                 <Route path="/notice" element={<NoticePage />} />
                 <Route path="/privacy" element={<PrivacyPolicyPage />} />
                 <Route path="/terms" element={<TermsOfServicePage />} />
+                <Route path="/marketing-consent" element={<MarketingConsentPage />} />
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/signup" element={<SignUpPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
