@@ -501,16 +501,34 @@ function groupCuts(cuts: WebtoonCut[]): (WebtoonCut | WebtoonCut[])[] {
   return out
 }
 
+// 컷 이음새(청월당 원본 캡처 기준): 그림 위아래 끝을 바탕색으로 흐려 다음 컷과 섞고(페이드), 컷 사이에 검은 여백을 둔다.
+// 그림끼리 살짝 겹쳐(OVERLAP) 페이드 구간이 이어지게 — 여백 + 페이드가 합쳐져 '딱딱 붙인' 느낌이 없어진다.
+const FADE = '9%'          // 그림 위아래 흐려지는 길이(그림 높이 기준)
+const GAP = '14cqw'        // 컷 사이 검은 여백(그림 폭 기준)
+const OVERLAP = '-9cqw'    // 다음 컷을 위로 살짝 겹침
+const FADE_MASK = `linear-gradient(to bottom, transparent 0, #000 ${FADE}, #000 calc(100% - ${FADE}), transparent 100%)`
+
 function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
   if (!cut.src) return <TextScene card={cut.card ?? { lines: [] }} />
   if (cut.review) return <ReviewDeck cuts={[cut]} />
+  // 작은 출처·주석 글은 그림 위가 아니라 컷 아래 여백에 — 내레이션 상자와 겹치지 않게(K17)
+  const captions = cut.bubbles.filter((b) => b.type === 'caption')
+  const bubbles = cut.bubbles.filter((b) => b.type !== 'caption')
   return (
-    <div className="relative" style={{ aspectRatio: `1 / ${cut.ratio}` }}>
-      <img
-        src={r2Proxy(cut.src)} alt="" className="absolute inset-0 w-full h-full object-cover"
-        loading={eager ? 'eager' : 'lazy'} decoding="async"
-      />
-      {cut.bubbles.map((b, i) => <BubbleView key={i} b={b} />)}
+    <div className="relative" style={{ marginTop: OVERLAP, paddingBottom: GAP }}>
+      <div className="relative" style={{ aspectRatio: `1 / ${cut.ratio}` }}>
+        <img
+          src={r2Proxy(cut.src)} alt="" className="absolute inset-0 w-full h-full object-cover"
+          style={{ maskImage: FADE_MASK, WebkitMaskImage: FADE_MASK }}
+          loading={eager ? 'eager' : 'lazy'} decoding="async"
+        />
+        {bubbles.map((b, i) => <BubbleView key={i} b={b} />)}
+      </div>
+      {captions.length > 0 && (
+        <div className="relative z-10 -mt-[4cqw] px-[7.7cqw] text-center text-white/60" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>
+          {captions.map((c, i) => <p key={i}>{c.text}</p>)}
+        </div>
+      )}
     </div>
   )
 }
@@ -650,7 +668,8 @@ function TypingDraft({ run, className = '' }: { run: boolean; className?: string
 const SIDE = '7.7cqw' // 좌우 바깥 여백
 function BubbleView({ b }: { b: Bubble }) {
   const anchorBottom = b.anchor ? b.anchor === 'bottom' : b.top > 60
-  const pos: React.CSSProperties = { top: `${b.top}%` }
+  // zIndex: 다음 컷이 위로 살짝 겹치므로(Cut OVERLAP) 말풍선이 그 그림 아래로 묻히지 않게
+  const pos: React.CSSProperties = { top: `${b.top}%`, zIndex: 10 }
   if (b.align === 'left') pos.left = SIDE
   else if (b.align === 'right') pos.right = SIDE
   else pos.left = '50%'
