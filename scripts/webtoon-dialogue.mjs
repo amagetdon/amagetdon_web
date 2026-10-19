@@ -70,7 +70,8 @@ const cuts = data.cuts.filter((c) => !fullyHeld(c)).map((c) => {
     const real = {
       ...(c.before ? { before: before(c.before) } : {}),
       images: shown.map(({ i }) => realName(c.cut, i)),
-      ...(c.note ? { note: c.note } : {}),
+      // note·check 는 내부 메모 — 화면·저장소 코드로 내보내지 않음(10/19 PM)
+      ...(c.image_captions ? { captions: shown.map(({ i }) => c.image_captions[i] ?? '') } : {}),
       // after: 그림 바로 아래 작은 출처 글 / display '작게…': 폭 90%W 이하로 작게
       ...(c.after ? { after: typeof c.after === 'string' ? c.after : c.after.text } : {}),
       ...(/작게/.test(String(c.display || '')) ? { small: true } : {}),
@@ -78,7 +79,7 @@ const cuts = data.cuts.filter((c) => !fullyHeld(c)).map((c) => {
     return { kind: 'real', id: c.cut, real }
   }
   if (c.type === 'carousel') {
-    return { kind: 'carousel', id: c.cut, carousel: { ...(c.before ? { before: before(c.before) } : {}), images: (c.images ?? []).map((_, i) => `reviews/h${i + 1}.webp`), note: c.note || '' } }
+    return { kind: 'carousel', id: c.cut, carousel: { ...(c.before ? { before: before(c.before) } : {}), images: (c.images ?? []).map((_, i) => `reviews/h${i + 1}.webp`), note: c.after ? (typeof c.after === 'string' ? c.after : c.after.text) : '' } }
   }
   if (c.type === 'text_scene' || !c.image) {
     const lines = c.lines ?? []

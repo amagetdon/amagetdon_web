@@ -53,6 +53,8 @@ export interface WebtoonCut {
     images: string[]
     note?: string
     pending?: string
+    /** 그림마다 바로 아래 붙는 짧은 설명(images 와 같은 순서) */
+    captions?: string[]
     /** 그림 바로 아래 작은 출처 글(있으면 note 대신 보여 줌 — note 는 내부 메모일 수 있음) */
     after?: string
     /** 작게: 폭 90%W 이하, 원본보다 크게 늘리지 않음(보도 인용 등) */

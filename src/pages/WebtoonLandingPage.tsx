@@ -638,13 +638,16 @@ function RealBlock({ cut }: { cut: WebtoonCut }) {
     <>
       <div className="bg-[var(--wt-bg)] px-[7.7cqw] pt-[10cqw] pb-[6cqw] flex justify-center">{r.before && <BeforeLine b={r.before} />}</div>
       <div className="bg-[var(--wt-bg)]">
-        {r.images.map((src) => (
+        {r.images.map((src, i) => (
+          <div key={src}>
             // small(보도 인용 등): 폭 90%W 이하, 원본보다 크게 늘리지 않음(max-width: 원본 크기)
             <img key={src} src={r2Proxy(src)} alt="실제 자료" loading="lazy" decoding="async"
               className={r.small ? 'block mx-auto mb-[2cqw] w-auto max-w-[90cqw]' : 'w-full block mb-[2cqw]'} />
+            {r.captions?.[i] && <p className="px-[7.7cqw] -mt-[1cqw] mb-[3cqw] text-center text-[var(--wt-muted)]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.captions[i]}</p>}
+          </div>
         ))}
-        {/* after(그림 바로 아래 출처)가 있으면 그것만 — note 는 내부 메모일 수 있음 */}
-        {(r.after ?? r.note) && <p className="px-[7.7cqw] pt-[2cqw] text-center text-[var(--wt-muted)]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.after ?? r.note}</p>}
+        {/* after(그림 바로 아래 출처)만 — note 는 내부 메모라 화면에 내지 않음 */}
+        {r.after && <p className="px-[7.7cqw] pt-[2cqw] text-center text-[var(--wt-muted)]" style={{ fontSize: '2.6cqw', lineHeight: 1.45, wordBreak: 'keep-all' }}>{r.after}</p>}
       </div>
       {/* 아래 띠는 PM 전환 색(그림 가장자리 색이라 회색일 때가 많음) 대신 페이지 바탕색 — 10/19 대표님 '회색 박스 빼요' */}
       <Band cut={{ ...cut, band: { size: cut.band?.size ?? 10, color: 'var(--wt-bg)' } }} />
