@@ -172,3 +172,6 @@ end;
 $$;
 revoke all on function public.get_product_dashboard(text, integer) from public, anon;
 grant execute on function public.get_product_dashboard(text, integer) to authenticated;
+
+-- 비교용 새 이름 함수가 남아 있으면 정리
+drop function if exists public.get_product_dashboard_v2(text, integer);

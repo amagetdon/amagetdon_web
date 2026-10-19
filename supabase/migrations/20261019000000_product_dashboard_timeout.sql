@@ -1,5 +1,6 @@
 -- 통합 대시보드 시간 초과 고침 (2026-10-19)
 -- 129번 강의 대시보드가 statement timeout. 방문자별 신청 여부를 exists(신청자 전체 훑기) 대신 회원 ID 조인으로 계산.
+-- [3단계] 1·2단계(새 이름 함수 비교)에서 숫자가 같으면 이 파일로 기존 함수를 교체하고 비교용 함수를 지운다.
 -- 결과 숫자는 그대로(신청자 CTE 는 회원당 1줄). 되돌리기: supabase/diagnostics/20261019_product_dashboard_timeout_rollback.sql
 
 create or replace function public.get_product_dashboard(p_kind text, p_id integer)
@@ -174,3 +175,6 @@ end;
 $$;
 revoke all on function public.get_product_dashboard(text, integer) from public, anon;
 grant execute on function public.get_product_dashboard(text, integer) to authenticated;
+
+-- 비교용 새 이름 함수 정리
+drop function if exists public.get_product_dashboard_v2(text, integer);
