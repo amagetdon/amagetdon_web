@@ -425,20 +425,7 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
 }
 
 function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
-  if (!cut.src) {
-    // 글자 장면 — 그림 없이 HTML 글자
-    const c = cut.card ?? { lines: [] }
-    return (
-      <div className="relative flex flex-col items-center justify-center gap-4 px-8 py-16 text-center bg-[#0b0f14] border-y border-white/5" style={{ minHeight: '70vh' }}>
-        {c.title && <p className="text-[24px] font-black leading-snug" style={{ color: GREEN }}>{c.title}</p>}
-        {c.lines.map((l, i) => (
-          <p key={i} className="text-[18px] leading-relaxed font-bold whitespace-pre-line" style={c.highlight?.includes(i) ? { color: GREEN } : undefined}>{l}</p>
-        ))}
-        {c.note && <p className="text-[11px] text-white/45 mt-2">{c.note}</p>}
-        {cut.bubbles.map((b, i) => <BubbleView key={i} b={b} />)}
-      </div>
-    )
-  }
+  if (!cut.src) return <TextScene card={cut.card ?? { lines: [] }} />
   return (
     <div className="relative" style={{ aspectRatio: `1 / ${cut.ratio}` }}>
       <img
@@ -446,6 +433,77 @@ function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
         loading={eager ? 'eager' : 'lazy'} decoding="async"
       />
       {cut.bubbles.map((b, i) => <BubbleView key={i} b={b} />)}
+    </div>
+  )
+}
+
+/** 글자 장면 — 검은 바탕에 글자가 화면에 들어오면 한 줄씩 나타난다. 첫 줄이 질문(?)이거나 ①~⑤ 로 시작하면 제목 */
+function TextScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [shown, setShown] = useState(0)
+  const [started, setStarted] = useState(false)
+  const typing = card.animation === 'typing'
+  const titleFirst = !card.title && /[?？]$|^[①②③④⑤]/.test(card.lines[0] ?? '')
+  const title = card.title ?? (titleFirst ? card.lines[0] : undefined)
+  const body = titleFirst ? card.lines.slice(1) : card.lines
+  const offset = titleFirst ? 1 : 0
+  const total = body.length + (title ? 1 : 0) + (typing ? 1 : 0)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setStarted(true); io.disconnect() } }, { threshold: 0.35 })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
+  useEffect(() => {
+    if (!started || shown >= total) return
+    const t = window.setTimeout(() => setShown((n) => n + 1), shown === 0 ? 150 : typing && shown === (title ? 2 : 1) ? 2600 : 550) // 초안 화면이 다 채워진 뒤 다음 줄
+    return () => window.clearTimeout(t)
+  }, [started, shown, total, typing, title])
+
+  const fade = (i: number) => `transition-all duration-700 ${shown > i ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`
+  let k = 0
+  return (
+    <div ref={ref} className="relative flex flex-col items-center justify-center gap-4 px-8 py-16 text-center bg-[#0b0f14] border-y border-white/5" style={{ minHeight: '75vh' }}>
+      {card.images && card.images.length > 0 && (
+        <div className="flex gap-2 w-full justify-center mb-2">
+          {card.images.map((src) => <img key={src} src={r2Proxy(src)} alt="" loading="lazy" className="w-[42%] aspect-[3/4] object-cover rounded-lg opacity-80" />)}
+        </div>
+      )}
+      {title && <p className={`text-[24px] font-black leading-snug ${fade(k++)}`} style={{ color: GREEN }}>{title}</p>}
+      {typing && <TypingDraft run={shown > k - 0} className={fade(k++)} />}
+      {body.map((l, i) => {
+        const idx = k++
+        const hl = card.highlight?.includes(i + offset)
+        return (
+          <p key={i} className={`${hl ? 'text-[26px] font-black' : 'text-[18px] font-bold'} leading-relaxed whitespace-pre-line ${fade(idx)}`} style={hl ? { color: GREEN } : undefined}>{l}</p>
+        )
+      })}
+      {card.note && <p className={`text-[11px] text-white/45 mt-2 ${fade(total - 1)}`}>{card.note}</p>}
+    </div>
+  )
+}
+
+/** 빈 글쓰기 화면 → 커서 깜빡임 → AI 초안이 한 줄씩 채워짐(약 2.5초) */
+function TypingDraft({ run, className = '' }: { run: boolean; className?: string }) {
+  const [n, setN] = useState(0)
+  const BARS = [92, 78, 85, 60, 88, 70]
+  useEffect(() => {
+    if (!run || n >= BARS.length) return
+    const t = window.setTimeout(() => setN((x) => x + 1), n === 0 ? 700 : 320)
+    return () => window.clearTimeout(t)
+  }, [run, n, BARS.length])
+  return (
+    <div className={`w-full max-w-[300px] rounded-xl bg-white text-left p-4 shadow-lg ${className}`}>
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-[11px] font-bold text-gray-500">새 글 쓰기</span>
+        <span className="text-[11px] font-bold" style={{ color: n >= BARS.length ? '#16a34a' : '#9ca3af' }}>{n >= BARS.length ? 'AI 초안 완료' : n > 0 ? 'AI 초안 작성 중…' : ''}</span>
+      </div>
+      <div className="space-y-2 min-h-[96px]">
+        {BARS.slice(0, n).map((w, i) => <div key={i} className="h-2.5 rounded bg-gray-200" style={{ width: `${w}%` }} />)}
+        {n < BARS.length && <span className="inline-block w-[2px] h-4 bg-gray-800 animate-pulse align-middle" />}
+      </div>
     </div>
   )
 }
