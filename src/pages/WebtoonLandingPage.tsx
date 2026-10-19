@@ -562,7 +562,10 @@ function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
       </>
     )
   }
-  if (!cut.src) return <><TextScene card={cut.card ?? { lines: [] }} /><Band cut={cut} /></>
+  if (!cut.src) {
+    const card = cut.card ?? { lines: [] }
+    return <>{card.layout === 'points' ? <PointsScene card={card} /> : <TextScene card={card} />}<Band cut={cut} /></>
+  }
   if (cut.review) return <ReviewDeck cuts={[cut]} />
   // 작은 출처·주석 글은 그림 위가 아니라 컷 아래 띠에 — 내레이션 상자와 겹치지 않게(K17)
   const captions = cut.bubbles.filter((b) => b.type === 'caption')
@@ -606,6 +609,104 @@ function RealBlock({ cut }: { cut: WebtoonCut }) {
       </div>
       <Band cut={cut.band ? cut : { ...cut, band: { size: 18, color: 'var(--wt-band)' } }} />
     </>
+  )
+}
+
+/* ───────── 인터랙티브 '두 가지' 장면(points) ───────── */
+// 머리 줄 → 잠깐 멈춤 → 마지막 머리 줄 크게 튀어나옴 → '하나·둘' 카드가 스크롤에 맞춰 하나씩 아래에서 튀어 오르고
+// 핵심어에 형광펜 밑줄이 그어진다. 카드를 누르면 살짝 흔들림(넘어가는 데 탭은 필요 없음).
+// 휴대폰 '동작 줄이기' 설정이면 애니메이션 없이 바로 다 보인다.
+const NUM_WORDS = /^(하나|둘|셋|넷|다섯)\s*,\s*/
+const POINTS_CSS = `
+@keyframes wt-pop { 0% { opacity: 0; transform: translateY(28px) scale(.94) } 60% { opacity: 1; transform: translateY(-4px) scale(1.02) } 100% { opacity: 1; transform: none } }
+@keyframes wt-big { 0% { opacity: 0; transform: scale(.6) } 70% { opacity: 1; transform: scale(1.08) } 100% { opacity: 1; transform: none } }
+@keyframes wt-wiggle { 0%,100% { transform: rotate(0) } 25% { transform: rotate(-2deg) scale(1.02) } 75% { transform: rotate(2deg) scale(1.02) } }
+`
+
+function useReducedMotion() {
+  const [reduce] = useState(() => {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches } catch { return false }
+  })
+  return reduce
+}
+
+/** 화면에 한 번 들어오면 true */
+function useSeen<T extends Element>(threshold = 0.4) {
+  const ref = useRef<T>(null)
+  const [seen, setSeen] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || seen) return
+    const io = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setSeen(true); io.disconnect() } }, { threshold })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [seen, threshold])
+  return [ref, seen] as const
+}
+
+function PointsScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
+  const reduce = useReducedMotion()
+  const head = card.lines.filter((l) => !NUM_WORDS.test(l))
+  const points = card.lines.filter((l) => NUM_WORDS.test(l)).map((l) => l.replace(NUM_WORDS, ''))
+  const lead = head.length > 1 ? head.slice(0, -1) : head
+  const big = head.length > 1 ? head[head.length - 1] : null
+  const [headRef, headSeen] = useSeen<HTMLDivElement>(0.5)
+  const [bigShown, setBigShown] = useState(false)
+  useEffect(() => {
+    if (!headSeen || reduce) return
+    const t = window.setTimeout(() => setBigShown(true), 900) // 잠깐 멈춤
+    return () => window.clearTimeout(t)
+  }, [headSeen, reduce])
+  const showBig = reduce || bigShown
+  return (
+    <div className="bg-[var(--wt-scene-bg)] px-[7cqw] py-[14cqw] text-center">
+      <style>{POINTS_CSS}</style>
+      <div ref={headRef}>
+        {lead.map((l) => (
+          <p key={l} className="text-[4.8cqw] font-bold leading-relaxed transition-opacity duration-700" style={{ opacity: reduce || headSeen ? 1 : 0, wordBreak: 'keep-all' }}>{l}</p>
+        ))}
+        {big && (
+          <p className="mt-[3cqw] text-[11cqw] font-black leading-tight" style={{ color: GREEN, opacity: showBig ? 1 : 0, animation: showBig && !reduce ? 'wt-big .6s cubic-bezier(.2,1.4,.4,1) both' : undefined }}>{big}</p>
+        )}
+      </div>
+      <div className="mt-[10cqw] flex flex-col gap-[5cqw] text-left">
+        {points.map((p, i) => <PointCard key={p} n={i + 1} text={p} words={card.emphasis} reduce={reduce} />)}
+      </div>
+    </div>
+  )
+}
+
+function PointCard({ n, text, words, reduce }: { n: number; text: string; words?: string[]; reduce: boolean }) {
+  const [ref, seen] = useSeen<HTMLDivElement>(0.6)
+  const [wiggle, setWiggle] = useState(0)
+  const show = reduce || seen
+  // 형광펜 밑줄: 대사목록 emphasis 중 이 카드에 있는 말, 없으면 문장 전체
+  const word = words?.find((w) => text.includes(w))
+  const [pre, mark, post] = word ? [text.slice(0, text.indexOf(word)), word, text.slice(text.indexOf(word) + word.length)] : ['', text, '']
+  return (
+    <div
+      ref={ref} role="button" tabIndex={0} onClick={() => setWiggle((w) => w + 1)}
+      className="flex items-start gap-[3.5cqw] rounded-2xl bg-white border border-[var(--wt-line)] shadow-[0_4px_14px_rgba(0,0,0,0.06)] px-[5cqw] py-[5cqw] cursor-pointer select-none"
+      style={{
+        opacity: show ? 1 : 0,
+        animation: reduce ? undefined : wiggle ? `wt-wiggle .4s ease ${0}s` : show ? 'wt-pop .65s cubic-bezier(.2,1.3,.4,1) both' : undefined,
+      }}
+      key={wiggle}
+    >
+      <span className="shrink-0 w-[8cqw] h-[8cqw] rounded-full flex items-center justify-center text-[4.4cqw] font-black text-black" style={{ background: GREEN }}>{n}</span>
+      <p className="text-[4.8cqw] font-bold leading-relaxed text-[#111]" style={{ wordBreak: 'keep-all' }}>
+        {pre}
+        <span
+          style={{
+            backgroundImage: 'linear-gradient(transparent 58%, rgba(46,213,115,0.45) 58%)',
+            backgroundRepeat: 'no-repeat',
+            backgroundSize: show ? '100% 100%' : '0% 100%',
+            transition: reduce ? undefined : 'background-size .8s ease .45s',
+          }}
+        >{mark}</span>
+        {post}
+      </p>
+    </div>
   )
 }
 

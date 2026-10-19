@@ -27,7 +27,8 @@ const hold = holdIdx >= 0 ? String(args[holdIdx + 1] || '').split(',').map((s) =
 const [src, slug] = args.filter((_, i) => i !== holdIdx && i !== holdIdx + 1)
 if (!src || !slug) { console.error('쓰는 법: node scripts/webtoon-dialogue.mjs <대사목록.json> <slug> [--hold ID,파일앞부분]'); process.exit(1) }
 const data = JSON.parse(fs.readFileSync(src, 'utf8'))
-const num = (file) => (file ? String(file).slice(0, 2) : null)
+// 그림 번호 = 파일 이름 첫 _ 앞(05_…→05, 05b_…→05b) — scripts/webtoon-images.sh 와 같은 규칙
+const num = (file) => (file ? path.basename(String(file)).split('_')[0] : null)
 const isHeld = (idOrFile) => hold.some((h) => idOrFile === h || path.basename(String(idOrFile)).startsWith(h))
 /** 실제 자료 그림의 저장 이름 — real/<컷id>-<순번>.webp (scripts/webtoon-real-assets.mjs 와 같은 규칙) */
 const realName = (id, i) => `real/${id}-${i + 1}.webp`
@@ -84,6 +85,11 @@ const cuts = data.cuts.map((c) => {
     const highlight = lines.map((l, i) => (/\d+억 원$|초안은 1분|글 한 편부터|따로 있어요/.test(l) && i > 0 ? i : -1)).filter((i) => i >= 0)
     if (highlight.length) card.highlight = highlight
     if (c.emphasis) card.emphasis = c.emphasis
+    // points: 대사목록에 layout 이 있거나, '하나,'·'둘,'로 시작하는 줄이 2개 이상이면 번호 카드 장면
+    if (c.layout === 'points' || lines.filter((l) => /^(하나|둘|셋|넷|다섯)\s*,/.test(l)).length >= 2) {
+      card.layout = 'points'
+      delete card.highlight
+    }
     if (c.caption_small) card.note = c.caption_small
     if (c.small_images) card.images = c.small_images.map(num)
     if (c.animation) card.animation = 'typing'

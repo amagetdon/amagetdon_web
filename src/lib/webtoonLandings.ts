@@ -39,8 +39,10 @@ export interface WebtoonCut {
     images?: string[]
     /** typing: 빈 화면에 초안이 한 줄씩 채워지는 연출 */
     animation?: 'typing'
-    /** 줄 안에서 초록으로 강조할 낱말 */
+    /** 줄 안에서 초록으로 강조할 낱말(points 에서는 카드 속 형광펜 밑줄) */
     emphasis?: string[]
+    /** points: 머리 줄(마지막 줄 크게) + '하나·둘…' 카드가 스크롤에 맞춰 하나씩 등장하는 인터랙티브 장면 */
+    layout?: 'points'
   }
   /** 실제 후기 카드(src = 가림 처리한 캡처) — 휴대폰 화면 틀 안에 넣어 보여 준다 */
   review?: { header?: string; note: string }
