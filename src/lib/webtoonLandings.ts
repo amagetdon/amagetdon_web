@@ -111,6 +111,8 @@ export interface WebtoonLanding {
     video?: string
     /** 있으면 맨 위 로고 + 글자를 화면 아래쪽에 모은다(얼굴이 위에 있는 표지, v7.2) */
     logo?: string
+    /** 로고형에서 제목을 위쪽에(그림 위가 비어 있는 표지, vF) */
+    titleTop?: boolean
     kicker: string
     title: string
     quote: string
@@ -144,7 +146,7 @@ import { CUTS as MINRORO_CUTS } from './webtoon-cuts/minroro-blog'
 
 const BASE = '/webtoon/minroro-blog'
 
-// 스토리보드 v7.1 · 대사목록 v7.3(흑월도령 오마주 · 페이월 구조 · 운 보기 문답 삭제, 2026-10-19 PM) — 그림 번호 = PM 데모_v72 파일 앞 두 자리
+// 스토리보드 v7.1 · 대사목록 vF(밝은 톤)(흑월도령 오마주 · 페이월 구조 · 운 보기 문답 삭제, 2026-10-19 PM) — 그림 번호 = PM 데모_v72 파일 앞 두 자리
 export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
   'minroro-blog': {
     slug: 'minroro-blog',
@@ -159,6 +161,7 @@ export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
       poster: `${BASE}/00.webp`,
       video: `${BASE}/cover.mp4`,
       logo: '아마겟돈',
+      titleTop: true,
       kicker: '민로로의',
       title: 'AI 블로그 수익화',
       quote: '돈 못 버는 고액 강의 거르는 법까지.',

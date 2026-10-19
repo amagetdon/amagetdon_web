@@ -37,13 +37,13 @@ const GREEN = '#2ED573'
 const THEMES: Record<'dark' | 'light', React.CSSProperties> = {
   dark: {
     '--wt-bg': '#000', '--wt-fg': '#fff', '--wt-muted': 'rgba(255,255,255,0.62)', '--wt-faint': 'rgba(255,255,255,0.45)',
-    '--wt-line': 'rgba(255,255,255,0.12)', '--wt-card': 'rgba(255,255,255,0.05)', '--wt-band': '#000',
-    '--wt-cover-top': 'rgba(0,0,0,0.7)', '--wt-cover-bottom': 'rgba(0,0,0,0.85)',
+    '--wt-line': 'rgba(255,255,255,0.12)', '--wt-card': 'rgba(255,255,255,0.05)', '--wt-band': '#000', '--wt-scene-bg': '#000',
+    '--wt-cover-top': 'rgba(0,0,0,0.7)', '--wt-cover-bottom': 'rgba(0,0,0,0.85)', '--wt-title-shadow': '0 2px 10px rgba(0,0,0,0.8)',
   } as React.CSSProperties,
   light: {
-    '--wt-bg': '#f7f6f2', '--wt-fg': '#161616', '--wt-muted': 'rgba(22,22,22,0.62)', '--wt-faint': 'rgba(22,22,22,0.45)',
-    '--wt-line': 'rgba(0,0,0,0.1)', '--wt-card': 'rgba(0,0,0,0.035)', '--wt-band': '#f7f6f2',
-    '--wt-cover-top': 'rgba(247,246,242,0.82)', '--wt-cover-bottom': 'rgba(247,246,242,0.92)',
+    '--wt-bg': '#ffffff', '--wt-fg': '#111111', '--wt-muted': 'rgba(17,17,17,0.62)', '--wt-faint': 'rgba(17,17,17,0.45)',
+    '--wt-line': 'rgba(0,0,0,0.1)', '--wt-card': 'rgba(0,0,0,0.035)', '--wt-band': '#ffffff', '--wt-scene-bg': '#FFFDF8',
+    '--wt-cover-top': 'rgba(255,255,255,0.75)', '--wt-cover-bottom': 'rgba(255,255,255,0.92)', '--wt-title-shadow': '0 1px 10px rgba(255,255,255,0.9)',
   } as React.CSSProperties,
 }
 const IN_APP_RE = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|FB4A|Line\/|NAVER\(inapp|DaumApps|BAND\/|everytimeApp/i
@@ -359,15 +359,15 @@ function Cover({ cfg, fill, onNext }: { cfg: WebtoonLanding; fill: (s: string) =
         ) : (
           <img className="absolute inset-0 w-full h-full object-cover" src={r2Proxy(c.poster)} alt="" fetchPriority="high" />
         )}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, var(--wt-cover-top), transparent 45%, var(--wt-cover-bottom))' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, var(--wt-cover-top), transparent 33%, transparent 66%, var(--wt-cover-bottom))' }} />
         <div className={`relative h-full flex flex-col items-center px-6 ${c.logo ? 'pt-[calc(env(safe-area-inset-top)+14px)]' : 'pt-[9vh]'} pb-[calc(env(safe-area-inset-bottom)+20px)]`}>
-          {/* 로고형(v7.2): 얼굴이 위에 있어 글자는 아래쪽에 모은다 */}
+          {/* 로고형: titleTop 이면 제목을 위(그림 위 0~33% 빈 자리, vF), 아니면 얼굴을 피해 아래쪽(v7.2) */}
           {c.logo && <p className="text-[13px] font-bold tracking-[0.2em] text-[var(--wt-fg)]">{c.logo}</p>}
-          {c.logo && <div className="flex-1" />}
+          {c.logo && <div className={c.titleTop ? 'h-[4vh]' : 'flex-1'} />}
           <p className="text-[15px] tracking-[0.3em] font-semibold" style={{ color: GREEN }}>{c.kicker}</p>
-          <h1 className="mt-2 text-[40px] leading-tight font-black text-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">{c.title}</h1>
+          <h1 className="mt-2 text-[40px] leading-tight font-black text-center" style={{ textShadow: 'var(--wt-title-shadow)' }}>{c.title}</h1>
           <p className="mt-3 text-[16px] text-[var(--wt-fg)] text-center">“ {c.quote} ”</p>
-          <div className={c.logo ? 'h-6' : 'flex-1'} />
+          <div className={c.logo && !c.titleTop ? 'h-6' : 'flex-1'} />
           <button
             type="button" onClick={onNext}
             className="w-full h-[60px] rounded-xl border-2 border-[var(--wt-fg)] bg-[var(--wt-card)] backdrop-blur-sm text-[var(--wt-fg)] font-bold active:scale-[0.98] transition flex flex-col items-center justify-center"
@@ -639,7 +639,7 @@ function TextScene({ card }: { card: NonNullable<WebtoonCut['card']> }) {
   const fade = (i: number) => `transition-all duration-700 ${shown > i ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`
   let k = 0
   return (
-    <div ref={ref} className="relative flex flex-col items-center justify-center gap-4 px-8 py-16 text-center bg-[var(--wt-bg)]" style={{ minHeight: "50vh" }}>
+    <div ref={ref} className="relative flex flex-col items-center justify-center gap-4 px-8 py-16 text-center bg-[var(--wt-scene-bg)]" style={{ minHeight: "50vh" }}>
       {card.images && card.images.length > 0 && (
         <div className="flex gap-2 w-full justify-center mb-2">
           {card.images.map((src) => <img key={src} src={r2Proxy(src)} alt="" loading="lazy" className="w-[42%] aspect-[3/4] object-cover rounded-lg opacity-80" />)}
