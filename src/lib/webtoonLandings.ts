@@ -1,27 +1,40 @@
 // 웹툰식 랜딩(/w/:slug) 설정 — 표지 → 세로 웹툰 → 캐릭터 대화형 신청 화면.
-// 랜딩 하나 = 강의 하나. 그림·대사·일시는 여기서 바꾼다(1차: 코드 설정, 바꾸면 배포 필요).
-// 그림은 /r2 중계 주소 또는 public/ 아래 경로. 말풍선·내레이션 글자는 그림 위에 HTML 로 얹는다(AI 그림 속 한글 깨짐 방지).
+// 랜딩 하나 = 강의 하나. 그림·대사는 여기서 바꾼다(1차: 코드 설정, 바꾸면 배포 필요).
+// 그림 속에는 글자가 없고, 말풍선·내레이션은 그림 위에 HTML 로 얹는다(AI 그림 속 한글 깨짐 방지).
+// 빈칸: {name} = 회원 이름, {live} = 강의 라이브 일시(courses.scheduled_at, 없으면 liveFallback)
 
-/** 그림 위에 얹는 글 — narration: 흰 네모 박스, line: 말풍선(말하는 사람), sfx: 큰 효과음 */
-export type WebtoonText =
-  | { kind: 'narration'; text: string }
-  | { kind: 'line'; speaker?: string; text: string }
-  | { kind: 'sfx'; text: string }
+export type BubbleType = 'narration' | 'speech' | 'dark_box' | 'sfx' | 'caption'
+
+export interface Bubble {
+  type: BubbleType
+  text: string
+  speaker?: string
+  /** 그림 높이 기준 위치(%) — 말풍선 위쪽 기준 */
+  top: number
+  align: 'left' | 'center' | 'right'
+}
 
 export interface WebtoonCut {
   id: string
-  /** 그림 주소. 없으면 '그림 준비 중' 자리 표시 */
-  src?: string
-  /** 그림 세로/가로 비율(자리 미리 잡기용). 기본 4:5 */
-  ratio?: number
-  /** 그림이 없을 때 자리 표시에 보여 줄 장면 설명 */
-  scene?: string
-  texts?: WebtoonText[]
+  src: string
+  /** 그림 세로/가로 비율(자리 미리 잡기용) */
+  ratio: number
+  bubbles: Bubble[]
+}
+
+export interface AskStep {
+  key: 'blog_exp' | 'daily_time' | 'concern'
+  line: string
+  options?: string[]
+  why?: string
+  placeholder?: string
+  button: string
 }
 
 export interface WebtoonLanding {
   slug: string
   courseId: number
+  liveFallback: string
   cover: {
     poster: string
     video?: string
@@ -29,88 +42,124 @@ export interface WebtoonLanding {
     title: string
     quote: string
     cta: string
+    ctaSub: string
     note: string
+    detailsSummary: string
+    details: string[]
   }
   webtoon: {
     cuts: WebtoonCut[]
     skipBubble: string
     endCta: string
+    endNote: string
   }
-  /** 대화 화면 배경(캐릭터 정면) */
-  portrait: string
-  donePortrait: string
+  /** 대화 화면(W3~W6) 배경, 완료(W7) 배경 */
+  chatBg: string
+  doneBg: string
   speaker: string
-  lines: {
-    signup: string
-    saved: string
-    full: string
-    already: string
-    q1: string
-    q2: string
-    done: string
-  }
-  doneNotes: string[]
-  disclaimer: string
+  signup: { line: string; buttonGuest: string; buttonMember: string; buttonSub: string; legal: string }
+  saved: { line: string; full: string; fullButton: string }
+  asks: AskStep[]
+  skipNote: string
+  done: { line: string; already: string; notice: string; gift?: string; legal: string }
 }
 
 const BASE = '/webtoon/minroro-blog'
+const R = 1376 / 768
+const cut = (n: string, id: string, bubbles: Bubble[]): WebtoonCut => ({ id, src: `${BASE}/${n}.webp`, ratio: R, bubbles })
 
 export const WEBTOON_LANDINGS: Record<string, WebtoonLanding> = {
   'minroro-blog': {
     slug: 'minroro-blog',
     courseId: 129,
+    liveFallback: '○월 ○일(○) 저녁 7시 30분',
     cover: {
-      poster: `${BASE}/s0.webp`,
+      poster: `${BASE}/00.webp`,
       video: `${BASE}/cover.mp4`,
       kicker: '민로로',
       title: 'AI 블로그 정답지',
       quote: '접기 전에, 딱 한 번만 제대로 봐요.',
-      cta: 'AI 블로그 정답지 무료로 받아보기',
-      note: '유튜브 무료 라이브 · ○월 ○일(○) 저녁 ○시',
+      cta: 'AI 블로그 정답지 받아보기',
+      ctaSub: '무료 · 1분',
+      note: '유튜브 무료 라이브 · {live}',
+      detailsSummary: '무료 라이브 더 알아보기',
+      details: [
+        '무엇을 하나요? 민로로(민태훈)가 AI로 블로그 글을 쓰고 노출시키는 순서를 유튜브 라이브에서 화면으로 보여 드려요.',
+        '무료 라이브는 다시보기가 없어요. 시간 맞춰 들어와 주세요.',
+        '라이브 안에서 유료 과정 안내가 있을 수 있어요. 본 강의는 수익을 보장하지 않으며, 결과는 개인의 실행에 따라 다릅니다.',
+        '자주 묻는 질문: 블로그를 한 번도 안 해 봤어도 되나요? → 네, 처음 하는 분 기준으로 설명해요. / 글솜씨가 없어도 되나요? → AI로 초안을 만드는 순서를 보여 드려요. / 신청은 어떻게 하나요? → 카카오로 1초면 끝나요.',
+      ],
     },
     webtoon: {
       skipBubble: '웹툰은 다음에, 바로 신청할게요!',
       endCta: '내 블로그 순서 확인하기',
+      endNote: '유튜브 무료 라이브 · 다시보기 없음',
       cuts: [
-        { id: 'C01', scene: '넓은 밤 풍경. 도시 하늘에 거대한 검색창, 아래로 끝없는 창문 불빛', texts: [{ kind: 'narration', text: '검색창 너머에는 아주 큰 마을이 있어요.' }] },
-        { id: 'C02', scene: '창마다 글이 하나씩 떠 있는 마을. 사람들이 창을 들여다본다', texts: [{ kind: 'narration', text: '사람들은 매일 이 마을을 지나며 누군가의 글을 읽고, 무엇을 살지, 어디에 갈지 정했죠.' }] },
-        { id: 'C03', scene: '몇몇 집만 유난히 환하고 줄을 섰다. 나머지 창은 희미하다', texts: [{ kind: 'narration', text: '그런데 이상하게도, 사람들은 늘 몇몇 집에만 몰렸어요.' }] },
-        { id: 'C04', scene: '빌딩 옥상 난간에 걸터앉은 실루엣. 손에 든 휴대폰에서 초록빛', texts: [{ kind: 'line', speaker: '???', text: '다들 참 열심히 쓰는데… 길을 모르네요.' }] },
-        { id: 'C05', scene: '새벽 1시 식탁. 빈 글쓰기 화면 앞에서 턱을 괸 30대 여성', texts: [{ kind: 'narration', text: '그도 그럴 것이…' }, { kind: 'narration', text: '퇴근하고 쓴 글 하나에 세 시간,' }] },
-        { id: 'C06', scene: "휴대폰 클로즈업: 바닥에 붙은 통계 그래프, '오늘 방문자 3'", texts: [{ kind: 'narration', text: '석 달을 써도 늘지 않는 방문자,' }] },
-        { id: 'C07', scene: '낮의 부엌. 40대 후반 여성이 노트북을 조용히 덮는다', texts: [{ kind: 'narration', text: "'이 나이에 뭘…' 하며 덮어 버린 노트북." }] },
-        { id: 'C08', scene: '마을의 창문 불빛들이 하나둘 꺼진다', texts: [{ kind: 'narration', text: '그렇게 많은 사람이, 조용히 블로그를 접었어요.' }] },
-        { id: 'C09', scene: '밤의 아파트 단지. 휴대폰 불빛이 켜진 창 하나', texts: [{ kind: 'narration', text: '그러던 어느 밤.' }] },
-        { id: 'C10', scene: "블로그 앱 '앱 삭제' 위에서 멈춘 손가락", texts: [{ kind: 'narration', text: '블로그를 지우려던 손가락 하나가, 멈췄어요.' }] },
-        { id: 'C11', scene: '휴대폰 화면이 번쩍 빛나고 초록 빛줄기가 방을 가른다', texts: [{ kind: 'sfx', text: '번쩍' }, { kind: 'line', speaker: '화면 속 목소리', text: '잠깐만요.' }] },
-        { id: 'C12', src: `${BASE}/c12.webp`, ratio: 1376 / 768, texts: [{ kind: 'sfx', text: '스윽' }] },
-        { id: 'C13', scene: '전신, 어두운 사무실 창밖 야경', texts: [{ kind: 'narration', text: '고등학생 때 블로그로 시작해, 지금은 광고대행사 민컴퍼니를 이끄는 사람.' }, { kind: 'narration', text: "사람들은 그를 '민로로'라고 불렀어요." }] },
-        { id: 'C14', scene: '얼굴 클로즈업. 휴대폰 불빛이 눈에 비친다', texts: [{ kind: 'line', speaker: '민로로', text: '그 블로그, 아직 끝난 거 아니에요.' }] },
-        { id: 'C15', scene: '민로로 상반신, 단호한 표정', texts: [{ kind: 'line', speaker: '민로로', text: '글을 못 써서 안 된 게 아니에요.' }, { kind: 'line', speaker: '민로로', text: '순서를 몰랐던 거예요.' }] },
-        { id: 'C16', scene: '공중에 펼쳐진 화면 3장: AI 주제 분석 · 키워드 분석 · 원고 작성과 발행', texts: [{ kind: 'narration', text: '어떤 글이 검색에 뜨는지, 민로로는 그 순서를 AI에 담았어요.' }] },
-        { id: 'C17', scene: "'발행' 버튼 위로 초록 체크 표시", texts: [{ kind: 'line', speaker: '민로로', text: '주제만 넣으면, 나머지는 순서대로 누르면 돼요.' }] },
-        { id: 'C18', scene: '한쪽 무릎을 꿇어 눈높이를 맞춘 민로로. 바닥에 초록빛', texts: [{ kind: 'line', speaker: '민로로', text: '글솜씨가 없어도, 하루 30분뿐이어도 겁먹지 마세요.' }] },
-        { id: 'C19', scene: '엉킨 초록 실타래가 손끝에서 한 줄로 풀려 길이 된다', texts: [{ kind: 'line', speaker: '민로로', text: '막힌 순서를 풀어 드리는 게 제 일이거든요.' }] },
-        { id: 'C20', src: `${BASE}/c20.webp`, ratio: 1376 / 768, texts: [{ kind: 'line', speaker: '민로로', text: '이제 혼자 새벽까지 헤매지 마세요.' }, { kind: 'line', speaker: '민로로', text: '당신 블로그의 순서, 무료 라이브에서 제가 직접 보여 드릴게요.' }] },
+        cut('01', 'C01', [{ type: 'narration', top: 12, align: 'center', text: '검색창 너머에는 아주 큰 마을이 있어요.' }]),
+        cut('02', 'C02', [
+          { type: 'narration', top: 10, align: 'left', text: '사람들은 매일 이 마을을 지나며 누군가의 글을 읽고,' },
+          { type: 'narration', top: 80, align: 'right', text: '무엇을 살지, 어디에 갈지 정했죠.' },
+        ]),
+        cut('03', 'C03', [{ type: 'narration', top: 82, align: 'center', text: '그런데 이상하게도, 사람들은 늘 몇몇 집에만 몰렸어요.' }]),
+        cut('04', 'C04', [{ type: 'speech', speaker: '???', top: 15, align: 'left', text: '다들 참 열심히 쓰는데… 길을 모르네요.' }]),
+        cut('05', 'C05', [
+          { type: 'dark_box', top: 6, align: 'center', text: '그도 그럴 것이…' },
+          { type: 'narration', top: 78, align: 'left', text: '퇴근하고 쓴 글 하나에 세 시간,' },
+        ]),
+        cut('06', 'C06', [{ type: 'narration', top: 12, align: 'right', text: '석 달을 써도 늘지 않는 방문자,' }]),
+        cut('07', 'C07', [{ type: 'narration', top: 80, align: 'center', text: "'이 나이에 뭘…' 하며 덮어 버린 노트북." }]),
+        cut('08', 'C08', [{ type: 'narration', top: 50, align: 'center', text: '그렇게 많은 사람이, 조용히 블로그를 접었어요.' }]),
+        cut('09', 'C09', [{ type: 'narration', top: 12, align: 'left', text: '그러던 어느 밤.' }]),
+        cut('10', 'C10', [{ type: 'narration', top: 82, align: 'center', text: '블로그를 지우려던 손가락 하나가, 멈췄어요.' }]),
+        cut('11', 'C11', [
+          { type: 'sfx', top: 15, align: 'left', text: '번쩍' },
+          { type: 'speech', speaker: '화면 속 목소리', top: 78, align: 'right', text: '잠깐만요.' },
+        ]),
+        cut('12', 'C12', [{ type: 'sfx', top: 12, align: 'left', text: '스윽' }]),
+        cut('13', 'C13', [
+          { type: 'narration', top: 10, align: 'left', text: '고등학생 때 블로그로 시작해, 지금은 광고대행사 민컴퍼니를 이끄는 사람.' },
+          { type: 'narration', top: 80, align: 'right', text: "사람들은 그를 '민로로'라고 불렀어요." },
+          { type: 'caption', top: 92, align: 'left', text: '02년생 · 민컴퍼니 대표 · AI 블로그 자동화 시스템 구축' },
+        ]),
+        cut('14', 'C14', [{ type: 'speech', speaker: '민로로', top: 12, align: 'right', text: '그 블로그, 아직 끝난 거 아니에요.' }]),
+        cut('15', 'C15', [
+          { type: 'speech', speaker: '민로로', top: 10, align: 'left', text: '글을 못 써서 안 된 게 아니에요.' },
+          { type: 'speech', speaker: '민로로', top: 75, align: 'right', text: '순서를 몰랐던 거예요.' },
+        ]),
+        cut('16', 'C16', [{ type: 'narration', top: 85, align: 'center', text: '어떤 글이 검색에 뜨는지, 민로로는 그 순서를 AI에 담았어요.' }]),
+        cut('17', 'C17', [{ type: 'speech', speaker: '민로로', top: 12, align: 'left', text: '주제만 넣으면, 나머지는 순서대로 누르면 돼요.' }]),
+        cut('18', 'C18', [{ type: 'speech', speaker: '민로로', top: 10, align: 'center', text: '글솜씨가 없어도, 하루 30분뿐이어도 겁먹지 마세요.' }]),
+        cut('19', 'C19', [{ type: 'speech', speaker: '민로로', top: 80, align: 'right', text: '막힌 순서를 풀어 드리는 게 제 일이거든요.' }]),
+        cut('20', 'C20', [
+          { type: 'speech', speaker: '민로로', top: 8, align: 'left', text: '이제 혼자 새벽까지 헤매지 마세요.' },
+          { type: 'speech', speaker: '민로로', top: 20, align: 'right', text: '당신 블로그의 순서, 무료 라이브에서 제가 직접 보여 드릴게요.' },
+        ]),
       ],
     },
-    portrait: `${BASE}/s0.webp`,
-    donePortrait: `${BASE}/c20.webp`,
+    chatBg: `${BASE}/21.webp`,
+    doneBg: `${BASE}/20.webp`,
     speaker: '민로로',
-    lines: {
-      signup: '어서 오세요, 민로로예요.\n무료 라이브 자리는 카카오로 1초면 잡아 드려요.',
-      saved: '자리 잡아 뒀어요, {name} 님!',
-      full: '이번 라이브는 자리가 다 찼어요.\n다음 라이브 때 꼭 만나요.',
-      already: '이미 자리를 잡아 두셨어요, {name} 님!',
-      q1: '반가워요 {name} 님.\n블로그는 해 보셨어요?',
-      q2: '마지막으로, 블로그 하면서 제일 막혔던 게 있으면 알려 주세요.\n라이브에서 같이 볼게요.',
-      done: '{name} 님, ○월 ○일 ○시\n유튜브 라이브에서 만나요.',
+    signup: {
+      line: '어서 오세요, 민로로예요.\n무료 라이브 자리는 카카오로 1초면 잡아 드려요.',
+      buttonGuest: '카카오로 1초 만에 신청하기',
+      buttonMember: '{name} 님 자리로 신청하기',
+      buttonSub: '1분이면 끝나요',
+      legal: '가입하면 이용약관·개인정보 처리방침에 동의하게 돼요. (만 14세 이상)',
     },
-    doneNotes: ['무료 라이브는 다시보기가 없어요. 시간 맞춰 들어와 주세요.'],
-    disclaimer: '본 강의는 수익을 보장하지 않으며, 결과는 개인의 실행에 따라 다릅니다. 무료 라이브에서 유료 과정 안내가 있을 수 있습니다.',
+    saved: { line: '자리 잡아 뒀어요, {name} 님!', full: '이번 라이브는 자리가 다 찼어요.', fullButton: '홈으로' },
+    asks: [
+      { key: 'blog_exp', line: '반가워요 {name} 님.\n블로그는 해 보셨어요?', options: ['처음이에요', '해 봤는데 멈췄어요', '하고 있어요'], why: '처음 하는 분과 다시 시작하는 분은 라이브에서 볼 부분이 달라서 여쭤봐요.', button: '다음' },
+      { key: 'daily_time', line: '하루에 블로그에 얼마나 쓸 수 있어요?', options: ['30분', '1시간', '그 이상'], why: '쓸 수 있는 시간에 맞는 순서를 같이 볼게요.', button: '다음' },
+      { key: 'concern', line: '마지막으로, 블로그 하면서 제일 막혔던 게 있으면 알려 주세요.\n라이브에서 같이 볼게요.', placeholder: '자유롭게 적어 주세요 (200자)', button: '신청 마치기' },
+    ],
+    skipNote: '답하지 않아도 다음으로 넘어갈 수 있어요.',
+    done: {
+      line: '{name} 님, {live}\n유튜브 라이브에서 만나요.',
+      already: '{name} 님은 이미 자리를 잡아 두셨어요.',
+      notice: '무료 라이브는 다시보기가 없어요. 시간 맞춰 들어와 주세요.',
+      legal: '본 강의는 수익을 보장하지 않으며, 결과는 개인의 실행에 따라 다릅니다. 무료 라이브에서 유료 과정 안내가 있을 수 있습니다.',
+    },
   },
 }
 
-export const BLOG_EXP_OPTIONS = ['처음이에요', '해 봤는데 멈췄어요', '하고 있어요'] as const
-export const DAILY_TIME_OPTIONS = ['30분', '1시간', '그 이상'] as const
 export const CONCERN_MAX = 200

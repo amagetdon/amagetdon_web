@@ -1,25 +1,37 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
-import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { useAuth } from '../contexts/AuthContext'
 import { setChromeHidden } from '../lib/chrome'
 import { logProductVisit } from '../lib/attribution'
-import { trackViewItem, buildContentId, courseCategoryLabel } from '../lib/tracking'
+import { trackViewItem, trackFreeEnroll, trackOpenChatJoin, buildContentId, courseCategoryLabel } from '../lib/tracking'
+import { logOpenChat } from '../lib/openchatLog'
 import { r2Proxy } from '../lib/image'
+import { isUpcomingLive, liveLabel } from '../lib/liveCalendar'
+import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
+import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 import { useCourse } from '../hooks/useCourses'
-import {
-  WEBTOON_LANDINGS, BLOG_EXP_OPTIONS, DAILY_TIME_OPTIONS, CONCERN_MAX,
-  type WebtoonCut, type WebtoonLanding,
-} from '../lib/webtoonLandings'
+import { supabase } from '../lib/supabase'
+import { authService } from '../services/authService'
+import { purchaseService } from '../services/purchaseService'
+import { webhookService } from '../services/webhookService'
+import { webhookScheduleService } from '../services/webhookScheduleService'
+import { landingCategoryService } from '../services/landingCategoryService'
+import LiveCalendarCta from '../components/LiveCalendarCta'
+import { WEBTOON_LANDINGS, CONCERN_MAX, type Bubble, type WebtoonCut, type WebtoonLanding, type AskStep } from '../lib/webtoonLandings'
 
-// 웹툰식 랜딩 /w/:slug — 표지(W1) → 웹툰(W2) → 대화형 신청(W3~W7). 화면 흐름은 PM 스토리보드 v3 '5 · 화면 흐름표'.
-// 단계는 주소 ?step= 로 나누고 새로고침 없이 바꾼다(뒤로 가기 = 앞 단계). 강의 상세·기존 신청 흐름과는 별개 페이지.
-// 데모 1단계: 카카오 신청은 아직 연결 전 — 버튼을 누르면 뒤 화면을 미리 보기만 하고 아무것도 저장하지 않는다.
-const DEMO = true
+// 웹툰식 랜딩 /w/:slug — 표지(W1) → 웹툰(W2) → 카카오 신청(W3) → 자동 신청 저장(W4) → 선택 질문 3개(W5·W6) → 완료(W7).
+// 화면 흐름: PM 스토리보드 v3 '5 · 화면 흐름표' + 6장 권장안 R1~R5. 강의 상세·기존 신청 흐름과는 별개 페이지이고,
+// 신청은 강의 상세와 같은 서버 함수(enroll_free)·알림톡·전환 이벤트를 쓴다.
+// 단계는 주소 ?step= 로 나누고 새로고침 없이 바꾼다(뒤로 가기 = 앞 단계, 새로고침해도 그 단계에서 이어 보기).
 
-type Step = 'cover' | 'webtoon' | 'signup' | 'saved' | 'q1' | 'q2' | 'done'
-const STEPS: Step[] = ['cover', 'webtoon', 'signup', 'saved', 'q1', 'q2', 'done']
+type Step = 'cover' | 'webtoon' | 'signup' | 'saved' | 'ask1' | 'ask2' | 'ask3' | 'done'
+const STEPS: Step[] = ['cover', 'webtoon', 'signup', 'saved', 'ask1', 'ask2', 'ask3', 'done']
+const ASK_STEPS: Step[] = ['ask1', 'ask2', 'ask3']
 const GREEN = '#2ED573'
+const IN_APP_RE = /KAKAOTALK|Instagram|FBAN|FBAV|FB_IAB|FB4A|Line\/|NAVER\(inapp|DaumApps|BAND\/|everytimeApp/i
 
+/** 랜딩 단계 이벤트 — GTM(dataLayer)에만. 광고 매체로는 보내지 않는다 */
 function pushEvent(event: string, data: Record<string, unknown> = {}) {
   try {
     const w = window as unknown as { dataLayer?: unknown[] }
@@ -28,40 +40,40 @@ function pushEvent(event: string, data: Record<string, unknown> = {}) {
   } catch { /* GTM 없음 */ }
 }
 
-const fill = (s: string, name: string) => s.replace(/\{name\}/g, name)
+const ss = {
+  get(k: string) { try { return sessionStorage.getItem(k) } catch { return null } },
+  set(k: string, v: string) { try { sessionStorage.setItem(k, v) } catch { /* 저장 불가 */ } },
+  del(k: string) { try { sessionStorage.removeItem(k) } catch { /* 저장 불가 */ } },
+}
+
+type Answers = { blog_exp?: string; daily_time?: string; concern?: string }
 
 export default function WebtoonLandingPage() {
-  const { slug } = useParams<{ slug: string }>()
-  const cfg = slug ? WEBTOON_LANDINGS[slug] : undefined
+  const { slug = '' } = useParams<{ slug: string }>()
+  const cfg = WEBTOON_LANDINGS[slug] as WebtoonLanding | undefined
   const [params, setParams] = useSearchParams()
+  const navigate = useNavigate()
   const raw = params.get('step') as Step | null
   const step: Step = raw && STEPS.includes(raw) ? raw : 'cover'
   const { course } = useCourse(cfg?.courseId ?? null)
+  const { user, profile, loading: authLoading, refreshProfile } = useAuth()
 
-  // 사이트 머리글·바닥글·상담 버튼 숨김
-  useEffect(() => {
-    setChromeHidden(true)
-    return () => setChromeHidden(false)
-  }, [])
+  // 신청 여부 — 회원별로 기억(로그아웃·다른 회원이면 '모름')
+  const [ownedBy, setOwnedBy] = useState<{ uid: string; value: boolean } | null>(null)
+  const owned = user && ownedBy?.uid === user.id ? ownedBy.value : null
+  // 이미 신청한 사람이 완료 화면에 온 경우 — 새로고침해도 유지되게 sessionStorage
+  const already = ss.get(`wt_already_${slug}`) === '1'
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [fetchedLanding, setFetchedLanding] = useState<{ id: number; name: string | null } | null>(null)
+  const catId = course ? (course.landing_category_id ?? course.landing_category_ids?.[0] ?? null) : undefined
+  const landingName: string | null | undefined = catId === undefined ? undefined : catId === null ? null : fetchedLanding?.id === catId ? fetchedLanding.name : undefined
 
-  // 129 통합 대시보드 '유입' — 강의 상세 주소가 아니라서 여기서 직접 기록
-  useEffect(() => {
-    if (cfg) logProductVisit(`course_${cfg.courseId}`)
-  }, [cfg])
-
-  // ViewContent — 표지 진입 1회 (강의 상세와 같은 이벤트)
-  const viewFired = useRef(false)
-  useEffect(() => {
-    if (!course || viewFired.current) return
-    viewFired.current = true
-    trackViewItem({
-      contentId: buildContentId('course', course.id),
-      contentName: course.title,
-      contentCategory: courseCategoryLabel(course.course_type),
-      instructorName: course.instructor?.name ?? null,
-      value: 0,
-    })
-  }, [course])
+  const name = profile?.name || '회원'
+  const isGuest = profile?.provider === 'guest'
+  const profileComplete = !!profile && (isGuest || !!(profile.name && profile.phone && profile.gender && profile.birth_date))
+  const live = course?.scheduled_at ? liveLabel(course.scheduled_at) : cfg?.liveFallback ?? ''
+  const fill = useCallback((s: string) => s.replace(/\{name\}/g, name).replace(/\{live\}/g, live), [name, live])
+  const savedPath = `/w/${slug}?step=saved`
 
   const go = useCallback((s: Step, replace = false) => {
     const p = new URLSearchParams(window.location.search)
@@ -70,6 +82,159 @@ export default function WebtoonLandingPage() {
     setParams(p, { replace })
     window.scrollTo(0, 0)
   }, [setParams])
+
+  // 사이트 머리글·바닥글·상담 버튼 숨김
+  useEffect(() => {
+    setChromeHidden(true)
+    return () => setChromeHidden(false)
+  }, [])
+
+  // 통합 대시보드 '유입' — 강의 상세 주소가 아니라서 여기서 직접 기록
+  useEffect(() => {
+    if (cfg) logProductVisit(`course_${cfg.courseId}`)
+  }, [cfg])
+
+  // 랜딩 카테고리 이름(전환 이벤트 subcategory — 강의 상세와 같게)
+  useEffect(() => {
+    if (catId == null) return
+    landingCategoryService.getPublished()
+      .then((cats) => setFetchedLanding({ id: catId, name: cats.find((c) => c.id === catId)?.name ?? null }))
+      .catch(() => setFetchedLanding({ id: catId, name: null }))
+  }, [catId])
+
+  // ViewContent — 첫 진입 1회 (강의 상세와 같은 이벤트)
+  const viewFired = useRef(false)
+  useEffect(() => {
+    if (!course || landingName === undefined || viewFired.current) return
+    viewFired.current = true
+    trackViewItem({
+      contentId: buildContentId('course', course.id),
+      contentName: course.title,
+      contentCategory: courseCategoryLabel(course.course_type),
+      contentSubcategory: landingName,
+      instructorName: course.instructor?.name ?? null,
+      value: 0,
+    })
+  }, [course, landingName])
+
+  // 신청 여부
+  useEffect(() => {
+    if (!user || !cfg) return
+    const uid = user.id
+    purchaseService.checkOwnership(uid, cfg.courseId).then((v) => setOwnedBy({ uid, value: v }), () => setOwnedBy({ uid, value: false }))
+  }, [user, cfg])
+
+  // 앱 안 브라우저(안드로이드)에서 크롬으로 넘어온 경우 — 표시만 지우고 카카오 신청 화면에서 이어 간다
+  useEffect(() => {
+    if (params.get('ext_act') !== 'purchase' || detectInAppBrowser().isInApp) return
+    const p = new URLSearchParams(window.location.search)
+    p.delete('ext_act')
+    p.set('step', 'signup')
+    setParams(p, { replace: true })
+  }, [params, setParams])
+
+  // 주소로 바로 들어온 뒤 단계 확인 — 로그인·신청 기록이 없으면 표지로
+  useEffect(() => {
+    if (authLoading) return
+    if ((ASK_STEPS.includes(step) || step === 'done') && !user) { go('cover', true); return }
+    if (step === 'done' && owned === false) { go('cover', true); return }
+    // 이미 신청한 사람이 신청 화면에 오면 바로 완료 화면
+    if (step === 'signup' && user && owned === true) {
+      ss.set(`wt_already_${slug}`, '1')
+      go('done', true)
+    }
+  }, [authLoading, step, user, owned, go, slug])
+
+  // 카카오에서 그냥 돌아온 경우(취소)
+  useEffect(() => {
+    if (step !== 'signup' || authLoading || user) return
+    if (ss.get('wt_kakao_started') === slug) {
+      ss.del('wt_kakao_started')
+      pushEvent('kakao_cancel', { landing: slug })
+    }
+  }, [step, authLoading, user, slug])
+
+  const startSignup = async () => {
+    if (!cfg) return
+    pushEvent('kakao_start', { landing: slug, logged_in: !!user })
+    if (!user) {
+      // 안드로이드 인스타·페북 앱 안에서는 카카오 로그인이 막혀 크롬으로 넘긴다(돌아올 단계·UTM 포함)
+      const inApp = detectInAppBrowser()
+      if (inApp.isInApp && inApp.isAndroid) {
+        openExternalBrowser({ params: { ext_act: 'purchase', step: 'signup' } })
+        return
+      }
+      // 로그인 화면을 거치지 않고 카카오로 바로. 돌아오면 홈 → 이 랜딩의 신청 저장 단계로 자동 이동(App PostLoginRedirect)
+      rememberPostLogin('purchase', savedPath)
+      ss.set('wt_kakao_started', slug)
+      ss.set('pendingSignIn', '1')
+      try {
+        await authService.signInWithOAuth('kakao')
+      } catch (err) {
+        ss.del('wt_kakao_started')
+        toast.error(err instanceof Error ? err.message : '카카오 로그인을 시작하지 못했어요.')
+      }
+      return
+    }
+    if (!profileComplete) {
+      // 회원정보 빈칸 → 온보딩(빈 칸만) → 이 랜딩 신청 저장 단계로 복귀
+      rememberPostLogin('purchase', savedPath)
+      toast('회원정보를 먼저 입력해 주세요.')
+      navigate('/mypage')
+      return
+    }
+    go('saved')
+  }
+
+  // W4 신청 저장 — 강의 상세 handleEnrollFree 와 같은 처리(서버 신청 + 알림톡 + 예약 알림 + Lead)
+  const savingRef = useRef(false)
+  useEffect(() => {
+    if (step !== 'saved' || authLoading || !cfg) return
+    if (!user) { go('cover', true); return }
+    if (!course || !profile || landingName === undefined || savingRef.current) return
+    savingRef.current = true
+    takePostLoginAction(window.location.pathname) // 로그인 복귀 표시는 여기서 소진
+    if (ss.get('wt_kakao_started') === slug) { ss.del('wt_kakao_started'); pushEvent('kakao_return', { landing: slug }) }
+    if (!profileComplete) {
+      rememberPostLogin('purchase', savedPath)
+      navigate('/mypage')
+      return
+    }
+    void (async () => {
+      const has = await purchaseService.checkOwnership(user.id, course.id).catch(() => false)
+      if (has) {
+        setOwnedBy({ uid: user.id, value: true }); ss.set(`wt_already_${slug}`, '1')
+        go('done', true)
+        return
+      }
+      const { count } = await supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('course_id', course.id)
+      try {
+        await purchaseService.enrollFree({ courseId: course.id })
+      } catch (err) {
+        setSaveError(err instanceof Error ? err.message : '신청에 실패했어요.')
+        return
+      }
+      const isPreAlert = course.course_type === 'pre_alert'
+      const who = { userId: user.id, userName: profile.name || '', userPhone: profile.phone || '', userEmail: profile.email || '' }
+      webhookService.fireCustomEvent(isPreAlert ? 'course_pre_alert' : 'purchase_free', {
+        course_type: course.course_type, price: 0, original_price: course.original_price ?? course.sale_price ?? 0, type: 'course',
+      }, { ...who, title: course.title, scope: 'course', scopeId: course.id }).catch(() => {})
+      webhookScheduleService.enqueueForPurchase({ ...who, scope: 'course', scopeId: course.id, courseTitle: course.title }).catch(() => {})
+      webhookScheduleService.triggerEnrollmentFullIfReached('course', course.id, (count ?? 0) + 1, course.max_enrollments).catch(() => {})
+      trackFreeEnroll({
+        orderId: `free_course_${course.id}_${user.id}`,
+        contentId: buildContentId('course', course.id),
+        contentName: course.title,
+        contentCategory: courseCategoryLabel(course.course_type),
+        contentSubcategory: landingName,
+        instructorName: course.instructor?.name ?? null,
+        user: { email: profile.email, phone: profile.phone },
+      })
+      setOwnedBy({ uid: user.id, value: true }); ss.del(`wt_already_${slug}`)
+      refreshProfile().catch(() => {})
+      window.setTimeout(() => go('ask1', true), 1200)
+    })()
+  }, [step, authLoading, user, profile, course, landingName, profileComplete, cfg, slug, savedPath, go, navigate, refreshProfile])
 
   if (!cfg) {
     return (
@@ -80,70 +245,96 @@ export default function WebtoonLandingPage() {
     )
   }
 
-  const name = '회원' // 데모: 로그인 연결 후 회원 이름으로 바뀜
+  const askIndex = ASK_STEPS.indexOf(step)
 
   return (
     <div className="bg-black min-h-[100dvh] text-white">
-      {DEMO && !['cover', 'webtoon'].includes(step) && (
-        <div className="fixed top-0 inset-x-0 z-50 bg-yellow-300 text-black text-[11px] text-center py-1 font-bold">
-          데모 화면 · 카카오 신청 연결 전이라 아무것도 저장되지 않아요
-        </div>
+      {step === 'cover' && <Cover cfg={cfg} fill={fill} onNext={() => go('webtoon')} />}
+      {step === 'webtoon' && (
+        <Webtoon cfg={cfg} onNext={(via) => { pushEvent(via === 'skip' ? 'webtoon_skip' : 'webtoon_end_click', { landing: slug }); go('signup') }} />
       )}
-      {step === 'cover' && <Cover cfg={cfg} onNext={() => go('webtoon')} />}
-      {step === 'webtoon' && <Webtoon cfg={cfg} onNext={(via) => { pushEvent(via === 'skip' ? 'webtoon_skip' : 'webtoon_end_click', { landing: cfg.slug }); go('signup') }} />}
       {step === 'signup' && (
-        <ChatScreen bg={cfg.portrait} speaker={cfg.speaker} line={cfg.lines.signup} onBack={() => go('webtoon')}>
+        <ChatScreen bg={cfg.chatBg} speaker={cfg.speaker} line={fill(cfg.signup.line)} onBack={() => go('webtoon')}>
           <button
-            type="button"
-            onClick={() => {
-              if (DEMO) { toast('데모: 카카오 로그인 연결은 다음 단계예요. 뒤 화면을 미리 보여 드릴게요.'); go('saved', true); return }
-            }}
-            className="w-full h-14 rounded-xl bg-[#FEE500] text-[#191919] font-bold text-[16px] flex items-center justify-center gap-2 active:scale-[0.98] transition"
+            type="button" onClick={startSignup} disabled={authLoading}
+            className="w-full h-[60px] rounded-xl bg-[#FEE500] text-[#191919] font-bold text-[16px] flex flex-col items-center justify-center active:scale-[0.98] transition disabled:opacity-60"
           >
-            <KakaoIcon />
-            카카오로 1초 만에 신청하기
+            <span className="flex items-center gap-2"><KakaoIcon />{user ? fill(cfg.signup.buttonMember) : cfg.signup.buttonGuest}</span>
+            <span className="text-[11px] font-medium opacity-70">{cfg.signup.buttonSub}</span>
           </button>
-          <p className="text-[11px] text-white/60 text-center mt-3 leading-relaxed">
-            가입하면 <Link to="/terms" className="underline">이용약관</Link>·<Link to="/privacy" className="underline">개인정보 처리방침</Link>에 동의하게 돼요
-          </p>
+          {!user && (
+            <p className="text-[11px] text-white/60 text-center mt-3 leading-relaxed">
+              가입하면 <Link to="/terms" className="underline">이용약관</Link>·<Link to="/privacy" className="underline">개인정보 처리방침</Link>에 동의하게 돼요. (만 14세 이상)
+            </p>
+          )}
         </ChatScreen>
       )}
-      {step === 'saved' && <Saved cfg={cfg} name={name} onDone={() => go('q1', true)} />}
-      {step === 'q1' && <Question1 cfg={cfg} name={name} onBack={() => go('signup')} onNext={() => go('q2')} />}
-      {step === 'q2' && <Question2 cfg={cfg} onBack={() => go('q1')} onNext={() => go('done')} />}
-      {step === 'done' && <Done cfg={cfg} name={name} openChatUrl={course?.after_purchase_url ?? null} />}
+      {step === 'saved' && (
+        saveError ? (
+          <ChatScreen bg={cfg.chatBg} speaker={cfg.speaker} line={/마감|정원|찼/.test(saveError) ? cfg.saved.full : saveError} delay={0}>
+            <Link to="/" className="w-full h-14 rounded-xl bg-white text-black font-bold text-[17px] flex items-center justify-center">{cfg.saved.fullButton}</Link>
+          </ChatScreen>
+        ) : (
+          <ChatScreen bg={cfg.chatBg} speaker={cfg.speaker} line={fill(cfg.saved.line)} delay={0}>
+            <div className="flex justify-center py-2"><span className="w-6 h-6 rounded-full border-2 border-white/30 border-t-white animate-spin" /></div>
+          </ChatScreen>
+        )
+      )}
+      {askIndex >= 0 && (
+        <Ask
+          key={step} cfg={cfg} slug={slug} ask={cfg.asks[askIndex]} index={askIndex} total={cfg.asks.length} fill={fill}
+          onBack={askIndex > 0 ? () => go(ASK_STEPS[askIndex - 1]) : undefined}
+          onNext={() => go(askIndex < ASK_STEPS.length - 1 ? ASK_STEPS[askIndex + 1] : 'done')}
+        />
+      )}
+      {step === 'done' && (
+        <Done
+          cfg={cfg} fill={fill} already={already}
+          openChatUrl={course?.after_purchase_url ?? null}
+          tracking={course ? { contentId: buildContentId('course', course.id), contentName: course.title, instructorName: course.instructor?.name ?? null, email: profile?.email, phone: profile?.phone } : null}
+          liveEvent={course && isUpcomingLive(course.scheduled_at) ? { courseId: course.id, title: course.title, startsAt: course.scheduled_at, openchatUrl: course.after_purchase_url } : null}
+        />
+      )}
     </div>
   )
 }
 
 /* ───────── W1 표지 ───────── */
-function Cover({ cfg, onNext }: { cfg: WebtoonLanding; onNext: () => void }) {
+function Cover({ cfg, fill, onNext }: { cfg: WebtoonLanding; fill: (s: string) => string; onNext: () => void }) {
   const c = cfg.cover
   return (
-    <section className="relative h-[100dvh] max-w-[480px] mx-auto overflow-hidden">
-      {c.video ? (
-        <video
-          className="absolute inset-0 w-full h-full object-cover"
-          src={r2Proxy(c.video)} poster={r2Proxy(c.poster)}
-          autoPlay muted loop playsInline preload="auto"
-        />
-      ) : (
-        <img className="absolute inset-0 w-full h-full object-cover" src={r2Proxy(c.poster)} alt="" fetchPriority="high" />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/85" />
-      <div className="relative h-full flex flex-col items-center px-6 pt-[9vh] pb-[calc(env(safe-area-inset-bottom)+28px)]">
-        <p className="text-[15px] tracking-[0.3em] font-semibold" style={{ color: GREEN }}>{c.kicker}</p>
-        <h1 className="mt-2 text-[40px] leading-tight font-black text-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">{c.title}</h1>
-        <p className="mt-3 text-[16px] text-white/90 text-center">“ {c.quote} ”</p>
-        <div className="flex-1" />
-        <button
-          type="button" onClick={onNext}
-          className="w-full h-14 rounded-xl border-2 border-white bg-white/10 backdrop-blur-sm text-white font-bold text-[17px] active:scale-[0.98] transition"
-        >
-          {c.cta}
-        </button>
-        <p className="mt-3 text-[12px] text-white/70">{c.note}</p>
+    <section className="relative max-w-[480px] mx-auto">
+      <div className="relative h-[100dvh] overflow-hidden">
+        {c.video ? (
+          <video
+            className="absolute inset-0 w-full h-full object-cover"
+            src={r2Proxy(c.video)} poster={r2Proxy(c.poster)}
+            autoPlay muted loop playsInline preload="auto"
+          />
+        ) : (
+          <img className="absolute inset-0 w-full h-full object-cover" src={r2Proxy(c.poster)} alt="" fetchPriority="high" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-transparent to-black/85" />
+        <div className="relative h-full flex flex-col items-center px-6 pt-[9vh] pb-[calc(env(safe-area-inset-bottom)+20px)]">
+          <p className="text-[15px] tracking-[0.3em] font-semibold" style={{ color: GREEN }}>{c.kicker}</p>
+          <h1 className="mt-2 text-[40px] leading-tight font-black text-center drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">{c.title}</h1>
+          <p className="mt-3 text-[16px] text-white/90 text-center">“ {c.quote} ”</p>
+          <div className="flex-1" />
+          <button
+            type="button" onClick={onNext}
+            className="w-full h-[60px] rounded-xl border-2 border-white bg-white/10 backdrop-blur-sm text-white font-bold active:scale-[0.98] transition flex flex-col items-center justify-center"
+          >
+            <span className="text-[17px]">{c.cta}</span>
+            <span className="text-[11px] font-medium text-white/80">{c.ctaSub}</span>
+          </button>
+          <p className="mt-3 text-[12px] text-white/70">{fill(c.note)}</p>
+          <a href="#more" className="mt-2 text-[11px] text-white/50 underline">{c.detailsSummary} ▾</a>
+        </div>
       </div>
+      <details id="more" className="px-6 py-6 bg-[#0b0f14] text-[13px] text-white/75 leading-relaxed">
+        <summary className="cursor-pointer font-bold text-white">{c.detailsSummary}</summary>
+        <div className="mt-3 space-y-3">{c.details.map((d) => <p key={d}>{d}</p>)}</div>
+      </details>
     </section>
   )
 }
@@ -154,22 +345,38 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
   const [endVisible, setEndVisible] = useState(false)
   const endRef = useRef<HTMLDivElement>(null)
   const sent = useRef(new Set<number>())
+  const key = `wt_scroll_${cfg.slug}`
 
   useEffect(() => {
+    pushEvent('webtoon_view', { landing: cfg.slug })
+    // 새로고침이면 보던 위치에서 이어 보기(뒤로 가기·새 진입은 맨 위부터)
+    const nav = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
+    const y = Number(ss.get(key) || 0)
+    if (nav?.type === 'reload' && y > 0) window.scrollTo(0, y)
+    else ss.del(key)
+  }, [cfg.slug, key])
+
+  useEffect(() => {
+    let raf = 0
     const onScroll = () => {
-      if (window.scrollY > 20) setScrolled(true)
-      const max = document.documentElement.scrollHeight - window.innerHeight
-      const pct = max > 0 ? (window.scrollY / max) * 100 : 100
-      for (const mark of [25, 50, 75, 100]) {
-        if (pct >= mark - 1 && !sent.current.has(mark)) {
-          sent.current.add(mark)
-          pushEvent('webtoon_progress', { landing: cfg.slug, percent: mark })
+      if (raf) return
+      raf = requestAnimationFrame(() => {
+        raf = 0
+        if (window.scrollY > 20) setScrolled(true)
+        ss.set(key, String(Math.round(window.scrollY)))
+        const max = document.documentElement.scrollHeight - window.innerHeight
+        const pct = max > 0 ? (window.scrollY / max) * 100 : 100
+        for (const mark of [25, 50, 75, 100]) {
+          if (pct >= mark - 1 && !sent.current.has(mark)) {
+            sent.current.add(mark)
+            pushEvent('webtoon_progress', { landing: cfg.slug, percent: mark })
+          }
         }
-      }
+      })
     }
     window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [cfg.slug])
+    return () => { window.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf) }
+  }, [cfg.slug, key])
 
   useEffect(() => {
     const el = endRef.current
@@ -182,11 +389,11 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
   return (
     <section className="max-w-[480px] mx-auto bg-[#0b0f14]">
       {!scrolled && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-[calc(env(safe-area-inset-bottom)+90px)] z-30 text-white/80 text-xs flex flex-col items-center animate-bounce pointer-events-none">
+        <div className="fixed left-6 bottom-[calc(env(safe-area-inset-bottom)+30px)] z-30 text-white/80 text-xs flex flex-col items-center animate-bounce pointer-events-none">
           <span>스크롤</span><span>▼</span>
         </div>
       )}
-      {cfg.webtoon.cuts.map((cut, i) => <Cut key={cut.id} cut={cut} eager={i < 1} />)}
+      {cfg.webtoon.cuts.map((c, i) => <Cut key={c.id} cut={c} eager={i < 2} />)}
       <div ref={endRef} className="px-6 pt-10 pb-[calc(env(safe-area-inset-bottom)+48px)] flex flex-col items-center gap-3">
         <button
           type="button" onClick={() => onNext('end')}
@@ -195,7 +402,7 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
         >
           {cfg.webtoon.endCta}
         </button>
-        <p className="text-[12px] text-white/60">유튜브 무료 라이브 · 다시보기 없음</p>
+        <p className="text-[12px] text-white/60">{cfg.webtoon.endNote}</p>
       </div>
 
       {!endVisible && (
@@ -216,42 +423,51 @@ function Webtoon({ cfg, onNext }: { cfg: WebtoonLanding; onNext: (via: 'skip' | 
 }
 
 function Cut({ cut, eager }: { cut: WebtoonCut; eager: boolean }) {
-  const ratio = cut.ratio ?? 1.25
   return (
-    <div className="relative">
-      {cut.src ? (
-        <img
-          src={r2Proxy(cut.src)} alt="" className="w-full block"
-          style={{ aspectRatio: `1 / ${ratio}` }}
-          loading={eager ? 'eager' : 'lazy'} decoding="async"
-        />
-      ) : (
-        <div className="w-full flex flex-col items-center justify-center gap-2 border-y border-white/10 bg-gradient-to-b from-[#121821] to-[#0b0f14] px-8 text-center" style={{ aspectRatio: `1 / ${ratio}` }}>
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded" style={{ background: GREEN, color: '#000' }}>{cut.id} · 그림 준비 중</span>
-          {cut.scene && <p className="text-[13px] text-white/50 leading-relaxed">{cut.scene}</p>}
-        </div>
-      )}
-      {cut.texts && cut.texts.length > 0 && (
-        <div className="absolute inset-x-0 bottom-0 px-5 pb-6 pt-16 flex flex-col gap-2 bg-gradient-to-t from-black/80 to-transparent">
-          {cut.texts.map((t, i) => {
-            if (t.kind === 'narration') return <p key={i} className="self-start max-w-[88%] bg-white text-black border-2 border-black px-3 py-2 text-[14px] leading-snug font-medium">{t.text}</p>
-            if (t.kind === 'sfx') return <p key={i} className="self-end text-[34px] font-black italic text-white [-webkit-text-stroke:1.5px_black] rotate-[-6deg]">{t.text}</p>
-            return (
-              <div key={i} className={`max-w-[88%] ${i % 2 ? 'self-end' : 'self-start'}`}>
-                {t.speaker && <span className="block text-[11px] mb-1 font-bold" style={{ color: GREEN }}>{t.speaker}</span>}
-                <p className="bg-white text-black rounded-[22px] px-4 py-2.5 text-[15px] leading-snug font-semibold">{t.text}</p>
-              </div>
-            )
-          })}
-        </div>
-      )}
+    <div className="relative" style={{ aspectRatio: `1 / ${cut.ratio}` }}>
+      <img
+        src={r2Proxy(cut.src)} alt="" className="absolute inset-0 w-full h-full object-cover"
+        loading={eager ? 'eager' : 'lazy'} decoding="async"
+      />
+      {cut.bubbles.map((b, i) => <BubbleView key={i} b={b} />)}
     </div>
   )
 }
 
+function BubbleView({ b }: { b: Bubble }) {
+  // 위치: 그림 높이 기준 %. 아래쪽(60% 넘음)은 말풍선 아래 끝을 그 위치에 맞춘다
+  const pos: React.CSSProperties = { top: `${Math.min(b.top, 94)}%` }
+  if (b.align === 'left') pos.left = 12
+  else if (b.align === 'right') pos.right = 12
+  else pos.left = '50%'
+  const tx = b.align === 'center' ? 'translateX(-50%)' : ''
+  const ty = b.top > 60 ? 'translateY(-100%)' : ''
+  if (tx || ty) pos.transform = `${tx} ${ty}`.trim()
+  const base = 'absolute max-w-[78%] w-max'
+  switch (b.type) {
+    case 'narration':
+      return <p className={`${base} bg-white text-black border-[1.5px] border-black px-3 py-2 text-[14px] leading-snug font-medium text-center`} style={pos}>{b.text}</p>
+    case 'dark_box':
+      return <p className={`${base} bg-black text-white px-4 py-2 text-[15px] font-bold text-center`} style={pos}>{b.text}</p>
+    case 'sfx':
+      return <p className={`${base} text-[40px] font-black italic text-white [-webkit-text-stroke:2px_black]`} style={{ ...pos, rotate: '-8deg' }}>{b.text}</p>
+    case 'caption':
+      return <p className={`${base} text-[11px] text-white/85 bg-black/50 px-2 py-1 rounded`} style={pos}>{b.text}</p>
+    default:
+      return (
+        <div className={base} style={pos}>
+          <p className="relative bg-white text-black rounded-[24px] px-4 py-2.5 text-[15px] leading-snug font-semibold text-center shadow">
+            {b.text}
+            <span className={`absolute -bottom-2 ${b.align === 'right' ? 'right-6' : 'left-6'} w-0 h-0 border-l-[8px] border-r-[8px] border-t-[10px] border-l-transparent border-r-transparent border-t-white`} />
+          </p>
+        </div>
+      )
+  }
+}
+
 /* ───────── 대화 화면 틀 (W3~W7 공용) ───────── */
-function ChatScreen({ bg, speaker, line, onBack, children, delay = 1500 }: {
-  bg: string; speaker: string; line: string; onBack?: () => void; children?: ReactNode; delay?: number
+function ChatScreen({ bg, speaker, line, onBack, children, delay = 1500, top }: {
+  bg: string; speaker: string; line: string; onBack?: () => void; children?: ReactNode; delay?: number; top?: ReactNode
 }) {
   const [shown, setShown] = useState(delay === 0)
   useEffect(() => {
@@ -262,12 +478,14 @@ function ChatScreen({ bg, speaker, line, onBack, children, delay = 1500 }: {
   return (
     <section className="relative min-h-[100dvh] max-w-[480px] mx-auto overflow-hidden">
       <img src={r2Proxy(bg)} alt="" className="fixed inset-0 w-full max-w-[480px] mx-auto h-full object-cover" fetchPriority="high" />
-      <div className="fixed inset-0 max-w-[480px] mx-auto bg-gradient-to-b from-black/30 via-black/20 to-black/90" />
-      {onBack && (
-        <button type="button" onClick={onBack} aria-label="뒤로" className="absolute top-[calc(env(safe-area-inset-top)+28px)] left-4 z-20 w-10 h-10 rounded-full bg-black/40 text-white text-xl flex items-center justify-center">
-          ‹
-        </button>
-      )}
+      <div className="fixed inset-0 max-w-[480px] mx-auto bg-gradient-to-b from-black/20 via-transparent to-black/85" />
+      <div className="absolute top-[calc(env(safe-area-inset-top)+14px)] inset-x-4 z-20 flex items-center">
+        {onBack && (
+          <button type="button" onClick={onBack} aria-label="이전" className="h-9 px-3 rounded-full bg-black/40 text-white text-[13px] flex items-center gap-1">‹ 이전</button>
+        )}
+        <div className="flex-1 flex justify-center">{top}</div>
+        {onBack && <span className="w-[68px]" />}
+      </div>
       <div className={`relative z-10 min-h-[100dvh] flex flex-col justify-end px-5 pb-[calc(env(safe-area-inset-bottom)+24px)] transition-all duration-700 ${shown ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
         <div className="mb-5">
           <span className="text-[12px] font-bold" style={{ color: GREEN }}>{speaker}</span>
@@ -279,81 +497,127 @@ function ChatScreen({ bg, speaker, line, onBack, children, delay = 1500 }: {
   )
 }
 
-/* ───────── W4 신청 저장(자동) ───────── */
-function Saved({ cfg, name, onDone }: { cfg: WebtoonLanding; name: string; onDone: () => void }) {
-  useEffect(() => {
-    const t = window.setTimeout(onDone, 1800)
-    return () => window.clearTimeout(t)
-  }, [onDone])
-  return <ChatScreen bg={cfg.portrait} speaker={cfg.speaker} line={fill(cfg.lines.saved, name)} delay={0} />
-}
+/* ───────── W5·W6 선택 질문 (한 화면에 하나, 진행 점) ───────── */
+function Ask({ cfg, slug, ask, index, total, fill, onBack, onNext }: {
+  cfg: WebtoonLanding; slug: string; ask: AskStep; index: number; total: number; fill: (s: string) => string
+  onBack?: () => void; onNext: () => void
+}) {
+  const key = `wt_ans_${slug}`
+  const [answers, setAnswers] = useState<Answers>(() => { try { return JSON.parse(ss.get(key) || '{}') as Answers } catch { return {} } })
+  const value = answers[ask.key] ?? ''
+  const set = (v: string) => {
+    const next = { ...answers, [ask.key]: v }
+    setAnswers(next)
+    ss.set(key, JSON.stringify(next))
+  }
+  const [busy, setBusy] = useState(false)
 
-/* ───────── W5 선택 질문 ───────── */
-function Question1({ cfg, name, onBack, onNext }: { cfg: WebtoonLanding; name: string; onBack: () => void; onNext: () => void }) {
-  const [exp, setExp] = useState<string | null>(null)
-  const [time, setTime] = useState<string | null>(null)
-  const [sheet, setSheet] = useState<null | 'exp' | 'time'>(null)
-  const blank = (v: string | null, k: 'exp' | 'time') => (
-    <button type="button" onClick={() => setSheet(k)} className="inline-flex items-center mx-1 px-3 py-1 rounded-lg border-b-2 font-bold" style={{ borderColor: GREEN, color: v ? '#fff' : GREEN, background: 'rgba(46,213,115,0.12)' }}>
-      {v ?? '선택하기'} ▾
-    </button>
+  const next = async () => {
+    if (busy) return
+    setBusy(true)
+    const v = value.trim()
+    pushEvent('ask_step', { landing: slug, step: index + 1, answered: !!v })
+    if (v) {
+      // 선택 답 저장 — 표(course_survey_answers)·함수가 아직 없으면 조용히 넘어간다(신청은 이미 저장됨)
+      await supabase.rpc('save_course_survey' as never, {
+        p_course_id: cfg.courseId,
+        p_blog_exp: ask.key === 'blog_exp' ? v : null,
+        p_daily_time: ask.key === 'daily_time' ? v : null,
+        p_concern: ask.key === 'concern' ? v : null,
+      } as never).then(({ error }) => { if (error) console.warn('[webtoon] 선택 답 저장 실패', error.message) }, () => {})
+    }
+    setBusy(false)
+    onNext()
+  }
+
+  const dots = (
+    <div className="flex items-center gap-1.5" aria-label={`${index + 1}/${total}`}>
+      {Array.from({ length: total }, (_, i) => (
+        <span key={i} className="w-2 h-2 rounded-full" style={{ background: i <= index ? GREEN : 'rgba(255,255,255,0.35)' }} />
+      ))}
+      <span className="ml-1 text-[11px] text-white/70">{index + 1}/{total}</span>
+    </div>
   )
-  const opts = sheet === 'exp' ? BLOG_EXP_OPTIONS : DAILY_TIME_OPTIONS
+
   return (
-    <>
-      <ChatScreen bg={cfg.portrait} speaker={cfg.speaker} line={fill(cfg.lines.q1, name)} onBack={onBack}>
-        <div className="rounded-2xl bg-black/60 backdrop-blur px-4 py-4 text-[16px] leading-[2.4]">
-          <p>블로그는 {blank(exp, 'exp')}.</p>
-          <p>하루에 {blank(time, 'time')} 쓸 수 있어요.</p>
-          <p className="text-[12px] text-white/60 leading-normal mt-1">* 답하지 않아도 다음으로 넘어갈 수 있어요.</p>
+    <ChatScreen bg={cfg.chatBg} speaker={cfg.speaker} line={fill(ask.line)} onBack={onBack} top={dots}>
+      {ask.options ? (
+        <div className="flex flex-col gap-2">
+          {ask.options.map((o) => (
+            <button
+              key={o} type="button" onClick={() => set(value === o ? '' : o)}
+              className="w-full h-12 rounded-xl text-[16px] font-semibold border transition"
+              style={value === o ? { background: GREEN, color: '#000', borderColor: GREEN } : { background: 'rgba(0,0,0,0.55)', color: '#fff', borderColor: 'rgba(255,255,255,0.35)' }}
+            >
+              {o}
+            </button>
+          ))}
         </div>
-        <button type="button" onClick={onNext} className="mt-4 w-full h-14 rounded-xl text-black font-bold text-[17px]" style={{ background: GREEN }}>다음으로</button>
-      </ChatScreen>
-      {sheet && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center" onClick={() => setSheet(null)}>
-          <div className="w-full max-w-[480px] bg-white text-black rounded-t-2xl p-4 pb-[calc(env(safe-area-inset-bottom)+16px)]" onClick={(e) => e.stopPropagation()}>
-            {opts.map((o) => (
-              <button key={o} type="button" className="w-full text-left py-3.5 px-2 text-[16px] border-b last:border-0" onClick={() => { if (sheet === 'exp') setExp(o); else setTime(o); setSheet(null) }}>
-                {o}
-              </button>
-            ))}
-          </div>
-        </div>
+      ) : (
+        <>
+          <textarea
+            value={value} onChange={(e) => set(e.target.value.slice(0, CONCERN_MAX))}
+            placeholder={ask.placeholder} rows={4}
+            className="w-full rounded-xl bg-white text-black p-3 text-[16px] resize-none"
+          />
+          <p className="text-right text-[11px] text-white/60 mt-1">{value.length}/{CONCERN_MAX}</p>
+        </>
       )}
-    </>
-  )
-}
-
-/* ───────── W6 막힌 점 ───────── */
-function Question2({ cfg, onBack, onNext }: { cfg: WebtoonLanding; onBack: () => void; onNext: () => void }) {
-  const [text, setText] = useState('')
-  return (
-    <ChatScreen bg={cfg.portrait} speaker={cfg.speaker} line={cfg.lines.q2} onBack={onBack}>
-      <textarea
-        value={text} onChange={(e) => setText(e.target.value.slice(0, CONCERN_MAX))}
-        placeholder="자유롭게 적어 주세요 (선택)" rows={4}
-        className="w-full rounded-xl bg-white text-black p-3 text-[16px] resize-none"
-      />
-      <p className="text-right text-[11px] text-white/60 mt-1">{text.length}/{CONCERN_MAX}</p>
-      <button type="button" onClick={onNext} className="mt-2 w-full h-14 rounded-xl text-black font-bold text-[17px]" style={{ background: GREEN }}>무료 라이브 신청 마치기</button>
+      {ask.why && <p className="text-[12px] text-white/65 mt-3 leading-relaxed">{ask.why}</p>}
+      <p className="text-[11px] text-white/50 mt-1">* {cfg.skipNote}</p>
+      <button type="button" onClick={next} disabled={busy} className="mt-4 w-full h-14 rounded-xl text-black font-bold text-[17px] disabled:opacity-70" style={{ background: GREEN }}>
+        {ask.button}
+      </button>
     </ChatScreen>
   )
 }
 
 /* ───────── W7 완료 ───────── */
-function Done({ cfg, name, openChatUrl }: { cfg: WebtoonLanding; name: string; openChatUrl: string | null }) {
+function Done({ cfg, fill, already, openChatUrl, tracking, liveEvent }: {
+  cfg: WebtoonLanding; fill: (s: string) => string; already: boolean; openChatUrl: string | null
+  tracking: { contentId: string; contentName: string; instructorName: string | null; email?: string | null; phone?: string | null } | null
+  liveEvent: { courseId: number; title: string; startsAt: string; openchatUrl?: string | null } | null
+}) {
+  const navigatingRef = useRef(false)
+  const sameTab = useMemo(() => IN_APP_RE.test(navigator.userAgent), [])
+
+  // 오픈채팅 입장 — 사용자가 눌렀을 때만 연다(팝업 차단 방지). 입장 기록·전환 이벤트는 AfterPurchaseLinkModal 과 같게
+  const recordJoin = () => {
+    trackOpenChatJoin({
+      dedupeKey: openChatUrl ?? '',
+      contentId: tracking?.contentId, contentName: tracking?.contentName, instructorName: tracking?.instructorName,
+      user: { email: tracking?.email, phone: tracking?.phone },
+    })
+    return logOpenChat(tracking?.contentId, true)
+  }
+  const enter = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!openChatUrl) return
+    if (!sameTab) { void recordJoin(); return }
+    e.preventDefault()
+    if (navigatingRef.current) return
+    navigatingRef.current = true
+    const goTo = () => { window.location.href = openChatUrl }
+    Promise.race([recordJoin(), new Promise((r) => setTimeout(r, 800))]).then(goTo, goTo)
+  }
+
   return (
-    <ChatScreen bg={cfg.donePortrait} speaker={cfg.speaker} line={fill(cfg.lines.done, name)}>
-      {cfg.doneNotes.map((n) => <p key={n} className="text-[13px] text-white/85 mb-3">{n}</p>)}
-      <button
-        type="button"
-        onClick={() => { if (DEMO || !openChatUrl) { toast('데모: 오픈채팅 연결은 다음 단계예요.'); return } window.location.href = openChatUrl }}
-        className="w-full h-14 rounded-xl text-black font-bold text-[17px]" style={{ background: GREEN }}
-      >
-        오픈채팅 입장하기
-      </button>
-      <button type="button" onClick={() => toast('데모: 캘린더 추가는 다음 단계예요.')} className="mt-2 w-full h-11 rounded-xl border border-white/50 text-white text-[14px]">캘린더에 추가</button>
-      <p className="mt-4 text-[10px] text-white/50 leading-relaxed">{cfg.disclaimer}</p>
+    <ChatScreen bg={cfg.doneBg} speaker={cfg.speaker} line={fill(already ? cfg.done.already : cfg.done.line)}>
+      <p className="text-[13px] text-white/85 mb-3">{cfg.done.notice}</p>
+      {cfg.done.gift && <p className="text-[13px] mb-3" style={{ color: GREEN }}>{cfg.done.gift}</p>}
+      {openChatUrl && (
+        <a
+          href={openChatUrl} target={sameTab ? '_self' : '_blank'} rel="noopener noreferrer" onClick={enter}
+          className="w-full h-14 rounded-xl text-black font-bold text-[17px] flex items-center justify-center no-underline" style={{ background: GREEN }}
+        >
+          오픈채팅 입장하기
+        </a>
+      )}
+      {liveEvent && (
+        <div className="mt-3 rounded-xl bg-white">
+          <LiveCalendarCta event={liveEvent} />
+        </div>
+      )}
+      <p className="mt-4 text-[10px] text-white/50 leading-relaxed">{cfg.done.legal}</p>
     </ChatScreen>
   )
 }
