@@ -14,6 +14,7 @@ import { webhookService } from '../../services/webhookService'
 import { webhookScheduleService } from '../../services/webhookScheduleService'
 import { billingService, type NewsletterSubscription } from '../../services/billingService'
 import { addMonthsKst } from '../../utils/period'
+import { ebookProgressService, progressPercent, READING_LOG_NOTE, type EbookReadingProgress } from '../../services/ebookProgressService'
 import type { Profile, PointLog, Coupon } from '../../types'
 
 interface MemberWithPurchases extends Profile {
@@ -71,6 +72,8 @@ export default function AdminMembers() {
   const [pointLogPage, setPointLogPage] = useState(0)
   const [purchasePage, setPurchasePage] = useState(0)
   const [couponPage, setCouponPage] = useState(0)
+  // 전자책 읽음 기록(10/19) — 전자책 id → 진도
+  const [ebookReading, setEbookReading] = useState<Map<number, EbookReadingProgress>>(new Map())
   const [progressRecords, setProgressRecords] = useState<{ id: number; is_completed: boolean; completed_at: string | null; last_watched_at: string; course: { id: number; title: string } | null; curriculum_item: { id: number; label: string; week: number | null } | null }[]>([])
   const [memberReviews, setMemberReviews] = useState<{ id: number; title: string; content: string; rating: number; created_at: string; course: { id: number; title: string } | null }[]>([])
   const [progressPage, setProgressPage] = useState(0)
@@ -148,6 +151,8 @@ export default function AdminMembers() {
     setReviewsPage(0)
     setMemberCoupons([])
     setProgressRecords([])
+    setEbookReading(new Map())
+    ebookProgressService.listForUser(member.id).then((rows) => setEbookReading(new Map(rows.map((r) => [r.ebook_id, r])))).catch(() => {})
     setMemberReviews([])
     setMemberSubs([])
     setSubCancelTarget(null)
@@ -1513,6 +1518,21 @@ export default function AdminMembers() {
                               {' · '}{formatDate(p.purchased_at)}
                               {p.expires_at && ` · ~${formatDate(p.expires_at)}`}
                             </span>
+                            {p.ebook_id && (() => {
+                              const r = ebookReading.get(p.ebook_id)
+                              return (
+                                <span className="block text-[10px] mt-0.5" title={READING_LOG_NOTE}>
+                                  {r ? (
+                                    <span className="text-gray-600">
+                                      <i className="ti ti-book text-[10px] mr-0.5" />
+                                      진도율 <b className="text-[#2ED573]">{progressPercent(r)}%</b> ({r.max_page}/{r.total_pages}쪽) · 마지막으로 읽은 날 {formatDate(r.last_read_at)} · {r.open_count}번 열람
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-300">읽은 기록 없음 (기능 배포 이후 기록만 있음)</span>
+                                  )}
+                                </span>
+                              )
+                            })()}
                           </div>
                           <div className="flex items-center gap-1 shrink-0 ml-3">
                             {(p.course_id || p.ebook_id) && (

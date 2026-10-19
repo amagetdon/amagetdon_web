@@ -9,6 +9,7 @@ import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
 import WebhookScheduleEditor from '../../components/admin/WebhookScheduleEditor'
 import ProductDashboard from '../../components/admin/ProductDashboard'
 import { ebookService } from '../../services/ebookService'
+import { ebookProgressService, progressPercent, READING_LOG_NOTE, type EbookReadingProgress } from '../../services/ebookProgressService'
 import { instructorService } from '../../services/instructorService'
 import { refundPolicyTemplateService } from '../../services/refundPolicyTemplateService'
 import { storageService } from '../../services/storageService'
@@ -95,6 +96,9 @@ export default function AdminEbookDetail() {
   const [buyersLoading, setBuyersLoading] = useState(false)
   const [buyersPage, setBuyersPage] = useState(1)
   const [buyersSearch, setBuyersSearch] = useState('')
+  // 전자책 읽음 기록(10/19) — 회원별 진도율·마지막 읽은 날
+  const [readingByUser, setReadingByUser] = useState<Map<string, EbookReadingProgress>>(new Map())
+  const [buyersSort, setBuyersSort] = useState<'purchased' | 'progress' | 'lastRead'>('purchased')
 
   const loadEbook = useCallback(async () => {
     if (!ebookId) return
@@ -226,6 +230,8 @@ export default function AdminEbookDetail() {
         }
       })
       setBuyers(rows)
+      const reading = await ebookProgressService.listForEbook(ebookId)
+      setReadingByUser(new Map(reading.map((r) => [r.user_id, r])))
     } catch {
       toast.error('구매자 목록을 불러오는데 실패했습니다.')
     } finally {
@@ -244,8 +250,19 @@ export default function AdminEbookDetail() {
       || (b.user_email ?? '').toLowerCase().includes(q)
       || (b.user_phone ?? '').includes(q)
   })
-  const buyersTotalPages = Math.max(1, Math.ceil(filteredBuyers.length / BUYERS_PER_PAGE))
-  const pagedBuyers = filteredBuyers.slice((buyersPage - 1) * BUYERS_PER_PAGE, buyersPage * BUYERS_PER_PAGE)
+  const readOf = (b: BuyerRow) => readingByUser.get(b.user_id)
+  const sortedBuyers = buyersSort === 'purchased' ? filteredBuyers : [...filteredBuyers].sort((a, b) => {
+    const ra = readOf(a)
+    const rb = readOf(b)
+    if (buyersSort === 'progress') return progressPercent(rb) - progressPercent(ra) || (rb?.last_read_at ?? '').localeCompare(ra?.last_read_at ?? '')
+    return (rb?.last_read_at ?? '').localeCompare(ra?.last_read_at ?? '')
+  })
+  const buyersTotalPages = Math.max(1, Math.ceil(sortedBuyers.length / BUYERS_PER_PAGE))
+  const pagedBuyers = sortedBuyers.slice((buyersPage - 1) * BUYERS_PER_PAGE, buyersPage * BUYERS_PER_PAGE)
+  // 요약: 구매자 중 읽은 사람, 평균 진도율(구매자 전체 = 안 읽은 사람 0% 포함 / 읽은 사람만)
+  const readers = buyers.filter((b) => readingByUser.has(b.user_id))
+  const avgAllBuyers = buyers.length ? Math.round(buyers.reduce((sum, b) => sum + progressPercent(readOf(b)), 0) / buyers.length) : 0
+  const avgReaders = readers.length ? Math.round(readers.reduce((sum, b) => sum + progressPercent(readOf(b)), 0) / readers.length) : 0
 
   const formatKoDate = (iso: string | null | undefined) => {
     if (!iso) return '-'
@@ -266,7 +283,7 @@ export default function AdminEbookDetail() {
 
   // 구매자 목록 엑셀(CSV) 내보내기 — 검색으로 필터된 결과를 그대로 내보냄
   const exportBuyersToExcel = () => {
-    const header = ['이름', '이메일', '전화번호', '구매일', '결제수단', '결제금액', '정가', '열람만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로', '구매경로_source', '구매경로_medium', '구매경로_campaign', '구매경로_content', '구매경로_term', '구매경로_유입사이트', '구매경로_랜딩']
+    const header = ['이름', '이메일', '전화번호', '구매일', '결제수단', '결제금액', '정가', '열람만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로', '구매경로_source', '구매경로_medium', '구매경로_campaign', '구매경로_content', '구매경로_term', '구매경로_유입사이트', '구매경로_랜딩', '진도율(%)', '가장 멀리 읽은 쪽', '전체 쪽', '마지막 읽은 날', '연 횟수']
     const rows = filteredBuyers.map((b) => [
       b.user_name || '',
       b.user_email || '',
@@ -289,6 +306,11 @@ export default function AdminEbookDetail() {
       b.purchase_touch?.term || '',
       b.purchase_touch?.referrer || '',
       b.purchase_touch?.landing || '',
+      readOf(b) ? progressPercent(readOf(b)) : '',
+      readOf(b)?.max_page ?? '',
+      readOf(b)?.total_pages ?? '',
+      readOf(b) ? formatKoDate(readOf(b)!.last_read_at) : '읽은 기록 없음',
+      readOf(b)?.open_count ?? '',
     ])
 
     // 광고 캠페인 ID 같은 12자리 이상 숫자·앞자리 0 숫자는 엑셀이 지수표기(1.2E+17)로 바꿔 값을 깨뜨리므로 텍스트 수식으로 강제
@@ -857,6 +879,16 @@ export default function AdminEbookDetail() {
                   className="pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573] w-[280px]"
                 />
               </div>
+              <select
+                value={buyersSort}
+                onChange={(e) => { setBuyersSort(e.target.value as typeof buyersSort); setBuyersPage(1) }}
+                className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm outline-none focus:border-[#2ED573] cursor-pointer"
+                aria-label="구매자 정렬"
+              >
+                <option value="purchased">구매일 최신순</option>
+                <option value="progress">진도율 높은 순</option>
+                <option value="lastRead">최근 읽은 순</option>
+              </select>
               <button
                 onClick={exportBuyersToExcel}
                 disabled={filteredBuyers.length === 0}
@@ -867,6 +899,26 @@ export default function AdminEbookDetail() {
               </button>
             </div>
           </div>
+
+          {!buyersLoading && buyers.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
+              <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
+                <div>
+                  <p className="text-[11px] text-gray-400">읽은 사람 / 구매자</p>
+                  <p className="text-lg font-bold text-gray-900">{readers.length}명 <span className="text-sm font-medium text-gray-400">/ {buyers.length}명</span></p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-400">평균 진도율 (읽은 사람)</p>
+                  <p className="text-lg font-bold text-[#2ED573]">{avgReaders}%</p>
+                </div>
+                <div>
+                  <p className="text-[11px] text-gray-400">평균 진도율 (구매자 전체, 안 읽은 사람 0%)</p>
+                  <p className="text-lg font-bold text-gray-900">{avgAllBuyers}%</p>
+                </div>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-3 mb-0">진도율 = 가장 멀리 읽은 쪽 ÷ 전체 쪽. {READING_LOG_NOTE}</p>
+            </div>
+          )}
 
           {buyersLoading ? (
             <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
@@ -889,6 +941,8 @@ export default function AdminEbookDetail() {
                       <th className="px-4 py-3 text-center font-bold text-gray-600">결제수단</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600">금액</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600">만료일</th>
+                      <th className="px-4 py-3 text-left font-bold text-gray-600">진도율</th>
+                      <th className="px-4 py-3 text-center font-bold text-gray-600">마지막 읽은 날</th>
                       <th className="px-4 py-3 text-left font-bold text-gray-600" title="가입: 회원가입 시점 경로(최초) / 구매: 이번 구매 직전 30일 내 마지막 경로">유입 경로</th>
                     </tr>
                   </thead>
@@ -921,6 +975,17 @@ export default function AdminEbookDetail() {
                           ) : '무료'}
                         </td>
                         <td className="px-4 py-3 text-center text-gray-400 text-xs">{b.expires_at ? formatKoDate(b.expires_at) : '무제한'}</td>
+                        <td className="px-4 py-3">
+                          {readOf(b) ? (
+                            <div className="flex items-center gap-2 min-w-[140px]" title={`${readOf(b)!.max_page} / ${readOf(b)!.total_pages}쪽 · 연 횟수 ${readOf(b)!.open_count}번`}>
+                              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full bg-[#2ED573]" style={{ width: `${progressPercent(readOf(b))}%` }} />
+                              </div>
+                              <span className="text-xs font-bold text-gray-700 w-9 text-right">{progressPercent(readOf(b))}%</span>
+                            </div>
+                          ) : <span className="text-xs text-gray-300">-</span>}
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs">{readOf(b) ? <span className="text-gray-600">{formatKoDate(readOf(b)!.last_read_at)}</span> : <span className="text-gray-300">읽은 기록 없음</span>}</td>
                         <td className="px-4 py-3 text-xs">
                           <div className="text-gray-400 truncate max-w-[220px]" title={firstTouchLabel(b)}>가입 · {firstTouchLabel(b) || '-'}</div>
                           <div className="text-gray-700 truncate max-w-[220px]" title={formatTouch(b.purchase_touch)}>구매 · {formatTouch(b.purchase_touch) || '-'}</div>

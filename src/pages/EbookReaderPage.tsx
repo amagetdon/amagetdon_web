@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { ebookService } from '../services/ebookService'
+import { ebookProgressService } from '../services/ebookProgressService'
 import * as pdfjsLib from 'pdfjs-dist'
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
@@ -117,6 +118,13 @@ function EbookReaderPage() {
 
   const watermarkText = profile?.email || profile?.name || user?.id || ''
 
+  // 읽음 기록(10/19) — 이어 읽기 시작 페이지를 정한 뒤부터 페이지 변화를 모아 5초마다 한 번 저장.
+  // 화면을 떠나거나 앱을 내릴 때 남은 것을 바로 저장. 외부 분석 도구로는 보내지 않는다.
+  const progressReadyRef = useRef(false)
+  const progressDirtyRef = useRef(false)
+  const progressPageRef = useRef(1)
+  const [resumeFrom, setResumeFrom] = useState<number | null>(null)
+
   useEffect(() => {
     if (!user || !id) return
 
@@ -205,7 +213,14 @@ function EbookReaderPage() {
         linkCache.clear()
         setLinks([])
         setNumPages(pdf.numPages)
-        setCurrentPage(1)
+        progressReadyRef.current = false
+        const saved = user ? await ebookProgressService.getMine(user.id, ebook.id) : null
+        const start = saved && saved.last_page > 1 && saved.last_page <= pdf.numPages ? saved.last_page : 1
+        setCurrentPage(start)
+        setResumeFrom(start > 1 ? start : null)
+        progressPageRef.current = start
+        progressReadyRef.current = true
+        ebookProgressService.save(ebook.id, start, pdf.numPages, true)
       } catch (e) {
         console.error('[EbookReader] PDF 로드 실패:', e)
         setError('PDF 파일을 불러올 수 없습니다. 네트워크 상태를 확인하거나 잠시 후 다시 시도해 주세요.')
@@ -222,7 +237,7 @@ function EbookReaderPage() {
       renderQueuedPageRef.current = null
       linkCache.clear()
     }
-  }, [ebook?.file_url])
+  }, [ebook?.file_url]) // eslint-disable-line react-hooks/exhaustive-deps -- 문서가 바뀔 때만 다시 불러온다(ebook.id·user 는 같은 문서에서 바뀌지 않음)
 
   // 컨테이너 폭·높이 추적 (fit-to-page 용) — containerEl 이 마운트된 시점에 반드시 발화
   useEffect(() => {
@@ -410,6 +425,42 @@ function EbookReaderPage() {
     if (numPages > 0) renderPage(currentPage)
   }, [currentPage, numPages, renderPage])
 
+  // 페이지가 바뀌면 표시만 해 두고, 아래 타이머가 모아서 저장
+  useEffect(() => {
+    if (!progressReadyRef.current || numPages === 0) return
+    if (progressPageRef.current !== currentPage) {
+      progressPageRef.current = currentPage
+      progressDirtyRef.current = true
+    }
+  }, [currentPage, numPages])
+
+  useEffect(() => {
+    const ebookId = ebook?.id
+    if (!ebookId || numPages === 0) return
+    const flush = () => {
+      if (!progressDirtyRef.current) return
+      progressDirtyRef.current = false
+      ebookProgressService.save(ebookId, progressPageRef.current, numPages)
+    }
+    const timer = window.setInterval(flush, 5000)
+    const onHide = () => { if (document.visibilityState === 'hidden') flush() }
+    document.addEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      window.clearInterval(timer)
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', flush)
+      flush()
+    }
+  }, [ebook?.id, numPages])
+
+  // '이어서 읽어요' 안내는 6초 뒤 사라짐
+  useEffect(() => {
+    if (resumeFrom == null) return
+    const t = window.setTimeout(() => setResumeFrom(null), 6000)
+    return () => window.clearTimeout(t)
+  }, [resumeFrom])
+
   // 키보드 단축키 차단 + 페이지 이동 + 줌
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -583,6 +634,15 @@ function EbookReaderPage() {
           {/* 페이지 네비게이션 */}
           <div className="flex items-center gap-1.5 text-gray-400 text-xs">
             <button
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage <= 1}
+              aria-label="첫 페이지로"
+              title="첫 페이지로"
+              className="w-7 h-7 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <i className="ti ti-chevrons-left text-xs" />
+            </button>
+            <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
               className="w-7 h-7 flex items-center justify-center rounded bg-gray-700 hover:bg-gray-600 text-gray-300 border-none cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
@@ -723,6 +783,20 @@ function EbookReaderPage() {
           </div>
         </div>
       </div>
+
+      {/* 이어 읽기 안내 — 지난번 마지막 페이지에서 열었을 때만 */}
+      {resumeFrom != null && (
+        <div className="absolute left-1/2 -translate-x-1/2 bottom-12 z-10 flex items-center gap-3 bg-gray-800/95 border border-gray-600 text-white text-xs rounded-full pl-4 pr-1.5 py-1.5 shadow-lg whitespace-nowrap">
+          <span>지난번 읽던 {resumeFrom}쪽부터 이어서 열었어요</span>
+          <button
+            type="button"
+            onClick={() => { setCurrentPage(1); setResumeFrom(null) }}
+            className="bg-[#2ED573] text-black font-bold rounded-full px-3 py-1 border-none cursor-pointer"
+          >
+            처음부터
+          </button>
+        </div>
+      )}
 
       {/* 하단 워터마크 안내 */}
       <div className="px-4 py-1.5 bg-gray-800 border-t border-gray-700 text-center shrink-0">
