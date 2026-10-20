@@ -223,15 +223,20 @@ export default function AdminSiteSettings() {
     }
     try {
       setTossSaving(true)
-      await supabase.from('site_settings').upsert({
-        key: 'toss_payments',
-        value: {
-          clientKey: tossClientKey,
-          secretKey: tossSecretKey,
-          billingClientKey: tossBillingClientKey.trim(),
-          billingSecretKey: tossBillingSecretKey.trim(),
+      // 비밀키는 관리자·서버만 읽는 'toss_payments' 줄, 브라우저 결제창용 공개 키는 'toss_payments_public' 줄(10/20 분리)
+      const { error } = await supabase.from('site_settings').upsert([
+        {
+          key: 'toss_payments',
+          value: {
+            clientKey: tossClientKey,
+            secretKey: tossSecretKey,
+            billingClientKey: tossBillingClientKey.trim(),
+            billingSecretKey: tossBillingSecretKey.trim(),
+          },
         },
-      } as never, { onConflict: 'key' })
+        { key: 'toss_payments_public', value: { clientKey: tossClientKey, billingClientKey: tossBillingClientKey.trim() } },
+      ] as never, { onConflict: 'key' })
+      if (error) throw error
       toast.success('토스 페이먼츠 설정이 저장되었습니다.')
     } catch {
       toast.error('저장에 실패했습니다.')

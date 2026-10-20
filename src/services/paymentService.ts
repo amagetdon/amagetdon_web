@@ -1,10 +1,10 @@
 import { supabase } from '../lib/supabase'
 
+// 브라우저에는 공개 키(clientKey)만 둔다. 비밀키(secretKey·billingSecretKey)는 서버 함수(service role)만
+// site_settings 'toss_payments' 줄에서 읽는다 — 10/20 그 줄이 누구나 읽히는 정책이라 공개 줄을 따로 뗌.
 interface TossPaymentConfig {
   clientKey: string
-  secretKey: string
   billingClientKey: string
-  billingSecretKey: string
 }
 
 let cachedConfig: TossPaymentConfig | null = null
@@ -12,19 +12,16 @@ let cachedConfig: TossPaymentConfig | null = null
 export const paymentService = {
   async getConfig(): Promise<TossPaymentConfig | null> {
     if (cachedConfig) return cachedConfig
-    const { data } = await supabase
-      .from('site_settings')
-      .select('value')
-      .eq('key', 'toss_payments')
-      .maybeSingle()
-    if (!data) return null
-    const val = (data as unknown as Record<string, unknown>).value as Record<string, string>
+    const read = async (key: string) => {
+      const { data } = await supabase.from('site_settings').select('value').eq('key', key).maybeSingle()
+      return ((data as unknown as { value?: Record<string, string> } | null)?.value) ?? null
+    }
+    // 공개 줄 우선. 공개 줄 SQL 적용 전에는 예전 줄에서 공개 키만 골라 쓴다(적용 뒤엔 예전 줄이 브라우저에 안 보임)
+    const val = (await read('toss_payments_public')) ?? (await read('toss_payments'))
     if (!val?.clientKey) return null
     cachedConfig = {
       clientKey: val.clientKey,
-      secretKey: val.secretKey || '',
       billingClientKey: val.billingClientKey || '',
-      billingSecretKey: val.billingSecretKey || '',
     }
     return cachedConfig
   },
