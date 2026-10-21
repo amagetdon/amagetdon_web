@@ -425,6 +425,14 @@ const ROUTES: [RegExp, Handler][] = [
     }
   }],
 
+  // 시크릿 페이지(광고 전용, 메뉴·검색 비노출) — 검색엔진 색인 안 함. 설정은 src/lib/secretPages.ts
+  [/^\/s\/minroro-saju$/, async () => ({
+    title: '하루 30분, 월 300만원 도전 | 아마겟돈 클래스',
+    description: 'AI 블로그로 시작하는 나의 수익화 미션 — 10/23(금) 저녁 7:30 무료 온라인 LIVE',
+    image: '/secret-assets/minroro-saju/story-c3.jpg',
+    noindex: true,
+  })],
+
   [/^\/landing\/([^/]+)$/, async (m, s) => {
     const rows = (await q(`landing_categories?slug=eq.${encodeURIComponent(decodeURIComponent(m[1]))}&is_published=eq.true&select=name,seo,content_html`)) as
       { name: string; seo: Seo | null; content_html: string | null }[] | null

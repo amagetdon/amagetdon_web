@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0e0d"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'"><title>하루 30분, 월 300만원 도전 | 아마겟돈 클래스</title><style>@font-face{font-family:Pretendard;src:url('./font.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+:root{--mr-bg:#0b0e0d;--mr-panel:#151b17;--mr-green:#39f330;--mr-text:#f5f7f4;--mr-muted:#a7b0a9}
+html,body{margin:0;background:#020403;color:var(--mr-text);font-family:Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+body{min-width:320px}*{box-sizing:border-box}button,input{font:inherit}button,a,input,summary{-webkit-tap-highlight-color:transparent}
+button{touch-action:manipulation}button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible{outline:2px solid #39f330;outline-offset:4px}
+button:active{transform:translateY(1px)}
+.mr-error-page{max-width:480px;margin:0 auto;padding:80px 24px;min-height:100dvh;background:var(--mr-bg)}
+.mr-error-page h1{font-size:26px;margin:10px 0}.mr-error-page p{color:var(--mr-muted);line-height:1.6}.mr-error-page a,.mr-error-page button{display:inline-block;border:1px solid #54745d;background:transparent;border-radius:10px;color:var(--mr-green);padding:12px 18px;margin:18px 12px 0 0;text-decoration:none}
+
+.mr-error-page a,.mr-error-page button{font-size:15px;font-weight:700;line-height:1.4;letter-spacing:-.02em}
+
+.mg-root{position:fixed;inset:0;display:flex;justify-content:center;background:#020403;color:#f7fbf6;font-family:Pretendard,Arial,sans-serif;overflow:hidden;isolation:isolate}.mg-root *,.mg-root *::before,.mg-root *::after{box-sizing:border-box}.mg-root button,.mg-root input{font-family:inherit}.mg-root button{cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}.mg-root button:disabled{opacity:.3;cursor:default}.mg-root button:focus-visible,.mg-root input:focus-visible{outline:2px solid #6dff63;outline-offset:3px}.mg-root h1:focus,.mg-root h2:focus{outline:none}.mg-root h1,.mg-root h2,.mg-root p{margin:0}.mg-stage{position:relative;width:min(100vw,480px);height:100dvh;max-height:100dvh;overflow:hidden;background:#07100c;isolation:isolate;box-shadow:0 0 100px #17271955}.mg-previous-scene,.mg-media,.mg-scene-image,.mg-scene-video,.mg-vignette,.mg-atmosphere{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.mg-previous-scene,.mg-scene-image,.mg-scene-video{object-fit:cover;object-position:50% 50%}.mg-media{z-index:0;animation:mg-scene-in 250ms ease both}.mg-scene-video{opacity:0;transition:opacity .22s}.mg-scene-video.mg-video-ready{opacity:1}.mg-vignette{z-index:1;background:linear-gradient(180deg,#020705c9 0%,#04100912 25%,transparent 45%,#04100822 64%,#030906b3 100%),linear-gradient(90deg,#02060466,transparent 18%,transparent 82%,#02060466)}.mg-atmosphere{z-index:2;overflow:hidden}.mg-atmosphere i{position:absolute;width:3px;height:3px;border-radius:50%;background:#e6ffd4a8;box-shadow:0 0 11px #c1ff785c;animation:mg-particle 8s ease-in-out infinite alternate}.mg-atmosphere i:nth-child(3n){width:6px;height:6px;filter:blur(2px);opacity:.35}.mg-light-sweep{position:absolute;left:-70%;bottom:21%;width:110%;height:22%;transform:rotate(-25deg);background:linear-gradient(90deg,transparent,#efffc414,transparent);filter:blur(18px);animation:mg-light 11s ease-in-out infinite}.mg-header{position:absolute;z-index:5;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:calc(17px + env(safe-area-inset-top)) 22px 0}.mg-brand{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:800;letter-spacing:.13em;text-shadow:0 2px 9px #000}.mg-brand-symbol{color:#87ff70;font-size:24px;font-weight:900;font-style:italic;letter-spacing:-.15em;margin-right:3px}.mg-brand small{display:block;letter-spacing:.03em;font-size:8px;font-weight:500;color:#cbd8c7;margin-top:3px}.mg-preview{border:1px solid #e7f7df45;background:#06130b80;border-radius:4px;padding:4px 6px;color:#c7d9c4;font-size:8px;letter-spacing:.06em}.mg-top-nav{position:absolute;z-index:5;top:calc(63px + env(safe-area-inset-top));left:15px;right:15px;display:flex;align-items:center;justify-content:space-between}.mg-top-nav button{min-height:44px;min-width:58px;padding:0 8px;border:0;color:#d9e6d5;background:transparent;font-size:10px;text-shadow:0 1px 5px #000}.mg-top-nav button:first-child{font-size:19px;text-align:left}.mg-top-nav button span{font-size:10px;vertical-align:2px}.mg-progress-label{font-size:9px;letter-spacing:.16em;color:#deebd6;text-shadow:0 1px 8px #000}.mg-scene-tap{position:absolute;inset:110px 0 0;z-index:3;width:100%;border:0;background:transparent}.mg-title-screen{position:absolute;inset:0;z-index:4;pointer-events:none}.mg-title-copy{position:absolute;top:48%;left:25px;right:20px}.mg-kicker{font-size:11px;letter-spacing:.1em;color:#f1f9e3;text-shadow:0 2px 7px #000}.mg-title-copy h1{margin-top:13px;font-size:clamp(35px,10.3vw,48px);line-height:1.19;font-weight:900;letter-spacing:-.07em;text-shadow:0 3px 0 #142514,0 7px 22px #000c,0 0 42px #0a240777;word-break:keep-all}.mg-title-copy h1 em{color:#7dff63;font-style:normal}.mg-title-sub{margin-top:19px!important;color:#eef7e6;font-size:13px;line-height:1.75;letter-spacing:-.02em;text-shadow:0 2px 9px #000}.mg-title-bottom{position:absolute;bottom:0;left:0;right:0;padding:60px 25px calc(16px + env(safe-area-inset-bottom));background:linear-gradient(transparent,#061009dc 35%,#040a07ed);pointer-events:auto}.mg-course{font-size:12px;font-weight:600;letter-spacing:-.02em;text-align:center;margin-bottom:18px!important;text-shadow:0 2px 10px #000}.mg-course span{display:block;font-size:10px;color:#c0d1bd;font-weight:400;margin-top:7px}.mg-primary{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:50px;padding:13px 17px;background:linear-gradient(180deg,#9cff69,#54e744);border:1px solid #beffa4;border-bottom-color:#2a8428;border-radius:7px;color:#102b10;font-size:14px;font-weight:800;box-shadow:inset 0 1px #e7ffd5,0 5px 0 #193d1e,0 9px 27px #0007;letter-spacing:-.025em}.mg-primary:hover{filter:brightness(1.08)}.mg-primary b{font-size:19px;line-height:1}.mg-start{min-height:58px;font-size:17px}.mg-text-button{display:block;min-height:44px;margin:7px auto 0;padding:9px 12px;border:0;background:transparent;color:#c9dbc4;font-size:10px;text-decoration:underline;text-underline-offset:4px}.mg-fiction{font-size:8px;color:#8ca286;text-align:center;line-height:1.5;word-break:keep-all;margin-top:0!important}.mg-story-ui,.mg-question-ui,.mg-result-ui,.mg-contact-ui,.mg-complete-ui{position:absolute;z-index:4;bottom:0;left:0;right:0;padding:0 17px calc(19px + env(safe-area-inset-bottom));animation:mg-ui-in .25s ease both}.mg-place{margin:0 0 34px 7px!important;font-size:10px;letter-spacing:.06em;color:#eef7e8;text-shadow:0 2px 8px #000;display:flex;align-items:center;gap:7px}.mg-place>span{width:4px;height:4px;background:#bcff94;box-shadow:0 0 10px #bcff94}.mg-dialogue{position:relative;padding:32px 21px 14px;border:1px solid #b4dba96b;border-top-color:#d2f6c7b0;border-bottom:2px solid #315c36;border-radius:10px 3px 10px 3px;background:linear-gradient(130deg,#10241af2,#0a130fe8 60%,#152e20e8);box-shadow:inset 0 0 0 3px #03100755,inset 0 1px 1px #fff2,0 8px 0 #04100887,0 16px 32px #0008;backdrop-filter:blur(15px)}.mg-dialogue::before{content:'';position:absolute;top:7px;left:8px;width:28px;height:3px;border-top:1px solid #9bff6c99}.mg-speaker{position:absolute;left:17px;top:-17px;display:inline-flex;align-items:center;justify-content:center;min-width:90px;height:29px;padding:0 19px;background:linear-gradient(180deg,#8df968,#4ebf4c);border:1px solid #c7ffaa;border-radius:4px 4px 4px 0;color:#112c12;font-size:12px;font-weight:800;box-shadow:0 4px 12px #0005;letter-spacing:.07em}.mg-story-line{font-size:clamp(17px,4.8vw,22px);line-height:1.72;font-weight:500;letter-spacing:-.04em;white-space:pre-line;word-break:keep-all;min-height:88px;text-shadow:0 2px 4px #0006}.mg-caret{display:inline-block;width:2px;height:18px;margin-left:3px;background:#acff7b;vertical-align:-2px;animation:mg-caret .65s steps(1) infinite}.mg-caret-done{visibility:hidden}.mg-dialogue-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:13px}.mg-scene-dots{display:flex;gap:5px}.mg-scene-dots i{width:4px;height:4px;border-radius:50%;background:#63806966}.mg-scene-dots .mg-dot-active{background:#a7f584;box-shadow:0 0 5px #76d94b55}.mg-next{display:flex;align-items:center;justify-content:flex-end;gap:9px;min-height:44px;min-width:82px;border:0;background:transparent;color:#e8fbdc;font-size:12px;font-weight:600;padding:0 0 0 12px}.mg-next-indicator{color:#9aff69;animation:mg-next 1.15s ease-in-out infinite}.mg-skip{display:block;min-height:44px;margin:3px auto -10px;padding:8px 15px;background:transparent;border:0;color:#bfd3b8;font-size:9px;text-shadow:0 2px 5px #000}.mg-income-note{position:absolute;top:30%;right:20px;z-index:4;display:flex;align-items:center;gap:8px;border:1px solid #e4ffce77;border-radius:9px;padding:11px 13px;background:#eaf8dfde;color:#25442b;font-size:11px;box-shadow:0 7px 24px #0004;animation:mg-notification .5s ease both}.mg-notice-dot{width:6px;height:6px;border-radius:50%;background:#38a33b;box-shadow:0 0 0 3px #38a33b1a}.mg-question-dialogue{padding:28px 17px 13px}.mg-dialogue-label{color:#a5c399;font-size:10px;line-height:1.5;letter-spacing:.02em;margin-bottom:8px!important}.mg-dialogue h2{font-size:clamp(21px,6vw,28px);line-height:1.3;letter-spacing:-.06em;font-weight:800;white-space:pre-line;word-break:keep-all}.mg-question-note{font-size:10px;color:#bdd1b5;line-height:1.6;margin-top:9px!important;word-break:keep-all}.mg-choices{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:17px}.mg-choice{display:flex;align-items:center;gap:7px;min-height:55px;padding:10px 10px;border:1px solid #9ec18a88;border-radius:5px;background:linear-gradient(120deg,#335735c9,#173521d9);color:#f0fae8;box-shadow:inset 0 1px #ddffc51a,0 3px 0 #020e0866;text-align:left}.mg-choice:hover,.mg-choice.mg-selected{border-color:#b6ff8b;background:linear-gradient(120deg,#4c7636,#234628)}.mg-choice>span{font-size:8px;color:#91b584;font-weight:600;align-self:flex-start;margin-top:2px}.mg-choice strong{flex:1;font-size:12px;line-height:1.35;font-weight:600;word-break:keep-all;letter-spacing:-.04em}.mg-choice>b{font-size:16px;color:#a7de8c;font-weight:400}.mg-choice-hint{font-size:8px;line-height:1.6;color:#8fae84;text-align:center;margin-top:12px!important}.mg-result-dialogue{padding:29px 19px 8px}.mg-result-title{color:#a9ff78}.mg-result-tagline{font-size:13px;line-height:1.6;color:#edfae7;margin-top:13px!important;word-break:keep-all}.mg-recommendations{margin:16px 0 14px;padding:13px 0 0;list-style:none;border-top:1px solid #96b87e35}.mg-recommendations li{display:flex;align-items:center;gap:8px;font-size:11px;line-height:1.5;color:#c4dbb8;margin:7px 0;word-break:keep-all}.mg-recommendations li span{color:#95ef6b}.mg-result-disclaimer{font-size:8px;color:#8daa82;line-height:1.6;margin-bottom:17px!important}.mg-contact-ui{top:27%;display:flex;flex-direction:column;justify-content:flex-end;padding-bottom:calc(16px + env(safe-area-inset-bottom))}.mg-contact-dialogue{max-height:100%;padding:26px 5px 5px 16px;min-height:0}.mg-contact-scroll{max-height:calc(73dvh - 58px - env(safe-area-inset-bottom));overflow-y:auto;padding-right:11px;padding-bottom:10px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#719663 transparent}.mg-contact-dialogue h2{font-size:21px}.mg-form-notice{font-size:10px;line-height:1.65;color:#a8c19c;margin:12px 0 15px!important}.mg-form-notice strong{font-weight:500;color:#d8edce}.mg-form-row{margin-top:11px}.mg-form-row label{display:block;font-size:10px;color:#cfdfc6;margin-bottom:6px}.mg-form-row input{height:44px;width:100%;border:1px solid #54744a;background:#0d1d14cf;border-radius:5px;padding:0 12px;color:#f0f8e9;font-size:16px}.mg-form-row input::placeholder{font-size:11px;color:#87a47c}.mg-form-row input[aria-invalid=true]{border-color:#f4a190}.mg-error{font-size:9px;color:#ffc0a9;line-height:1.6;margin-top:5px!important}.mg-consent{display:flex;align-items:center;gap:9px;min-height:44px;font-size:10px;color:#d0e2c6}.mg-consent input{appearance:auto;accent-color:#8ef268;width:19px;height:19px;flex-shrink:0;margin:0}.mg-consent small{font-size:8px;color:#8eae80;margin-left:5px}.mg-consent-note{font-size:8px;line-height:1.55;color:#83a277;padding-left:28px}.mg-form-footnote{font-size:8px;line-height:1.5;color:#8eaa81;text-align:center;margin-top:13px!important}.mg-contact-dialogue .mg-primary{margin-top:8px}.mg-complete-dialogue{padding:30px 19px 20px}.mg-complete-dialogue h2 em{font-style:normal;color:#a7ff7d}.mg-complete-line{font-size:12px;color:#c3d8b7;line-height:1.8;margin-top:17px!important}.mg-complete-line strong{color:#edffe3;font-size:15px}.mg-benefit{font-size:9px;color:#9bb88d;line-height:1.7;margin-top:13px!important}.mg-benefit b{font-weight:500;color:#c9e4bd}.mg-complete-notice{font-size:9px;line-height:1.7;color:#c1d1b7;border-top:1px solid #9ebd8b33;padding-top:12px;margin:14px 0 17px!important}.mg-sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@keyframes mg-scene-in{from{opacity:0}to{opacity:1}}@keyframes mg-ui-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}@keyframes mg-particle{from{transform:translate3d(-4px,9px,0);opacity:.16}to{transform:translate3d(7px,-14px,0);opacity:.65}}@keyframes mg-light{0%,100%{transform:translateX(-20%) rotate(-25deg);opacity:0}45%{opacity:.6}75%{transform:translateX(160%) rotate(-25deg);opacity:0}}@keyframes mg-caret{50%{opacity:0}}@keyframes mg-next{50%{transform:translateX(4px);opacity:.55}}@keyframes mg-notification{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+@media(min-width:700px){.mg-stage{width:min(480px,56.25dvh);border-left:1px solid #baf18b22;border-right:1px solid #baf18b22}.mg-title-copy h1{font-size:clamp(34px,5.4dvh,48px)}}
+@media(max-height:740px){.mg-header{padding-top:calc(11px + env(safe-area-inset-top))}.mg-top-nav{top:calc(54px + env(safe-area-inset-top))}.mg-title-copy{top:48%}.mg-title-copy h1{font-size:36px}.mg-title-sub{font-size:11px;margin-top:13px!important}.mg-title-bottom{padding-top:38px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}.mg-course{font-size:10px;margin-bottom:12px!important}.mg-course span{font-size:9px}.mg-story-ui,.mg-question-ui,.mg-result-ui,.mg-complete-ui{padding-bottom:calc(12px + env(safe-area-inset-bottom))}.mg-story-line{font-size:17px;min-height:78px}.mg-dialogue{padding-left:17px;padding-right:17px}.mg-place{margin-bottom:29px!important}.mg-question-dialogue{padding-top:26px}.mg-question-note{font-size:9px}.mg-choices{margin-top:13px;gap:7px}.mg-choice{min-height:49px}.mg-dialogue h2{font-size:22px}.mg-result-tagline{font-size:12px;margin-top:10px!important}.mg-recommendations{margin:10px 0;padding-top:9px}.mg-recommendations li{font-size:10px}.mg-result-disclaimer{margin-bottom:12px!important}.mg-contact-ui{top:22%}.mg-contact-scroll{max-height:calc(78dvh - 54px - env(safe-area-inset-bottom))}.mg-complete-line{margin-top:11px!important;font-size:11px}.mg-benefit{margin-top:9px!important}.mg-complete-notice{margin-top:10px!important;margin-bottom:13px!important}.mg-primary{min-height:46px;font-size:12px}}
+@media(max-width:350px){.mg-header{padding-left:17px;padding-right:17px}.mg-title-copy{left:21px}.mg-title-copy h1{font-size:33px}.mg-title-bottom{padding-left:20px;padding-right:20px}.mg-story-ui,.mg-question-ui,.mg-result-ui,.mg-contact-ui,.mg-complete-ui{padding-left:12px;padding-right:12px}.mg-dialogue{padding-left:15px;padding-right:15px}.mg-story-line{font-size:16px}.mg-choice{padding:9px 7px;gap:5px}.mg-choice strong{font-size:11px}.mg-dialogue h2{font-size:21px}.mg-fiction{font-size:7px}.mg-contact-dialogue{padding-right:5px}}
+@media(prefers-reduced-motion:reduce){.mg-root *,.mg-root *::before,.mg-root *::after{animation:none!important;transition:none!important}.mg-atmosphere{display:none}}
+
+.mg-reviews-active .mg-vignette{background:#051109c7}.mg-reviews-ui{position:absolute;z-index:4;inset:calc(112px + env(safe-area-inset-top)) 0 0;display:flex;flex-direction:column;min-height:0}.mg-reviews-content{flex:1;min-height:0;overflow:hidden;padding:0 17px}.mg-reviews-actions{flex:0 0 auto;padding:15px 20px calc(20px + env(safe-area-inset-bottom));background:linear-gradient(#07130b00,#07130be8 22%)}
+@media(max-height:740px){.mg-reviews-ui{top:calc(102px + env(safe-area-inset-top))}.mg-reviews-actions{padding-top:10px;padding-bottom:calc(14px + env(safe-area-inset-bottom))}}
+
+.mg-income-group{position:absolute;z-index:4;top:calc(114px + env(safe-area-inset-top));right:17px;display:grid;gap:9px;width:min(78%,278px);pointer-events:none}.mg-deposit-card{display:flex;align-items:flex-start;gap:10px;padding:12px 13px;border:1px solid #f7ffedb3;border-radius:11px;background:linear-gradient(115deg,#f6f9eaf2,#e6efdfeb);backdrop-filter:blur(12px);box-shadow:0 7px 25px #0004,inset 0 1px #fff;color:#183d24;animation:mg-deposit-in 500ms cubic-bezier(.2,.7,.3,1) both}.mg-deposit-icon{display:grid;place-items:center;width:32px;height:32px;flex:0 0 32px;border:1px solid #45935180;border-radius:9px;background:linear-gradient(#438e50,#2c6e3c);color:#f1ffe9;font-size:19px;font-weight:600;box-shadow:inset 0 1px #b0ed9866}.mg-deposit-copy{min-width:0;flex:1}.mg-deposit-copy>span{display:block;color:#75816a;font-size:8px;line-height:1.3;letter-spacing:.02em}.mg-deposit-copy strong{display:block;margin-top:5px;font-size:11px;line-height:1.4;color:#193922;letter-spacing:-.035em;font-weight:800;white-space:nowrap}.mg-deposit-copy small{display:block;margin-top:6px;color:#487e48;font-size:8px;line-height:1.2;font-weight:600}.mg-deposit-copy small b{margin-left:3px;font-size:9px}.mg-income-final{top:auto;bottom:calc(36% + 36px);right:16px;width:min(76%,265px)}.mg-income-final .mg-deposit-card{padding:10px 12px}.mg-income-final .mg-deposit-copy small{margin-top:4px}@keyframes mg-deposit-in{0%{opacity:0;transform:translateY(-8px);box-shadow:0 5px 20px #0003,inset 0 0 0 1px #bdffa180}65%{opacity:1;box-shadow:0 7px 25px #0004,inset 0 0 0 1px #c2ff9b70}100%{opacity:1;transform:translateY(0);box-shadow:0 7px 25px #0004,inset 0 1px #fff}}
+@media(max-width:350px){.mg-income-group{right:13px;width:79%}.mg-deposit-card{gap:8px;padding:11px 10px}.mg-deposit-copy strong{font-size:10px}.mg-income-final{right:13px;width:77%}}
+@media(prefers-reduced-motion:reduce){.mg-deposit-card{animation:none!important}}
+
+/* Mission headline: exactly two lines, including at a 320px viewport. */
+.mg-title-copy h1{font-size:clamp(27px,8.2vw,39px);line-height:1.22;letter-spacing:-.065em;white-space:nowrap}.mg-title-copy h1 strong{font-size:1.16em;font-weight:900;letter-spacing:-.07em}.mg-title-copy h1 em{white-space:nowrap}.mg-step-2 .mg-story-line{font-size:16px;line-height:1.7;min-height:100px}.mg-income-final{top:auto;bottom:calc(36% + 36px)}
+@media(min-width:700px){.mg-title-copy h1{font-size:clamp(27px,4.5dvh,39px)}}
+@media(max-width:350px){.mg-title-copy h1{font-size:27px}.mg-start{font-size:14px}.mg-step-2 .mg-story-line{font-size:16px}}
+
+/* CTA typography: inherit the family without resetting each control's weight and size. */
+.mg-root button{font-synthesis:none}
+.mg-primary{position:relative;justify-content:center;min-height:56px;padding:14px 36px 14px 16px;font-size:16px;font-weight:800;line-height:1.35;letter-spacing:-.025em;text-align:center;word-break:keep-all;text-wrap:balance}
+.mg-primary>b{position:absolute;right:15px;top:50%;transform:translateY(-50%);font-size:18px;font-weight:700;line-height:1}
+.mg-start{min-height:58px;font-size:18px;letter-spacing:-.035em}
+.mg-text-button{font-size:13px;font-weight:600;line-height:1.45;letter-spacing:-.015em}
+.mg-next{font-size:15px;font-weight:700;line-height:1.4;letter-spacing:-.02em}
+.mg-skip{font-size:12px;font-weight:600;line-height:1.4;letter-spacing:-.015em}
+.mg-top-nav button{font-size:12px;font-weight:600;line-height:1.4;letter-spacing:-.015em}
+.mg-top-nav button:first-child{font-size:19px}.mg-top-nav button span{font-size:12px}
+.mg-choice{font-size:14px;font-weight:700;line-height:1.4}
+.mg-choice strong{font-size:14px;font-weight:700;line-height:1.4;letter-spacing:-.025em}
+.mg-choice>span{font-size:10px;font-weight:600}.mg-choice>b{font-size:17px;font-weight:600}
+@media(max-width:350px){.mg-primary{min-height:52px;padding-left:12px;padding-right:30px;font-size:15px}.mg-primary>b{right:11px;font-size:16px}.mg-start{min-height:56px;font-size:17px}.mg-choice strong{font-size:13px}.mg-text-button{font-size:12px}}
+
+/* Official owner-supplied wordmark, original color and aspect ratio. */
+.mg-brand{width:200px;max-width:calc(100% - 64px);min-height:29px;text-shadow:none}.mg-brand-logo{display:block;width:100%;height:auto;object-fit:contain}
+
+@media(max-height:740px){.mg-income-final{bottom:calc(36% + 56px)}}
+
+@media(max-width:350px){.mg-brand{width:180px}}
+
+/* Keep the mentor scene steady throughout the four-question flow. */
+.mg-questions-active .mg-media,.mg-questions-active .mg-previous-scene{filter:blur(8px);transform:scale(1.06)}
+.mg-questions-active .mg-vignette{background:linear-gradient(180deg,#031009b8,#03100980 38%,#031009d9 100%)}
+.mg-questions-active .mg-atmosphere{opacity:.15}
+
+/* Owner-approved dialogue: keep each cut intact; mentor dialogue has three pages. */
+.mg-story-line{font-size:clamp(16px,4.35vw,19px);line-height:1.65}.mg-dialogue-pages{color:#a8c39c;font-size:10px;letter-spacing:.06em;margin-left:auto;margin-right:12px}.mg-income-final{top:calc(114px + env(safe-area-inset-top));bottom:auto}
+
+/* Three owner-written questions and a mentor invitation with an always reachable CTA. */
+.mg-choice-copy{display:block;flex:1;min-width:0;align-self:center!important;margin:0!important;letter-spacing:normal!important}.mg-choice-copy small{display:block;margin-top:4px;font-size:10px;font-weight:400;line-height:1.45;color:#bed1b4;letter-spacing:-.015em}.mg-choices-long{grid-template-columns:1fr;gap:8px}.mg-choices-long .mg-choice{min-height:60px;padding:10px 12px}.mg-choices-long .mg-choice-copy strong{font-size:14px}.mg-invite-ui{position:absolute;z-index:4;top:28%;bottom:calc(18px + env(safe-area-inset-bottom));left:17px;right:17px;display:flex;min-height:0}.mg-invite-dialogue{display:flex;flex-direction:column;min-height:0;width:100%;padding:30px 18px 0}.mg-invite-scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#719663 transparent;padding-right:3px}.mg-invite-dialogue h2{font-size:25px;line-height:1.35}.mg-invite-copy p{white-space:pre-line;margin-top:20px;font-size:14px;line-height:1.7;color:#e4efde;letter-spacing:-.025em;word-break:keep-all}.mg-invite-copy p:nth-child(2){color:#d8ffc1;font-weight:700}.mg-invite-benefits{padding-top:20px}.mg-invite-benefits h3{margin:0 0 11px;font-size:13px;line-height:1.5;color:#c9f5b7;font-weight:700}.mg-invite-benefits ul{list-style:none;padding:0;margin:0;color:#dcebd3;font-size:12px;line-height:1.8}.mg-invite-benefits p{margin-top:10px;color:#a6c398;font-size:11px;line-height:1.7}.mg-invite-footer{flex:0 0 auto;padding:18px 0 20px;background:linear-gradient(#0d1c1200,#102017 24%)}.mg-benefit b>span,.mg-benefit>span{display:block}.mg-income-final{top:34dvh;bottom:auto}
+@media(max-height:740px){.mg-invite-ui{top:25%;bottom:calc(12px + env(safe-area-inset-bottom))}.mg-invite-dialogue h2{font-size:22px}.mg-invite-copy p{font-size:13px;margin-top:16px}.mg-invite-footer{padding:14px 0 16px}.mg-choices-long .mg-choice{min-height:55px;padding:8px 10px}}
+@media(max-width:350px){.mg-invite-ui{left:12px;right:12px}.mg-invite-dialogue{padding-left:15px;padding-right:15px}.mg-choice-copy small{font-size:9px}.mg-choices-long .mg-choice-copy strong{font-size:13px}}
+
+.mg-choice .mg-choice-copy{color:inherit;font-size:inherit;font-weight:inherit}
+
+.minroro-reviews {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 18px 18px;
+  color: #f8faf8;
+  font-family: inherit;
+  scrollbar-width: thin;
+  scrollbar-color: #37463b transparent;
+}
+.minroro-reviews:focus { outline: none; }
+.minroro-reviews:focus-visible { outline: 2px solid #39f330; outline-offset: -3px; }
+.minroro-reviews *, .minroro-reviews *::before, .minroro-reviews *::after { box-sizing: border-box; }
+.minroro-reviews__heading { margin: 0 0 20px; text-align: center; }
+.minroro-reviews__eyebrow { margin: 0 0 7px; color: #39f330; font-size: 11px; line-height: 1.4; font-weight: 700; letter-spacing: .06em; }
+.minroro-reviews__heading h2 { margin: 0; font-size: clamp(22px, 5.6vw, 27px); font-weight: 800; line-height: 1.32; letter-spacing: -.035em; color: #fff; word-break: keep-all; }
+.minroro-reviews__list { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+.minroro-review-card { flex: 0 0 auto; margin: 0; padding: 15px 16px; border: 1px solid #ffffff1a; border-radius: 14px; background: #151b17; }
+.minroro-review-card__header { display: flex; align-items: center; gap: 12px; }
+.minroro-review-card__avatar { flex: 0 0 48px; width: 48px; height: 48px; overflow: hidden; border-radius: 50%; background: #222e25; display: grid; place-items: center; color: #8a9b8e; font-size: 15px; font-weight: 700; line-height: 1; }
+.minroro-review-card__avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.minroro-review-card__identity { min-width: 0; flex: 1; }
+.minroro-review-card__name { margin: 0 0 5px; color: #a9b2ab; font-size: 11px; font-weight: 500; line-height: 1.3; overflow-wrap: anywhere; }
+.minroro-review-card__headline { margin: 0; color: #fff; font-size: 17px; line-height: 1.38; font-weight: 800; letter-spacing: -.025em; white-space: pre-line; overflow-wrap: anywhere; word-break: keep-all; }
+.minroro-review-card--empty .minroro-review-card__headline { color: #d4dbd6; font-size: 15px; font-weight: 600; }
+.minroro-review-card__body { margin: 13px 0 0; color: #bac4bd; font-size: 13px; line-height: 1.75; font-weight: 400; letter-spacing: -.01em; white-space: pre-line; overflow-wrap: anywhere; word-break: keep-all; }
+.minroro-review-card__placeholder { display: flex; flex-direction: column; gap: 7px; margin-top: 13px; }
+.minroro-review-card__placeholder span { display: block; height: 6px; border-radius: 3px; background: #ffffff0b; }
+.minroro-review-card__placeholder span:nth-child(1) { width: 94%; }
+.minroro-review-card__placeholder span:nth-child(2) { width: 86%; }
+.minroro-review-card__placeholder span:nth-child(3) { width: 90%; }
+.minroro-review-card__placeholder span:nth-child(4) { width: 62%; }
+.minroro-review-card__screenshot { display: block; width: 100%; height: auto; margin-top: 14px; border-radius: 8px; object-fit: contain; }
+@media (max-width: 360px) {
+  .minroro-reviews { padding-inline: 12px; }
+  .minroro-review-card { padding-inline: 13px; }
+  .minroro-review-card__header { gap: 10px; }
+  .minroro-review-card__headline { font-size: 16px; }
+  .minroro-review-card--empty .minroro-review-card__headline { font-size: 14px; }
+}
+@media (max-height: 720px) {
+  .minroro-reviews__heading { margin-bottom: 15px; }
+}
+
+html,body{height:100%;overflow:hidden}#mg-media-host,#mg-decoration,#mg-screen{display:contents}</style></head><body>
+<!-- 후기 수정: 아래 3개의 name / headline / body 값을 실제 후기 원문으로 바꾸세요.
+     이미지에는 data:image/...;base64,... 형식만 사용하면 단일 파일 오프라인 실행이 유지됩니다. -->
+<script id="minroro-review-data" type="application/json">[
+  {
+    "id": 1,
+    "avatarUrl": "",
+    "name": "",
+    "headline": "",
+    "body": "",
+    "testimonialImageUrl": ""
+  },
+  {
+    "id": 2,
+    "avatarUrl": "",
+    "name": "",
+    "headline": "",
+    "body": "",
+    "testimonialImageUrl": ""
+  },
+  {
+    "id": 3,
+    "avatarUrl": "",
+    "name": "",
+    "headline": "",
+    "body": "",
+    "testimonialImageUrl": ""
+  }
+]</script>
+<main class="mg-root"><div class="mg-stage" id="mg-stage"><img class="mg-previous-scene" id="mg-previous" alt=""><div id="mg-media-host"></div><div class="mg-vignette" aria-hidden="true"></div><div id="mg-decoration"></div><header class="mg-header">
+        <div class="mg-brand"><img class="mg-brand-logo" src="./logo.png" width="706" height="60" alt="아마겟돈 클래스" /></div>
+        
+      </header><nav class="mg-top-nav" aria-label="이야기 이동"><button type="button" disabled aria-label="이전 장면">‹ <span>이전</span></button><span class="mg-progress-label">PROLOGUE</span><button type="button">처음으로</button></nav><div id="mg-screen"></div></div></main>
+<script id="minroro-catalog" type="application/json">{"stories":[{"scene":1,"speaker":"도윤","place":"퇴근 후 · 어느 평일 저녁","line":"하.. 이번 달도 적자다.\n돈 좀 벌어볼까 하고 결제 한 강의 때문에\n\n오히려 굶어 죽기 직전이네.","pages":["하.. 이번 달도 적자다.\n돈 좀 벌어볼까 하고 결제 한 강의 때문에\n\n오히려 굶어 죽기 직전이네."]},{"scene":2,"speaker":"도윤","place":"뜻밖의 알림","line":"우와.. 이 사람은 뭔데\n저렇게 돈을 많이 벌어?\n\n300만 원이면 내 한 달 월급인데","pages":["우와.. 이 사람은 뭔데\n저렇게 돈을 많이 벌어?\n\n300만 원이면 내 한 달 월급인데"]},{"scene":3,"speaker":"민로로","place":"월 300만원 수익화 미션","line":"안녕? 난 민로로야.\n\n블로그 하나로 시작해서 누적 350억의 매출을 만들었지.\n보아하니, 돈 때문에 힘든 것 같은데? 이런 저런 수익화 강의도\n들었지만 생각처럼 쉽게 벌리는 구조가 아니였을거야.\n\n이번엔 내 방법 한 번 배워볼래?","pages":["안녕? 난 민로로야.\n\n블로그 하나로 시작해서 누적 350억의 매출을 만들었지.","보아하니, 돈 때문에 힘든 것 같은데? 이런 저런 수익화 강의도\n들었지만 생각처럼 쉽게 벌리는 구조가 아니였을거야.","이번엔 내 방법 한 번 배워볼래?"]},{"scene":4,"speaker":"도윤","place":"오늘의 첫 문장","line":"하 이게 뭐야..\n돈 버는 법이라더니 그럼 그렇지\n\n무슨 이런 AI 프로그램으로\n딸깍 딸깍 한다고 돈이 벌리겠냐고..\n\n지금이라도 하지 말까","pages":["하 이게 뭐야..\n돈 버는 법이라더니 그럼 그렇지\n\n무슨 이런 AI 프로그램으로\n딸깍 딸깍 한다고 돈이 벌리겠냐고..\n\n지금이라도 하지 말까"]},{"scene":5,"speaker":"도윤","place":"두달 뒤","line":"그 때 생각나네. ㅎ\n그 때 스승님을 안 믿고 그만 뒀다면\n지금쯤 난 뭘 하고 있었을까?\n\n민로로 선생님, 감사합니다.","pages":["그 때 생각나네. ㅎ\n그 때 스승님을 안 믿고 그만 뒀다면\n지금쯤 난 뭘 하고 있었을까?\n\n민로로 선생님, 감사합니다."]}],"questions":[{"id":"course","title":"어떤 강의를 들어보셨어요?","description":"","image":"/assets/story-c3.jpg","imageAlt":"강사 민로로","options":[{"value":"ai","label":"AI 강의 (플레이리스트, 사주 등)","shortLabel":"AI 강의","hint":"(플레이리스트, 사주 등)"},{"value":"shorts","label":"쇼핑쇼츠 (유튜브, 인스타, 쿠팡파트너스)","shortLabel":"쇼핑쇼츠","hint":"(유튜브, 인스타, 쿠팡파트너스)"},{"value":"commerce","label":"커머스 (자사몰, 건기식, 과일 등)","shortLabel":"커머스","hint":"(자사몰, 건기식, 과일 등)"},{"value":"rocket","label":"로켓 그로스 (쿠팡, 위탁, 구매대행 등)","shortLabel":"로켓 그로스","hint":"(쿠팡, 위탁, 구매대행 등)"}]},{"id":"income","title":"수익화는 성공 하셨나요?","description":"","image":"/assets/story-c3.jpg","imageAlt":"강사 민로로","options":[{"value":"none","label":"아니요 ㅜ.ㅜ","hint":""},{"value":"under50","label":"50만원 이하","hint":""},{"value":"under100","label":"100만원 이하","hint":""},{"value":"much","label":"많이 벌었어요","hint":""}]},{"id":"goal","title":"아주 현실적으로, 목표 수입은요?","description":"","image":"/assets/story-c3.jpg","imageAlt":"강사 민로로","options":[{"value":"30","label":"30만원이라도..","hint":""},{"value":"100","label":"100만원 정도","hint":""},{"value":"300","label":"300만원 정도","hint":""},{"value":"more","label":"그 이상","hint":""}]}],"invitation":{"heading":"잘 오셨어요!\n저는 민로로입니다.","paragraphs":["현 시점 가장 돈 벌 확률이 높으면서\n가장 난이도가 쉬운 부업","AI 블로그 수익화의 모든 것\n무료 강의를 신청해보세요!","신청만 하셔도 아래 혜택을 드립니다."],"benefitsHeading":"🎁 라이브 참여자 한정 혜택","benefits":["AI 블로그 수익화 정답지 (완성본)","온라인 수익화 로드맵","블로그 수익화 비밀링크 200선"],"more":"+ 혜택은 계속 추가"},"depositTitle":"3,000,000원이 입금되었습니다"}</script>
+<script id="minroro-templates" type="application/json">{"title":"\u003csection class=\"mg-title-screen\">\u003cdiv class=\"mg-title-copy\">\u003cp class=\"mg-kicker\">AI 블로그 수익화\u003c/p>\u003ch1 tabindex=\"-1\">하루 \u003cstrong>30\u003c/strong>분,\u003cbr>\u003cem>월 \u003cstrong>300\u003c/strong>만원 도전\u003c/em>\u003c/h1>\u003cp class=\"mg-title-sub\">AI 블로그로 시작하는\u003cbr>나의 수익화 미션.\u003c/p>\u003c/div>\u003cdiv class=\"mg-title-bottom\">\u003cp class=\"mg-course\">AI 블로그 수익화 정답지\u003cspan>10/23(금) 저녁 7:30 · 무료 온라인 LIVE\u003c/span>\u003c/p>\u003cbutton type=\"button\" class=\"mg-primary mg-start\">월 300만원 미션 시작 \u003cb aria-hidden=\"true\">▸\u003c/b>\u003c/button>\u003cbutton type=\"button\" class=\"mg-text-button\">바로 수익화 미션 시작하기\u003c/button>\u003cp class=\"mg-fiction\">월 300만원은 도전 목표이며 수익을 보장하지 않습니다. 입금 알림은 연출입니다.\u003c/p>\u003c/div>\u003c/section>","story":"\u003csection class=\"mg-story-ui\">\u003cp class=\"mg-place\">\u003cspan>\u003c/span>월 300만원 수익화 미션\u003c/p>\u003cdiv class=\"mg-dialogue\">\u003cspan class=\"mg-speaker\">민로로\u003c/span>\u003ch2 tabindex=\"-1\" class=\"mg-sr-only\">월 300만원 수익화 미션\u003c/h2>\u003cp class=\"mg-story-line\">\u003cspan aria-hidden=\"true\">하루 30분부터 시작해볼까요?\n목표는 월 300만원, 나에게 맞는 방법을 찾는 거예요.\u003cspan class=\"mg-caret mg-caret-done\">\u003c/span>\u003c/span>\u003cspan class=\"mg-sr-only\">하루 30분부터 시작해볼까요?\n목표는 월 300만원, 나에게 맞는 방법을 찾는 거예요.\u003c/span>\u003c/p>\u003cdiv class=\"mg-dialogue-bottom\">\u003cspan class=\"mg-scene-dots\" aria-label=\"이야기 3 / 5\">\u003ci class=\"mg-dot-active\">\u003c/i>\u003ci class=\"mg-dot-active\">\u003c/i>\u003ci class=\"mg-dot-active\">\u003c/i>\u003ci class=\"\">\u003c/i>\u003ci class=\"\">\u003c/i>\u003c/span>\u003cbutton type=\"button\" class=\"mg-next\">다음\u003cb class=\"mg-next-indicator\" aria-hidden=\"true\">▸\u003c/b>\u003c/button>\u003c/div>\u003c/div>\u003cbutton type=\"button\" class=\"mg-skip\">이야기 건너뛰기\u003c/button>\u003c/section>","reviews":"\u003csection class=\"mg-reviews-ui\">\u003ch2 tabindex=\"-1\" class=\"mg-sr-only\">먼저 시작한 사람들의 이야기\u003c/h2>\u003cdiv class=\"mg-reviews-content\">\u003csection class=\"minroro-reviews\" aria-labelledby=\"minroro-reviews-heading\" tabindex=\"0\" aria-label=\"수강생 후기, 아래로 스크롤\">\u003cheader class=\"minroro-reviews__heading\">\u003cp class=\"minroro-reviews__eyebrow\">수강생 후기\u003c/p>\u003ch2 id=\"minroro-reviews-heading\">먼저 시작한\u003cbr>사람들의 이야기\u003c/h2>\u003c/header>\u003col class=\"minroro-reviews__list\">\u003cli class=\"minroro-review-card minroro-review-card--empty\">\u003carticle aria-label=\"후기 01 입력 자리\">\u003cdiv class=\"minroro-review-card__header\">\u003cdiv class=\"minroro-review-card__avatar\" aria-hidden=\"true\">\u003cspan>01\u003c/span>\u003c/div>\u003cdiv class=\"minroro-review-card__identity\">\u003cp class=\"minroro-review-card__name\">후기 01\u003c/p>\u003ch3 class=\"minroro-review-card__headline\">후기를 넣을 자리입니다\u003c/h3>\u003c/div>\u003c/div>\u003cdiv class=\"minroro-review-card__placeholder\" aria-hidden=\"true\">\u003cspan>\u003c/span>\u003cspan>\u003c/span>\u003cspan>\u003c/span>\u003cspan>\u003c/span>\u003c/div>\u003c/article>\u003c/li>\u003cli class=\"minroro-review-card minroro-review-card--empty\">\u003carticle aria-label=\"후기 02 입력 자리\">\u003cdiv class=\"minroro-review-card__header\">\u003cdiv class=\"minroro-review-card__avatar\" aria-hidden=\"true\">\u003cspan>02\u003c/span>\u003c/div>\u003cdiv class=\"minroro-review-card__identity\">\u003cp class=\"minroro-review-card__name\">후기 02\u003c/p>\u003ch3 class=\"minroro-review-card__headline\">후기를 넣을 자리입니다\u003c/h3>\u003c/div>\u003c/div>\u003cdiv class=\"minroro-review-card__placeholder\" aria-hidden=\"true\">\u003cspan>\u003c/span>\u003cspan>\u003c/span>\u003cspan>\u003c/span>\u003cspan>\u003c/span>\u003c/div>\u003c/article>\u003c/li>\u003cli class=\"minroro-review-card minroro-review-card--empty\">\u003carticle aria-label=\"후기 03 입력 자리\">\u003cdiv class=\"minroro-review-card__header\">\u003cdiv class=\"minroro-review-card__avatar\" aria-hidden=\"true\">\u003cspan>03\u003c/span>\u003c/div>\u003cdiv class=\"minroro-review-card__identity\">\u003cp class=\"minroro-review-card__name\">후기 03\u003c/p>\u003ch3 class=\"minroro-review-card__headline\">후기를 넣을 자리입니다\u003c/h3>\u003c/div>\u003c/div>\u003cdiv class=\"minroro-review-card__placeholder\" aria-hidden=\"true\">\u003cspan>\u003c/span>\u003cspan>\u003c/span>\u003cspan>\u003c/span>\u003cspan>\u003c/span>\u003c/div>\u003c/article>\u003c/li>\u003c/ol>\u003c/section>\u003c/div>\u003cdiv class=\"mg-reviews-actions\">\u003cbutton type=\"button\" class=\"mg-primary\">수익화 미션 시작하기 \u003cb aria-hidden=\"true\">▸\u003c/b>\u003c/button>\u003c/div>\u003c/section>","q1":"\u003csection class=\"mg-question-ui\">\u003cdiv class=\"mg-dialogue mg-question-dialogue\">\u003cspan class=\"mg-speaker\">민로로\u003c/span>\u003cp class=\"mg-dialogue-label\">나에게 맞는 수익화 미션을 찾아볼까요?\u003c/p>\u003ch2 tabindex=\"-1\">블로그, 해보셨어요?\u003c/h2>\u003cp class=\"mg-question-note\">지금의 출발점부터 알아볼게요.\u003c/p>\u003cdiv class=\"mg-choices\" aria-label=\"블로그, 해보셨어요?\">\u003cbutton type=\"button\" aria-pressed=\"false\" class=\"mg-choice\">\u003cspan>01\u003c/span>\u003cstrong>처음이에요\u003c/strong>\u003cb aria-hidden=\"true\">›\u003c/b>\u003c/button>\u003cbutton type=\"button\" aria-pressed=\"false\" class=\"mg-choice\">\u003cspan>02\u003c/span>\u003cstrong>해봤는데 0원\u003c/strong>\u003cb aria-hidden=\"true\">›\u003c/b>\u003c/button>\u003cbutton type=\"button\" aria-pressed=\"false\" class=\"mg-choice\">\u003cspan>03\u003c/span>\u003cstrong>체험단만 해요\u003c/strong>\u003cb aria-hidden=\"true\">›\u003c/b>\u003c/button>\u003cbutton type=\"button\" aria-pressed=\"false\" class=\"mg-choice\">\u003cspan>04\u003c/span>\u003cstrong>가게 사장이에요\u003c/strong>\u003cb aria-hidden=\"true\">›\u003c/b>\u003c/button>\u003c/div>\u003cp class=\"mg-choice-hint\">선택하면 다음 장면으로 이어져요.\u003c/p>\u003c/div>\u003c/section>","form":"\u003csection class=\"mg-contact-ui\">\u003cdiv class=\"mg-dialogue mg-contact-dialogue\">\u003cspan class=\"mg-speaker\">민로로\u003c/span>\u003cdiv class=\"mg-contact-scroll\">\u003cp class=\"mg-dialogue-label\">수익화 미션을 함께 준비해요.\u003c/p>\u003ch2 tabindex=\"-1\">나의 수익화 미션, 다음 단계로.\u003c/h2>\u003cp class=\"mg-form-notice\">\u003cstrong>실제 접수 없는 시안\u003c/strong> · 가상 정보로 확인해주세요.\u003cbr>예: 테스트이름 / 01000000000\u003c/p>\u003cform noValidate>\u003cdiv class=\"mg-form-row\">\u003clabel for=\"static-qa-name\">이름\u003c/label>\u003cinput id=\"static-qa-name\" name=\"preview-name\" autoComplete=\"off\" placeholder=\"가상 이름 두 글자 이상\" maxLength=\"40\" value=\"\" aria-required=\"true\" aria-invalid=\"false\">\u003c/div>\u003cdiv class=\"mg-form-row\">\u003clabel for=\"static-qa-phone\">휴대폰 번호\u003c/label>\u003cinput id=\"static-qa-phone\" name=\"preview-phone\" type=\"tel\" inputMode=\"numeric\" autoComplete=\"off\" placeholder=\"01000000000\" maxLength=\"13\" value=\"\" aria-required=\"true\" aria-invalid=\"false\">\u003c/div>\u003clabel class=\"mg-consent\">\u003cinput type=\"checkbox\" aria-required=\"true\" aria-invalid=\"false\">\u003cspan>개인정보 수집·이용 동의 \u003csmall>필수 · 예시\u003c/small>\u003c/span>\u003c/label>\u003cp class=\"mg-consent-note\">동의 문구 검토용 시안입니다. 입력 정보는 수집·전송되지 않으며, 실제 운영 전 목적·항목·보유 기간·거부 안내를 확정합니다.\u003c/p>\u003clabel class=\"mg-consent\">\u003cinput type=\"checkbox\">\u003cspan>강의·혜택 안내 수신 \u003csmall>선택 · 예시\u003c/small>\u003c/span>\u003c/label>\u003cbutton type=\"submit\" class=\"mg-primary\">완료 장면 확인하기 \u003cb aria-hidden=\"true\">▸\u003c/b>\u003c/button>\u003cp class=\"mg-form-footnote\">정보 저장·실제 신청·알림 발송은 이루어지지 않습니다.\u003c/p>\u003c/form>\u003c/div>\u003c/div>\u003c/section>","complete":"\u003csection class=\"mg-complete-ui\">\u003cdiv class=\"mg-dialogue mg-complete-dialogue\">\u003cspan class=\"mg-speaker\">민로로\u003c/span>\u003cp class=\"mg-dialogue-label\">TO BE CONTINUED\u003c/p>\u003ch2 tabindex=\"-1\">월 300만원 목표,\u003cbr>\u003cem>도전은 지금부터.\u003c/em>\u003c/h2>\u003cp class=\"mg-complete-line\">「AI 블로그 수익화 정답지」\u003cbr>\u003cstrong>10/23(금) 저녁 7:30\u003c/strong> · 한국시간\u003cbr>무료 온라인 LIVE\u003c/p>\u003cp class=\"mg-benefit\">\u003c/p>\u003cp class=\"mg-complete-notice\">신청이 완료됐어요.\u003cbr>라이브 안내는 알림톡으로 보내 드려요.\u003c/p>\u003cbutton type=\"button\" class=\"mg-primary\">수익화 미션 처음으로 \u003cb aria-hidden=\"true\">↺\u003c/b>\u003c/button>\u003c/div>\u003c/section>"}</script>
+<script id="minroro-assets" type="application/json">{"story-c1.jpg":"./story-c1.jpg","story-c1.mp4":"./story-c1.mp4","story-c2.jpg":"./story-c2.jpg","story-c2.mp4":"./story-c2.mp4","story-c3.jpg":"./story-c3.jpg","story-c3.mp4":"./story-c3.mp4","story-c4.jpg":"./story-c4.jpg","story-c4.mp4":"./story-c4.mp4","story-c5.jpg":"./story-c5.jpg","story-c5.mp4":"./story-c5.mp4"}</script>
+<script>(() => {
+  'use strict';
+  const DATA = JSON.parse(document.getElementById('minroro-catalog').textContent);
+  const TEMPLATES = JSON.parse(document.getElementById('minroro-templates').textContent);
+  const ASSETS = JSON.parse(document.getElementById('minroro-assets').textContent);
+  const REVIEWS = JSON.parse(document.getElementById('minroro-review-data').textContent);
+  const STORIES = DATA.stories, QUIZ_QUESTIONS = DATA.questions, INVITATION = DATA.invitation;
+  // 웹 연동(아마겟돈 클래스): 후기 3칸이 모두 비어 있으면 후기 화면을 건너뛴다
+  const HAS_REVIEWS = REVIEWS.some(r => String(r.name||'').trim() || String(r.headline||'').trim() || String(r.body||'').trim() || String(r.testimonialImageUrl||'').trim());
+  // 웹 연동: 신청은 부모 페이지(카카오 로그인 → 무료 신청 → 전환 추적)가 하고, 끝나면 'amag-saju:done' 을 보내 완료 화면으로 넘긴다
+  let applying = false;
+  function apply(answersNow) { if(applying) return; applying = true; setApplying(true); try { window.parent.postMessage({ type: 'amag-saju:apply', answers: answersNow }, location.origin); } catch { applying = false; setApplying(false); } }
+  function setApplying(on) { const cta = document.querySelector('.mg-invite-footer .mg-primary'); if(!cta) return; cta.disabled = on; cta.firstChild.nodeValue = on ? '신청하는 중… ' : '무료 강의 신청하기 '; }
+  function validateQuizContact(contact             )                    {
+  const errors                    = {}
+  if (contact.name.trim().length < 2) errors.name = '이름을 두 글자 이상 입력해주세요. 가상 이름도 괜찮아요.'
+  if (!/^010\d{8}$/.test(contact.phone)) errors.phone = '010으로 시작하는 11자리 번호를 입력해주세요.'
+  if (!contact.requiredConsent) errors.requiredConsent = '필수 동의 항목을 확인해주세요. 현재는 동의 화면 시안입니다.'
+  return errors
+}
+  const stage = document.getElementById('mg-stage');
+  const screen = document.getElementById('mg-screen');
+  const mediaHost = document.getElementById('mg-media-host');
+  const previousImage = document.getElementById('mg-previous');
+  const decoration = document.getElementById('mg-decoration');
+  const nav = document.querySelector('.mg-top-nav');
+  const backButton = nav.querySelector('button:first-child');
+  const homeButton = nav.querySelector('button:last-child');
+  const progress = nav.querySelector('.mg-progress-label');
+  const query = matchMedia('(prefers-reduced-motion: reduce)');
+  const blank = () => ({ name: '', phone: '', requiredConsent: false, marketingConsent: false });
+  let step = -1, storyPage = 0, answers = {}, contact = blank(), motion = !query.matches;
+  let currentScene = null, mediaMotion = null, activeVideo = null;
+  let frame = 0, typing = false, finishTyping = null, lastAction = -Infinity;
+  const sceneFor = value => value < 0 ? 1 : value <= 4 ? STORIES[value].scene : value >= 5 && value <= 7 ? 3 : value === 8 ? 3 : 5;
+  const posterFor = scene => ASSETS['story-c' + scene + '.jpg'];
+  function make(tag, className, text) { const node = document.createElement(tag); if(className) node.className=className; if(text !== undefined) node.textContent=text; return node; }
+  function permit(event) { if(event && event.detail > 1) return false; const now=performance.now(); if(now-lastAction<190) return false; lastAction=now; return true; }
+  function updateMedia(scene) {
+    if(scene === currentScene && mediaMotion === motion) return;
+    previousImage.src=posterFor(currentScene || scene);
+    if(activeVideo) { activeVideo.pause(); activeVideo.removeAttribute('src'); activeVideo.load(); }
+    currentScene=scene; mediaMotion=motion; activeVideo=null;
+    const media=make('div','mg-media');
+    const image=make('img','mg-scene-image'); image.src=posterFor(scene); image.alt=''; image.width=1080; image.height=1920;
+    media.append(image);
+    if(motion) {
+      const video=make('video','mg-scene-video'); video.muted=true; video.defaultMuted=true; video.autoplay=true; video.loop=true; video.playsInline=true; video.preload='auto';
+      video.setAttribute('muted',''); video.setAttribute('autoplay',''); video.setAttribute('loop',''); video.setAttribute('playsinline',''); video.setAttribute('aria-hidden','true');
+      video.poster=posterFor(scene); video.src=ASSETS['story-c'+scene+'.mp4'];
+      video.addEventListener('playing',()=>video.classList.add('mg-video-ready'));
+      video.addEventListener('error',()=>video.classList.remove('mg-video-ready'));
+      media.append(video); activeVideo=video;
+    }
+    mediaHost.replaceChildren(media);
+    if(activeVideo) activeVideo.play().catch(()=>{});
+  }
+  function updateAtmosphere() {
+    decoration.replaceChildren();
+    if(!motion) return;
+    const atmosphere=make('div','mg-atmosphere'); atmosphere.setAttribute('aria-hidden','true'); atmosphere.append(make('div','mg-light-sweep'));
+    for(let index=0;index<10;index++){const particle=make('i');Object.assign(particle.style,{left:(8+(index*29)%85)+'%',top:(12+(index*17)%70)+'%',animationDelay:(index*-.8)+'s',animationDuration:(7+index%4)+'s'});atmosphere.append(particle)}
+    decoration.append(atmosphere);
+  }
+  function deposit() {
+    const group=make('div','mg-income-group'+(step===4?' mg-income-final':'')); group.setAttribute('aria-label','이야기 속 입금 알림 연출');
+    const card=make('div','mg-deposit-card'); const icon=make('span','mg-deposit-icon','₩');icon.setAttribute('aria-hidden','true');
+    const copy=make('div','mg-deposit-copy'); copy.append(make('span','','입금 알림 · 방금'),make('strong','',DATA.depositTitle));
+    const small=make('small','','입금 완료 ');const check=make('b','','✓');check.setAttribute('aria-hidden','true');small.append(check);copy.append(small);card.append(icon,copy);group.append(card);screen.append(group);
+  }
+  function setScreen(template) { screen.innerHTML=TEMPLATES[template]; }
+  function go(value, page=0) { cancelAnimationFrame(frame);typing=false;finishTyping=null;step=value;storyPage=page;render(); }
+  function next(event) { if(!permit(event))return;if(typing){finishTyping();return}if(step>=0&&step<=4&&storyPage<STORIES[step].pages.length-1){go(step,storyPage+1);return}if(step===4)go(HAS_REVIEWS?4.5:5);else if(step<5)go(step+1); }
+  function home() { answers={};contact=blank();go(-1); }
+  function back() { if(step>=0&&step<=4&&storyPage>0){go(step,storyPage-1);return}if(step>-1){const previous=step===5?(HAS_REVIEWS?4.5:4):step===4.5?4:step-1;go(previous,previous>=0&&previous<=4?STORIES[previous].pages.length-1:0)} }
+  function button(selector, action) { const node=screen.querySelector(selector);if(node)node.addEventListener('click',action);return node; }
+  function setStory() {
+    const story=STORIES[step],storyText=story.pages[storyPage];setScreen('story');
+    const storySection=screen.querySelector('.mg-story-ui');storySection.dataset.storyPage=String(storyPage+1);storySection.dataset.storyPages=String(story.pages.length);
+    const place=screen.querySelector('.mg-place');place.replaceChildren(make('span'),document.createTextNode(story.place));
+    screen.querySelector('.mg-speaker').textContent=story.speaker;
+    screen.querySelector('h2').textContent=story.place;
+    const line=screen.querySelector('.mg-story-line');line.replaceChildren();
+    const visible=make('span');visible.setAttribute('aria-hidden','true');const text=document.createTextNode('');const caret=make('span','mg-caret');visible.append(text,caret);
+    line.append(visible,make('span','mg-sr-only',storyText));
+    const dots=screen.querySelector('.mg-scene-dots');dots.setAttribute('aria-label',`이야기 ${step+1} / 5`);Array.from(dots.children).forEach((dot,index)=>dot.classList.toggle('mg-dot-active',index<=step));
+    if(story.pages.length>1){const pageLabel=make('span','mg-dialogue-pages',`${storyPage+1} / ${story.pages.length}`);pageLabel.setAttribute('aria-label',`대사 ${storyPage+1} / ${story.pages.length}`);dots.after(pageLabel)}
+    const nextButton=button('.mg-next',next);const indicator=nextButton.querySelector('b');
+    const label=document.createTextNode('');nextButton.replaceChildren(label,indicator);
+    const tap=make('button','mg-scene-tap');tap.type='button';tap.addEventListener('click',next);screen.prepend(tap);
+    button('.mg-skip',()=>go(5));
+    const finishedLabel=storyPage<story.pages.length-1?'다음 대사':step===4?'다음 이야기':'다음';
+    finishTyping=()=>{cancelAnimationFrame(frame);text.nodeValue=storyText;typing=false;caret.classList.add('mg-caret-done');label.nodeValue=finishedLabel;tap.setAttribute('aria-label',storyPage<story.pages.length-1?'다음 대사':step===4?'다음 이야기':'다음 장면')};
+    if(!motion){finishTyping();return}
+    typing=true;label.nodeValue='대사 보기';tap.setAttribute('aria-label','대사 바로 보기');
+    const glyphs=Array.from(storyText),start=performance.now();
+    const tick=now=>{const count=Math.min(glyphs.length,Math.floor((now-start)/26)+1);text.nodeValue=glyphs.slice(0,count).join('');if(count<glyphs.length)frame=requestAnimationFrame(tick);else finishTyping()};
+    frame=requestAnimationFrame(tick);
+  }
+  function setQuestion() {
+    const question=QUIZ_QUESTIONS[step-5];setScreen('q1');
+    screen.querySelector('h2').textContent=question.title;
+    screen.querySelector('.mg-dialogue-label').textContent='나에게 맞는 수익화 미션을 찾아볼까요?';
+    const description=screen.querySelector('.mg-question-note');if(question.description)description.textContent=question.description;else description.remove();
+    const choices=screen.querySelector('.mg-choices');choices.classList.toggle('mg-choices-long',question.id==='course');choices.setAttribute('aria-label',question.title);choices.replaceChildren();
+    question.options.forEach((option,index)=>{
+      const selected=answers[question.id]===option.value,node=make('button','mg-choice'+(selected?' mg-selected':''));node.type='button';node.setAttribute('aria-label',option.label);node.setAttribute('aria-pressed',String(selected));
+      const number=make('span','',String(index+1).padStart(2,'0')),copy=make('span','mg-choice-copy');copy.append(make('strong','',option.shortLabel||option.label));if(option.hint)copy.append(make('small','',option.hint));const arrow=make('b','',selected?'✓':'›');arrow.setAttribute('aria-hidden','true');node.append(number,copy,arrow);
+      node.addEventListener('click',event=>{if(!permit(event))return;answers[question.id]=option.value;go(step+1)});choices.append(node);
+    });
+  }
+  function setReviews() {
+    setScreen('reviews');
+    const list=screen.querySelector('.minroro-reviews__list');const pristine=Array.from(list.children).map(node=>node.cloneNode(true));list.replaceChildren();
+    REVIEWS.slice(0,3).forEach((review,index)=>{
+      const card=pristine[index]||pristine[0].cloneNode(true),name=String(review.name||'').trim(),headline=String(review.headline||'').trim(),body=String(review.body||'').trim();
+      const avatar=String(review.avatarUrl||'').trim(),capture=String(review.testimonialImageUrl||'').trim(),isEmpty=!name&&!headline&&!body&&!capture;
+      card.classList.toggle('minroro-review-card--empty',isEmpty);card.querySelector('article').setAttribute('aria-label',isEmpty?`후기 ${String(index+1).padStart(2,'0')} 입력 자리`:`${name||'수강생'} 후기`);
+      card.querySelector('.minroro-review-card__name').textContent=name||`후기 ${String(index+1).padStart(2,'0')}`;
+      card.querySelector('.minroro-review-card__headline').textContent=headline||(isEmpty?'후기를 넣을 자리입니다':'수강생 후기');
+      const avatarBox=card.querySelector('.minroro-review-card__avatar');avatarBox.replaceChildren(make('span','',name?Array.from(name)[0]:String(index+1).padStart(2,'0')));
+      if(/^data:image\//.test(avatar)){const img=make('img');img.src=avatar;img.alt='';avatarBox.replaceChildren(img)}
+      if(!isEmpty)card.querySelector('.minroro-review-card__placeholder')?.remove();
+      if(body)card.querySelector('article').append(make('p','minroro-review-card__body',body));
+      if(/^data:image\//.test(capture)){const img=make('img','minroro-review-card__screenshot');img.src=capture;img.alt=(name||'수강생')+'의 후기 캡처';card.querySelector('article').append(img)}
+      list.append(card);
+    });
+    button('.mg-reviews-actions button',()=>go(5));
+  }
+  function setInvitation() {
+    screen.replaceChildren();const section=make('section','mg-invite-ui'),panel=make('div','mg-dialogue mg-invite-dialogue');panel.append(make('span','mg-speaker','민로로'));
+    const scroll=make('div','mg-invite-scroll'),heading=make('h2','',INVITATION.heading);heading.tabIndex=-1;scroll.append(heading);
+    const copy=make('div','mg-invite-copy');INVITATION.paragraphs.forEach(paragraph=>copy.append(make('p','',paragraph)));scroll.append(copy);
+    const benefits=make('div','mg-invite-benefits');benefits.append(make('h3','',INVITATION.benefitsHeading));const list=make('ul');INVITATION.benefits.forEach(benefit=>list.append(make('li','','- '+benefit)));benefits.append(list,make('p','',INVITATION.more));scroll.append(benefits);
+    const footer=make('div','mg-invite-footer'),cta=make('button','mg-primary','무료 강의 신청하기 ');cta.type='button';const arrow=make('b','','▸');arrow.setAttribute('aria-hidden','true');cta.append(arrow);cta.addEventListener('click',()=>apply(Object.assign({},answers)));footer.append(cta);panel.append(scroll,footer);section.append(panel);screen.append(section);
+  }
+  function setCompletion() {
+    setScreen('complete');const benefits=screen.querySelector('.mg-benefit');benefits.replaceChildren(document.createTextNode(INVITATION.benefitsHeading),document.createElement('br'));const list=make('b');INVITATION.benefits.forEach(benefit=>list.append(make('span','','- '+benefit)));benefits.append(list,make('span','',INVITATION.more));button('.mg-primary',home);
+  }
+  function setForm() {
+    setScreen('form');const form=screen.querySelector('form');form.noValidate=true;
+    const name=form.querySelector('input[name="preview-name"]'),phone=form.querySelector('input[name="preview-phone"]'),checks=form.querySelectorAll('input[type="checkbox"]');
+    const required=checks[0],marketing=checks[1];name.value=contact.name;phone.value=contact.phone;required.checked=contact.requiredConsent;marketing.checked=contact.marketingConsent;
+    function clear(field,node){form.querySelector('[data-error="'+field+'"]')?.remove();node.setAttribute('aria-invalid','false');node.removeAttribute('aria-describedby')}
+    function show(field,node,text){clear(field,node);const error=make('p','mg-error',text);error.dataset.error=field;error.id='export-error-'+field;error.setAttribute('role','alert');node.setAttribute('aria-invalid','true');node.setAttribute('aria-describedby',error.id);if(field==='requiredConsent')node.closest('label').after(error);else node.after(error)}
+    name.addEventListener('input',()=>{contact.name=name.value;clear('name',name)});
+    phone.addEventListener('input',()=>{phone.value=phone.value.replace(/\D/g,'').slice(0,11);contact.phone=phone.value;clear('phone',phone)});
+    required.addEventListener('change',()=>{contact.requiredConsent=required.checked;clear('requiredConsent',required)});
+    marketing.addEventListener('change',()=>{contact.marketingConsent=marketing.checked});
+    form.addEventListener('submit',event=>{
+      event.preventDefault();contact={name:name.value,phone:phone.value,requiredConsent:required.checked,marketingConsent:marketing.checked};
+      const errors=validateQuizContact(contact),nodes={name,phone,requiredConsent:required};
+      Object.entries(nodes).forEach(([field,node])=>{clear(field,node);if(errors[field])show(field,node,errors[field])});
+      const first=Object.keys(errors)[0];if(first){nodes[first].focus();return}contact=blank();go(10);
+    });
+  }
+  function render() {
+    const scene=sceneFor(step);stage.className='mg-stage mg-step-'+step+(motion?' mg-motion':'')+(step===4.5?' mg-reviews-active':'')+(step>=5&&step<=7?' mg-questions-active':'');stage.dataset.step=String(step);
+    updateMedia(scene);backButton.disabled=step===-1;
+    progress.textContent=step<0?'PROLOGUE':step<=4?`STORY ${String(step+1).padStart(2,'0')} / 05`:step===4.5?'THEIR NEXT CHAPTER':step<=7?`CHOICE 0${step-4} / 03`:step===8?'FREE LIVE CLASS':step===9?'NEXT CHAPTER':'TO BE CONTINUED';
+    if(step===-1){setScreen('title');button('.mg-start',next);button('.mg-text-button',()=>go(5))}
+    else if(step<=4)setStory();else if(step===4.5)setReviews();else if(step<=7)setQuestion();else if(step===8)setInvitation();else if(step===9)setForm();else setCompletion();
+    if(step===1||step===4)deposit();
+    const heading=screen.querySelector('h1[tabindex],h2[tabindex]');heading?.focus({preventScroll:true});screen.querySelector('.mg-contact-scroll')?.scrollTo({top:0});
+  }
+  backButton.addEventListener('click',back);homeButton.addEventListener('click',home);
+  document.querySelector('.mg-root').addEventListener('keydown',event=>{if(event.repeat&&(event.key==='Enter'||event.key===' '))event.preventDefault()});
+  query.addEventListener('change',()=>{motion=!query.matches;cancelAnimationFrame(frame);typing=false;updateAtmosphere();render()});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&activeVideo&&motion)activeVideo.play().catch(()=>{})});
+  window.addEventListener('message', event => {
+    if(event.origin !== location.origin || !event.data || typeof event.data.type !== 'string') return;
+    if(event.data.type === 'amag-saju:done') { applying = false; go(10); }
+    else if(event.data.type === 'amag-saju:idle') { applying = false; setApplying(false); }
+  });
+  updateAtmosphere();
+  if(location.hash === '#done') go(10); else render();
+})();
+</script></body></html>
