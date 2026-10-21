@@ -15,6 +15,7 @@ import { webhookScheduleService } from '../../services/webhookScheduleService'
 import { billingService, type NewsletterSubscription } from '../../services/billingService'
 import { addMonthsKst } from '../../utils/period'
 import { ebookProgressService, progressPercent, READING_LOG_NOTE, type EbookReadingProgress } from '../../services/ebookProgressService'
+import { reconcileService } from '../../services/reconcileService'
 import type { Profile, PointLog, Coupon } from '../../types'
 
 interface MemberWithPurchases extends Profile {
@@ -532,6 +533,35 @@ export default function AdminMembers() {
   const [expiryDate, setExpiryDate] = useState('')
   const [expiryUnlimited, setExpiryUnlimited] = useState(false)
   const [expirySaving, setExpirySaving] = useState(false)
+
+  // 구매 금액 수정(10/21) — 토스 부분취소처럼 사이트에 반영되지 않은 금액을 고칠 때. 사유 필수, 감사 로그(price_change)에 남는다.
+  const [priceTarget, setPriceTarget] = useState<{ id: number; title: string; price: number } | null>(null)
+  const [priceValue, setPriceValue] = useState('')
+  const [priceReason, setPriceReason] = useState('')
+  const [priceSaving, setPriceSaving] = useState(false)
+  const handleSavePrice = async () => {
+    if (!priceTarget || priceSaving) return
+    const next = Number(priceValue.replace(/[^0-9]/g, ''))
+    if (!priceValue.trim() || !Number.isFinite(next) || next < 0) { toast.error('금액을 숫자로 입력해주세요.'); return }
+    if (!priceReason.trim()) { toast.error('사유를 입력해주세요.'); return }
+    setPriceSaving(true)
+    try {
+      const { changed } = await reconcileService.setPrice(priceTarget.id, next, priceReason.trim())
+      if (changed) {
+        setPurchases((prev) => prev.map((p) => (p.id === priceTarget.id
+          ? { ...p, price: next, original_price: p.original_price == null || p.original_price === p.price ? next : p.original_price }
+          : p)))
+        toast.success(`금액을 ${next.toLocaleString()}원으로 바꿨습니다.`)
+      } else {
+        toast('금액이 같아 바꾸지 않았습니다.')
+      }
+      setPriceTarget(null)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '금액 수정에 실패했습니다.')
+    } finally {
+      setPriceSaving(false)
+    }
+  }
 
   const openExpiryEdit = (p: { id: number; title: string; expires_at: string | null }) => {
     setExpiryTarget(p)
@@ -1537,6 +1567,14 @@ export default function AdminMembers() {
                           <div className="flex items-center gap-1 shrink-0 ml-3">
                             {(p.course_id || p.ebook_id) && (
                               <button
+                                onClick={() => { setPriceTarget({ id: p.id, title: p.title, price: p.price }); setPriceValue(String(p.price)); setPriceReason('') }}
+                                className="px-2 py-1 text-[10px] font-medium text-gray-600 bg-gray-100 rounded border-none cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap"
+                              >
+                                금액 수정
+                              </button>
+                            )}
+                            {(p.course_id || p.ebook_id) && (
+                              <button
                                 onClick={() => openExpiryEdit({ id: p.id, title: p.title, expires_at: p.expires_at })}
                                 className="px-2 py-1 text-[10px] font-medium text-blue-600 bg-blue-50 rounded border-none cursor-pointer hover:bg-blue-100 transition-colors whitespace-nowrap"
                               >
@@ -1945,6 +1983,50 @@ export default function AdminMembers() {
                 </div>
               </>
             )}
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* 구매 금액 수정 */}
+      <Dialog open={!!priceTarget} onClose={() => { if (!priceSaving) setPriceTarget(null) }} className="relative z-50">
+        <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <DialogTitle className="text-base font-bold text-gray-900 mb-1">구매 금액 수정</DialogTitle>
+            <p className="text-xs text-gray-500 mb-4 truncate">{priceTarget?.title} · 구매 #{priceTarget?.id}</p>
+            <p className="text-xs text-gray-400 mb-3">
+              현재: {priceTarget?.price.toLocaleString()}원 · 수강권·기간·구매일은 그대로이고 매출 금액만 바뀝니다. 사유와 함께 기록됩니다.
+            </p>
+            <label className="text-xs text-gray-600">새 금액(원)</label>
+            <input
+              inputMode="numeric"
+              value={priceValue}
+              onChange={(e) => setPriceValue(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] mt-1 mb-3"
+            />
+            <label className="text-xs text-gray-600">사유(필수)</label>
+            <input
+              value={priceReason}
+              onChange={(e) => setPriceReason(e.target.value)}
+              placeholder="예: 토스 부분취소 100만 원 반영"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] mt-1"
+            />
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={() => setPriceTarget(null)}
+                disabled={priceSaving}
+                className="flex-1 py-2.5 text-sm text-gray-600 bg-gray-100 rounded-lg border-none cursor-pointer disabled:opacity-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSavePrice}
+                disabled={priceSaving}
+                className="flex-1 py-2.5 text-sm font-bold text-white bg-[#2ED573] rounded-lg border-none cursor-pointer disabled:opacity-50"
+              >
+                {priceSaving ? '저장 중...' : '저장'}
+              </button>
+            </div>
           </DialogPanel>
         </div>
       </Dialog>

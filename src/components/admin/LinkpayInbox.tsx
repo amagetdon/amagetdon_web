@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { linkpayService, type LinkpayPayment } from '../../services/linkpayService'
+import { reconcileService } from '../../services/reconcileService'
 import { courseExpiry, guessCourseId } from '../../lib/linkpayMatch'
 import type { CourseWithInstructor } from '../../types'
 
@@ -13,7 +14,8 @@ type Filter = 'todo' | 'all' | 'done' | 'canceled'
 interface Member { id: string; name: string | null; phone: string | null; email?: string | null }
 
 const statusOf = (p: LinkpayPayment): 'todo' | 'done' | 'canceled' | 'other' =>
-  p.status === 'CANCELED' ? 'canceled' : p.granted ? 'done' : p.status === 'DONE' ? 'todo' : 'other'
+  // 부분취소(PARTIAL_CANCELED)는 남은 금액으로 부여할 수 있다(10/21 — 금액은 웹훅이 남은 금액으로 고쳐 둠)
+  p.status === 'CANCELED' ? 'canceled' : p.granted ? 'done' : p.status === 'DONE' || p.status === 'PARTIAL_CANCELED' ? 'todo' : 'other'
 
 const STATUS_PILL: Record<string, { label: string; cls: string }> = {
   todo: { label: '처리 필요', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -49,6 +51,8 @@ export default function LinkpayInbox({
   const [courseId, setCourseId] = useState<number | ''>('')
   const [courseSearch, setCourseSearch] = useState('')
   const [preview, setPreview] = useState<'attached' | 'top_up' | 'inserted' | null>(null)
+  // 금액 더하기(top_up)로 붙을 구매 — 서버 함수와 같은 규칙(가장 먼저 산 유료 구매)
+  const [topUpTarget, setTopUpTarget] = useState<{ id: number; payment_method: string | null } | null>(null)
   const [saving, setSaving] = useState(false)
   // 부여된 결제 옮기기 — 현재 연결된 계정과 옮길 계정을 따로 둔다
   const [moveOpen, setMoveOpen] = useState(false)
@@ -105,13 +109,18 @@ export default function LinkpayInbox({
   // 지금 고른 수강생·강의로 부여하면 어떻게 처리되는지 미리 보여준다 (서버 함수와 같은 순서)
   useEffect(() => {
     setPreview(null)
+    setTopUpTarget(null)
     if (!selected || statusOf(selected) !== 'todo' || !member || courseId === '') return
     let active = true
-    supabase.from('purchases').select('price, payment_key').eq('user_id', member.id).eq('course_id', courseId)
+    supabase.from('purchases').select('id, price, payment_key, payment_method, purchased_at').eq('user_id', member.id).eq('course_id', courseId)
+      .order('purchased_at')
       .then(({ data }) => {
         if (!active) return
-        const rows = (data ?? []) as { price: number; payment_key: string | null }[]
-        setPreview(rows.some((r) => r.price === 0 && !r.payment_key) ? 'attached' : rows.some((r) => r.price > 0) ? 'top_up' : 'inserted')
+        const rows = (data ?? []) as { id: number; price: number; payment_key: string | null; payment_method: string | null }[]
+        const mode = rows.some((r) => r.price === 0 && !r.payment_key) ? 'attached' : rows.some((r) => r.price > 0) ? 'top_up' : 'inserted'
+        setPreview(mode)
+        const target = mode === 'top_up' ? rows.find((r) => r.price > 0) : undefined
+        setTopUpTarget(target ? { id: target.id, payment_method: target.payment_method } : null)
       })
     return () => { active = false }
   }, [selected, member, courseId])
@@ -123,6 +132,17 @@ export default function LinkpayInbox({
     const course = courses.find((c) => c.id === courseId)
     try {
       setSaving(true)
+      // 카드(토스) 결제 구매에 금액을 더하기 전에, 그 카드 결제에 부분취소가 있는지 토스에서 먼저 확인(10/20 구매 1887 재발 방지)
+      if (preview === 'top_up' && topUpTarget?.payment_method === 'toss') {
+        const check = await reconcileService.run([topUpTarget.id]).catch(() => null)
+        const r = check?.rows[0]
+        const warn = !r ? '토스 결제 상태를 확인하지 못했습니다.'
+          : r.error ? `토스 결제 조회에 실패했습니다(${r.error}).`
+            : r.toss_canceled ? `이 회원의 카드 결제(구매 ${r.purchase_id})는 토스에서 ${won(r.toss_canceled)} 부분취소됐는데, 사이트 금액은 ${won(r.price)}입니다(토스 잔액 ${won(r.toss_balance ?? 0)}).`
+              : r.diff ? `구매 ${r.purchase_id}의 사이트 금액(${won(r.price)})이 토스 잔액과 맞지 않습니다(차이 ${won(r.diff)}).`
+                : null
+        if (warn && !window.confirm(`${warn}\n\n그래도 ${won(selected.amount)}을 더할까요? 먼저 아래 '카드 결제 대조'에서 금액을 맞추는 것을 권합니다.`)) return
+      }
       const { mode } = await linkpayService.manualGrant(selected, {
         userId: member.id,
         courseId: courseId as number,
