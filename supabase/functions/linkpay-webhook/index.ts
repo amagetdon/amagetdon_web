@@ -35,6 +35,23 @@ async function verifyPayment(paymentKey: string, expectedAmount: number | null):
   }
 }
 
+// 부분취소 확인용 — 토스에 결제를 다시 물어 남은 금액(balanceAmount)을 받는다(조회만)
+async function fetchBalance(paymentKey: string): Promise<{ status: string | null; balance: number | null } | null> {
+  const secret = Deno.env.get('TOSS_LINKPAY_SECRET_KEY')
+  if (!secret) return null
+  try {
+    const res = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(paymentKey)}`, {
+      headers: { Authorization: `Basic ${btoa(`${secret}:`)}` },
+    })
+    if (!res.ok) return null
+    const p = await res.json() as { status?: string; balanceAmount?: number }
+    return { status: p?.status ?? null, balance: typeof p?.balanceAmount === 'number' ? p.balanceAmount : null }
+  } catch (e) {
+    console.error('[linkpay-webhook] balance error:', e)
+    return null
+  }
+}
+
 // 뉴스레터 구독 만료일 계산 — 유효 구독이 남아 있으면 그 만료일부터 이어서 연장 (달력 월 단위)
 async function computeBoardSubExpiry(
   supabase: SupabaseClient,
@@ -127,10 +144,10 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
   // 이미 처리(부여)된 주문이면 멱등 스킵
   const { data: existing } = await supabase
     .from('linkpay_payments')
-    .select('id, granted, purchase_id')
+    .select('id, granted, purchase_id, amount')
     .eq('order_key', orderKey)
     .maybeSingle()
-  const prev = existing as { id: number; granted: boolean; purchase_id: number | null } | null
+  const prev = existing as { id: number; granted: boolean; purchase_id: number | null; amount: number | null } | null
 
   // productKey → 강의/전자책/뉴스레터(글 단건·강사 구독)
   let courseId: number | null = null
@@ -178,6 +195,42 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
       board_post_id: boardPostId, board_instructor_id: boardInstructorId,
       matched_user_id: matchedUserId,
       granted: false, purchase_id: null, approved_at: approvedAt, raw: data,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'order_key' })
+    return
+  }
+
+  // 부분취소(10/21) — 토스에서 남은 금액을 다시 확인하고, 이미 부여된 구매는 줄어든 만큼 금액을 뺀다.
+  //   (구매가 다른 결제와 합산된 경우가 있어 구매 금액을 '남은 금액'으로 덮지 않고 차이만 뺀다) 수강권은 그대로 둔다.
+  if (status === 'PARTIAL_CANCELED') {
+    const checked = paymentKey ? await fetchBalance(paymentKey) : null
+    const balance = checked?.status === 'PARTIAL_CANCELED' ? checked.balance : null
+    if (balance == null) {
+      console.error('[linkpay-webhook] 부분취소 잔액 확인 실패 — orderKey:', orderKey)
+      return
+    }
+    const before = prev?.amount ?? amount ?? null
+    if (prev?.purchase_id && before != null && balance < before) {
+      const delta = before - balance
+      const { data: pu } = await supabase.from('purchases').select('price').eq('id', prev.purchase_id).maybeSingle()
+      const oldPrice = (pu as { price: number } | null)?.price
+      if (oldPrice != null) {
+        const newPrice = Math.max(0, oldPrice - delta)
+        await supabase.from('purchases').update({ price: newPrice }).eq('id', prev.purchase_id)
+        await supabase.from('purchase_audit_logs').insert({
+          action: 'linkpay_partial_cancel', purchase_id: prev.purchase_id, actor_id: null,
+          before: { price: oldPrice, linkpay_amount: before },
+          after: { price: newPrice, linkpay_amount: balance, order_key: orderKey },
+        })
+      }
+    }
+    await supabase.from('linkpay_payments').upsert({
+      order_key: orderKey, payment_key: paymentKey, product_key: productKey, order_name: orderName,
+      customer_name: customerName, customer_phone: customerPhone, amount: balance, status,
+      course_id: courseId, ebook_id: ebookId,
+      board_post_id: boardPostId, board_instructor_id: boardInstructorId,
+      matched_user_id: matchedUserId,
+      granted: prev?.granted ?? false, purchase_id: prev?.purchase_id ?? null, approved_at: approvedAt, raw: data,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'order_key' })
     return

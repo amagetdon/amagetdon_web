@@ -7,6 +7,7 @@ import ConfirmDialog from '../../components/admin/ConfirmDialog'
 import ManualPaymentSection from '../../components/admin/ManualPaymentSection'
 import LinkpayInbox from '../../components/admin/LinkpayInbox'
 import BankDepositInbox from '../../components/admin/BankDepositInbox'
+import TossReconcilePanel from '../../components/admin/TossReconcilePanel'
 import { courseService } from '../../services/courseService'
 import { linkpayService, type LinkpayLink, type LinkpayPayment, type TossProduct } from '../../services/linkpayService'
 import type { CourseWithInstructor } from '../../types'
@@ -189,6 +190,9 @@ export default function AdminLinkpay() {
 
       {/* 무통장(계좌이체·현금) 입금 수동 등록 */}
       <ManualPaymentSection courses={courses} courseExpiry={courseExpiry} />
+
+      {/* 카드(토스) 결제 대조: 토스에서 한 부분취소가 사이트 금액에 빠졌는지 찾기 */}
+      <TossReconcilePanel />
 
       {/* 판매상품 자동 연결 (선택) — 같은 상품으로 여러 명이 결제하는 판매상품용. 개인결제창은 위 결제 내역에서 수동 부여 */}
       <details className="mb-8 group">
