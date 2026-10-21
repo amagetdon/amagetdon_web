@@ -4,6 +4,7 @@
 //       (게시판 글은 제목과, 잠기지 않은 무료 글의 요약만)
 
 import { SITE, plain } from './public-data'
+import { WEBTOON_LANDINGS } from '../../src/lib/webtoonLandings'
 
 const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env
 const SUPABASE_URL = env.SUPABASE_URL || env.VITE_SUPABASE_URL || ''
@@ -423,6 +424,13 @@ const ROUTES: [RegExp, Handler][] = [
       jsonld: [crumbs([['홈', '/'], ['뉴스레터', '/board'], [p.title, `/board/${p.id}`]])],
       ogType: 'article',
     }
+  }],
+
+  // 웹툰식 랜딩 — 광고 전용이라 검색 노출은 막고(noindex) 탭 제목·공유 미리보기만 채운다. 설정은 src/lib/webtoonLandings.ts
+  [/^\/w\/([^/]+)$/, async (m) => {
+    const w = WEBTOON_LANDINGS[decodeURIComponent(m[1])]
+    if (!w) return { status: 404, title: '', description: '', noindex: true }
+    return { title: w.seo.title, description: w.seo.description, image: SITE + w.seo.image, noindex: true }
   }],
 
   [/^\/landing\/([^/]+)$/, async (m, s) => {

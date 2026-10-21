@@ -132,6 +132,9 @@ export default function AdminCourseDetail() {
   const [membersLoading, setMembersLoading] = useState(false)
   const [membersPage, setMembersPage] = useState(1)
   const [membersSearch, setMembersSearch] = useState('')
+  // 신청 선택 질문 답(웹툰 랜딩 /w/:slug) — 답이 하나라도 있는 강의에서만 열을 보인다
+  type SurveyAnswer = { blog_exp: string | null; daily_time: string | null; concern: string | null }
+  const [surveyByUser, setSurveyByUser] = useState<Map<string, SurveyAnswer>>(new Map())
 
   const fetchMembers = useCallback(async () => {
     if (!courseId) return
@@ -203,6 +206,18 @@ export default function AdminCourseDetail() {
         }
       })
       setMembers(rows)
+      // 선택 질문 답 — 표가 아직 없거나 실패해도 수강생 목록은 그대로
+      const surveyRes = await fetchAllRows((from, to) => supabase
+        .from('course_survey_answers' as never)
+        .select('user_id, blog_exp, daily_time, concern')
+        .eq('course_id', courseId)
+        .order('id')
+        .range(from, to))
+      const survey = new Map<string, SurveyAnswer>()
+      if (!surveyRes.error) {
+        for (const r of (surveyRes.data ?? []) as unknown as (SurveyAnswer & { user_id: string })[]) survey.set(r.user_id, r)
+      }
+      setSurveyByUser(survey)
     } catch {
       toast.error('수강생 목록을 불러오는데 실패했습니다.')
     } finally {
@@ -223,6 +238,7 @@ export default function AdminCourseDetail() {
   })
   const membersTotalPages = Math.max(1, Math.ceil(filteredMembers.length / MEMBERS_PER_PAGE))
   const pagedMembers = filteredMembers.slice((membersPage - 1) * MEMBERS_PER_PAGE, membersPage * MEMBERS_PER_PAGE)
+  const hasSurvey = surveyByUser.size > 0
 
   const formatKoDate = (iso: string | null | undefined) => {
     if (!iso) return '-'
@@ -278,7 +294,13 @@ export default function AdminCourseDetail() {
       m.purchase_touch?.term || '',
       m.purchase_touch?.referrer || '',
       m.purchase_touch?.landing || '',
+      ...(hasSurvey ? [
+        surveyByUser.get(m.user_id)?.blog_exp || '',
+        surveyByUser.get(m.user_id)?.daily_time || '',
+        surveyByUser.get(m.user_id)?.concern || '',
+      ] : []),
     ])
+    if (hasSurvey) header.push('지금 상황', '하루 시간', '막힌 점')
 
     // 광고 캠페인 ID 같은 12자리 이상 숫자·앞자리 0 숫자는 엑셀이 지수표기(1.2E+17)로 바꿔 값을 깨뜨리므로 텍스트 수식으로 강제
     const csvCell = (cell: unknown) => {
@@ -1565,6 +1587,7 @@ export default function AdminCourseDetail() {
                       <th className="px-4 py-3 text-center font-bold text-gray-600">진도율</th>
                       <th className="px-4 py-3 text-left font-bold text-gray-600" title="가입: 회원가입 시점 경로(최초) / 구매: 이번 구매 직전 30일 내 마지막 경로">유입 경로</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600" title="구매 직후 안내 링크(오픈채팅) 진입 — 카톡방 실제 참여 여부는 알 수 없음">오픈채팅</th>
+                      {hasSurvey && <th className="px-4 py-3 text-left font-bold text-gray-600" title="웹툰 랜딩 신청 뒤 선택 질문(답하지 않아도 됨)">선택 질문 답</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -1616,6 +1639,16 @@ export default function AdminCourseDetail() {
                             <span className="text-xs text-gray-300">-</span>
                           )}
                         </td>
+                        {hasSurvey && (() => {
+                          const s = surveyByUser.get(m.user_id)
+                          if (!s) return <td className="px-4 py-3 text-xs text-gray-300">-</td>
+                          return (
+                            <td className="px-4 py-3 text-xs">
+                              <div className="text-gray-700">{[s.blog_exp, s.daily_time].filter(Boolean).join(' · ') || '-'}</div>
+                              {s.concern && <div className="text-gray-500 truncate max-w-[260px]" title={s.concern}>{s.concern}</div>}
+                            </td>
+                          )
+                        })()}
                       </tr>
                     ))}
                   </tbody>

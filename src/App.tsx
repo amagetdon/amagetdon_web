@@ -25,6 +25,7 @@ const InstructorDetailPage = lazy(() => import('./pages/InstructorDetailPage'))
 const ReviewsPage = lazy(() => import('./pages/ReviewsPage'))
 const ReviewResultsPage = lazy(() => import('./pages/ReviewResultsPage'))
 const CourseDetailPage = lazy(() => import('./pages/CourseDetailPage'))
+const WebtoonLandingPage = lazy(() => import('./pages/WebtoonLandingPage'))
 const AcademyFreePage = lazy(() => import('./pages/AcademyFreePage'))
 const AcademyPremiumPage = lazy(() => import('./pages/AcademyPremiumPage'))
 const FAQPage = lazy(() => import('./pages/FAQPage'))
@@ -227,6 +228,8 @@ function App() {
                 <Route path="/ebooks/secret" element={<EbooksSecretPage />} />
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/landing/:slug" element={<LandingPage />} />
+                {/* 웹툰식 랜딩(표지 → 웹툰 → 대화형 신청). 설정은 src/lib/webtoonLandings.ts */}
+                <Route path="/w/:slug" element={<WebtoonLandingPage />} />
 
                 {/* 아마겟돈 뉴스레터: /board 목록·/board/:id 글은 공개(잠금은 서버 RPC 판정),
                     /board/p/:token 은 비밀 공유 링크. 관리 화면은 /admin/board */}
