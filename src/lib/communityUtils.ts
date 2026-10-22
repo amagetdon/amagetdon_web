@@ -35,3 +35,37 @@ export function useSignedUrls(paths: (string | null | undefined)[]): Record<stri
   return urls
 }
 
+
+/** 강의 → 그 강의에 연결된 기수 방(없으면 내 강의실) */
+export function courseLinkFor(boards: { slug: string; course_ids: number[]; enabled: boolean; read_level: string }[], courseId: number): string {
+  const b = boards.find((x) => x.enabled && x.read_level === 'cohort' && x.course_ids.includes(courseId))
+  return b ? `/community/b/${b.slug}` : '/my-classroom?tab=course'
+}
+
+/** 글 본문의 주소를 링크로(글자만 쓰는 글이라 HTML 은 쓰지 않음) */
+export function splitLinks(text: string): { text: string; href?: string }[] {
+  const out: { text: string; href?: string }[] = []
+  const re = /https?:\/\/[^\s<>"')\]]+/g
+  let last = 0
+  for (const m of text.matchAll(re)) {
+    if (m.index! > last) out.push({ text: text.slice(last, m.index) })
+    out.push({ text: m[0], href: m[0] })
+    last = m.index! + m[0].length
+  }
+  if (last < text.length) out.push({ text: text.slice(last) })
+  return out
+}
+
+/** 임시저장(이 기기 브라우저) — 저장소가 막혀 있어도 화면은 그대로 동작 */
+export const draftStore = {
+  key: (boardSlug: string | null, editId: number | null) => `cmty-draft:${editId ? `edit-${editId}` : boardSlug || 'any'}`,
+  read<T>(key: string): T | null {
+    try { const v = localStorage.getItem(key); return v ? (JSON.parse(v) as T) : null } catch { return null }
+  },
+  write(key: string, value: unknown) {
+    try { localStorage.setItem(key, JSON.stringify(value)) } catch { /* 저장 불가 */ }
+  },
+  clear(key: string) {
+    try { localStorage.removeItem(key) } catch { /* 저장 불가 */ }
+  },
+}
