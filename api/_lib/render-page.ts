@@ -433,6 +433,13 @@ const ROUTES: [RegExp, Handler][] = [
     noindex: true,
   })],
 
+  // 수강생 커뮤니티 — 로그인 회원 전용이라 글 내용은 서버에서 그리지 않고 색인도 안 함
+  [/^\/community(\/.*)?$/, async () => ({
+    title: '아마 돈 벌고 있을걸요? | 아마겟돈 클래스',
+    description: '아마겟돈 클래스 수강생 커뮤니티 — 수익화 실행 기록과 질문',
+    noindex: true,
+  })],
+
   [/^\/landing\/([^/]+)$/, async (m, s) => {
     const rows = (await q(`landing_categories?slug=eq.${encodeURIComponent(decodeURIComponent(m[1]))}&is_published=eq.true&select=name,seo,content_html`)) as
       { name: string; seo: Seo | null; content_html: string | null }[] | null

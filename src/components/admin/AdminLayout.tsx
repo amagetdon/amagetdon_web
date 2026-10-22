@@ -36,6 +36,11 @@ const NAV_GROUPS = [
     items: [
       { path: '/admin/reviews', label: '후기', icon: 'ti-message-star' },
       { path: '/admin/achievements', label: '수강 성과', icon: 'ti-trophy' },
+      { path: '/admin/community/posts', label: '커뮤니티 글 관리', icon: 'ti-pin' },
+      { path: '/admin/community/home', label: '커뮤니티 홈 꾸미기', icon: 'ti-layout-grid' },
+      { path: '/admin/community/queue', label: '커뮤니티 운영 대기열', icon: 'ti-alert-triangle' },
+      { path: '/admin/community/boards', label: '커뮤니티 게시판', icon: 'ti-layout-list' },
+      { path: '/admin/community/members', label: '커뮤니티 회원·차단', icon: 'ti-user-shield' },
     ],
   },
   {

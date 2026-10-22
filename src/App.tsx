@@ -78,6 +78,22 @@ const BlogPreviewPage = lazy(() => import('./pages/BlogPreviewPage'))
 const BoardListPage = lazy(() => import('./pages/BoardListPage'))
 const BoardInstructorPage = lazy(() => import('./pages/BoardInstructorPage'))
 
+const CommunityLayout = lazy(() => import('./pages/community/CommunityLayout'))
+const CommunityHome = lazy(() => import('./pages/community/CommunityHome'))
+const CommunityBoard = lazy(() => import('./pages/community/CommunityBoard'))
+const CommunityPost = lazy(() => import('./pages/community/CommunityPost'))
+const CommunityWrite = lazy(() => import('./pages/community/CommunityWrite'))
+const CommunityHot = lazy(() => import('./pages/community/CommunityHot'))
+const CommunitySubs = lazy(() => import('./pages/community/CommunitySubs'))
+const CommunityNews = lazy(() => import('./pages/community/CommunityNews'))
+const CommunityMe = lazy(() => import('./pages/community/CommunityMe'))
+const CommunitySearch = lazy(() => import('./pages/community/CommunitySearch'))
+const CommunityMyList = lazy(() => import('./pages/community/CommunityMyList'))
+const AdminCommunityPosts = lazy(() => import('./pages/admin/community/AdminCommunityPosts'))
+const AdminCommunityHome = lazy(() => import('./pages/admin/community/AdminCommunityHome'))
+const AdminCommunityQueue = lazy(() => import('./pages/admin/community/AdminCommunityQueue'))
+const AdminCommunityBoards = lazy(() => import('./pages/admin/community/AdminCommunityBoards'))
+const AdminCommunityMembers = lazy(() => import('./pages/admin/community/AdminCommunityMembers'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const PaymentSuccessPage = lazy(() => import('./pages/PaymentSuccessPage'))
 const PaymentFailPage = lazy(() => import('./pages/PaymentFailPage'))
@@ -238,6 +254,18 @@ function App() {
                 <Route path="/board/blog-preview" element={<BlogPreviewPage />} />
                 <Route path="/board/:id" element={<BoardPostPage />} />
 
+                <Route path="/community" element={<CommunityLayout />}>
+                  <Route index element={<CommunityHome />} />
+                  <Route path="b/:slug" element={<CommunityBoard />} />
+                  <Route path="p/:id" element={<CommunityPost />} />
+                  <Route path="write" element={<CommunityWrite />} />
+                  <Route path="hot" element={<CommunityHot />} />
+                  <Route path="sub" element={<CommunitySubs />} />
+                  <Route path="news" element={<CommunityNews />} />
+                  <Route path="me" element={<CommunityMe />} />
+                  <Route path="search" element={<CommunitySearch />} />
+                  <Route path="my/:kind" element={<CommunityMyList />} />
+                </Route>
                 <Route path="/payment/success" element={<PaymentSuccessPage />} />
                 <Route path="/payment/billing-success" element={<BillingSuccessPage />} />
                 <Route path="/payment/fail" element={<PaymentFailPage />} />
@@ -280,6 +308,11 @@ function App() {
                 <Route path="/admin/revenue-analytics" element={<AdminRoute><AdminRevenueAnalytics /></AdminRoute>} />
                 <Route path="/admin/pages" element={<AdminRoute><AdminPages /></AdminRoute>} />
                 <Route path="/admin/storage-cleanup" element={<AdminRoute><AdminStorageCleanup /></AdminRoute>} />
+                <Route path="/admin/community/posts" element={<AdminRoute><AdminCommunityPosts /></AdminRoute>} />
+                <Route path="/admin/community/home" element={<AdminRoute><AdminCommunityHome /></AdminRoute>} />
+                <Route path="/admin/community/queue" element={<AdminRoute><AdminCommunityQueue /></AdminRoute>} />
+                <Route path="/admin/community/boards" element={<AdminRoute><AdminCommunityBoards /></AdminRoute>} />
+                <Route path="/admin/community/members" element={<AdminRoute><AdminCommunityMembers /></AdminRoute>} />
                 <Route path="/admin/performance" element={<AdminRoute><AdminPerformance /></AdminRoute>} />
                 <Route path="*" element={<NotFoundPage />} />
               </Routes>
