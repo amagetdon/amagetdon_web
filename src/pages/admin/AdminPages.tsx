@@ -60,6 +60,7 @@ const NAV_VISIBILITY_ITEMS: Array<{ key: keyof NavVisibility; label: string; pat
   { key: 'newsletter', label: '아마겟돈 뉴스레터', path: '/board' },
   { key: 'results', label: '수강 성과', path: '/results' },
   { key: 'faq', label: 'FAQ', path: '/faq' },
+  { key: 'community', label: '커뮤니티', path: '/community' },
 ]
 
 // 상세 랜딩 본문 이미지 일괄 가로폭 (px)

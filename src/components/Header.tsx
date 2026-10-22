@@ -35,6 +35,7 @@ function Header() {
     { label: '아마겟돈 뉴스레터', path: '/board', key: 'newsletter' },
     { label: '수강 성과', path: '/results', key: 'results' },
     { label: 'FAQ', path: '/faq', key: 'faq' },
+    { label: '커뮤니티', path: '/community', key: 'community' },
   ]
 
   const navItems = [
@@ -50,6 +51,7 @@ function Header() {
     if (itemPath === '/reviews') return currentPath === '/reviews'
     if (itemPath === '/board') return currentPath.startsWith('/board')
     if (itemPath === '/faq') return currentPath === '/faq'
+    if (itemPath === '/community') return currentPath.startsWith('/community')
     if (itemPath.startsWith('/landing/')) return currentPath === itemPath
     return currentPath === itemPath
   }

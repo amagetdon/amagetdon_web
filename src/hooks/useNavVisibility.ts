@@ -11,6 +11,7 @@ export interface NavVisibility {
   newsletter: boolean
   results: boolean
   faq: boolean
+  community: boolean
 }
 
 export const DEFAULT_NAV_VISIBILITY: NavVisibility = {
@@ -21,6 +22,7 @@ export const DEFAULT_NAV_VISIBILITY: NavVisibility = {
   newsletter: true,
   results: true,
   faq: true,
+  community: true,
 }
 
 let cached: NavVisibility | null = null
