@@ -4,7 +4,8 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../../contexts/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { communityService } from '../../services/communityService'
-import { courseLinkFor } from '../../lib/communityUtils'
+import { courseLinkFor, useIsPc } from '../../lib/communityUtils'
+import { Pager, PcSearchBar, PostTable } from '../../components/community/CommunityPc'
 import { PinnedRows, PostList, Spinner, WriteFab } from '../../components/community/CommunityParts'
 import { useCommunity } from './communityState'
 import type { CommunityBanner, CommunityPin, CommunityPostView, CommunityTile } from '../../types/community'
@@ -13,6 +14,11 @@ type HomeTab = 'all' | 'notice'
 
 // 커뮤니티 홈: 제목 줄 · 탭(홈·인기·MY구독·전체공지) · 배너 · 바로가기 · 진행 중 강의 · 고정 · 추천/최신
 export default function CommunityHome() {
+  const pc = useIsPc()
+  return pc ? <HomePc /> : <HomeMobile />
+}
+
+function HomeMobile() {
   const { boards, readable, setDrawerOpen, unread, boardById } = useCommunity()
   const [params, setParams] = useSearchParams()
   const tab: HomeTab = params.get('t') === 'notice' ? 'notice' : 'all'
@@ -178,6 +184,85 @@ function MyCourses() {
         )
       })}
       <div className="divider8" />
+    </>
+  )
+}
+
+const PC_PAGE_SIZE = 20
+
+/** PC 홈: 배너 · 바로가기 · 전체글보기 표(홈 고정 글 맨 위) · 페이지 번호 · 검색 */
+function HomePc() {
+  const { boards, readable, boardById } = useCommunity()
+  const [params, setParams] = useSearchParams()
+  const page = Math.max(1, Number(params.get('page')) || 1)
+  const notice = params.get('t') === 'notice'
+  const [banners, setBanners] = useState<CommunityBanner[]>([])
+  const [tiles, setTiles] = useState<CommunityTile[]>([])
+  const [pins, setPins] = useState<(CommunityPin & { post: CommunityPostView })[]>([])
+  const [data, setData] = useState<{ posts: CommunityPostView[]; total: number } | null>(null)
+  const boardIds = useMemo(
+    () => boards.filter((b) => b.enabled && readable.has(b.id) && (notice ? b.kind === 'notice' : true)).map((b) => b.id),
+    [boards, readable, notice],
+  )
+
+  useEffect(() => {
+    Promise.all([communityService.banners(), communityService.tiles(), communityService.pins('home')])
+      .then(([b, t, p]) => { setBanners(b); setTiles(t); setPins(p) })
+      .catch(() => undefined)
+  }, [])
+
+  useEffect(() => {
+    let alive = true
+    communityService.listPage({ boardIds, page, pageSize: PC_PAGE_SIZE })
+      .then((r) => { if (alive) setData(r) })
+      .catch((e) => { if (alive) { setData({ posts: [], total: 0 }); toast.error(e instanceof Error ? e.message : '글을 불러오지 못했어요.') } })
+    return () => { alive = false }
+  }, [boardIds, page])
+
+  const linkOf = (x: { link_board_id: number | null; link_url: string | null }) => {
+    if (x.link_board_id) { const b = boardById(x.link_board_id); return b ? `/community/b/${b.slug}` : null }
+    return x.link_url
+  }
+  const go = (next: { page?: number; notice?: boolean }) => {
+    const p = new URLSearchParams()
+    const n = next.notice ?? notice
+    if (n) p.set('t', 'notice')
+    if (next.page && next.page > 1) p.set('page', String(next.page))
+    setData(null)
+    setParams(p)
+    window.scrollTo(0, 0)
+  }
+
+  return (
+    <>
+      {!notice && page === 1 && banners.length > 0 && <BannerSlides banners={banners} linkOf={linkOf} />}
+      {!notice && page === 1 && tiles.length > 0 && (
+        <div className="tiles">
+          {tiles.map((t) => {
+            const to = linkOf(t)
+            const inner = (<>
+              <span className="ic"><i className={`ti ${t.icon || 'ti-point'}`} /></span>
+              <span style={{ minWidth: 0 }}><b>{t.title}</b>{t.subtitle && <span>{t.subtitle}</span>}</span>
+            </>)
+            return to?.startsWith('http')
+              ? <a key={t.id} className={`tile${t.highlight ? ' g' : ''}`} href={to} target="_blank" rel="noreferrer">{inner}</a>
+              : <Link key={t.id} className={`tile${t.highlight ? ' g' : ''}`} to={to || '/community'}>{inner}</Link>
+          })}
+        </div>
+      )}
+      <div className="pc-head" style={{ marginTop: 8 }}>
+        <h2>{notice ? '전체공지' : '전체글보기'}</h2>
+        {data && <p>{data.total.toLocaleString()}개의 글</p>}
+        <span className="sp" />
+        <button className="opt" onClick={() => go({ notice: !notice })}>{notice ? '전체글 보기' : '공지만 보기'}</button>
+      </div>
+      {data === null ? <Spinner /> : (
+        <>
+          <PostTable posts={data.posts} pins={page === 1 && !notice ? pins : []} showBoard />
+          <Pager page={page} total={data.total} pageSize={PC_PAGE_SIZE} onPage={(n) => go({ page: n })} />
+        </>
+      )}
+      <PcSearchBar />
     </>
   )
 }

@@ -5,22 +5,25 @@ import { useAuth } from '../../contexts/AuthContext'
 import { rememberPostLogin } from '../../lib/postLogin'
 import { communityService } from '../../services/communityService'
 import { BoardDrawer, BottomNav, LockView, Spinner } from '../../components/community/CommunityParts'
+import { PcSidebar } from '../../components/community/CommunityPc'
+import { useIsPc } from '../../lib/communityUtils'
 import { CommunityProvider } from './CommunityContext'
 import { useCommunity } from './communityState'
 import './community.css'
 
 // /community 아래 모든 화면의 틀: 로그인·닉네임 확인 → 화면(Outlet) + 하단 탭 + 게시판 서랍
 export default function CommunityLayout() {
+  const pc = useIsPc()
   return (
     <CommunityProvider>
-      <div className="cmty">
-        <Gate />
+      <div className={pc ? 'cmty pc' : 'cmty'}>
+        <Gate pc={pc} />
       </div>
     </CommunityProvider>
   )
 }
 
-function Gate() {
+function Gate({ pc }: { pc: boolean }) {
   const { user, loading } = useAuth()
   const { ready, error, member, reload } = useCommunity()
   const location = useLocation()
@@ -49,6 +52,15 @@ function Gate() {
     )
   }
   if (!member) return <Onboarding />
+  if (pc) {
+    // PC: 네이버 카페 PC 방식 — 왼쪽 메뉴 + 넓은 본문(하단 탭·떠 있는 글쓰기 버튼·서랍 없음)
+    return (
+      <div className="cm-pc">
+        <aside><PcSidebar /></aside>
+        <main className="cm-pc-main"><Outlet /></main>
+      </div>
+    )
+  }
   return (
     <>
       <Outlet />
