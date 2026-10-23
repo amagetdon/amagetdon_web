@@ -140,10 +140,10 @@ export default function CommunityPost() {
       <Avatar name={c.author?.nickname} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <b>{c.deleted_at ? '알 수 없음' : c.author?.nickname ?? '알 수 없음'}</b>
-        {!c.deleted_at && c.author_id === post.author_id && <span className="tag me">작성자</span>}
+        {!c.deleted_at && c.author_id === post.author_id && <span className="tag mine">작성자</span>}
         {!c.deleted_at && c.is_instructor && <span className="tag ins">강사</span>}
         {!c.deleted_at && c.author?.badge === 'staff' && <span className="tag staff">스탭</span>}
-        {c.is_pinned && !re && <span className="tag me"><i className="ti ti-pin" style={{ fontSize: 11 }} />고정</span>}
+        {c.is_pinned && !re && <span className="tag mine"><i className="ti ti-pin" style={{ fontSize: 11 }} />고정</span>}
         <p style={c.deleted_at || c.is_hidden ? { color: 'var(--g5)' } : undefined}>
           {c.is_hidden && !c.deleted_at ? '숨김 처리된 댓글이에요.' : <BodyText text={c.body} />}
         </p>
