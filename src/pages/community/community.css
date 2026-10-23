@@ -278,3 +278,63 @@
 .cmty .cm-load{display:block;width:100%;padding:14px;text-align:center;font-size:13.5px;color:var(--g6)}
 .cmty .sl{color:inherit}
 @media (min-width:431px){.cmty{border-left:1px solid var(--g2);border-right:1px solid var(--g2)}}
+
+/* ───── PC(1024px 이상): 네이버 카페 PC 방식 — 왼쪽 메뉴 + 넓은 본문 ───── */
+.cmty.pc{max-width:1140px;padding:24px 20px 60px;min-height:0;border:0;overflow:visible}
+.cmty.pc .cm-pc{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;align-items:start}
+.cmty.pc .cm-pc>aside{position:sticky;top:16px}
+.cmty.pc .cm-pc-main{min-width:0;border:1px solid var(--g2);background:#fff;min-height:560px}
+/* 모바일 전용 요소 숨김 */
+.cmty.pc .nav,.cmty.pc .fabw,.cmty.pc .appbar .ib[aria-label="게시판 메뉴"],.cmty.pc .ctitle button[aria-label="게시판 메뉴"]{display:none!important}
+.cmty.pc .appbar{position:static;height:44px;border-bottom:1px solid var(--g2)}
+.cmty.pc .cbox,.cmty.pc .tool{position:static;transform:none;left:auto;width:100%;border-top:1px solid var(--g2)}
+.cmty.pc .cbox .reply{position:static}
+.cmty.pc .cmts{padding-bottom:16px}
+.cmty.pc .cm-sheet{bottom:auto;top:50%;transform:translate(-50%,-50%);border-radius:10px;width:420px}
+/* 사이드바 */
+.cmty .pc-side{display:flex;flex-direction:column;gap:10px;font-size:13px}
+.cmty .pc-box{border:1px solid var(--g2);padding:14px;background:#fff}
+.cmty .pc-cafe b{display:block;font-size:15px;font-weight:800}.cmty .pc-cafe p{color:var(--g5);font-size:12px;margin-top:2px}
+.cmty .pc-cafe dl{display:flex;justify-content:space-between;margin:10px 0 0;padding-top:10px;border-top:1px solid var(--g1)}.cmty .pc-cafe dt{color:var(--g6)}.cmty .pc-cafe dd{margin:0;font-weight:600}
+.cmty .pc-me .who{display:flex;align-items:center;gap:6px;padding-bottom:8px;border-bottom:1px solid var(--g1)}.cmty .pc-me .who b{font-size:14px}
+.cmty .pc-me ul{padding:6px 0}.cmty .pc-me li{display:flex;justify-content:space-between;padding:3px 0}.cmty .pc-me li a{color:var(--g8)}.cmty .pc-me li a:hover{text-decoration:underline}.cmty .pc-me li span{font-weight:600}.cmty .pc-me li .red{color:#e5484d}
+.cmty .pc-link{display:block;font-size:12px;color:var(--g5);padding-top:6px;border-top:1px solid var(--g1)}
+.cmty .pc-write{height:40px;background:var(--ink);color:#fff;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;gap:4px;width:100%}.cmty .pc-write .ti{font-size:17px}
+.cmty .pc-sfind{display:flex;border:1px solid var(--g3);background:#fff}.cmty .pc-sfind input{flex:1;min-width:0;height:32px;border:0;padding:0 8px;outline:none;font-size:13px}.cmty .pc-sfind button{width:32px;display:grid;place-items:center;color:var(--g6)}.cmty .pc-sfind .ti{font-size:16px}
+.cmty .pc-menu{border:1px solid var(--g2);background:#fff;padding:6px 0 10px}
+.cmty .pc-grp{padding:10px 14px 4px;font-size:12px;color:var(--g5);font-weight:700;border-top:1px solid var(--g1);margin-top:6px}
+.cmty .pc-bd{display:flex;align-items:center;gap:4px;padding:4px 14px;color:var(--g8);font-size:13px}.cmty .pc-bd .nm{display:flex;align-items:center;gap:4px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cmty .pc-bd .ti{font-size:14px;color:var(--g5)}.cmty .pc-bd:hover .nm{text-decoration:underline}.cmty .pc-bd.on{font-weight:700;color:var(--pd)}.cmty .pc-bd.lk{color:var(--g4)}
+.cmty .pc-bd .n{font-style:normal;font-size:10px;font-weight:700;color:#fff;background:#e5484d;border-radius:2px;padding:0 3px;line-height:14px}
+/* 본문 머리 */
+.cmty .pc-head{display:flex;align-items:flex-end;gap:10px;padding:18px 20px 12px;border-bottom:2px solid var(--ink)}
+.cmty .pc-head h2{font-size:19px;font-weight:800}.cmty .pc-head p{font-size:12.5px;color:var(--g5);margin-left:4px}.cmty .pc-head .sp{flex:1}
+.cmty .pc-head .opt{font-size:12.5px;color:var(--g6);display:flex;align-items:center;gap:2px}
+/* 표 */
+.cmty .pc-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
+.cmty .pc-table th{height:36px;font-weight:600;color:var(--g6);border-bottom:1px solid var(--g3);background:#fafafa;font-size:12.5px}
+.cmty .pc-table td{height:38px;border-bottom:1px solid var(--g1);text-align:center;color:var(--g6);padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmty .pc-table td.t{text-align:left}.cmty .pc-table td.au{text-align:left;color:var(--g8)}
+.cmty .pc-table .tt{color:var(--ink);display:inline-flex;align-items:center;gap:3px;max-width:100%}.cmty .pc-table .tt:hover{text-decoration:underline}
+.cmty .pc-table .cc{color:#e5484d;font-weight:600;font-size:12px}.cmty .pc-table .pic{font-size:14px;color:var(--g5)}.cmty .pc-table .del{color:var(--g5)}
+.cmty .pc-table .new{font-style:normal;font-size:10px;font-weight:700;color:#e5484d}
+.cmty .pc-table tr.pin td{background:#f6f8f7}.cmty .pc-table tr.pin .tt{font-weight:600}
+.cmty .pc-table tr.cur td{background:#f3fbf6}.cmty .pc-table tr.cur .tt{font-weight:700}
+.cmty .pc-table .lb{font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:2px;padding:0 4px;color:var(--pd)}.cmty .pc-table .lb.notice{color:#e5484d}.cmty .pc-table .lb.must{color:#c27c0e}
+.cmty .pc-table .hdc .hd{font-size:12px}.cmty .pc-table .empty{height:120px;color:var(--g5)}
+.cmty .pc-table .tag{font-size:10px}
+.cmty .pc-pager{display:flex;justify-content:center;gap:2px;padding:18px 0 6px}
+.cmty .pc-pager button{min-width:28px;height:28px;padding:0 6px;font-size:13px;color:var(--g8);display:inline-flex;align-items:center;justify-content:center;gap:2px}.cmty .pc-pager button:hover{text-decoration:underline}
+.cmty .pc-pager button.on{border:1px solid var(--g3);font-weight:700;color:var(--ink)}.cmty .pc-pager .ti{font-size:14px}
+.cmty .pc-search{display:flex;justify-content:center;gap:4px;padding:10px 0 24px}
+.cmty .pc-search input{width:300px;height:32px;border:1px solid var(--g3);padding:0 10px;outline:none;font-size:13px}.cmty .pc-search input:focus{border-color:var(--pd)}
+.cmty .pc-search button{height:32px;padding:0 14px;background:var(--g8);color:#fff;font-size:13px}
+.cmty .pc-sub{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 8px}.cmty .pc-sub b{font-size:14px;font-weight:700}.cmty .pc-sub span{font-size:12px;color:var(--g5)}
+/* 홈 배너·타일(PC) */
+.cmty.pc .bn-wrap{padding:16px 20px 0}.cmty.pc .sl{height:120px}
+.cmty.pc .tiles{grid-template-columns:repeat(4,1fr);padding:10px 20px 4px}
+/* 글 상세(PC) */
+.cmty.pc .dt{padding:20px 28px 0}.cmty.pc .dt h1{font-size:22px}.cmty.pc .body{padding:22px 28px;font-size:15.5px}
+.cmty.pc .acts{padding:12px 28px}.cmty.pc .cmts{padding:0 28px 16px}.cmty.pc .cm.pin{margin:0 -28px;padding:12px 28px}
+.cmty.pc .dt .photos img{max-width:720px}
+.cmty .pc-adj{padding:6px 0 0;border-top:8px solid var(--g1)}

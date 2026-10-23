@@ -162,6 +162,51 @@ export const communityService = {
     return decoratePosts(data as CommunityPost[])
   },
 
+  /** PC 표 목록용: 페이지 번호로 불러오기(전체 개수 포함) */
+  async listPage(o: Omit<ListPostsOptions, 'before' | 'limit'> & { page: number; pageSize: number }): Promise<{ posts: CommunityPostView[]; total: number }> {
+    let q = cdb.from('community_posts').select(POST_COLS, { count: 'exact' })
+    if (o.boardId) q = q.eq('board_id', o.boardId)
+    if (o.boardIds) q = q.in('board_id', o.boardIds.length ? o.boardIds : [-1])
+    if (o.head) q = q.eq('head', o.head)
+    if (o.authorId) q = q.eq('author_id', o.authorId)
+    if (!o.includeDeleted) q = q.is('deleted_at', null)
+    if (o.q) {
+      const term = o.q.replace(/[%_,()]/g, ' ').trim()
+      if (term) {
+        const { data: mem } = await cdb.from('community_members').select('user_id').ilike('nickname', `%${term}%`).limit(50)
+        const authorIds = (mem ?? []).map((m: { user_id: string }) => m.user_id)
+        const ors = [`title.ilike.%${term}%`, `body.ilike.%${term}%`]
+        if (authorIds.length) ors.push(`author_id.in.(${authorIds.join(',')})`)
+        q = q.or(ors.join(','))
+      }
+    }
+    const from = (o.page - 1) * o.pageSize
+    q = q.order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, from + o.pageSize - 1)
+    const { data, error, count } = await q
+    if (error) fail(error)
+    return { posts: await decoratePosts(data as CommunityPost[]), total: count ?? 0 }
+  },
+
+  /** 같은 게시판의 앞뒤 글(최신순으로 정렬해 돌려줌, 이 글 포함) */
+  async adjacent(post: { id: number; board_id: number; created_at: string }, each = 3): Promise<CommunityPostView[]> {
+    const base = () => cdb.from('community_posts').select(POST_COLS).eq('board_id', post.board_id).is('deleted_at', null)
+    const [newer, older] = await Promise.all([
+      base().or(`created_at.gt.${post.created_at},and(created_at.eq.${post.created_at},id.gt.${post.id})`)
+        .order('created_at', { ascending: true }).order('id', { ascending: true }).limit(each),
+      base().or(`created_at.lt.${post.created_at},and(created_at.eq.${post.created_at},id.lt.${post.id})`)
+        .order('created_at', { ascending: false }).order('id', { ascending: false }).limit(each),
+    ])
+    const self = (await base().eq('id', post.id)).data ?? []
+    const rows = [...((newer.data ?? []) as CommunityPost[]).reverse(), ...(self as CommunityPost[]), ...((older.data ?? []) as CommunityPost[])]
+    return decoratePosts(rows)
+  },
+
+  /** 커뮤니티 회원 수(닉네임을 정한 회원) */
+  async memberCount(): Promise<number> {
+    const { count } = await cdb.from('community_members').select('user_id', { count: 'exact', head: true })
+    return count ?? 0
+  },
+
   async getPost(id: number): Promise<CommunityPostView | null> {
     const { data, error } = await cdb.from('community_posts').select(POST_COLS).eq('id', id).maybeSingle()
     if (error) fail(error)

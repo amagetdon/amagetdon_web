@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../contexts/AuthContext'
 import { communityService } from '../../services/communityService'
-import { splitLinks, timeLabel, useSignedUrls } from '../../lib/communityUtils'
+import { splitLinks, timeLabel, useIsPc, useSignedUrls } from '../../lib/communityUtils'
+import { PostTable } from '../../components/community/CommunityPc'
 import { AppBar, Avatar, GradeTag, HeadTag, Spinner } from '../../components/community/CommunityParts'
 import { useCommunity } from './communityState'
 import { REPORT_REASON_LABEL, type CommunityComment, type CommunityPostImage, type CommunityPostView, type CommunityReportReason } from '../../types/community'
@@ -30,6 +31,8 @@ export default function CommunityPost() {
   const [text, setText] = useState('')
   const [replyTo, setReplyTo] = useState<CommunityComment | null>(null)
   const [sending, setSending] = useState(false)
+  const pc = useIsPc()
+  const [adj, setAdj] = useState<CommunityPostView[]>([])
 
   const loadComments = useCallback(async () => setComments(await communityService.comments(postId)), [postId])
 
@@ -59,6 +62,16 @@ export default function CommunityPost() {
   }, [postId, loadComments])
 
   const urls = useSignedUrls(images.map((i) => i.path))
+  const adjKey = post ? `${post.id}|${post.board_id}|${post.created_at}` : ''
+  // PC: 같은 게시판 앞뒤 글
+  useEffect(() => {
+    if (!pc || !adjKey) return
+    const [id, boardId, createdAt] = adjKey.split('|')
+    let alive = true
+    communityService.adjacent({ id: Number(id), board_id: Number(boardId), created_at: createdAt }, 3)
+      .then((r) => { if (alive) setAdj(r) }).catch(() => undefined)
+    return () => { alive = false }
+  }, [pc, adjKey])
   const board = post ? boardById(post.board_id) : undefined
   const mine = !!post && post.author_id === user?.id
   const canPin = !!access?.admin || member?.badge === 'instructor'
@@ -204,6 +217,13 @@ export default function CommunityPost() {
           <input id="cm-input" value={text} maxLength={1000} onChange={(e) => setText(e.target.value)} placeholder={replyTo ? '답글을 남겨보세요' : '댓글을 남겨보세요'}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) void send() }} />
           <button className="send" onClick={() => void send()} disabled={sending || !text.trim()}>등록</button>
+        </div>
+      )}
+
+      {pc && adj.length > 1 && board && (
+        <div className="pc-adj">
+          <div className="pc-sub"><b>'{board.name}' 게시판 글</b><Link to={`/community/b/${board.slug}`}><span>목록 보기</span></Link></div>
+          <PostTable posts={adj} currentId={post.id} />
         </div>
       )}
 

@@ -69,3 +69,24 @@ export const draftStore = {
     try { localStorage.removeItem(key) } catch { /* 저장 불가 */ }
   },
 }
+
+/** PC 화면(1024px 이상)인지 — PC 는 네이버 카페 PC 방식(왼쪽 메뉴 + 표 목록), 모바일은 카페 앱 방식 */
+export const PC_QUERY = '(min-width: 1024px)'
+export function useIsPc(): boolean {
+  const [pc, setPc] = useState(() => typeof window !== 'undefined' && window.matchMedia(PC_QUERY).matches)
+  useEffect(() => {
+    const mq = window.matchMedia(PC_QUERY)
+    const on = () => setPc(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
+  return pc
+}
+
+/** 표의 작성일: 오늘이면 시:분, 아니면 2026.10.23. */
+export function pcDate(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}.`
+}

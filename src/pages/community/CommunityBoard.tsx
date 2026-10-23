@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { communityService } from '../../services/communityService'
 import { AppBar, LockView, PinnedRows, PostList, SearchButton, Spinner, WriteFab } from '../../components/community/CommunityParts'
 import { useCommunity } from './communityState'
+import { Pager, PcSearchBar, PostTable } from '../../components/community/CommunityPc'
+import { useIsPc } from '../../lib/communityUtils'
 import { HEAD_LABEL, type CommunityBoard as Board, type CommunityPin, type CommunityPostView } from '../../types/community'
 
 // 게시판 목록: 이름·설명·즐겨찾기 · 말머리 거르기 · 고정 줄 · 글 목록(더보기)
@@ -11,11 +13,13 @@ export default function CommunityBoard() {
   const { slug = '' } = useParams()
   const { boardBySlug, readable, favorites, toggleFavorite, refreshCounts, access } = useCommunity()
   const board = boardBySlug(slug)
+  const pc = useIsPc()
 
   if (!board || (!board.enabled && !access?.admin)) {
     return <><AppBar title="게시판" back menu /><p className="cm-empty">게시판을 찾을 수 없어요.</p></>
   }
   if (!readable.has(board.id)) return <><AppBar title={board.name} back /><BoardLock board={board} /></>
+  if (pc) return <BoardBodyPc key={board.id} board={board} fav={favorites.has(board.id)} onFav={() => void toggleFavorite(board.id)} onRead={refreshCounts} />
   return <BoardBody key={board.id} board={board} fav={favorites.has(board.id)} onFav={() => void toggleFavorite(board.id)} onRead={refreshCounts} />
 }
 
@@ -84,6 +88,66 @@ function BoardBody({ board, fav, onFav, onRead }: { board: Board; fav: boolean; 
       {posts === null ? <Spinner /> : <PostList posts={posts} empty="아직 글이 없어요. 첫 글을 남겨 보세요!" />}
       {posts && more && <button className="cm-load" onClick={() => void loadMore()}>더보기</button>}
       {canWrite && <WriteFab boardSlug={board.slug} />}
+    </>
+  )
+}
+
+const PAGE_SIZE = 20
+
+/** PC: 게시판 머리 · 말머리 · 표(고정 글 맨 위) · 페이지 번호 · 검색 */
+function BoardBodyPc({ board, fav, onFav, onRead }: { board: Board; fav: boolean; onFav: () => void; onRead: () => Promise<void> }) {
+  const [params, setParams] = useSearchParams()
+  const page = Math.max(1, Number(params.get('page')) || 1)
+  const head = params.get('head') ?? ''
+  const [pins, setPins] = useState<(CommunityPin & { post: CommunityPostView })[]>([])
+  const [data, setData] = useState<{ posts: CommunityPostView[]; total: number } | null>(null)
+
+  useEffect(() => {
+    communityService.pins('board', board.id).then(setPins).catch(() => undefined)
+    communityService.markBoardRead(board.id).then(() => onRead()).catch(() => undefined)
+  }, [board.id, onRead])
+
+  useEffect(() => {
+    let alive = true
+    communityService.listPage({ boardId: board.id, head: head || undefined, page, pageSize: PAGE_SIZE })
+      .then((r) => { if (alive) setData(r) })
+      .catch((e) => { if (alive) { setData({ posts: [], total: 0 }); toast.error(e instanceof Error ? e.message : '글을 불러오지 못했어요.') } })
+    return () => { alive = false }
+  }, [board.id, head, page])
+
+  const go = (next: { page?: number; head?: string }) => {
+    const p = new URLSearchParams(params)
+    if (next.head !== undefined) { if (next.head) p.set('head', next.head); else p.delete('head'); p.delete('page') }
+    if (next.page) { if (next.page > 1) p.set('page', String(next.page)); else p.delete('page') }
+    setData(null)
+    setParams(p)
+    window.scrollTo(0, 0)
+  }
+
+  return (
+    <>
+      <div className="pc-head">
+        <h2>{board.name}</h2>
+        {board.description && <p>{board.description}</p>}
+        <span className="sp" />
+        <button className="opt" onClick={onFav} aria-label={fav ? '즐겨찾기 해제' : '즐겨찾기'}>
+          <i className={`ti ${fav ? 'ti-star-filled star on' : 'ti-star star'}`} style={{ fontSize: 16 }} />즐겨찾기
+        </button>
+      </div>
+      {board.kind === 'qna' && <p className="pc-sub"><span>질문을 올리면 48시간 안에 강사·스탭이 답해요.</span></p>}
+      {board.heads.length > 0 && (
+        <div className="cm-filter" style={{ padding: '10px 20px' }}>
+          <button className={head === '' ? 'on' : ''} onClick={() => go({ head: '' })}>전체</button>
+          {board.heads.map((h) => <button key={h} className={head === h ? 'on' : ''} onClick={() => go({ head: h })}>{HEAD_LABEL[h] ?? h}</button>)}
+        </div>
+      )}
+      {data === null ? <Spinner /> : (
+        <>
+          <PostTable posts={data.posts} pins={page === 1 && !head ? pins : []} />
+          <Pager page={page} total={data.total} pageSize={PAGE_SIZE} onPage={(n) => go({ page: n })} />
+        </>
+      )}
+      <PcSearchBar boardSlug={board.slug} />
     </>
   )
 }
