@@ -338,3 +338,11 @@
 .cmty.pc .acts{padding:12px 28px}.cmty.pc .cmts{padding:0 28px 16px}.cmty.pc .cm.pin{margin:0 -28px;padding:12px 28px}
 .cmty.pc .dt .photos img{max-width:720px}
 .cmty .pc-adj{padding:6px 0 0;border-top:8px solid var(--g1)}
+
+/* 이미지 배너: 가로 3:1 띠(PC·모바일 같음). 3:1 이미지는 잘리지 않고, 비율이 다르면 가운데 기준으로 맞춤 */
+.cmty .slides{align-items:flex-start}
+.cmty .slimg{flex:0 0 100%;scroll-snap-align:start;display:block;border-radius:12px;overflow:hidden;background:var(--g1);line-height:0;aspect-ratio:3/1}
+.cmty .slimg picture{display:block;width:100%;height:100%}.cmty .slimg img{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.cmty .dots button{width:5px;height:5px;border-radius:3px;background:var(--g3);padding:0}
+.cmty .dots button.on{width:14px;background:var(--ink)}
+.cmty.pc .slimg{border-radius:4px}

@@ -129,6 +129,10 @@ export interface CommunityBanner {
   link_url: string | null
   icon: string | null
   color: CommunityBannerColor
+  /** 이미지 배너: PC 이미지(있으면 글자형 대신 이미지로 보임) */
+  image_url: string | null
+  /** 이미지 배너: 모바일 이미지(없으면 PC 이미지) */
+  image_url_mobile: string | null
   sort_order: number
   enabled: boolean
 }

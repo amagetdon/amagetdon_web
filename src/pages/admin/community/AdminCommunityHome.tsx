@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import AdminLayout from '../../../components/admin/AdminLayout'
 import AdminFormModal from '../../../components/admin/AdminFormModal'
 import ConfirmDialog from '../../../components/admin/ConfirmDialog'
+import ImageUploader from '../../../components/admin/ImageUploader'
 import { communityAdminService, moveRow } from '../../../services/communityAdminService'
 import type { CommunityBanner, CommunityBannerColor, CommunityBoard, CommunityTile } from '../../../types/community'
 import { Chip, Field, IconBtn, LoadError, LoadingRows, MoveButtons, PageHeader, Toggle } from './CommunityAdminParts'
@@ -18,7 +19,11 @@ const colorOf = (c: CommunityBannerColor) => COLORS.find((x) => x.key === c) ?? 
 
 const NEW_BANNER: Partial<CommunityBanner> = {
   eyebrow: '', title: '', subtitle: '', button_text: '', link_board_id: null, link_url: null, icon: 'ti-broadcast', color: 'a', enabled: true,
+  image_url: null, image_url_mobile: null,
 }
+// 이미지 배너: 이미지 칸(image_url)에 빈 문자열이라도 있으면 이미지 방식으로 편집
+const NEW_IMAGE_BANNER: Partial<CommunityBanner> = { ...NEW_BANNER, icon: null, image_url: '' }
+const isImageDraft = (b: Partial<CommunityBanner>) => b.image_url != null
 const NEW_TILE: Partial<CommunityTile> = { title: '', subtitle: '', icon: 'ti-book', link_board_id: null, link_url: null, highlight: false, enabled: true }
 
 function modeOf(x: { link_board_id?: number | null; link_url?: string | null }): LinkMode {
@@ -58,7 +63,7 @@ function LinkEditor({ value, boards, onChange }: {
         <input
           value={value.link_url ?? ''}
           onChange={(e) => onChange({ link_board_id: null, link_url: e.target.value })}
-          placeholder="/courses/129 또는 https://..."
+          placeholder="/course/129 또는 https://..."
           className={`${inputCls} ${validLinkUrl(value.link_url ?? '') ? '' : '!border-red-400'}`}
         />
       )}
@@ -92,6 +97,14 @@ function PhonePreview({ banners, tiles }: { banners: Partial<CommunityBanner>[];
         ) : (
           <div className="flex overflow-x-auto gap-2 snap-x snap-mandatory rounded-xl [scrollbar-width:none]">
             {banners.map((b, i) => {
+              if (b.image_url != null) {
+                const src = b.image_url_mobile || b.image_url
+                return (
+                  <div key={b.id ?? `new-${i}`} className="shrink-0 w-full snap-start rounded-xl overflow-hidden bg-gray-100 aspect-[3/1]">
+                    {src ? <img src={src} alt={b.title ?? ''} className="block w-full h-full object-cover object-center" /> : <div className="h-full flex items-center justify-center text-xs text-gray-400">이미지(3:1)를 올려 주세요</div>}
+                  </div>
+                )
+              }
               const c = colorOf(b.color ?? 'a')
               const dark = (b.color ?? 'a') === 'a'
               return (
@@ -189,7 +202,9 @@ export default function AdminCommunityHome() {
 
   const saveDraft = async () => {
     if (!draft) return
-    if (!draft.title?.trim()) { toast.error('제목을 적어 주세요.'); return }
+    const img = isImageDraft(draft)
+    if (img && !draft.image_url?.trim()) { toast.error('PC 이미지를 올려 주세요.'); return }
+    if (!draft.title?.trim()) { toast.error(img ? '이미지 설명을 적어 주세요(이미지가 안 보일 때 대신 읽히는 글).' : '제목을 적어 주세요.'); return }
     if (!validLinkUrl(draft.link_url ?? '')) { toast.error('주소는 / 또는 https:// 로 시작해야 해요.'); return }
     const payload = { ...draft, icon: normIcon(draft.icon) || null, sort_order: draft.id ? draft.sort_order : Math.max(0, ...banners.map((b) => b.sort_order)) + 1 }
     try {
@@ -239,18 +254,25 @@ export default function AdminCommunityHome() {
             <div className={cardCls}>
               <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
                 <h2 className="text-sm font-bold text-gray-900">배너 슬라이드 <span className="text-xs text-gray-400 font-normal">켜진 {banners.filter((b) => b.enabled).length}장</span></h2>
-                <button type="button" className={btnLine} onClick={() => editBanner(NEW_BANNER)}><i className="ti ti-plus text-xs" /> 슬라이드 추가</button>
+                <span className="flex gap-2">
+                  <button type="button" className={btnPrimary} onClick={() => editBanner(NEW_IMAGE_BANNER)}><i className="ti ti-photo-plus text-xs" /> 이미지 배너 추가</button>
+                  <button type="button" className={btnLine} onClick={() => editBanner(NEW_BANNER)}><i className="ti ti-plus text-xs" /> 글자 배너 추가</button>
+                </span>
               </div>
               {banners.length === 0 && <p className="px-5 py-6 text-sm text-gray-400 text-center">배너가 없어요. '슬라이드 추가'로 만들어 보세요.</p>}
               {banners.map((b, i) => {
                 const c = colorOf(b.color)
                 return (
                   <div key={b.id} className={`flex items-center gap-3 px-5 py-3 border-b border-gray-50 last:border-none cursor-pointer ${draft?.id === b.id ? 'bg-[#2ED573]/5' : 'hover:bg-gray-50'}`} onClick={() => editBanner(b)}>
-                    <span className="w-14 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: c.bg, color: b.color === 'a' ? '#2ED573' : '#13803f' }}>
-                      <i className={`ti ${normIcon(b.icon) || 'ti-photo'} text-lg`} />
-                    </span>
+                    {b.image_url ? (
+                      <img src={b.image_url} alt="" className="w-[72px] h-10 rounded-lg object-cover shrink-0 bg-gray-100" />
+                    ) : (
+                      <span className="w-14 h-10 rounded-lg flex items-center justify-center shrink-0" style={{ background: c.bg, color: b.color === 'a' ? '#2ED573' : '#13803f' }}>
+                        <i className={`ti ${normIcon(b.icon) || 'ti-photo'} text-lg`} />
+                      </span>
+                    )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-900 truncate">{b.title}</p>
+                      <p className="text-sm font-bold text-gray-900 truncate">{b.image_url ? <span className="text-[11px] font-bold text-[#13b05a] mr-1">이미지</span> : null}{b.title}</p>
                       <p className="text-xs text-gray-400 truncate">
                         {[b.eyebrow, b.button_text].filter(Boolean).join(' · ')}{b.button_text ? ' → ' : ' · '}{linkText(b.link_board_id, b.link_url, boardName)}
                       </p>
@@ -269,9 +291,31 @@ export default function AdminCommunityHome() {
             {draft && (
               <div className={`${cardCls} p-5`} key={draftKey}>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold text-gray-900">{draft.id ? '배너 수정' : '새 배너'}</h3>
+                  <h3 className="text-sm font-bold text-gray-900">{isImageDraft(draft) ? (draft.id ? '이미지 배너 수정' : '새 이미지 배너') : (draft.id ? '배너 수정' : '새 배너')}</h3>
                   <button type="button" className="text-xs text-gray-400 bg-transparent border-none cursor-pointer hover:text-gray-700" onClick={() => setDraft(null)}>닫기</button>
                 </div>
+                {isImageDraft(draft) ? (
+                <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
+                  <Field label="PC 이미지 *" hint="권장 2000×667 (가로:세로 3:1). 배너 자리는 3:1 가로 띠라, 비율이 다르면 가운데 기준으로 잘려요." className="col-span-2 max-sm:col-span-1">
+                    <ImageUploader bucket="banners" path="community" currentUrl={draft.image_url || null} objectFit="cover" className="w-full aspect-[3/1] bg-gray-50"
+                      onUpload={(url) => setDraft({ ...draft, image_url: url || '' })} />
+                  </Field>
+                  <Field label="모바일 이미지(선택)" hint="권장 3:1(예: 1200×400). 비워 두면 PC 이미지를 그대로 써요." className="col-span-2 max-sm:col-span-1">
+                    <ImageUploader bucket="banners" path="community" currentUrl={draft.image_url_mobile || null} objectFit="cover" className="w-full max-w-[420px] aspect-[3/1] bg-gray-50"
+                      onUpload={(url) => setDraft({ ...draft, image_url_mobile: url || null })} />
+                  </Field>
+                  <Field label="이미지 설명 *" hint="이미지가 안 보일 때 대신 읽히는 글(화면에는 안 나와요)" className="col-span-2 max-sm:col-span-1">
+                    <input value={draft.title ?? ''} onChange={(e) => setDraft({ ...draft, title: e.target.value })} className={inputCls} placeholder="예: 무료강의 10/23 AI 블로그 수익화 정답지" maxLength={80} />
+                  </Field>
+                  <Field label="누르면 이동" hint="강의 상세는 /course/강의번호, 바깥 주소는 https://..." className="col-span-2 max-sm:col-span-1">
+                    <LinkEditor value={draft} boards={boards} onChange={(v) => setDraft({ ...draft, ...v })} />
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" className="accent-[#2ED573]" checked={draft.enabled !== false} onChange={(e) => setDraft({ ...draft, enabled: e.target.checked })} />
+                    켜기(사용자 화면에 보이기)
+                  </label>
+                </div>
+                ) : (
                 <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
                   <Field label="작은 글씨">
                     <input value={draft.eyebrow ?? ''} onChange={(e) => setDraft({ ...draft, eyebrow: e.target.value })} className={inputCls} placeholder="예: 무료 라이브" maxLength={30} />
@@ -305,6 +349,7 @@ export default function AdminCommunityHome() {
                     켜기(사용자 화면에 보이기)
                   </label>
                 </div>
+                )}
                 <div className="flex justify-end gap-2 mt-5">
                   <button type="button" className={btnLine} onClick={() => setDraft(null)}>취소</button>
                   <button type="button" className={btnPrimary} disabled={busy} onClick={saveDraft}><i className="ti ti-device-floppy text-sm" /> 저장</button>
