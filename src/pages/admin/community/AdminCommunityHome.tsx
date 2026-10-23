@@ -100,8 +100,8 @@ function PhonePreview({ banners, tiles }: { banners: Partial<CommunityBanner>[];
               if (b.image_url != null) {
                 const src = b.image_url_mobile || b.image_url
                 return (
-                  <div key={b.id ?? `new-${i}`} className="shrink-0 w-full snap-start rounded-xl overflow-hidden bg-gray-100">
-                    {src ? <img src={src} alt={b.title ?? ''} className="block w-full h-auto" /> : <div className="h-[128px] flex items-center justify-center text-xs text-gray-400">이미지를 올려 주세요</div>}
+                  <div key={b.id ?? `new-${i}`} className="shrink-0 w-full snap-start rounded-xl overflow-hidden bg-gray-100 aspect-[3/1]">
+                    {src ? <img src={src} alt={b.title ?? ''} className="block w-full h-full object-cover object-center" /> : <div className="h-full flex items-center justify-center text-xs text-gray-400">이미지(3:1)를 올려 주세요</div>}
                   </div>
                 )
               }
@@ -296,12 +296,12 @@ export default function AdminCommunityHome() {
                 </div>
                 {isImageDraft(draft) ? (
                 <div className="grid grid-cols-2 max-sm:grid-cols-1 gap-4">
-                  <Field label="PC 이미지 *" hint="가로형 권장(예: 1200×680). 잘리지 않고 비율 그대로 보여요." className="col-span-2 max-sm:col-span-1">
-                    <ImageUploader bucket="banners" path="community" currentUrl={draft.image_url || null} objectFit="contain" className="w-full h-44 bg-gray-50"
+                  <Field label="PC 이미지 *" hint="권장 2000×667 (가로:세로 3:1). 배너 자리는 3:1 가로 띠라, 비율이 다르면 가운데 기준으로 잘려요." className="col-span-2 max-sm:col-span-1">
+                    <ImageUploader bucket="banners" path="community" currentUrl={draft.image_url || null} objectFit="cover" className="w-full aspect-[3/1] bg-gray-50"
                       onUpload={(url) => setDraft({ ...draft, image_url: url || '' })} />
                   </Field>
-                  <Field label="모바일 이미지(선택)" hint="비워 두면 PC 이미지를 그대로 써요." className="col-span-2 max-sm:col-span-1">
-                    <ImageUploader bucket="banners" path="community" currentUrl={draft.image_url_mobile || null} objectFit="contain" className="w-full h-36 bg-gray-50"
+                  <Field label="모바일 이미지(선택)" hint="권장 3:1(예: 1200×400). 비워 두면 PC 이미지를 그대로 써요." className="col-span-2 max-sm:col-span-1">
+                    <ImageUploader bucket="banners" path="community" currentUrl={draft.image_url_mobile || null} objectFit="cover" className="w-full max-w-[420px] aspect-[3/1] bg-gray-50"
                       onUpload={(url) => setDraft({ ...draft, image_url_mobile: url || null })} />
                   </Field>
                   <Field label="이미지 설명 *" hint="이미지가 안 보일 때 대신 읽히는 글(화면에는 안 나와요)" className="col-span-2 max-sm:col-span-1">
