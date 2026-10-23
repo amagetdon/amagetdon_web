@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { purchaseService } from '../services/purchaseService'
 import { progressService } from '../services/progressService'
@@ -624,6 +624,16 @@ function MyClassroomPage() {
         )}
         {/* 내 강의실 */}
         <h1 className="text-3xl font-bold mt-16 mb-5 max-sm:mt-10">내 강의실</h1>
+
+        {/* 수강생 커뮤니티 입구 */}
+        <Link to="/community" className="flex items-center gap-3 mb-5 px-4 py-3.5 rounded-xl bg-[#f3fbf6] border border-[#dcf2e5] no-underline text-gray-900">
+          <span className="w-10 h-10 rounded-lg bg-[#13402e] text-white grid place-items-center shrink-0"><i className="ti ti-messages text-xl" /></span>
+          <span className="flex-1 min-w-0">
+            <b className="block text-[15px]">수강생 커뮤니티 &apos;아마 돈 벌고 있을걸요?&apos;</b>
+            <span className="block text-xs text-gray-500 mt-0.5">수익화 실행 기록을 나누고, 질문방에서 답을 받아요</span>
+          </span>
+          <i className="ti ti-chevron-right text-gray-400 text-lg" />
+        </Link>
 
         <div className="grid grid-cols-2 gap-1 p-1 mb-6 bg-gray-100 rounded-xl" role="tablist" aria-label="내 강의실 보기">
           {([['course', '내 강의', coursePurchases.length], ['ebook', '내 전자책', ebookPurchases.length]] as const).map(([key, label, count]) => (

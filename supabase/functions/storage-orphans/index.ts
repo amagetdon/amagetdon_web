@@ -1,7 +1,7 @@
 // Storage 의 orphan 파일(어느 DB 컬럼에서도 참조하지 않는 파일) 을 찾아주거나 일괄 삭제.
 // admin 만 호출 가능. service_role 토큰 또는 admin 사용자 JWT.
 //
-// Supabase Storage 7개 버킷 + Cloudflare R2 (external_storage_config 활성 시) 모두 스캔.
+// Supabase Storage 8개 버킷(커뮤니티 사진 'community' 포함) + Cloudflare R2 (external_storage_config 활성 시) 모두 스캔.
 //
 // POST 본문:
 //   { action: 'buckets' }
@@ -33,7 +33,12 @@ type ListItem = {
 type BucketSpec = { source: 'supabase' | 'r2'; name: string }
 
 // Supabase 검사 대상 버킷 목록
-const SUPABASE_BUCKETS = ['courses', 'ebooks', 'instructors', 'banners', 'coupons', 'achievements', 'results']
+const SUPABASE_BUCKETS = ['courses', 'ebooks', 'instructors', 'banners', 'coupons', 'achievements', 'results', 'community']
+
+// 커뮤니티 사진은 글 등록 전에 먼저 올라가므로(글 쓰는 중), 올린 지 24시간이 안 된 파일은 고아로 보지 않는다.
+const RECENT_GRACE_MS: Record<string, number> = { community: 24 * 60 * 60 * 1000 }
+// 비공개 버킷: 미리보기 주소를 서명 주소로 만든다
+const PRIVATE_BUCKETS = ['community']
 
 interface R2Config {
   enabled: boolean
@@ -229,6 +234,11 @@ async function collectReferencedUrls(
   // 관리자 게시판 본문/가입유도 제목(RichTextEditor) 안의 <img src> 도 banners 버킷에 올라가므로 참조로 등록.
   // 누락 시 게시판 이미지가 orphan 으로 잡혀 삭제될 수 있다.
   await optional('board_posts', 'content, cta_title', (r) => { addJson(r.content); addJson(r.cta_title) })
+  // 커뮤니티 글 사진: 비공개 버킷이라 URL 이 아니라 버킷 안 경로(<user_id>/<이름>)만 저장돼 있다 → 'community/<path>' 로 직접 등록.
+  // 표가 아직 없으면(마이그레이션 전) optional 이 건너뛴다.
+  await optional('community_post_images', 'path', (r) => {
+    if (typeof r.path === 'string' && r.path) supabaseRefs.add(`community/${r.path.replace(/^\/+/, '')}`)
+  })
 
   return { supabase: supabaseRefs, r2: r2Refs }
 }
@@ -350,12 +360,28 @@ Deno.serve(async (req: Request) => {
       for (const bucket of finalBuckets) {
         const files = await listAllFilesSupabase(supabase, bucket)
         scannedCount += files.length
+        const grace = RECENT_GRACE_MS[bucket] ?? 0
         for (const f of files) {
           const key = `${bucket}/${f.path}`
           if (referenced.supabase.has(key)) continue
+          if (grace > 0) {
+            // 올린 시각을 모르면 안전하게 건너뜀(지우지 않음)
+            const t = f.updated_at ? Date.parse(f.updated_at) : NaN
+            if (Number.isNaN(t) || Date.now() - t < grace) continue
+          }
           const { data } = supabase.storage.from(bucket).getPublicUrl(f.path)
           orphans.push({ source: 'supabase', bucket, path: f.path, size: f.size, updated_at: f.updated_at, publicUrl: data.publicUrl })
           totalSize += f.size
+        }
+        // 비공개 버킷(community)은 공개 주소로 안 열리므로 미리보기용 1시간 서명 주소로 바꿔 준다.
+        if (PRIVATE_BUCKETS.includes(bucket)) {
+          const mine = orphans.filter((o) => o.source === 'supabase' && o.bucket === bucket)
+          for (let i = 0; i < mine.length; i += 100) {
+            const chunk = mine.slice(i, i + 100)
+            const { data: signed } = await supabase.storage.from(bucket).createSignedUrls(chunk.map((o) => o.path), 3600)
+            const byPath = new Map((signed ?? []).map((s) => [s.path, s.signedUrl]))
+            for (const o of chunk) o.publicUrl = byPath.get(o.path) || ''
+          }
         }
       }
     }
