@@ -131,25 +131,25 @@ export function PostTable({ posts, pins = [], showBoard, currentId, empty = '등
         {pins.map((p) => (
           <tr key={`pin${p.id}`} className="pin">
             <td><span className={`lb ${p.label}`}>{PIN_LABEL[p.label]}</span></td>
-            <td className="t">{titleCell(p.post)}</td>
-            {showBoard && <td className="bd">{boardById(p.post.board_id)?.name}</td>}
-            <td className="au">{p.post.author?.nickname ?? '알 수 없음'}</td>
-            <td className="dt">{pcDate(p.post.created_at)}</td>
-            <td className="vw">{p.post.view_count.toLocaleString()}</td>
+            <td className="c-t">{titleCell(p.post)}</td>
+            {showBoard && <td className="c-bd">{boardById(p.post.board_id)?.name}</td>}
+            <td className="c-au">{p.post.author?.nickname ?? '알 수 없음'}</td>
+            <td className="c-dt">{pcDate(p.post.created_at)}</td>
+            <td className="c-vw">{p.post.view_count.toLocaleString()}</td>
           </tr>
         ))}
         {rows.map((p) => (
           <tr key={p.id} className={p.id === currentId ? 'cur' : ''}>
-            <td className="hdc">{p.head && HEAD_LABEL[p.head] ? <span className={`hd ${p.head}`}>{HEAD_LABEL[p.head]}</span> : ''}</td>
-            <td className="t">{titleCell(p)}</td>
-            {showBoard && <td className="bd">{boardById(p.board_id)?.name}</td>}
-            <td className="au">{p.author?.nickname ?? '알 수 없음'}{p.author?.badge === 'instructor' && <span className="tag ins">강사</span>}{p.author?.badge === 'staff' && <span className="tag staff">스탭</span>}</td>
-            <td className="dt">{pcDate(p.created_at)}</td>
-            <td className="vw">{p.view_count.toLocaleString()}</td>
+            <td className="c-hd">{p.head && HEAD_LABEL[p.head] ? <span className={`hd ${p.head}`}>{HEAD_LABEL[p.head]}</span> : ''}</td>
+            <td className="c-t">{titleCell(p)}</td>
+            {showBoard && <td className="c-bd">{boardById(p.board_id)?.name}</td>}
+            <td className="c-au">{p.author?.nickname ?? '알 수 없음'}{p.author?.badge === 'instructor' && <span className="tag ins">강사</span>}{p.author?.badge === 'staff' && <span className="tag staff">스탭</span>}</td>
+            <td className="c-dt">{pcDate(p.created_at)}</td>
+            <td className="c-vw">{p.view_count.toLocaleString()}</td>
           </tr>
         ))}
         {!pins.length && !rows.length && (
-          <tr><td colSpan={showBoard ? 6 : 5} className="empty">{empty}</td></tr>
+          <tr><td colSpan={showBoard ? 6 : 5} className="c-empty">{empty}</td></tr>
         )}
       </tbody>
     </table>

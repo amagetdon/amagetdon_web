@@ -314,14 +314,14 @@
 .cmty .pc-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px}
 .cmty .pc-table th{height:36px;font-weight:600;color:var(--g6);border-bottom:1px solid var(--g3);background:#fafafa;font-size:12.5px}
 .cmty .pc-table td{height:38px;border-bottom:1px solid var(--g1);text-align:center;color:var(--g6);padding:0 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.cmty .pc-table td.t{text-align:left}.cmty .pc-table td.au{text-align:left;color:var(--g8)}
+.cmty .pc-table td.c-t{text-align:left}.cmty .pc-table td.c-au{text-align:left;color:var(--g8)}
 .cmty .pc-table .tt{color:var(--ink);display:inline-flex;align-items:center;gap:3px;max-width:100%}.cmty .pc-table .tt:hover{text-decoration:underline}
 .cmty .pc-table .cc{color:#e5484d;font-weight:600;font-size:12px}.cmty .pc-table .pic{font-size:14px;color:var(--g5)}.cmty .pc-table .del{color:var(--g5)}
 .cmty .pc-table .new{font-style:normal;font-size:10px;font-weight:700;color:#e5484d}
 .cmty .pc-table tr.pin td{background:#f6f8f7}.cmty .pc-table tr.pin .tt{font-weight:600}
 .cmty .pc-table tr.cur td{background:#f3fbf6}.cmty .pc-table tr.cur .tt{font-weight:700}
 .cmty .pc-table .lb{font-size:11px;font-weight:700;border:1px solid currentColor;border-radius:2px;padding:0 4px;color:var(--pd)}.cmty .pc-table .lb.notice{color:#e5484d}.cmty .pc-table .lb.must{color:#c27c0e}
-.cmty .pc-table .hdc .hd{font-size:12px}.cmty .pc-table .empty{height:120px;color:var(--g5)}
+.cmty .pc-table .c-hd .hd{font-size:12px}.cmty .pc-table .c-empty{height:120px;color:var(--g5)}
 .cmty .pc-table .tag{font-size:10px}
 .cmty .pc-pager{display:flex;justify-content:center;gap:2px;padding:18px 0 6px}
 .cmty .pc-pager button{min-width:28px;height:28px;padding:0 6px;font-size:13px;color:var(--g8);display:inline-flex;align-items:center;justify-content:center;gap:2px}.cmty .pc-pager button:hover{text-decoration:underline}
