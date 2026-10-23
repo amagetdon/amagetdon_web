@@ -236,6 +236,8 @@ async function collectReferencedUrls(
   await optional('board_posts', 'content, cta_title', (r) => { addJson(r.content); addJson(r.cta_title) })
   // 커뮤니티 글 사진: 비공개 버킷이라 URL 이 아니라 버킷 안 경로(<user_id>/<이름>)만 저장돼 있다 → 'community/<path>' 로 직접 등록.
   // 표가 아직 없으면(마이그레이션 전) optional 이 건너뛴다.
+  // 커뮤니티 홈 이미지 배너(관리자 업로드, banners 저장소의 공개 주소)
+  await optional('community_banners', 'image_url, image_url_mobile', (r) => { addJson(r.image_url); addJson(r.image_url_mobile) })
   await optional('community_post_images', 'path', (r) => {
     if (typeof r.path === 'string' && r.path) supabaseRefs.add(`community/${r.path.replace(/^\/+/, '')}`)
   })

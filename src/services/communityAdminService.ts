@@ -330,6 +330,8 @@ export const communityAdminService = {
       link_url: b.link_url?.trim() || null,
       icon: b.icon?.trim() || null,
       color: b.color ?? 'a',
+      image_url: b.image_url?.trim() || null,
+      image_url_mobile: b.image_url ? b.image_url_mobile?.trim() || null : null,
       enabled: b.enabled ?? true,
     }
     if (b.id) {

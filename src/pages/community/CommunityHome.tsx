@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../../contexts/AuthContext'
@@ -126,30 +126,62 @@ function HomeMobile() {
   )
 }
 
+/** 배너 슬라이드: 이미지 배너(비율 그대로, 모바일 이미지 따로 가능)와 글자 배너. 여러 장이면 5초마다 넘어감 */
 function BannerSlides({ banners, linkOf }: { banners: CommunityBanner[]; linkOf: (b: CommunityBanner) => string | null }) {
   const [idx, setIdx] = useState(0)
+  const [hold, setHold] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
   const cls = { a: 'dk', b: 'lt', c: 'gy' } as const
+  const n = banners.length
+
+  const goTo = (i: number) => {
+    const el = ref.current
+    if (!el) return
+    const slide = el.children[i] as HTMLElement | undefined
+    if (slide) el.scrollTo({ left: slide.offsetLeft - el.offsetLeft, behavior: 'smooth' })
+  }
+
+  // 자동으로 넘기기(누르고 있거나 마우스를 올리면 멈춤)
+  useEffect(() => {
+    if (n < 2 || hold) return
+    const t = window.setTimeout(() => goTo((idx + 1) % n), 5000)
+    return () => window.clearTimeout(t)
+  }, [idx, n, hold])
+
   return (
-    <div className="bn-wrap">
-      <div className="slides" onScroll={(e) => {
+    <div className="bn-wrap" onMouseEnter={() => setHold(true)} onMouseLeave={() => setHold(false)}
+      onTouchStart={() => setHold(true)} onTouchEnd={() => setHold(false)}>
+      <div className="slides" ref={ref} onScroll={(e) => {
         const el = e.currentTarget
-        setIdx(Math.round(el.scrollLeft / Math.max(1, el.clientWidth + 8)))
+        setIdx(Math.min(n - 1, Math.round(el.scrollLeft / Math.max(1, el.clientWidth + 8))))
       }}>
         {banners.map((b) => {
           const to = linkOf(b)
-          const body = (<>
+          const image = !!b.image_url
+          const body = image ? (
+            <picture>
+              {b.image_url_mobile && <source media="(max-width: 1023px)" srcSet={b.image_url_mobile} />}
+              <img src={b.image_url!} alt={b.title} loading="lazy" />
+            </picture>
+          ) : (<>
             <span className="tx">
               <span>{b.eyebrow && <small>{b.eyebrow}</small>}<b>{b.title}</b>{b.subtitle && <span>{b.subtitle}</span>}</span>
               {b.button_text && <span className="go">{b.button_text}<i className="ti ti-chevron-right" style={{ fontSize: 15 }} /></span>}
             </span>
             {b.icon && <span className="art"><i className={`ti ${b.icon}`} /></span>}
           </>)
-          return to?.startsWith('http')
-            ? <a key={b.id} className={`sl ${cls[b.color]}`} href={to} target="_blank" rel="noreferrer">{body}</a>
-            : <Link key={b.id} className={`sl ${cls[b.color]}`} to={to || '/community'}>{body}</Link>
+          const className = image ? 'slimg' : `sl ${cls[b.color]}`
+          if (!to) return <div key={b.id} className={className}>{body}</div>
+          return to.startsWith('http')
+            ? <a key={b.id} className={className} href={to} target="_blank" rel="noreferrer">{body}</a>
+            : <Link key={b.id} className={className} to={to}>{body}</Link>
         })}
       </div>
-      {banners.length > 1 && <div className="dots">{banners.map((b, i) => <i key={b.id} className={i === idx ? 'on' : ''} />)}</div>}
+      {n > 1 && (
+        <div className="dots">
+          {banners.map((b, i) => <button key={b.id} type="button" aria-label={`${i + 1}번째 배너`} className={i === idx ? 'on' : ''} onClick={() => goTo(i)} />)}
+        </div>
+      )}
     </div>
   )
 }
