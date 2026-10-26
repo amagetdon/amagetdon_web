@@ -15,7 +15,7 @@ import { webhookScheduleService } from '../../services/webhookScheduleService'
 import { billingService, type NewsletterSubscription } from '../../services/billingService'
 import { addMonthsKst } from '../../utils/period'
 import { ebookProgressService, progressPercent, READING_LOG_NOTE, type EbookReadingProgress } from '../../services/ebookProgressService'
-import { reconcileService } from '../../services/reconcileService'
+import { reconcileService, type PartialPreview, type PartialResult } from '../../services/reconcileService'
 import type { Profile, PointLog, Coupon } from '../../types'
 
 interface MemberWithPurchases extends Profile {
@@ -32,7 +32,7 @@ export default function AdminMembers() {
   const [memberTab, setMemberTab] = useState<'all' | 'email' | 'kakao' | 'google' | 'guest'>('all')
   const [page, setPage] = useState(0)
   const [viewing, setViewing] = useState<MemberWithPurchases | null>(null)
-  const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null }[]>([])
+  const [purchases, setPurchases] = useState<{ id: number; title: string; original_price: number | null; price: number; purchased_at: string; expires_at: string | null; coupon_id: number | null; payment_method: string | null; payment_key: string | null; course_id: number | null; ebook_id: number | null; board_instructor_id?: number | null }[]>([])
   const [roleTarget, setRoleTarget] = useState<{ id: string; name: string; newRole: 'user' | 'admin' } | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; email: string } | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -161,7 +161,7 @@ export default function AdminMembers() {
     const [purchaseRes, pointLogRes, couponRes, progressRes, reviewRes] = await Promise.all([
       supabase
         .from('purchases')
-        .select('id, title, original_price, price, purchased_at, expires_at, coupon_id, payment_method, payment_key, course_id, ebook_id')
+        .select('id, title, original_price, price, purchased_at, expires_at, coupon_id, payment_method, payment_key, course_id, ebook_id, board_instructor_id')
         .eq('user_id', member.id)
         .order('purchased_at', { ascending: false }),
       supabase
@@ -539,6 +539,57 @@ export default function AdminMembers() {
   const [priceValue, setPriceValue] = useState('')
   const [priceReason, setPriceReason] = useState('')
   const [priceSaving, setPriceSaving] = useState(false)
+  // 부분 환불(10/26) — 토스 카드 결제만. 토스 부분취소 후 사이트 금액을 토스 남은 금액으로 맞춘다(수강권·기간 그대로).
+  const [partialTarget, setPartialTarget] = useState<{ id: number; title: string; price: number } | null>(null)
+  const [partialInfo, setPartialInfo] = useState<PartialPreview | null>(null)
+  const [partialLoadError, setPartialLoadError] = useState<string | null>(null)
+  const [partialAmount, setPartialAmount] = useState('')
+  const [partialReason, setPartialReason] = useState('')
+  const [partialConfirm, setPartialConfirm] = useState(false)
+  const [partialSaving, setPartialSaving] = useState(false)
+  const [partialIdem, setPartialIdem] = useState('')
+  const [partialDone, setPartialDone] = useState<PartialResult | null>(null)
+  const openPartial = (p: { id: number; title: string; price: number }) => {
+    setPartialTarget(p); setPartialInfo(null); setPartialLoadError(null); setPartialAmount(''); setPartialReason('')
+    setPartialConfirm(false); setPartialDone(null)
+    // 창을 열 때 요청 번호를 한 번 만든다 — 저장을 두 번 눌러도 토스는 같은 요청으로 보고 한 번만 취소한다
+    setPartialIdem(`pr_${p.id}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`)
+    reconcileService.partialPreview(p.id).then(setPartialInfo).catch((e) => setPartialLoadError(e instanceof Error ? e.message : '토스 조회에 실패했습니다.'))
+  }
+  const partialAmountNum = Number(partialAmount.replace(/[^0-9]/g, '')) || 0
+  const partialCheck = (): string | null => {
+    if (!partialInfo) return '토스 조회가 끝나지 않았습니다.'
+    if (partialInfo.toss_status !== 'DONE' && partialInfo.toss_status !== 'PARTIAL_CANCELED') return `토스 결제 상태가 '${partialInfo.toss_status ?? '알 수 없음'}'이라 부분 환불할 수 없습니다.`
+    if (partialAmountNum <= 0) return '환불 금액을 입력해주세요.'
+    if (partialAmountNum > partialInfo.toss_balance) return `남은 금액(${partialInfo.toss_balance.toLocaleString()}원)보다 많이 환불할 수 없습니다.`
+    if (!partialReason.trim()) return '사유를 입력해주세요.'
+    return null
+  }
+  const runPartialRefund = async () => {
+    if (!partialTarget || partialSaving) return
+    const err = partialCheck()
+    if (err) { toast.error(err); return }
+    setPartialSaving(true)
+    try {
+      const r = await reconcileService.partialRefund(partialTarget.id, partialAmountNum, partialReason.trim(), partialIdem)
+      setPartialDone(r)
+      setPartialConfirm(false)
+      if (r.site_updated && r.site_price != null) {
+        setPurchases((prev) => prev.map((p) => (p.id === partialTarget.id
+          ? { ...p, price: r.site_price!, original_price: p.original_price == null || p.original_price === p.price ? r.site_price! : p.original_price }
+          : p)))
+        toast.success(`${r.refunded.toLocaleString()}원을 환불했고, 사이트 금액을 ${r.site_price.toLocaleString()}원으로 맞췄습니다.`)
+      } else {
+        toast.error('토스 환불은 됐지만 사이트 금액은 바뀌지 않았습니다. 링크페이·무통장 > 결제 대조에서 \'맞추기\'를 눌러 주세요.', { duration: 10000 })
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '부분 환불에 실패했습니다.')
+      setPartialConfirm(false)
+    } finally {
+      setPartialSaving(false)
+    }
+  }
+
   const handleSavePrice = async () => {
     if (!priceTarget || priceSaving) return
     const next = Number(priceValue.replace(/[^0-9]/g, ''))
@@ -1581,6 +1632,14 @@ export default function AdminMembers() {
                                 기간 수정
                               </button>
                             )}
+                            {p.payment_method === 'toss' && p.payment_key && !p.board_instructor_id && p.price > 0 && (
+                              <button
+                                onClick={() => openPartial({ id: p.id, title: p.title, price: p.price })}
+                                className="px-2 py-1 text-[10px] font-medium text-orange-600 bg-orange-50 rounded border-none cursor-pointer hover:bg-orange-100 transition-colors whitespace-nowrap"
+                              >
+                                부분 환불
+                              </button>
+                            )}
                             <button
                               onClick={() => setRefundTarget({ id: p.id, title: p.title, price: p.price, coupon_id: p.coupon_id, payment_method: p.payment_method, payment_key: p.payment_key, course_id: p.course_id, ebook_id: p.ebook_id })}
                               className="px-2 py-1 text-[10px] font-medium text-yellow-600 bg-yellow-50 rounded border-none cursor-pointer hover:bg-yellow-100 transition-colors whitespace-nowrap"
@@ -1980,6 +2039,81 @@ export default function AdminMembers() {
                   >
                     {refunding ? '처리 중...' : '환불하기'}
                   </button>
+                </div>
+              </>
+            )}
+          </DialogPanel>
+        </div>
+      </Dialog>
+
+      {/* 부분 환불(토스 카드 결제) */}
+      <Dialog open={!!partialTarget} onClose={() => { if (!partialSaving) setPartialTarget(null) }} className="relative z-50">
+        <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="bg-white rounded-2xl w-full max-w-sm p-6">
+            <DialogTitle className="text-base font-bold text-gray-900 mb-1">부분 환불</DialogTitle>
+            <p className="text-xs text-gray-500 mb-4 truncate">{partialTarget?.title} · 구매 #{partialTarget?.id}</p>
+            {partialDone ? (
+              <div className="text-sm">
+                <p className="font-bold text-gray-900">{partialDone.refunded.toLocaleString()}원을 토스에서 환불했습니다.</p>
+                <p className="text-xs text-gray-500 mt-1">토스 남은 금액 {partialDone.toss_balance.toLocaleString()}원</p>
+                {partialDone.site_updated ? (
+                  <p className="text-xs text-gray-600 mt-3">사이트 금액: {partialDone.site_price_before.toLocaleString()}원 → <b>{partialDone.site_price?.toLocaleString()}원</b> (기록에 남음, 수강권·기간 그대로)</p>
+                ) : (
+                  <div className="mt-3 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+                    <b>사이트 금액은 바뀌지 않았습니다.</b> 토스 환불은 이미 됐으니 다시 환불하지 마세요.<br />
+                    링크페이·무통장 &gt; 결제 대조에서 이 구매(#{partialDone.purchase_id})를 찾아 '맞추기'를 눌러 주세요.
+                    {partialDone.site_error && <span className="block mt-1 text-red-500">({partialDone.site_error})</span>}
+                  </div>
+                )}
+                <button onClick={() => setPartialTarget(null)} className="w-full mt-5 py-2.5 text-sm font-bold text-white bg-gray-900 rounded-lg border-none cursor-pointer">닫기</button>
+              </div>
+            ) : partialLoadError ? (
+              <div>
+                <p className="text-sm text-red-600">{partialLoadError}</p>
+                <button onClick={() => setPartialTarget(null)} className="w-full mt-5 py-2.5 text-sm text-gray-600 bg-gray-100 rounded-lg border-none cursor-pointer">닫기</button>
+              </div>
+            ) : !partialInfo ? (
+              <p className="text-sm text-gray-400 py-6 text-center">토스에서 결제 정보를 불러오는 중…</p>
+            ) : (
+              <>
+                <dl className="grid grid-cols-2 gap-y-1.5 text-xs mb-4">
+                  <dt className="text-gray-500">결제 금액(토스)</dt><dd className="text-right font-medium">{(partialInfo.toss_total ?? 0).toLocaleString()}원</dd>
+                  <dt className="text-gray-500">이미 취소된 금액</dt><dd className="text-right font-medium">{partialInfo.toss_canceled.toLocaleString()}원</dd>
+                  <dt className="text-gray-500">남은 금액</dt><dd className="text-right font-bold text-gray-900">{partialInfo.toss_balance.toLocaleString()}원</dd>
+                  <dt className="text-gray-500">사이트 금액</dt><dd className="text-right">{partialInfo.site_price.toLocaleString()}원{partialInfo.site_price !== partialInfo.toss_balance + partialInfo.extra && <span className="block text-[10px] text-amber-600">토스와 다름(결제 대조로 먼저 맞추길 권장)</span>}</dd>
+                </dl>
+                <label className="text-xs text-gray-600">환불 금액(원)</label>
+                <input inputMode="numeric" value={partialAmount} disabled={partialConfirm}
+                  onChange={(e) => setPartialAmount(e.target.value)}
+                  placeholder={`최대 ${partialInfo.toss_balance.toLocaleString()}`}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] mt-1 mb-3 disabled:bg-gray-50" />
+                <label className="text-xs text-gray-600">사유(필수, 토스와 기록에 남음)</label>
+                <input value={partialReason} disabled={partialConfirm} onChange={(e) => setPartialReason(e.target.value)}
+                  placeholder="예: 수강생 요청 일부 환불"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm outline-none focus:border-[#2ED573] mt-1 disabled:bg-gray-50" />
+                {partialConfirm && (
+                  <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+                    토스에서 실제로 <b>{partialAmountNum.toLocaleString()}원</b> 환불됩니다. 되돌릴 수 없습니다.<br />
+                    사이트 금액은 {partialInfo.site_price.toLocaleString()}원 → {(partialInfo.toss_balance - partialAmountNum + partialInfo.extra).toLocaleString()}원으로 바뀝니다(수강권·기간 그대로).
+                  </div>
+                )}
+                <div className="flex gap-2 mt-5">
+                  <button onClick={() => (partialConfirm ? setPartialConfirm(false) : setPartialTarget(null))} disabled={partialSaving}
+                    className="flex-1 py-2.5 text-sm text-gray-600 bg-gray-100 rounded-lg border-none cursor-pointer disabled:opacity-50">
+                    {partialConfirm ? '뒤로' : '취소'}
+                  </button>
+                  {partialConfirm ? (
+                    <button onClick={runPartialRefund} disabled={partialSaving}
+                      className="flex-1 py-2.5 text-sm font-bold text-white bg-red-500 rounded-lg border-none cursor-pointer disabled:opacity-50">
+                      {partialSaving ? '환불 중...' : `${partialAmountNum.toLocaleString()}원 환불`}
+                    </button>
+                  ) : (
+                    <button onClick={() => { const e = partialCheck(); if (e) toast.error(e); else setPartialConfirm(true) }}
+                      className="flex-1 py-2.5 text-sm font-bold text-white bg-[#2ED573] rounded-lg border-none cursor-pointer">
+                      다음
+                    </button>
+                  )}
                 </div>
               </>
             )}
