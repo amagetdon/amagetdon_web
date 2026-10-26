@@ -30,6 +30,39 @@ export interface ReconcileResult {
   rows: ReconcileRow[]
 }
 
+export interface PartialPreview {
+  purchase_id: number
+  title: string | null
+  site_price: number
+  toss_status: string | null
+  toss_total: number | null
+  toss_canceled: number
+  toss_balance: number
+  extra: number
+}
+
+export interface PartialResult {
+  purchase_id: number
+  refunded: number
+  toss_balance: number
+  site_price_before: number
+  site_price: number | null
+  site_updated: boolean
+  site_error?: string
+}
+
+async function callPartial<T>(body: Record<string, unknown>): Promise<T> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const res = await fetch('/api/toss-partial-cancel', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${session?.access_token ?? ''}` },
+    body: JSON.stringify(body),
+  })
+  const out = (await res.json().catch(() => ({}))) as T & { error?: string }
+  if (!res.ok || out.error) throw new Error(out.error || `요청에 실패했습니다 (${res.status})`)
+  return out
+}
+
 export const reconcileService = {
   /** purchaseIds 가 없으면 사이트의 카드(토스) 결제 구매 전체(최대 500건) */
   async run(purchaseIds?: number[]): Promise<ReconcileResult> {
@@ -42,6 +75,16 @@ export const reconcileService = {
     const body = (await res.json().catch(() => ({}))) as ReconcileResult & { error?: string }
     if (!res.ok || body.error) throw new Error(body.error || `대조에 실패했습니다 (${res.status})`)
     return body
+  },
+
+  /** 부분 환불 창: 토스 결제 금액·취소된 금액·남은 금액(조회만) */
+  partialPreview(purchaseId: number): Promise<PartialPreview> {
+    return callPartial<PartialPreview>({ purchaseId, preview: true })
+  },
+
+  /** 부분 환불 실행: 토스 부분취소 → 사이트 금액을 토스 남은 금액으로. idempotencyKey 가 같으면 토스가 한 번만 취소한다 */
+  partialRefund(purchaseId: number, cancelAmount: number, reason: string, idempotencyKey: string): Promise<PartialResult> {
+    return callPartial<PartialResult>({ purchaseId, cancelAmount, reason, idempotencyKey })
   },
 
   /** 관리자: 구매 금액 수정(사유 필수, purchase_audit_logs 에 price_change 로 남음) */
