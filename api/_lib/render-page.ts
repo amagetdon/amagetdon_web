@@ -433,6 +433,13 @@ const ROUTES: [RegExp, Handler][] = [
     noindex: true,
   })],
 
+  // 받은 HTML 랜딩(메뉴·검색 비노출) — 검색엔진 색인 안 함. 설정은 src/lib/staticLandings.ts
+  [/^/lp/eunwoo-replay-[pn]$/, async () => ({
+    title: '인스타 알고리즘 마스터클래스 · 다시보기 + 전자책',
+    description: '다시 열리지 않는 강의. 은우의 인스타 알고리즘 마스터클래스 다시보기와 전자책.',
+    noindex: true,
+  })],
+
   // 수강생 커뮤니티 — 로그인 회원 전용이라 글 내용은 서버에서 그리지 않고 색인도 안 함
   [/^\/community(\/.*)?$/, async () => ({
     title: '아마 돈 벌고 있을걸요? | 아마겟돈 클래스',

@@ -72,6 +72,7 @@ const AdminCourseDetail = lazy(() => import('./pages/admin/AdminCourseDetail'))
 const AdminEbookDetail = lazy(() => import('./pages/admin/AdminEbookDetail'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const SecretGamePage = lazy(() => import('./pages/SecretGamePage'))
+const StaticLandingPage = lazy(() => import('./pages/StaticLandingPage'))
 const AdminBoard = lazy(() => import('./pages/admin/AdminBoard'))
 const BoardPostPage = lazy(() => import('./pages/BoardPostPage'))
 const BlogPreviewPage = lazy(() => import('./pages/BlogPreviewPage'))
@@ -245,6 +246,7 @@ function App() {
                 <Route path="/search" element={<SearchPage />} />
                 <Route path="/landing/:slug" element={<LandingPage />} />
                 <Route path="/s/:slug" element={<SecretGamePage />} />
+                <Route path="/lp/:slug" element={<StaticLandingPage />} />
 
                 {/* 아마겟돈 뉴스레터: /board 목록·/board/:id 글은 공개(잠금은 서버 RPC 판정),
                     /board/p/:token 은 비밀 공유 링크. 관리 화면은 /admin/board */}
