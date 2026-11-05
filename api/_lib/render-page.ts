@@ -434,7 +434,7 @@ const ROUTES: [RegExp, Handler][] = [
   })],
 
   // 받은 HTML 랜딩(메뉴·검색 비노출) — 검색엔진 색인 안 함. 설정은 src/lib/staticLandings.ts
-  [/^/lp/eunwoo-replay-[pn]$/, async () => ({
+  [/^\/lp\/eunwoo-replay-[pn]$/, async () => ({
     title: '인스타 알고리즘 마스터클래스 · 다시보기 + 전자책',
     description: '다시 열리지 않는 강의. 은우의 인스타 알고리즘 마스터클래스 다시보기와 전자책.',
     noindex: true,
