@@ -18,6 +18,7 @@ import type { EbookWithInstructor, Coupon } from '../types'
 import { useClosedAccessGuard, useRedirectIfClosed } from '../hooks/useClosedAccessGuard'
 import { trackViewItem, trackFreeEnroll, trackBeginCheckout, trackPurchase, buildContentId, ebookCategoryLabel } from '../lib/tracking'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
+import { detectInAppBrowser } from '../lib/inAppBrowser'
 import { usePromoSettings, displaySeats } from '../lib/promoSettings'
 import PromoTopBanner from '../components/PromoTopBanner'
 import { PromoCountdownBlock, SeatsBadge, PriceCard, ACCENT } from '../components/ApplyCardParts'
@@ -31,7 +32,7 @@ function EbookDetailPage() {
   const accent = applyCard?.accent === 'blue' ? 'blue' : 'green'
   const seats = displaySeats(applyCard, ebookId ?? 0)
   const navigate = useNavigate()
-  const { user, profile, refreshProfile, isAdmin } = useAuth()
+  const { user, profile, loading: authLoading, refreshProfile, isAdmin } = useAuth()
   const { blockIfClosed } = useClosedAccessGuard()
   const [searchParams] = useSearchParams()
   const isPreview = searchParams.get('preview') === '1'
@@ -212,6 +213,23 @@ function EbookDetailPage() {
 
   // 로그인 전에 '신청'을 눌렀던 사람이 돌아오면 이어서 — 무료는 바로 받기, 유료는 결제 확인 창.
   // 보유 여부는 로그인 직후 반영 전일 수 있어 다시 조회한다.
+  // 랜딩의 결제 버튼에서 온 경우(?ext_act=purchase) — 강의 상세와 같이 주소에서 표시를 지우고 '로그인 뒤 이어서 구매'로 기억
+  const [extResume] = useState(() => {
+    try {
+      const p = new URLSearchParams(window.location.search)
+      if (p.get('ext_act') !== 'purchase' || detectInAppBrowser().isInApp) return false
+      p.delete('ext_act')
+      const clean = window.location.pathname + (p.toString() ? `?${p}` : '')
+      window.history.replaceState(window.history.state, '', clean)
+      rememberPostLogin('purchase', clean)
+      return true
+    } catch { return false }
+  })
+  useEffect(() => {
+    if (!extResume || authLoading || user) return
+    navigate('/login')
+  }, [extResume, authLoading, user, navigate])
+
   const resumeTriedRef = useRef(false)
   useEffect(() => {
     if (resumeTriedRef.current || !user || !profile || !ebook || !ebookId) return

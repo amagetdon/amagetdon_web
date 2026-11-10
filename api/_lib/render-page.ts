@@ -151,14 +151,14 @@ function courseList(rows: CourseRow[]) {
 }
 
 async function openCourses() {
-  return ((await q(`courses?${OPEN_COURSE()}&select=${COURSE_COLS}&order=sort_order.asc,id.desc`)) ?? []) as CourseRow[]
+  return ((await q(`courses?${OPEN_COURSE()}&is_unlisted=eq.false&select=${COURSE_COLS}&order=sort_order.asc,id.desc`)) ?? []) as CourseRow[]
 }
 
 interface EbookRow { id: number; title: string; thumbnail_url: string | null; is_free: boolean | null; original_price: number | null; sale_price: number | null; seo: Seo | null; features: unknown; strengths: unknown; updated_at: string | null; instructor: { id: number; name: string } | null }
 const EBOOK_COLS = 'id,title,thumbnail_url,is_free,original_price,sale_price,seo,features,strengths,updated_at,instructor:instructors(id,name)'
 const ebookPrice = (e: EbookRow) => (e.is_free || !(e.sale_price ?? e.original_price) ? '무료' : won((e.sale_price ?? e.original_price) as number))
 async function openEbooks() {
-  return ((await q(`ebooks?${OPEN_EBOOK()}&select=${EBOOK_COLS}&order=sort_order.asc,id.desc`)) ?? []) as EbookRow[]
+  return ((await q(`ebooks?${OPEN_EBOOK()}&is_unlisted=eq.false&select=${EBOOK_COLS}&order=sort_order.asc,id.desc`)) ?? []) as EbookRow[]
 }
 const ebookList = (rows: EbookRow[]) =>
   rows.length ? `<ul>${rows.map((e) => `<li>${link(`/ebook/${e.id}`, e.title)} · ${esc(ebookPrice(e))}</li>`).join('')}</ul>` : '<p>등록된 전자책이 없습니다.</p>'

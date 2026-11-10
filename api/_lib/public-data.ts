@@ -38,8 +38,8 @@ export async function getPublicData() {
   const now = new Date().toISOString()
   const [courses, ebooks, instructors, board, faqs, settings] = await Promise.all([
     // 오픈 전(enrollment_start 미래, 사전알림 제외) 강의는 화면에서 '아직 오픈되지 않은 강의'라 제외
-    sb<PublicCourse[]>(`courses?is_published=eq.true&and=(or(enrollment_deadline.is.null,enrollment_deadline.gt.${now}),or(enrollment_start.is.null,enrollment_start.lte.${now},course_type.eq.pre_alert))&select=id,title,updated_at,course_type,seo,instructor:instructors(name)&order=id.desc`),
-    sb<PublicEbook[]>(`ebooks?is_published=eq.true&or=(close_date.is.null,close_date.gt.${now})&select=id,title,updated_at,is_free,seo&order=id.desc`),
+    sb<PublicCourse[]>(`courses?is_published=eq.true&is_unlisted=eq.false&and=(or(enrollment_deadline.is.null,enrollment_deadline.gt.${now}),or(enrollment_start.is.null,enrollment_start.lte.${now},course_type.eq.pre_alert))&select=id,title,updated_at,course_type,seo,instructor:instructors(name)&order=id.desc`),
+    sb<PublicEbook[]>(`ebooks?is_published=eq.true&is_unlisted=eq.false&or=(close_date.is.null,close_date.gt.${now})&select=id,title,updated_at,is_free,seo&order=id.desc`),
     sb<PublicInstructor[]>(`instructors?is_published=eq.true&select=id,name,headline,updated_at&order=sort_order.asc`),
     sb<PublicBoardPost[]>('rpc/get_board_posts_listed', {
       method: 'POST',
