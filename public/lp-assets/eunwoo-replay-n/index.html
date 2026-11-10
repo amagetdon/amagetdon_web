@@ -1343,10 +1343,10 @@ body::after{display:none}
 var CONFIG = {
   earlyBirdEnd: "2026-11-17T23:59:59+09:00",
   links: {
-    survey:    "#",   // ✏️ 실천조사 참여 페이지 주소
-    pkgFull:   "#",   // ✏️ 패키지 정가(2,280,000원) 결제
-    vodFull:   "#",   // ✏️ 다시보기 단독 정가(1,890,000원) 결제
-    ebookFull: "#"    // ✏️ 전자책 단독 정가(390,000원) 결제
+    survey:    "https://amagclass-survey.pages.dev",   // ✏️ 실천조사 참여 페이지 주소
+    pkgFull:   "/course/142?ext_act=purchase",   // ✏️ 패키지 정가(2,280,000원) 결제
+    vodFull:   "/course/140?ext_act=purchase",   // ✏️ 다시보기 단독 정가(1,890,000원) 결제
+    ebookFull: "/ebook/21?ext_act=purchase"    // ✏️ 전자책 단독 정가(390,000원) 결제
   }
 };
 
@@ -1431,6 +1431,7 @@ var CONFIG = {
   window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
 
   /* 얼리버드 카운트다운 */
+  $$('.y-ask').forEach(function(a){ a.addEventListener('click', function(e){ e.preventDefault(); try { parent.ChannelIO('showMessenger'); } catch(_){} }); });
   var end = new Date(CONFIG.earlyBirdEnd).getTime(), cd = document.getElementById('xcd');
   function pad(n){ return (n < 10 ? '0' : '') + n; }
   function tick(){

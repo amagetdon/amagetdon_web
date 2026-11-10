@@ -37,10 +37,11 @@ function SearchPage() {
             .from('courses')
             .select('*, instructor:instructors(id, name)')
             .eq('is_published', true)
+            .eq('is_unlisted', false)
             .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
             .or(`title.ilike.${keyword},description.ilike.${keyword},search_keywords.ilike.${keyword}`),
           supabase.from('instructors').select('*').or(`name.ilike.${keyword},title.ilike.${keyword},bio.ilike.${keyword}`),
-          supabase.from('ebooks').select(`${EBOOK_PUBLIC_COLUMNS}, instructor:instructors(id, name)`).eq('is_published', true).or(`title.ilike.${keyword},search_keywords.ilike.${keyword}`),
+          supabase.from('ebooks').select(`${EBOOK_PUBLIC_COLUMNS}, instructor:instructors(id, name)`).eq('is_published', true).eq('is_unlisted', false).or(`title.ilike.${keyword},search_keywords.ilike.${keyword}`),
         ])
 
         if (cancelled) return
