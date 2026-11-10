@@ -1324,7 +1324,7 @@ body::after{display:none}
       <li>패키지는 다시보기와 전자책 중 일부만 열람한 경우에도 환불이 불가합니다.</li>
     </ul>
     <!-- ✏️ 문의 링크 (카카오 채널 등) -->
-    <a class="y-ask" href="#">문의하기 →</a>
+    <a class="y-ask" href="https://pf.kakao.com/_zPMPn/chat" target="_blank" rel="noopener">문의하기 →</a>
   </section>
 
 </div>
@@ -1431,7 +1431,6 @@ var CONFIG = {
   window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
 
   /* 얼리버드 카운트다운 */
-  $$('.y-ask').forEach(function(a){ a.addEventListener('click', function(e){ e.preventDefault(); try { parent.ChannelIO('showMessenger'); } catch(_){} }); });
   var end = new Date(CONFIG.earlyBirdEnd).getTime(), cd = document.getElementById('xcd');
   function pad(n){ return (n < 10 ? '0' : '') + n; }
   function tick(){
