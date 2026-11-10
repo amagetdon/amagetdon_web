@@ -860,9 +860,19 @@ export default function AdminMembers() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { setPage(0) }, [search, memberTab])
 
-  const exportToExcel = (data: MemberWithPurchases[], filteredExport = false) => {
-    const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로', '가입일', '마지막 접속']
+  const exportToExcel = async (data: MemberWithPurchases[], filteredExport = false) => {
+    // 약관·마케팅 수신 동의(카카오싱크, user_consents) — 표가 없거나 실패하면 빈칸
+    type Consent = { user_id: string; terms_agreed_at: string | null; marketing_agreed: boolean; marketing_changed_at: string | null }
+    const consentRes = await fetchAllRows((from, to) => supabase
+      .from('user_consents' as never)
+      .select('user_id, terms_agreed_at, marketing_agreed, marketing_changed_at')
+      .order('user_id')
+      .range(from, to))
+    const consents = new Map<string, Consent>()
+    if (!consentRes.error) for (const c of (consentRes.data ?? []) as unknown as Consent[]) consents.set(c.user_id, c)
+    const header = ['이름', '가입방법', '이메일', '전화번호', '성별', '생년월일', '주소', '권한', '포인트', '구매 수', '총 결제액', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로', '가입일', '마지막 접속', '약관 동의일', '마케팅 수신 동의', '마케팅 동의 변경일']
     const rows = data.map((m) => {
+      const c = consents.get(m.id)
       const provider = (m as unknown as Record<string, unknown>).provider as string | undefined || (m.email?.endsWith('@kakao.com') ? 'kakao' : 'email')
       return [
         m.name || '',
@@ -884,6 +894,9 @@ export default function AdminMembers() {
         m.signup_referrer || '',
         new Date(m.created_at).toLocaleDateString('ko-KR'),
         m.last_active_at ? new Date(m.last_active_at).toLocaleDateString('ko-KR') : '',
+        c?.terms_agreed_at ? new Date(c.terms_agreed_at).toLocaleDateString('ko-KR') : '',
+        c ? (c.marketing_agreed ? '동의' : '미동의') : '',
+        c?.marketing_changed_at ? new Date(c.marketing_changed_at).toLocaleDateString('ko-KR') : '',
       ]
     })
 
