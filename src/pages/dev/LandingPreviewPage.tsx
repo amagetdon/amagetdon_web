@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import TemplateLanding from '../../components/TemplateLanding'
+import TemplateLandingEditor from '../../components/admin/TemplateLandingEditor'
 import type { LandingReport } from '../../lib/landingTemplate'
 import { isLandingDoc } from '../../lib/landingTemplate/guard'
 
@@ -25,6 +26,17 @@ export default function LandingPreviewPage() {
       .catch((e: Error) => { if (!cancelled) setError(`자료를 읽지 못했습니다: ${e.message}`) })
     return () => { cancelled = true }
   }, [name, validName])
+
+  // &edit=1 — 어드민 입력 화면을 같은 자료로 연다(저장은 되지 않음). doc 없이 edit=1 만 주면 빈 상태에서 시작.
+  if (params.get('edit') === '1' && (doc !== null || !name)) {
+    return (
+      <section className="w-full bg-gray-50">
+        <div className="max-w-[1300px] mx-auto px-5 py-8">
+          <TemplateLandingEditor value={doc} onChange={setDoc} uploadPrefix="dev/landing-tpl" defaultTitle="강의명 예시" />
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="w-full bg-white">

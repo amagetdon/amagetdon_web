@@ -1040,7 +1040,8 @@ export default function AdminCourseDetail() {
                   </div>
                   {editing.landing_mode === 'template' ? (
                     <Suspense fallback={<div className="h-[260px] bg-gray-100 rounded-lg animate-pulse" />}>
-                      <TemplateLandingEditor value={editing.landing_doc} onChange={(doc) => setEditing((prev) => (prev ? { ...prev, landing_doc: doc } : prev))} />
+                      <TemplateLandingEditor value={editing.landing_doc} onChange={(doc) => setEditing((prev) => (prev ? { ...prev, landing_doc: doc } : prev))}
+                        uploadPrefix={`${courseId ?? 'new'}/landing-tpl`} defaultTitle={typeof editing.title === 'string' ? editing.title : undefined} />
                     </Suspense>
                   ) : (
                     <p className="text-xs text-gray-400">위에 올린 상세페이지 이미지가 그대로 표시됩니다.</p>

@@ -66,7 +66,8 @@ const FACT_FIELDS: Record<string, (ctx: RenderContext) => unknown> = {
   replay_policy: ctx => ctx.rawFacts['다시보기'],
   entry_guide: ctx => ctx.rawFacts['입장방법'],
   cta_label: ctx => ctx.rawFacts['버튼문구'],
-  cta_link: ctx => ctx.rawFacts['신청주소'],
+  // 주소를 안 적으면 #apply — 사이트가 눌림을 받아 자기 신청·결제 흐름으로 잇는다(그래서 '빠진 자료'가 아니다)
+  cta_link: ctx => ctx.rawFacts['신청주소'] || '#apply',
   payment_note: ctx => ctx.rawFacts['결제안내'],
   gift_condition: ctx => ctx.rawFacts['선물조건'],
   apply_deadline: ctx => rec(ctx.rawFacts['신청마감'])['날짜'],
