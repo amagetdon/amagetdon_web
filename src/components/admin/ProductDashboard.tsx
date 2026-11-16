@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 //  - 유입 → 가입 → 신청 → 결제 : 가입·신청·결제는 전체 기간, 유입(방문)은 product_visits 기록 시작 후부터
 //  - D-14 ~ 당일 : 라이브(진행일) 기준 신청일별 결제율
 //  - 매체별 성별·연령대, 광고비·DB당 단가·결제당 비용·ROAS
+//  - 기수: [마감 처리] 시각을 경계로 방문·신청·결제·광고비를 기수별로 나눠 본다 (product_cohorts). 기수가 없으면 전체 기간.
 
 type Kind = 'course' | 'ebook'
 type Dim = 'campaign' | 'content' | 'term'
@@ -22,9 +23,13 @@ interface AppRow {
 /** 방문 행 (10/12~) */
 interface VisitRow { channel: string; campaign: string; content: string; term: string; visitors: number; visit_applicants: number }
 interface DdayRow { label: string; applicants: number; payers: number; revenue: number }
+/** 기수 — starts_at 이상 ~ ends_at 미만. starts_at null = 처음부터, ends_at null = 진행 중 */
+interface Cohort { id: number; no: number; name: string; starts_at: string | null; ends_at: string | null; live_at: string | null; has_links: boolean }
 interface Dashboard {
+  cohorts?: Cohort[]
   product: {
     kind: Kind; id: number; title: string; is_free: boolean; live_at: string | null; linked_default: boolean
+    cohort?: number | null; cohort_from?: string | null; cohort_to?: string | null
     linked_courses: { id: number; title: string }[]; linked_ebooks: { id: number; title: string }[]
   }
   totals: { applicants: number; new_signups: number; payers: number; revenue: number; spend: number }
@@ -63,6 +68,14 @@ const pct = (a: number, b: number) => (b > 0 ? `${((a / b) * 100).toFixed(1)}%` 
 const per = (spend: number, cnt: number) => (spend > 0 && cnt > 0 ? won(spend / cnt) : '-')
 const roas = (rev: number, spend: number) => (spend > 0 ? `${Math.round((rev / spend) * 100).toLocaleString('ko-KR')}%` : '-')
 const kstToday = () => new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10)
+const kstDate = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10)
+/** datetime-local 입력값 ↔ ISO (관리자 PC 시간 기준) */
+const toInput = (iso: string | null) => {
+  if (!iso) return ''
+  const d = new Date(iso); const z = (x: number) => String(x).padStart(2, '0')
+  return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`
+}
+const fromInput = (v: string) => (v ? new Date(v).toISOString() : null)
 const kstDateTime = (iso: string | null) =>
   iso ? new Date(iso).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
 
@@ -97,11 +110,24 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
   const [dim, setDim] = useState<Dim>('campaign')
   const [importing, setImporting] = useState(false)
   const autoImported = useRef(false)
+  // 보고 있는 기수 번호. undefined = 아직 안 정함(처음 열면 진행 중인 기수), null = 전체 기간
+  const cohortRef = useRef<number | null | undefined>(undefined)
+  const [cohortOpen, setCohortOpen] = useState(false)
+  const [closing, setClosing] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
+    let c = cohortRef.current
+    if (c === undefined) {
+      const { data: ks } = await supabase.from('product_cohorts').select('no')
+        .eq('kind', kind).eq('product_id', productId).order('no', { ascending: false }).limit(1)
+      c = (ks as { no: number }[] | null)?.[0]?.no ?? null
+      cohortRef.current = c
+    }
+    // 전체 기간은 기수 인자 없이 부른다 (기수 기능 적용 전 서버 함수와도 맞게)
+    const args = c == null ? { p_kind: kind, p_id: productId } : { p_kind: kind, p_id: productId, p_cohort: c }
     const [dash, sp] = await Promise.all([
-      supabase.rpc('get_product_dashboard', { p_kind: kind, p_id: productId } as never),
+      supabase.rpc('get_product_dashboard', args as never),
       supabase.from('product_ad_spend').select('id, channel, spend_date, amount, source, external_id, note')
         .eq('kind', kind).eq('product_id', productId).order('spend_date', { ascending: false }).order('id', { ascending: false }),
     ])
@@ -111,7 +137,26 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
     setLoading(false)
   }, [kind, productId])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { cohortRef.current = undefined; load() }, [load])
+
+  const pickCohort = (no: number | null) => { cohortRef.current = no; load() }
+
+  // 마감 처리 — 지금 기수를 닫고 다음 기수를 연다. 이후 기록은 다음 기수로 집계된다.
+  const closeCohort = async () => {
+    const list = data?.cohorts ?? []
+    const cur = list.find((k) => !k.ends_at)
+    if (list.length && !cur) return toast.error('진행 중인 기수가 없습니다.')
+    const curName = cur?.name ?? '1기'
+    const nextNo = (cur?.no ?? 1) + 1
+    if (!confirm(`지금 시각으로 ${curName}를 마감하고 ${nextNo}기를 시작할까요?\n\n이 시각 이후의 방문·신청·결제·광고비는 ${nextNo}기로 집계됩니다.\n마감 시각은 [기수 관리]에서 고치거나 취소할 수 있습니다.`)) return
+    setClosing(true)
+    const { error } = await supabase.rpc('close_product_cohort', { p_kind: kind, p_id: productId } as never)
+    setClosing(false)
+    if (error) return toast.error(`마감 처리 실패: ${error.message}`)
+    toast.success(`${curName}를 마감하고 ${nextNo}기를 시작했습니다.`)
+    cohortRef.current = undefined
+    load()
+  }
 
   // 과거 방문(Umami) 가져오기 — 아직 한 번도 안 가져왔으면 대시보드를 열 때 자동으로 1회
   const importHistory = useCallback(async (silent = false) => {
@@ -135,7 +180,8 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
   }, [kind, productId, load])
 
   useEffect(() => {
-    if (!data || autoImported.current || data.visits?.history_imported_at) return
+    // 과거 방문은 전체 보기에서만 자동으로 가져온다 (기수 보기에서는 첫 기수 외엔 과거 방문이 원래 비어 있음)
+    if (!data || autoImported.current || data.visits?.history_imported_at || data.product.cohort != null) return
     autoImported.current = true
     importHistory(true)
   }, [data, importHistory])
@@ -176,6 +222,11 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
   // 과거 방문은 회원과 연결할 수 없어 '방문→신청' 을 신청 수 ÷ 방문자 수로 본다 (과거를 안 가져왔으면 자체 기록끼리만)
   const visitRate = (a: { applicants: number; visit_applicants: number; visitors: number }) =>
     a.visitors ? (hasHistory ? pct(a.applicants, a.visitors) : pct(a.visit_applicants, a.visitors)) : '-'
+  const cohorts = data.cohorts ?? []
+  const curCohort = cohorts.find((k) => k.no === product.cohort) ?? null
+  // 광고비 목록도 보고 있는 기수 날짜만 (서버 합계와 같은 기준: 시작일 포함, 마감일 제외)
+  const spendRows = spends.filter((r) =>
+    (!product.cohort_from || r.spend_date >= kstDate(product.cohort_from)) && (!product.cohort_to || r.spend_date < kstDate(product.cohort_to)))
   const linked = [...product.linked_courses.map((c) => ({ ...c, k: '강의' })), ...product.linked_ebooks.map((e) => ({ ...e, k: '전자책' }))]
 
   /** 매체 줄 + 펼친 하위 줄을 그리는 공용 표 */
@@ -229,6 +280,44 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
 
   return (
     <div className="space-y-6">
+      {/* 기수 */}
+      <section className="bg-white rounded-xl shadow-sm p-5">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-gray-400 mb-2">기수</p>
+            {cohorts.length === 0 ? (
+              <p className="text-sm text-gray-700">기수 구분 없이 전체 기간을 보고 있습니다. 이번 기수가 끝나면 <b>마감 처리</b>를 눌러 주세요. 그 뒤 기록은 다음 기수로 따로 집계됩니다.</p>
+            ) : (
+              <>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {[{ no: null as number | null, name: '전체', open: false }, ...cohorts.map((k) => ({ no: k.no as number | null, name: k.name, open: !k.ends_at }))].map((k) => (
+                    <button key={k.no ?? 'all'} onClick={() => pickCohort(k.no)} disabled={loading}
+                      className={`px-3 py-1.5 rounded-lg text-sm border-none cursor-pointer disabled:cursor-wait ${(product.cohort ?? null) === k.no ? 'bg-[#2ED573] text-white font-bold' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                      {k.name}{k.open ? ' · 진행 중' : ''}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  {curCohort
+                    ? `${curCohort.starts_at ? kstDateTime(curCohort.starts_at) : '처음'}부터 ${curCohort.ends_at ? `${kstDateTime(curCohort.ends_at)} 마감까지` : '지금까지 (진행 중)'}의 방문·신청·결제·광고비입니다.`
+                    : '모든 기수를 합친 전체 기간입니다.'}
+                </p>
+              </>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {cohorts.length > 0 && (
+              <button onClick={() => setCohortOpen(true)} className="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-medium cursor-pointer hover:bg-gray-50 flex items-center gap-1.5">
+                <i className="ti ti-settings text-sm" /> 기수 관리
+              </button>
+            )}
+            <button onClick={closeCohort} disabled={closing || loading} className="bg-gray-900 text-white px-4 py-2 rounded-xl text-sm font-bold border-none cursor-pointer disabled:opacity-50 flex items-center gap-1.5">
+              <i className="ti ti-flag text-sm" /> {closing ? '처리 중…' : '마감 처리'}
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* 결제 기준 */}
       <section className="bg-white rounded-xl shadow-sm p-5">
         <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -240,6 +329,7 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
                 {linked.length ? <b>{linked.map((l) => `[${l.k}] ${l.title}`).join(', ')}</b> : <b className="text-red-500">연결 상품 없음</b>}
                 {' '}을(를) 구매하면 결제로 셉니다.
                 {product.linked_default && <span className="ml-1 text-xs text-gray-400">(지정하지 않아 같은 강사의 유료 강의로 자동 적용)</span>}
+                {curCohort?.has_links && <span className="ml-1 text-xs text-gray-400">({curCohort.name}에만 적용되는 연결)</span>}
               </p>
             ) : (
               <p className="text-sm text-gray-700">유료 상품 — 이 상품 구매가 곧 결제입니다.</p>
@@ -364,10 +454,14 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
         />
       </section>
 
-      <SpendSection kind={kind} productId={productId} rows={spends} onChanged={load} />
+      <SpendSection kind={kind} productId={productId} rows={spendRows} onChanged={load} />
 
+      {cohortOpen && (
+        <CohortModal kind={kind} productId={productId} cohorts={cohorts} onClose={() => setCohortOpen(false)}
+          onSaved={(reset) => { setCohortOpen(false); if (reset) cohortRef.current = undefined; load() }} />
+      )}
       {linkOpen && (
-        <LinkModal kind={kind} productId={productId} current={product} onClose={() => setLinkOpen(false)} onSaved={() => { setLinkOpen(false); load() }} />
+        <LinkModal kind={kind} productId={productId} current={product} cohort={curCohort} onClose={() => setLinkOpen(false)} onSaved={() => { setLinkOpen(false); load() }} />
       )}
     </div>
   )
@@ -578,8 +672,107 @@ function MetaCampaignPicker({ kind, productId, onSync, syncing }: { kind: Kind; 
   )
 }
 
-function LinkModal({ kind, productId, current, onClose, onSaved }: {
-  kind: Kind; productId: number; current: Dashboard['product']; onClose: () => void; onSaved: () => void
+// 기수 관리 — 이름·마감 시각·라이브 일시 고치기, 마지막 마감 처리 취소.
+// 마감 시각을 고치면 다음 기수의 시작도 같은 시각으로 맞춘다 (기수 사이에 빈 구간·겹침이 없게).
+function CohortModal({ kind, productId, cohorts, onClose, onSaved }: {
+  kind: Kind; productId: number; cohorts: Cohort[]; onClose: () => void; onSaved: (reset: boolean) => void
+}) {
+  const [rows, setRows] = useState(() => cohorts.map((k) => ({ ...k, name_in: k.name, ends_in: toInput(k.ends_at), live_in: toInput(k.live_at) })))
+  const [busy, setBusy] = useState(false)
+  const set = (no: number, patch: Partial<{ name_in: string; ends_in: string; live_in: string }>) =>
+    setRows((rs) => rs.map((r) => (r.no === no ? { ...r, ...patch } : r)))
+
+  const save = async () => {
+    // 바뀐 마감 시각만 반영한 경계로 검사
+    const ends = rows.map((r) => (r.ends_at && r.ends_in !== toInput(r.ends_at) ? fromInput(r.ends_in) : r.ends_at))
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i]
+      if (!r.name_in.trim()) return toast.error('기수 이름을 입력해주세요.')
+      if (r.ends_at && !r.ends_in) return toast.error(`${r.name} 마감 시각을 입력해주세요.`)
+      const start = i === 0 ? r.starts_at : ends[i - 1]
+      if (ends[i] && start && new Date(ends[i]!) <= new Date(start)) return toast.error(`${r.name} 마감 시각이 시작보다 빠릅니다.`)
+      if (ends[i] && new Date(ends[i]!).getTime() > Date.now()) return toast.error(`${r.name} 마감 시각은 지금보다 뒤일 수 없습니다.`)
+    }
+    setBusy(true)
+    try {
+      for (let i = 0; i < rows.length; i++) {
+        const r = rows[i]
+        const patch: Record<string, unknown> = {}
+        if (r.name_in.trim() !== r.name) patch.name = r.name_in.trim()
+        if (r.live_in !== toInput(r.live_at)) patch.live_at = fromInput(r.live_in)
+        if (ends[i] !== r.ends_at) patch.ends_at = ends[i]
+        if (i > 0 && ends[i - 1] !== rows[i - 1].ends_at) patch.starts_at = ends[i - 1]
+        if (!Object.keys(patch).length) continue
+        const { error } = await supabase.from('product_cohorts').update(patch as never).eq('id', r.id)
+        if (error) throw new Error(error.message)
+      }
+      toast.success('기수 정보를 저장했습니다.')
+      onSaved(false)
+    } catch (e) {
+      toast.error(`저장 실패: ${(e as Error).message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const undo = async () => {
+    const last = rows[rows.length - 1]
+    const prev = rows[rows.length - 2]
+    if (!prev) return
+    if (!confirm(`${prev.name} 마감 처리를 취소할까요?\n\n${last.name}가 없어지고, ${last.name}에 쌓인 기록은 다시 ${prev.name}로 집계됩니다. (신청·결제 데이터는 지워지지 않습니다)`)) return
+    setBusy(true)
+    const { error } = await supabase.rpc('reopen_product_cohort', { p_kind: kind, p_id: productId } as never)
+    setBusy(false)
+    if (error) return toast.error(`취소 실패: ${error.message}`)
+    toast.success('마감 처리를 취소했습니다.')
+    onSaved(true)
+  }
+
+  const inputCls = 'w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm'
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl w-full max-w-[760px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="p-5 border-b border-gray-100">
+          <h4 className="font-bold">기수 관리</h4>
+          <p className="text-xs text-gray-400 mt-1">마감 시각을 고치면 다음 기수의 시작도 같은 시각으로 바뀝니다. 신청·결제 데이터는 바뀌지 않고, 어느 기수로 집계할지만 달라집니다.</p>
+        </div>
+        <div className="p-5 overflow-y-auto flex-1 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="text-left text-xs text-gray-500">
+              <th className="pb-2 pr-2 font-bold">이름</th><th className="pb-2 pr-2 font-bold">시작</th>
+              <th className="pb-2 pr-2 font-bold">마감</th><th className="pb-2 font-bold">라이브 일시</th>
+            </tr></thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.id} className="border-t border-gray-100">
+                  <td className="py-2 pr-2 w-[110px]"><input value={r.name_in} onChange={(e) => set(r.no, { name_in: e.target.value })} className={inputCls} /></td>
+                  <td className="py-2 pr-2 text-gray-500 whitespace-nowrap">{i === 0 ? (r.starts_at ? kstDateTime(r.starts_at) : '처음부터') : '앞 기수 마감과 같음'}</td>
+                  <td className="py-2 pr-2">
+                    {r.ends_at
+                      ? <input type="datetime-local" value={r.ends_in} onChange={(e) => set(r.no, { ends_in: e.target.value })} className={inputCls} />
+                      : <span className="text-[#2ED573] font-bold">진행 중</span>}
+                  </td>
+                  <td className="py-2"><input type="datetime-local" value={r.live_in} onChange={(e) => set(r.no, { live_in: e.target.value })} className={inputCls} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="text-xs text-gray-400 mt-3">라이브 일시는 D-14 ~ 당일 표의 기준입니다. 비워 두면 강의에 등록된 진행일을 씁니다.</p>
+        </div>
+        <div className="p-4 border-t border-gray-100 flex justify-between gap-2 flex-wrap">
+          <button onClick={undo} disabled={busy || rows.length < 2} className="px-4 py-2 rounded-xl text-sm bg-white border border-gray-200 text-red-500 cursor-pointer disabled:opacity-40">마지막 마감 처리 취소</button>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="px-4 py-2 rounded-xl text-sm bg-gray-100 border-none cursor-pointer">닫기</button>
+            <button onClick={save} disabled={busy} className="px-4 py-2 rounded-xl text-sm bg-[#2ED573] text-white font-bold border-none cursor-pointer disabled:opacity-50">저장</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LinkModal({ kind, productId, current, cohort, onClose, onSaved }: {
+  kind: Kind; productId: number; current: Dashboard['product']; cohort: Cohort | null; onClose: () => void; onSaved: () => void
 }) {
   const [courses, setCourses] = useState<{ id: number; title: string }[]>([])
   const [ebooks, setEbooks] = useState<{ id: number; title: string }[]>([])
@@ -598,7 +791,11 @@ function LinkModal({ kind, productId, current, onClose, onSaved }: {
   }, [kind, productId])
 
   const save = async () => {
-    const { error } = await supabase.from('product_funnel_settings')
+    // 기수를 보고 있으면 그 기수에만 저장한다 (다른 기수 숫자는 그대로). 아무것도 안 고르면 기수 지정을 풀어 상품 공통 설정을 따른다.
+    const none = selC.length + selE.length === 0
+    const { error } = cohort
+      ? await supabase.from('product_cohorts').update({ linked_course_ids: none ? null : selC, linked_ebook_ids: none ? null : selE } as never).eq('id', cohort.id)
+      : await supabase.from('product_funnel_settings')
       .upsert({ kind, product_id: productId, linked_course_ids: selC, linked_ebook_ids: selE, updated_at: new Date().toISOString() } as never, { onConflict: 'kind,product_id' })
     if (error) return toast.error(`저장 실패: ${error.message}`)
     toast.success('연결 상품을 저장했습니다.')
@@ -618,7 +815,7 @@ function LinkModal({ kind, productId, current, onClose, onSaved }: {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-[640px] max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="p-5 border-b border-gray-100">
-          <h4 className="font-bold">결제로 볼 상품 선택</h4>
+          <h4 className="font-bold">결제로 볼 상품 선택{cohort ? ` — ${cohort.name}` : ''}</h4>
           <p className="text-xs text-gray-400 mt-1">신청자가 신청 이후 이 상품들 중 하나라도 구매하면 결제로 셉니다. 아무것도 고르지 않으면 같은 강사의 유료 강의로 자동 적용됩니다.</p>
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="상품명 검색" className="mt-3 w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
         </div>
