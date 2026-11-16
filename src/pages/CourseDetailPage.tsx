@@ -212,7 +212,7 @@ function CourseDetailPage() {
     }
     const checkOwned = async () => {
       try {
-        const result = await purchaseService.checkOwnership(user.id, courseId)
+        const result = await purchaseService.checkCourseEnrollment(user.id, courseId)
         setOwned(result)
       } catch {
         setOwned(false)
@@ -419,7 +419,7 @@ function CourseDetailPage() {
     const full = course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments
     const notOpen = course.course_type !== 'pre_alert' && !!course.enrollment_start && new Date(course.enrollment_start).getTime() > nowMs
     if (course.is_on_sale === false || closed || full || notOpen) return
-    purchaseService.checkOwnership(user.id, courseId)
+    purchaseService.checkCourseEnrollment(user.id, courseId)
       .then((has) => {
         if (has) { setOwned(true); toast('이미 신청한 강의입니다.'); return }
         handlePurchaseClick()
