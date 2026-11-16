@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
@@ -10,6 +10,7 @@ import RefundPolicyEditor from '../../components/admin/RefundPolicyEditor'
 import RichTextEditor from '../../components/admin/RichTextEditor'
 import WebhookScheduleEditor from '../../components/admin/WebhookScheduleEditor'
 import ProductDashboard from '../../components/admin/ProductDashboard'
+import { isLandingDoc } from '../../lib/landingTemplate/guard'
 import CourseWebhookVariablesEditor from '../../components/admin/CourseWebhookVariablesEditor'
 import InstructorFormModal, { newInstructor } from '../../components/admin/InstructorFormModal'
 import { courseService } from '../../services/courseService'
@@ -24,6 +25,9 @@ import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { CourseWithCurriculum, Review, Instructor, LandingCategory } from '../../types'
 import AdminPagination from '../../components/admin/AdminPagination'
 import AdminPromoSettings from '../../components/admin/AdminPromoSettings'
+
+// 템플릿 방식을 고른 강의에서만 받는다
+const TemplateLandingEditor = lazy(() => import('../../components/admin/TemplateLandingEditor'))
 
 interface CurriculumVideo {
   url: string
@@ -564,6 +568,10 @@ export default function AdminCourseDetail() {
         landing_image_url: ((editing.landing_image_urls as string[]) ?? [])[0] ?? null,
         landing_image_urls: (editing.landing_image_urls as string[]) ?? [],
         landing_image_links: (editing.landing_image_links as string[]) ?? [],
+        ...('landing_mode' in editing ? {
+          landing_mode: editing.landing_mode === 'template' && isLandingDoc(editing.landing_doc) ? 'template' : 'images',
+          landing_doc: editing.landing_doc ?? null,
+        } : {}),
         video_url: editing.video_url ?? null,
         promo_image_url: editing.promo_image_url ?? null,
         enrollment_start: editing.enrollment_start ?? null,
@@ -1019,6 +1027,29 @@ export default function AdminCourseDetail() {
                   helperText="여러 장을 선택하면 한 번에 업로드됩니다. 위→아래 순서로 강의 상세 페이지에 표시됩니다. 각 이미지에 링크를 넣으면 클릭 시 해당 페이지로 이동합니다. 링크에 #apply 를 넣으면 그 이미지가 신청 버튼처럼 동작합니다(로그인 전이면 로그인 후 신청 이어짐)."
                 />
               </div>
+              {'landing_mode' in editing && (
+                <div className="w-full">
+                  <label className="text-sm font-bold block mb-1">상세 페이지 방식</label>
+                  <div className="flex items-center gap-1 mb-2">
+                    {([['images', '이미지 (지금 방식)'], ['template', '템플릿 (자료로 자동 구성)']] as const).map(([mode, text]) => (
+                      <button key={mode} type="button" onClick={() => setEditing({ ...editing, landing_mode: mode })}
+                        className={`px-3 py-1.5 rounded-lg text-sm border-none cursor-pointer ${(editing.landing_mode ?? 'images') === mode ? 'bg-[#2ED573] text-white font-bold' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                        {text}
+                      </button>
+                    ))}
+                  </div>
+                  {editing.landing_mode === 'template' ? (
+                    <Suspense fallback={<div className="h-[260px] bg-gray-100 rounded-lg animate-pulse" />}>
+                      <TemplateLandingEditor value={editing.landing_doc} onChange={(doc) => setEditing((prev) => (prev ? { ...prev, landing_doc: doc } : prev))} />
+                    </Suspense>
+                  ) : (
+                    <p className="text-xs text-gray-400">위에 올린 상세페이지 이미지가 그대로 표시됩니다.</p>
+                  )}
+                  {editing.landing_mode === 'template' && !isLandingDoc(editing.landing_doc) && (
+                    <p className="text-xs text-amber-600 mt-1">랜딩 자료가 비어 있거나 형식이 맞지 않으면 저장할 때 이미지 방식으로 남습니다.</p>
+                  )}
+                </div>
+              )}
               <div className="w-full">
                 {(() => {
                   // 탭 활성 상태는 명시적 _promoType 우선, 없으면 데이터에서 추론.

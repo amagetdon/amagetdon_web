@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
+import { useState, useEffect, useMemo, useRef, Fragment, lazy, Suspense } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useCourse } from '../hooks/useCourses'
@@ -16,6 +16,7 @@ import { landingCategoryService } from '../services/landingCategoryService'
 import GuestSignupModal from '../components/GuestSignupModal'
 import AfterPurchaseLinkModal from '../components/AfterPurchaseLinkModal'
 import LandingImage from '../components/LandingImage'
+import { isLandingDoc } from '../lib/landingTemplate/guard'
 import CouponSelector from '../components/CouponSelector'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
@@ -32,6 +33,9 @@ import PromoTopBanner from '../components/PromoTopBanner'
 import { ScheduleBlock, PromoCountdownBlock, SeatsBadge, PriceCard, ACCENT } from '../components/ApplyCardParts'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
+
+// 템플릿 방식 강의에서만 받는다 (이미지 방식 강의의 첫 화면 용량을 늘리지 않게)
+const TemplateLanding = lazy(() => import('../components/TemplateLanding'))
 
 function CourseDetailPage() {
   const { id } = useParams()
@@ -799,6 +803,16 @@ function CourseDetailPage() {
                   ? course.landing_image_urls
                   : (course.landing_image_url ? [course.landing_image_url] : [])
                 const links = course.landing_image_links ?? []
+                // 템플릿 방식 — 이미지 대신 섹션 자료로 구성한 페이지. 랜딩 안 신청 버튼은 아래 신청 버튼과 같은 흐름을 탄다.
+                if (course.landing_mode === 'template' && isLandingDoc(course.landing_doc)) {
+                  return (
+                    <div className={`rounded-xl overflow-hidden ${hasPromo ? 'mt-6' : ''}`}>
+                      <Suspense fallback={<div className="bg-gray-100 min-h-[600px] animate-pulse" />}>
+                        <TemplateLanding doc={course.landing_doc} onApply={applyFromImage} />
+                      </Suspense>
+                    </div>
+                  )
+                }
                 if (urls.length === 0) {
                   return (
                     <div className={`bg-gray-100 rounded-xl min-h-[600px] flex items-center justify-center overflow-hidden ${hasPromo ? 'mt-6' : ''}`}>
