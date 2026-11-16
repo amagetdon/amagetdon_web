@@ -31,7 +31,15 @@ export const purchaseService = {
     if (error) throw error
     // 영상 주소는 서버 함수로 — 만료 전 구매 강의만 받아진다
     type Row = { course: { id: number; curriculum_items?: { id: number }[] } | null }
-    const rows = (data ?? []) as unknown as Row[]
+    // 기수제 재신청으로 같은 강의 신청이 여러 줄일 수 있다 — 강의당 가장 최근 줄만 보여 준다 (최근 순 정렬이라 처음 만난 줄)
+    const seen = new Set<number>()
+    const rows = ((data ?? []) as unknown as Row[]).filter((r) => {
+      const cid = r.course?.id
+      if (cid == null) return true
+      if (seen.has(cid)) return false
+      seen.add(cid)
+      return true
+    })
     const courseIds = [...new Set(rows.map((r) => r.course?.id).filter((x): x is number => !!x))]
     const allItems = rows.flatMap((r) => r.course?.curriculum_items ?? [])
     const merged = new Map((await withCurriculumVideos(courseIds, allItems)).map((i) => [i.id, i]))
@@ -78,6 +86,15 @@ export const purchaseService = {
     const { count, error } = await query
     if (error) throw error
     return (count ?? 0) > 0
+  },
+
+  // 강의 상세의 '이미 신청' 판단 — 기수제 무료 강의는 진행 중인 기수에 신청했는지만 본다
+  // (지난 기수 신청자는 다시 신청할 수 있어야 그 기수 신청으로 잡힌다). 그 외 강의는 checkOwnership 과 같다.
+  // 서버 함수 has_current_enrollment 가 없거나 실패하면 예전 방식(구매 기록 유무)으로 판단한다.
+  async checkCourseEnrollment(userId: string, courseId: number): Promise<boolean> {
+    const { data, error } = await supabase.rpc('has_current_enrollment' as never, { p_course_id: courseId } as never)
+    if (error || typeof data !== 'boolean') return this.checkOwnership(userId, courseId)
+    return data
   },
 
   // 포인트 구매 — 서버 함수 purchase_with_points 가 가격(정가·할인 기간)·쿠폰을 DB 값으로 다시 계산하고
