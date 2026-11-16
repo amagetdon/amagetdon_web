@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import TemplateLanding from '../TemplateLanding'
 import LandingForm from './landingForm/LandingForm'
+import AgentPanel from './landingForm/AgentPanel'
 import type { LandingDoc, LandingReport } from '../../lib/landingTemplate'
 import { isLandingDoc } from '../../lib/landingTemplate/guard'
 
@@ -56,7 +57,7 @@ function ReportPanel({ report }: { report: LandingReport }) {
   )
 }
 
-export default function TemplateLandingEditor({ value, onChange, uploadPrefix, defaultTitle }: {
+export default function TemplateLandingEditor({ value, onChange, uploadPrefix, defaultTitle, courseId = null }: {
   value: unknown
   /** 올바른 자료일 때만 불린다 (잘못된 JSON 은 저장 대상에 반영되지 않음) */
   onChange: (doc: unknown) => void
@@ -64,6 +65,8 @@ export default function TemplateLandingEditor({ value, onChange, uploadPrefix, d
   uploadPrefix: string
   /** 새로 시작할 때 강의명 칸에 미리 넣을 값 */
   defaultTitle?: string
+  /** 저장된 강의의 번호 — 초안 만들기용 자료를 강의별로 보관할 때 쓴다 */
+  courseId?: number | null
 }) {
   const [mode, setMode] = useState<'form' | 'json'>('form')
   // 화면을 오갈 때 입력 화면·직접 편집을 새 자료로 다시 시작시키는 번호
@@ -94,7 +97,11 @@ export default function TemplateLandingEditor({ value, onChange, uploadPrefix, d
           {mode === 'json' ? (
             <JsonEditor key={rev} value={value} onChange={onChange} />
           ) : valid ? (
-            <LandingForm key={rev} value={value} onChange={onChange} uploadPrefix={uploadPrefix} />
+            <div className="space-y-3">
+              {/* 초안을 반영하면 입력 화면을 새 자료로 다시 연다 */}
+              <AgentPanel doc={value} uploadPrefix={uploadPrefix} courseId={courseId} onApply={(next) => { onChange(next); setRev((n) => n + 1) }} />
+              <LandingForm key={rev} value={value} onChange={onChange} uploadPrefix={uploadPrefix} />
+            </div>
           ) : (
             <div className="border border-dashed border-gray-300 rounded-xl p-6 text-center space-y-3">
               <p className="text-sm text-gray-600">아직 랜딩 자료가 없습니다. 강의 종류를 골라 시작하세요.</p>
