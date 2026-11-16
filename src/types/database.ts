@@ -176,6 +176,9 @@ export interface Course {
   landing_image_url: string | null
   landing_image_urls: string[] | null
   landing_image_links: string[] | null
+  // 상세 페이지 방식. 'template' 이면 landing_doc(섹션 자료)로 페이지를 자동 구성한다. 형식: src/lib/landingTemplate/README.md
+  landing_mode?: 'images' | 'template'
+  landing_doc?: unknown
   original_price: number | null
   sale_price: number | null
   // 가격을 "월 N원 (M개월 할부 시)" 로 표시. 0 이면 할부 미적용(원가 그대로 표시).

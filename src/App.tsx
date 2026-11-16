@@ -73,6 +73,8 @@ const AdminEbookDetail = lazy(() => import('./pages/admin/AdminEbookDetail'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const SecretGamePage = lazy(() => import('./pages/SecretGamePage'))
 const StaticLandingPage = lazy(() => import('./pages/StaticLandingPage'))
+// 개발용 미리보기 — 로컬 실행에서만 등록된다(운영 묶음에는 들어가지 않음)
+const LandingPreviewPage = import.meta.env.DEV ? lazy(() => import('./pages/dev/LandingPreviewPage')) : null
 const AdminBoard = lazy(() => import('./pages/admin/AdminBoard'))
 const BoardPostPage = lazy(() => import('./pages/BoardPostPage'))
 const BlogPreviewPage = lazy(() => import('./pages/BlogPreviewPage'))
@@ -247,6 +249,7 @@ function App() {
                 <Route path="/landing/:slug" element={<LandingPage />} />
                 <Route path="/s/:slug" element={<SecretGamePage />} />
                 <Route path="/lp/:slug" element={<StaticLandingPage />} />
+                {LandingPreviewPage && <Route path="/__landing-preview" element={<LandingPreviewPage />} />}
 
                 {/* 아마겟돈 뉴스레터: /board 목록·/board/:id 글은 공개(잠금은 서버 RPC 판정),
                     /board/p/:token 은 비밀 공유 링크. 관리 화면은 /admin/board */}

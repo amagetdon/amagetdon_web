@@ -34,3 +34,6 @@ public/cmaps/
 public/standard_fonts/
 
 *.xlsx
+
+# 개발용 템플릿 랜딩 자료 (실제 강의 내용이라 올리지 않는다)
+public/__fixtures/
