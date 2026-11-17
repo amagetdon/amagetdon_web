@@ -168,7 +168,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       )}
 
       {/* Main content */}
-      <main className="flex-1 bg-[#f8f9fb] p-6 max-sm:p-4 overflow-x-hidden">
+      <main className="flex-1 bg-[#f8f9fb] p-6 max-sm:p-4 overflow-x-clip">
         {children}
       </main>
       <AdminDataChat />

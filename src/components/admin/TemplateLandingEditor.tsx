@@ -114,7 +114,7 @@ export default function TemplateLandingEditor({ value, onChange, uploadPrefix, d
         </div>
 
         {valid && (
-          <div className="space-y-3 xl:sticky xl:top-4">
+          <div className="space-y-3 xl:sticky xl:top-4 xl:max-h-[calc(100vh-2rem)] xl:overflow-y-auto">
             <p className="text-xs font-bold text-gray-500">미리보기 (휴대폰 폭)</p>
             <div className="border border-gray-200 rounded-xl overflow-hidden max-h-[640px] overflow-y-auto">
               <TemplateLanding doc={value} onReport={handleReport} onApply={() => {}} />
