@@ -15,8 +15,8 @@ type Dim = 'campaign' | 'content' | 'term'
 /** 신청자 행 — 매체 × 캠페인 × 소재 × 세트 */
 interface AppRow {
   channel: string; campaign: string; content: string; term: string
-  // purchase = 이번 신청 직전 경로로 분류, signup = 그 기록이 없어 회원가입 때 경로로 분류
-  basis?: 'purchase' | 'signup'
+  // purchase = 이번 신청 직전 경로로 분류, free = (유료 상품) 그 기록이 없어 무료 강의 신청 때 경로로 분류, signup = 둘 다 없어 회원가입 때 경로로 분류
+  basis?: 'purchase' | 'free' | 'signup'
   applicants: number; new_signups: number; payers: number; revenue: number
   male: number; female: number; gender_unknown: number; ages: Record<string, number>
 }
@@ -42,7 +42,19 @@ interface Dashboard {
   rows: AppRow[]
   spend: Record<string, number>
   dday: DdayRow[] | null
+  /** 무료 ↔ 본 강의 맞춰 보기 (서버 함수가 예전 것이면 없음) */
+  match?: FreeMatch | PaidMatch | null
+  free_rows?: FreeRouteRow[]
 }
+/** 무료 상품: 다른 계정(같은 전화번호)으로 결제한 사람 수, 무료 신청 기록과 이어지지 않은 연결 상품 결제 */
+interface FreeMatch { mode: 'free'; phone_payers: number; unmatched_payers: number; unmatched_revenue: number }
+/** 유료 상품: 무료 상품을 거친 결제 / 거치지 않은 결제 */
+interface PaidMatch {
+  mode: 'paid'; feeders: { kind: Kind; id: number; title: string }[]
+  via_free_payers: number; via_free_revenue: number; phone_payers: number; no_free_payers: number; no_free_revenue: number
+}
+/** 유료 상품의 결제를 무료 상품 신청 경로로 다시 묶은 줄 — 무료 상품(kind·id) × 매체 × 캠페인 × 소재 × 세트 */
+interface FreeRouteRow { kind: Kind; id: number; channel: string; campaign: string; content: string; term: string; payers: number; phone_payers: number; revenue: number }
 interface SpendRow { id: number; channel: string; spend_date: string; amount: number; source: 'manual' | 'meta'; external_id: string | null; note: string | null }
 
 /** 표 한 줄 (매체 또는 그 아래 파라미터 값) */
@@ -59,6 +71,7 @@ const CHANNEL_LABEL: Record<string, string> = {
 const DIM_LABEL: Record<Dim, string> = { campaign: '캠페인', content: '소재(content)', term: '세트(term)' }
 const SPEND_CHANNELS = ['meta', 'kakao', 'naver', 'google', 'youtube', 'dable', 'taboola', 'tiktok', 'karrot', 'other']
 const SIGNUP_MARK = ' (가입 경로)'
+const FREE_MARK = ' (무료 신청 경로)'
 const AGE_ORDER = ['10대', '20대', '30대', '40대', '50대', '60대+', '미상']
 
 const label = (c: string) => CHANNEL_LABEL[c] ?? c
@@ -205,7 +218,7 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
       (data.rows ?? []).filter((r) => r.channel === ch),
       (data.visit_rows ?? []).filter((v) => v.channel === ch),
       // 가입 경로로 분류된 신청자는 같은 값이라도 따로 묶어 '(가입 경로)' 로 표시 — 방문(이번 경로)과 섞이지 않게
-      (r) => ('basis' in r && r.basis === 'signup' && r[dim] ? `${r[dim]}${SIGNUP_MARK}` : r[dim]),
+      (r) => ('basis' in r && r[dim] ? (r.basis === 'signup' ? `${r[dim]}${SIGNUP_MARK}` : r.basis === 'free' ? `${r[dim]}${FREE_MARK}` : r[dim]) : r[dim]),
     )
   }, [data, dim])
 
@@ -253,6 +266,7 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
                     <td className="pl-8 pr-3 py-1.5 text-xs max-w-[260px] truncate" title={s.key}>
                       {!s.key ? <span className="text-gray-400">(값 없음)</span>
                         : s.key.endsWith(SIGNUP_MARK) ? <>{s.key.slice(0, -SIGNUP_MARK.length)}<span className="text-gray-400" title="이번 신청 경로 기록이 없어(10/12 이전 신청) 회원가입 때 UTM 으로 분류">{SIGNUP_MARK}</span></>
+                        : s.key.endsWith(FREE_MARK) ? <>{s.key.slice(0, -FREE_MARK.length)}<span className="text-gray-400" title="결제 직전 경로 기록이 없어(링크페이·무통장·부여 등) 무료 강의 신청 때 경로로 분류">{FREE_MARK}</span></>
                         : s.key}
                     </td>
                     {cells(s, false).map((v, i) => <td key={i} className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{v}</td>)}
@@ -333,6 +347,12 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
               </p>
             ) : (
               <p className="text-sm text-gray-700">유료 상품 — 이 상품 구매가 곧 결제입니다.</p>
+            )}
+            {data.match?.mode === 'free' && (data.match.phone_payers > 0 || data.match.unmatched_payers > 0) && (
+              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
+                {data.match.phone_payers > 0 && <>결제 {n(totals.payers)}명 가운데 <b>{n(data.match.phone_payers)}명</b>은 신청한 계정과 다른 계정(같은 전화번호)으로 결제했습니다. </>}
+                {data.match.unmatched_payers > 0 && <>이 밖에 무료 신청 기록 없이(또는 신청 전에) 연결 상품을 결제한 <b>{n(data.match.unmatched_payers)}명 · {won(data.match.unmatched_revenue)}</b>은 위 결제·매출에 들어 있지 않습니다. 매출 {won(totals.revenue)} + {won(data.match.unmatched_revenue)} = 연결 상품 매출 <b>{won(Number(totals.revenue) + Number(data.match.unmatched_revenue))}</b>.</>}
+              </p>
             )}
           </div>
           {product.is_free && (
@@ -419,7 +439,12 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
           <h3 className="text-base font-bold text-gray-900">매체별 광고 성과</h3>
           <DimPicker />
         </div>
-        <p className="text-xs text-gray-400 mb-4">매체 = 이번 신청 직전 유입 경로(UTM) → 없으면 회원가입 때 경로. 광고비는 매체 단위(펼친 줄에는 없음).</p>
+        <p className="text-xs text-gray-400 mb-4">
+          {product.is_free
+            ? '매체 = 이번 신청 직전 유입 경로(UTM) → 없으면 회원가입 때 경로.'
+            : '매체 = 결제 직전 유입 경로(UTM) → 없으면(링크페이·무통장·부여 등) 무료 강의 신청 때 경로 → 그것도 없으면 회원가입 때 경로.'}
+          {' '}광고비는 매체 단위(펼친 줄에는 없음).
+        </p>
         <ChannelTable
           headers={['매체', '신청(DB)', '결제', '결제율', '매출', '광고비', 'DB당 단가', '결제당 비용', 'ROAS']}
           cells={(a, isChannel) => [
@@ -431,6 +456,11 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
           ]}
         />
       </section>
+
+      {/* 무료 강의 신청 경로로 본 결제 (유료 상품) */}
+      {data.match?.mode === 'paid' && (
+        <FreeRouteSection match={data.match} rows={data.free_rows ?? []} dim={dim} dimPicker={<DimPicker />} totalPayers={totals.payers} />
+      )}
 
       {/* 매체별 성별·연령대 */}
       <section className="bg-white rounded-xl shadow-sm p-5">
@@ -464,6 +494,120 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
         <LinkModal kind={kind} productId={productId} current={product} cohort={curCohort} onClose={() => setLinkOpen(false)} onSaved={() => { setLinkOpen(false); load() }} />
       )}
     </div>
+  )
+}
+
+const feederKey = (f: { kind: Kind; id: number }) => `${f.kind}:${f.id}`
+/** 무료 신청 경로 줄을 keyFn 값별로 합친다 */
+function sumFreeRoutes(list: FreeRouteRow[], keyFn: (r: FreeRouteRow) => string) {
+  const m = new Map<string, { key: string; payers: number; phone: number; revenue: number }>()
+  for (const r of list) {
+    const k = keyFn(r)
+    const a = m.get(k) ?? { key: k, payers: 0, phone: 0, revenue: 0 }
+    a.payers += r.payers; a.phone += r.phone_payers; a.revenue += Number(r.revenue)
+    m.set(k, a)
+  }
+  return [...m.values()].sort((x, y) => y.payers - x.payers || y.revenue - x.revenue)
+}
+
+/** 유료 상품: 결제를 '무료 강의 신청 때 경로'로 다시 묶어 본다 — 무료 강의 대시보드의 매체별 결제와 같은 기준 */
+function FreeRouteSection({ match, rows, dim, dimPicker, totalPayers }: { match: PaidMatch; rows: FreeRouteRow[]; dim: Dim; dimPicker: ReactNode; totalPayers: number }) {
+  // 무료 상품별 결제자 수 (많은 순)
+  const feeders = useMemo(() => match.feeders
+    .map((f) => ({ ...f, payers: rows.filter((r) => feederKey(r) === feederKey(f)).reduce((s, r) => s + r.payers, 0) }))
+    .sort((a, b) => b.payers - a.payers), [match.feeders, rows])
+  const [picked, setPicked] = useState<string | null>(null)
+  const [open, setOpen] = useState<Set<string>>(new Set())
+  const cur = feeders.find((f) => feederKey(f) === picked) ?? feeders[0] ?? null
+  const curKey = cur ? feederKey(cur) : null
+  const mine = useMemo(() => (curKey ? rows.filter((r) => feederKey(r) === curKey) : []), [rows, curKey])
+  const channels = sumFreeRoutes(mine, (r) => r.channel)
+  const total = channels.reduce((s, c) => ({ payers: s.payers + c.payers, revenue: s.revenue + c.revenue }), { payers: 0, revenue: 0 })
+  const toggle = (ch: string) => setOpen((prev) => { const s = new Set(prev); if (s.has(ch)) s.delete(ch); else s.add(ch); return s })
+
+  return (
+    <section className="bg-white rounded-xl shadow-sm p-5">
+      <div className="flex items-baseline justify-between gap-2 flex-wrap mb-1">
+        <h3 className="text-base font-bold text-gray-900">무료 강의 신청 경로로 본 결제</h3>
+        {dimPicker}
+      </div>
+      <p className="text-xs text-gray-400 mb-3 leading-relaxed">
+        결제자가 그 전에 신청한 무료 강의·전자책의 유입 경로로 결제를 다시 묶었습니다. 무료 쪽 통합 대시보드의 매체별 결제·매출과 같은 기준이라 서로 맞춰 볼 수 있습니다.
+        신청한 계정과 결제한 계정이 달라도 전화번호가 같으면 같은 사람으로 봅니다.
+      </p>
+      <div className="grid grid-cols-3 max-md:grid-cols-1 gap-3 mb-4">
+        <div className="rounded-lg bg-gray-50 p-3">
+          <p className="text-xs text-gray-500">무료 강의·전자책을 거친 결제</p>
+          <p className="text-xl font-bold text-gray-900">{n(match.via_free_payers)}명 <span className="text-xs font-normal text-gray-400">{pct(match.via_free_payers, totalPayers)}</span></p>
+          <p className="text-xs text-gray-500">{won(match.via_free_revenue)}</p>
+        </div>
+        <div className="rounded-lg bg-gray-50 p-3">
+          <p className="text-xs text-gray-500">그중 다른 계정(같은 전화번호)으로 결제</p>
+          <p className="text-xl font-bold text-gray-900">{n(match.phone_payers)}명</p>
+        </div>
+        <div className="rounded-lg bg-gray-50 p-3">
+          <p className="text-xs text-gray-500">무료 신청 기록 없이 결제</p>
+          <p className="text-xl font-bold text-gray-900">{n(match.no_free_payers)}명</p>
+          <p className="text-xs text-gray-500">{won(match.no_free_revenue)}</p>
+        </div>
+      </div>
+      {!cur ? (
+        <p className="text-sm text-gray-400">이 상품으로 이어진 무료 강의·전자책 신청 기록이 없습니다.</p>
+      ) : (
+        <>
+          <div className="flex items-center gap-1 flex-wrap mb-3">
+            {feeders.map((f) => (
+              <button key={feederKey(f)} onClick={() => { setPicked(feederKey(f)); setOpen(new Set()) }} title={f.title}
+                className={`px-3 py-1.5 rounded-lg text-xs border-none cursor-pointer max-w-[280px] truncate ${feederKey(f) === curKey ? 'bg-[#2ED573] text-white font-bold' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                [{f.kind === 'course' ? '강의' : '전자책'} {f.id}] {f.title} · {n(f.payers)}명
+              </button>
+            ))}
+          </div>
+          {feeders.length > 1 && <p className="text-xs text-gray-400 mb-2">한 사람이 무료 상품을 여러 개 신청했으면 각 무료 상품에 모두 잡힙니다(무료 쪽 대시보드와 같게). 그래서 무료 상품별 합은 위 '거친 결제'보다 클 수 있습니다.</p>}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50"><tr>
+                {['무료 신청 때 매체', '결제', '그중 다른 계정', '매출', '매출 비중'].map((h, i) => <th key={i} className="px-3 py-2 text-right first:text-left font-bold text-gray-600 whitespace-nowrap">{h}</th>)}
+              </tr></thead>
+              <tbody>
+                {channels.map((c) => {
+                  const isOpen = open.has(c.key)
+                  return (
+                    <Fragment key={c.key}>
+                      <tr className="border-t border-gray-100 cursor-pointer hover:bg-gray-50" onClick={() => toggle(c.key)}>
+                        <td className="px-3 py-2 font-medium whitespace-nowrap">
+                          <i className={`ti ${isOpen ? 'ti-chevron-down' : 'ti-chevron-right'} text-xs text-gray-400 mr-1`} />{label(c.key)}
+                        </td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{n(c.payers)}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{c.phone ? n(c.phone) : '-'}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{won(c.revenue)}</td>
+                        <td className="px-3 py-2 text-right whitespace-nowrap">{pct(c.revenue, total.revenue)}</td>
+                      </tr>
+                      {isOpen && sumFreeRoutes(mine.filter((r) => r.channel === c.key), (r) => r[dim]).map((s) => (
+                        <tr key={`${c.key}:${s.key}`} className="bg-gray-50/60 text-gray-600">
+                          <td className="pl-8 pr-3 py-1.5 text-xs max-w-[260px] truncate" title={s.key}>{s.key || <span className="text-gray-400">(값 없음)</span>}</td>
+                          <td className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{n(s.payers)}</td>
+                          <td className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{s.phone ? n(s.phone) : '-'}</td>
+                          <td className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{won(s.revenue)}</td>
+                          <td className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{pct(s.revenue, c.revenue)}</td>
+                        </tr>
+                      ))}
+                    </Fragment>
+                  )
+                })}
+                <tr className="border-t border-gray-200 font-bold">
+                  <td className="px-3 py-2">합계</td>
+                  <td className="px-3 py-2 text-right">{n(total.payers)}</td>
+                  <td className="px-3 py-2 text-right" />
+                  <td className="px-3 py-2 text-right">{won(total.revenue)}</td>
+                  <td className="px-3 py-2 text-right" />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
   )
 }
 
