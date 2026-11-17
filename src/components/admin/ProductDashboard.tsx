@@ -462,8 +462,8 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
         <FreeRouteSection match={data.match} rows={data.free_rows ?? []} dim={dim} dimPicker={<DimPicker />} totalPayers={totals.payers} />
       )}
 
-      {/* 매체별 성별·연령대 */}
-      <section className="bg-white rounded-xl shadow-sm p-5">
+      {/* 매체별 성별·연령대 — 무료 상품을 거쳐 오는 유료 상품에서는 숨긴다(유료 자체 경로 표시는 헷갈림) */}
+      {!(data.match?.mode === 'paid' && data.match.feeders.length > 0) && <section className="bg-white rounded-xl shadow-sm p-5">
         <div className="flex items-baseline justify-between gap-2 flex-wrap mb-4">
           <h3 className="text-base font-bold text-gray-900">매체별 성별·연령대 (신청자 기준)</h3>
           <DimPicker />
@@ -482,7 +482,7 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
             }),
           ]}
         />
-      </section>
+      </section>}
 
       <SpendSection kind={kind} productId={productId} rows={spendRows} onChanged={load} />
 
