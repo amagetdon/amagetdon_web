@@ -433,8 +433,8 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
       {/* D-14 ~ 당일 */}
       {data.dday && <DdaySection rows={data.dday} />}
 
-      {/* 매체별 성과 */}
-      <section className="bg-white rounded-xl shadow-sm p-5">
+      {/* 매체별 성과 — 무료 상품을 거쳐 오는 유료 상품은 아래 '무료 강의 신청 경로' 표만 보여 준다(경로 표가 둘이면 헷갈림) */}
+      {!(data.match?.mode === 'paid' && data.match.feeders.length > 0) && <section className="bg-white rounded-xl shadow-sm p-5">
         <div className="flex items-baseline justify-between gap-2 flex-wrap mb-1">
           <h3 className="text-base font-bold text-gray-900">매체별 광고 성과</h3>
           <DimPicker />
@@ -455,7 +455,7 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
             isChannel ? <b>{roas(a.revenue, a.spend)}</b> : '-',
           ]}
         />
-      </section>
+      </section>}
 
       {/* 무료 강의 신청 경로로 본 결제 (유료 상품) */}
       {data.match?.mode === 'paid' && (
