@@ -448,6 +448,9 @@ export default function AdminCourseDetail() {
         related_course_ids: [],
         landing_image_urls: [],
         landing_image_links: [],
+        // 강의 추가에서도 템플릿 랜딩·자료로 초안 만들기를 쓸 수 있게 방식 칸을 연다
+        landing_mode: 'images',
+        landing_doc: null,
         strengths: [],
         features: [],
         seo: {},
