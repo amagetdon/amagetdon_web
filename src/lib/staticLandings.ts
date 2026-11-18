@@ -1,6 +1,7 @@
 // 받은 HTML 그대로 쓰는 랜딩(메뉴·검색에 안 나오는 화면) 설정 — /lp/:slug
 // 화면은 public/lp-assets/<slug>/index.html 을 꽉 찬 화면으로 띄운다. 앱 안에서 띄워 UTM·유입 경로 기록과 픽셀이 그대로 동작한다.
 // 결제·문의 버튼 주소는 각 index.html 맨 아래 CONFIG.links 와 .y-ask 에 넣는다.
+// 돈작가 무료특강은 index.html 맨 아래 APPLY_URL(오픈채팅 주소)·LIVE_AT(라이브 시각) 두 줄만 고치면 된다.
 
 export interface StaticLanding {
   /** 정적 화면 주소 */
@@ -19,4 +20,10 @@ export const STATIC_LANDINGS: Record<string, StaticLanding> = {
   'eunwoo-replay-p': { ...EUNWOO_REPLAY, src: '/lp-assets/eunwoo-replay-p/index.html' },
   // 은우 다시보기 — 미참여자용(정가 결제 + 실천조사 안내)
   'eunwoo-replay-n': { ...EUNWOO_REPLAY, src: '/lp-assets/eunwoo-replay-n/index.html' },
+  // 돈작가 이승엽 무료특강(12/21 19:30) — 신청 버튼은 오픈채팅으로 바로 연결
+  'donjakga-free': {
+    title: '돈작가 AI 사진 부업 무료특강',
+    description: '폰 하나로 하는 AI 사진 부업. 12.21(월) 저녁 7:30 무료 LIVE 특강.',
+    src: '/lp-assets/donjakga-free/index.html',
+  },
 }

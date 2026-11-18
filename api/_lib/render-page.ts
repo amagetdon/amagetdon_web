@@ -440,6 +440,13 @@ const ROUTES: [RegExp, Handler][] = [
     noindex: true,
   })],
 
+  [/^\/lp\/donjakga-free$/, async () => ({
+    title: '돈작가 AI 사진 부업 무료특강',
+    description: '폰 하나로 하는 AI 사진 부업. 12.21(월) 저녁 7:30 무료 LIVE 특강.',
+    image: '/lp-assets/donjakga-free/img/s05_instructor-photo.jpg',
+    noindex: true,
+  })],
+
   // 수강생 커뮤니티 — 로그인 회원 전용이라 글 내용은 서버에서 그리지 않고 색인도 안 함
   [/^\/community(\/.*)?$/, async () => ({
     title: '아마 돈 벌고 있을걸요? | 아마겟돈 클래스',
