@@ -18,6 +18,7 @@ import GuestSignupModal from '../components/GuestSignupModal'
 import AfterPurchaseLinkModal from '../components/AfterPurchaseLinkModal'
 import LandingImage from '../components/LandingImage'
 import { isLandingDoc } from '../lib/landingTemplate/guard'
+import { STATIC_LANDINGS, staticLandingSlug } from '../lib/staticLandings'
 import CouponSelector from '../components/CouponSelector'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
@@ -37,6 +38,7 @@ import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
 
 // 템플릿 방식 강의에서만 받는다 (이미지 방식 강의의 첫 화면 용량을 늘리지 않게)
 const TemplateLanding = lazy(() => import('../components/TemplateLanding'))
+const StaticLandingEmbed = lazy(() => import('../components/StaticLandingEmbed'))
 
 function CourseDetailPage() {
   const { id } = useParams()
@@ -815,6 +817,17 @@ function CourseDetailPage() {
                     <div className={`rounded-xl overflow-hidden ${hasPromo ? 'mt-6' : ''}`}>
                       <Suspense fallback={<div className="bg-gray-100 min-h-[600px] animate-pulse" />}>
                         <TemplateLanding doc={course.landing_doc} onApply={applyFromImage} />
+                      </Suspense>
+                    </div>
+                  )
+                }
+                // 받은 HTML 방식 — 등록된 랜딩 화면을 그대로 넣는다. 랜딩 안 신청 버튼은 아래 신청 버튼과 같은 흐름을 탄다.
+                const staticSlug = course.landing_mode !== 'template' ? staticLandingSlug(course.landing_doc) : null
+                if (staticSlug) {
+                  return (
+                    <div className={`rounded-xl overflow-hidden ${hasPromo ? 'mt-6' : ''}`}>
+                      <Suspense fallback={<div className="bg-gray-100 min-h-[600px] animate-pulse" />}>
+                        <StaticLandingEmbed src={STATIC_LANDINGS[staticSlug].src} title={course.title} onApply={applyFromImage} />
                       </Suspense>
                     </div>
                   )

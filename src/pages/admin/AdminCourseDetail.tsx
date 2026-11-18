@@ -21,6 +21,7 @@ import { landingCategoryService } from '../../services/landingCategoryService'
 import { refundPolicyTemplateService } from '../../services/refundPolicyTemplateService'
 import { formatTouch, type PurchaseTouch } from '../../lib/attribution'
 import { supabase } from '../../lib/supabase'
+import { STATIC_LANDINGS, staticLandingSlug } from '../../lib/staticLandings'
 import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { CourseWithCurriculum, Review, Instructor, LandingCategory } from '../../types'
 import AdminPagination from '../../components/admin/AdminPagination'
@@ -1078,7 +1079,19 @@ export default function AdminCourseDetail() {
                         uploadPrefix={`${courseId ?? 'new'}/landing-tpl`} known={landingKnown(editing, instructors)} courseId={courseId ?? null} />
                     </Suspense>
                   ) : (
-                    <p className="text-xs text-gray-400">위에 올린 상세페이지 이미지가 그대로 표시됩니다.</p>
+                    <div>
+                      <p className="text-xs text-gray-400">위에 올린 상세페이지 이미지가 그대로 표시됩니다.</p>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <label className="text-xs font-bold text-gray-600">받은 HTML 랜딩 쓰기</label>
+                        <select value={staticLandingSlug(editing.landing_doc) ?? ''}
+                          onChange={(e) => setEditing({ ...editing, landing_doc: e.target.value ? { static: e.target.value } : null })}
+                          className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm outline-none focus:border-[#2ED573]">
+                          <option value="">쓰지 않음 (이미지 표시)</option>
+                          {Object.entries(STATIC_LANDINGS).map(([slug, cfg]) => <option key={slug} value={slug}>{cfg.title} ({slug})</option>)}
+                        </select>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">고르면 이미지 대신 그 랜딩 화면이 강의 상세에 표시되고, 랜딩 안의 신청 버튼이 이 강의 신청으로 이어집니다.</p>
+                    </div>
                   )}
                   {editing.landing_mode === 'template' && !isLandingDoc(editing.landing_doc) && (
                     <p className="text-xs text-amber-600 mt-1">랜딩 자료가 비어 있거나 형식이 맞지 않으면 저장할 때 이미지 방식으로 남습니다.</p>
