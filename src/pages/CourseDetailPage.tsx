@@ -1,3 +1,4 @@
+import { logPaymentAttempt, logPaymentError } from '../lib/paymentAttempts'
 import { useState, useEffect, useMemo, useRef, Fragment, lazy, Suspense } from 'react'
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -580,6 +581,8 @@ function CourseDetailPage() {
   }
 
   const handleTossPayment = async (courseIdVal: number, title: string, price: number) => {
+    // 결제창 기록용(결제 흐름에는 관여하지 않음)
+    let attempt: { kind: 'course'; productId: number; orderId: string; amount: number } | null = null
     try {
       setTossLoading(true)
       const clientKey = await paymentService.getClientKey()
@@ -604,6 +607,8 @@ function CourseDetailPage() {
       })
 
       setConfirmOpen(false)
+      attempt = { kind: 'course', productId: courseIdVal, orderId, amount: price }
+      logPaymentAttempt('open', attempt)
       await payment.requestPayment({
         method: 'CARD',
         amount: { currency: 'KRW', value: price },
@@ -616,6 +621,7 @@ function CourseDetailPage() {
         customerMobilePhone: profile?.phone?.replace(/-/g, '') || undefined,
       })
     } catch (err) {
+      if (attempt) logPaymentError(err, attempt)
       if (err instanceof Error && err.message.includes('사용자가')) return
       toast.error('결제 요청에 실패했습니다.')
     } finally {

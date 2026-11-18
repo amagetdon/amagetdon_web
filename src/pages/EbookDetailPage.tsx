@@ -1,3 +1,4 @@
+import { logPaymentAttempt, logPaymentError } from '../lib/paymentAttempts'
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
@@ -370,6 +371,8 @@ function EbookDetailPage() {
   }
 
   const handleTossPayment = async (ebookIdVal: number, title: string, price: number) => {
+    // 결제창 기록용(결제 흐름에는 관여하지 않음)
+    let attempt: { kind: 'ebook'; productId: number; orderId: string; amount: number } | null = null
     try {
       setTossLoading(true)
       const clientKey = await paymentService.getClientKey()
@@ -393,6 +396,8 @@ function EbookDetailPage() {
       })
 
       setConfirmOpen(false)
+      attempt = { kind: 'ebook', productId: ebookIdVal, orderId, amount: price }
+      logPaymentAttempt('open', attempt)
       await payment.requestPayment({
         method: 'CARD',
         amount: { currency: 'KRW', value: price },
@@ -405,6 +410,7 @@ function EbookDetailPage() {
         customerMobilePhone: profile?.phone?.replace(/-/g, '') || undefined,
       })
     } catch (err) {
+      if (attempt) logPaymentError(err, attempt)
       if (err instanceof Error && err.message.includes('사용자가')) return
       toast.error('결제 요청에 실패했습니다.')
     } finally {
