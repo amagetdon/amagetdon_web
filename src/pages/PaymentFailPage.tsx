@@ -1,9 +1,19 @@
+import { useEffect } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
+import { logPaymentAttempt, productFromOrderId, stageFromError } from '../lib/paymentAttempts'
 
 export default function PaymentFailPage() {
   const [searchParams] = useSearchParams()
   const code = searchParams.get('code') || ''
   const message = searchParams.get('message') || '결제가 취소되었습니다.'
+  const orderId = searchParams.get('orderId') || ''
+
+  // 결제창 기록 — 실패·취소로 돌아온 것을 남긴다(주문 번호에서 상품을 읽음. 같은 주문·단계는 서버가 한 번만 기록)
+  useEffect(() => {
+    const product = productFromOrderId(orderId)
+    if (product) logPaymentAttempt(stageFromError(code, searchParams.get('message') || ''), { ...product, orderId, code: code || 'UNKNOWN' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId, code])
 
   return (
     <section className="w-full bg-white min-h-[60vh] flex items-center justify-center py-20">
