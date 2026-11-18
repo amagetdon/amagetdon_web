@@ -66,6 +66,37 @@ const toKstDatetimeLocal = (iso: string | null | undefined) => {
   return kst.toISOString().slice(0, 16)
 }
 
+/** 강의 등록 칸에 적은 값 → 랜딩 기본 정보의 이름으로. 랜딩의 빈칸을 채우는 데 쓴다 */
+function landingKnown(editing: Record<string, unknown>, instructors: { id: number; name: string }[]): Record<string, unknown> {
+  const local = toKstDatetimeLocal(editing.scheduled_at as string | null)
+  return {
+    강의명: typeof editing.title === 'string' ? editing.title.trim() : '',
+    강사명: instructors.find((i) => i.id === editing.instructor_id)?.name ?? '',
+    라이브: local ? { 날짜: local.slice(0, 10), 시각: local.slice(11, 16) } : {},
+  }
+}
+
+/** 랜딩 기본 정보 → 강의 등록 칸. AI 초안을 반영할 때, 비어 있는 칸만 채운다(이미 적은 값은 바꾸지 않음) */
+function fillCourseFromLanding<T extends Record<string, unknown>>(editing: T, instructors: { id: number; name: string }[]): T {
+  const doc = editing.landing_doc
+  if (!isLandingDoc(doc)) return editing
+  const facts = doc.facts
+  const patch: Record<string, unknown> = {}
+  const title = typeof facts['강의명'] === 'string' ? facts['강의명'].trim() : ''
+  if (title && !(typeof editing.title === 'string' && editing.title.trim())) patch.title = title
+  const name = typeof facts['강사명'] === 'string' ? facts['강사명'].trim() : ''
+  if (name && editing.instructor_id == null) {
+    const found = instructors.find((i) => i.name.trim() === name)
+    if (found) patch.instructor_id = found.id
+  }
+  const live = facts['라이브']
+  if (!editing.scheduled_at && live && typeof live === 'object') {
+    const { 날짜: d, 시각: t } = live as { 날짜?: unknown; 시각?: unknown }
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && typeof t === 'string' && /^\d{2}:\d{2}$/.test(t)) patch.scheduled_at = `${d}T${t}:00+09:00`
+  }
+  return Object.keys(patch).length ? { ...editing, ...patch } : editing
+}
+
 type DetailTab = 'info' | 'promo' | 'curriculum' | 'reviews' | 'members' | 'webhooks' | 'dashboard'
 
 const TABS: { key: DetailTab; label: string; icon: string }[] = [
@@ -1043,8 +1074,8 @@ export default function AdminCourseDetail() {
                   </div>
                   {editing.landing_mode === 'template' ? (
                     <Suspense fallback={<div className="h-[260px] bg-gray-100 rounded-lg animate-pulse" />}>
-                      <TemplateLandingEditor value={editing.landing_doc} onChange={(doc) => setEditing((prev) => (prev ? { ...prev, landing_doc: doc } : prev))}
-                        uploadPrefix={`${courseId ?? 'new'}/landing-tpl`} defaultTitle={typeof editing.title === 'string' ? editing.title : undefined} courseId={courseId ?? null} />
+                      <TemplateLandingEditor value={editing.landing_doc} onChange={(doc, fromDraft) => setEditing((prev) => (prev ? (fromDraft ? fillCourseFromLanding({ ...prev, landing_doc: doc }, instructors) : { ...prev, landing_doc: doc }) : prev))}
+                        uploadPrefix={`${courseId ?? 'new'}/landing-tpl`} known={landingKnown(editing, instructors)} courseId={courseId ?? null} />
                     </Suspense>
                   ) : (
                     <p className="text-xs text-gray-400">위에 올린 상세페이지 이미지가 그대로 표시됩니다.</p>

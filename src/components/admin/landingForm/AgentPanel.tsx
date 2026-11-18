@@ -1,58 +1,33 @@
 import { useEffect, useRef, useState } from 'react'
 import toast from 'react-hot-toast'
 import { storageService } from '../../../services/storageService'
-import { landingAgentService, type AgentUsage, type LibraryImage, type RefFile } from '../../../services/landingAgentService'
-import { collectImageUrls, describeSpec, mergeResult, sanitizeResult, type CleanResult } from '../../../lib/landingTemplate/agent'
+import { landingAgentService, type AgentUsage, type LibraryImage } from '../../../services/landingAgentService'
+import { isSupportedRef, prepareRefs } from './prepareRefs'
+import { collectImageUrls, describeSpec, fillBlanks, mergeResult, sanitizeResult, type CleanResult } from '../../../lib/landingTemplate/agent'
 import { LANDING_FORM } from '../../../lib/landingTemplate/form'
 import type { LandingDoc } from '../../../lib/landingTemplate'
 
 // '자료로 초안 만들기' — 강의 자료를 넣으면 AI 가 섹션별 문구 초안을 만든다.
-//  · 자료 메모: 교안·강사 원고·자료 전달 템플릿 내용을 붙여 넣는다.
+//  · 자료 넣기: 기획서·교안·만들어 둔 상세페이지 그림을 한꺼번에 넣는다(그림·PDF·글 파일). 읽기만 하고 보관하지 않는다.
 //  · 랜딩에 쓸 그림: 랜딩에 실제로 들어갈 그림(가릴 곳은 미리 가린 것). 저장되고, AI 가 맞는 칸에 넣는다.
-//  · 참고 자료: 읽기만 하는 그림·PDF. 저장하지 않고 초안을 만들 때만 AI 에 전달한다.
+//  · 자료 메모: 파일로 없는 내용을 덧붙일 때만 적는다.
 // 결과는 바로 게시되지 않는다 — 입력 화면에 채워지고, 사람이 고친 뒤 저장한다. 직전 상태로 되돌릴 수 있다.
 
-const REF_LIMIT = 3_000_000 // 참고 자료 합계(전송 글자 수) — 서버가 받을 수 있는 요청 크기 안쪽
 const inputCls = 'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white'
 
-function toBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf)
-  let bin = ''
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
-  return btoa(bin)
-}
-
-/** 참고 그림은 긴 변 1568px 이하 JPEG 로 줄여 보낸다(AI 가 읽는 데 충분한 크기) */
-async function shrinkImage(file: File): Promise<RefFile> {
-  const bitmap = await createImageBitmap(file)
-  const scale = Math.min(1, 1568 / Math.max(bitmap.width, bitmap.height))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(bitmap.width * scale)
-  canvas.height = Math.round(bitmap.height * scale)
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('그림을 읽지 못했습니다.')
-  ctx.fillStyle = '#fff'
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  const data = canvas.toDataURL('image/jpeg', 0.85).split(',')[1] ?? ''
-  return { name: file.name, media_type: 'image/jpeg', data }
-}
-
-async function prepareRef(file: File): Promise<RefFile> {
-  if (file.type === 'application/pdf') return { name: file.name, media_type: 'application/pdf', data: toBase64(await file.arrayBuffer()) }
-  if (file.type.startsWith('image/')) return shrinkImage(file)
-  throw new Error(`"${file.name}" 은 그림이나 PDF 가 아닙니다.`)
-}
-
-export default function AgentPanel({ doc, onApply, uploadPrefix, courseId }: {
+export default function AgentPanel({ doc, onApply, uploadPrefix, courseId, known }: {
   doc: LandingDoc
   /** 초안을 자료에 반영(또는 되돌리기)할 때 불린다 */
   onApply: (doc: LandingDoc) => void
   uploadPrefix: string
   /** 저장된 강의면 자료 메모·그림 목록을 강의별로 보관한다 */
   courseId: number | null
+  /** 강의 등록 칸에 이미 적은 값(강의명·강사명·라이브 일시). 기본 정보의 빈칸을 이 값으로 채워서 보낸다 */
+  known?: Record<string, unknown>
 }) {
-  const [open, setOpen] = useState(false)
+  // 아직 아무 섹션도 채우지 않았으면 이 칸부터 보이게 연다
+  const [open, setOpen] = useState(() => Object.keys(doc.sections).length === 0)
+  const [dragging, setDragging] = useState(false)
   const [notes, setNotes] = useState('')
   const [library, setLibrary] = useState<LibraryImage[]>([])
   const [refs, setRefs] = useState<File[]>([])
@@ -61,7 +36,7 @@ export default function AgentPanel({ doc, onApply, uploadPrefix, courseId }: {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [outcome, setOutcome] = useState<{ clean: CleanResult; usage: AgentUsage | null; scope: string } | null>(null)
+  const [outcome, setOutcome] = useState<{ clean: CleanResult; usage: AgentUsage | null; scope: string; warnings: string[] } | null>(null)
   const [previous, setPrevious] = useState<LandingDoc | null>(null)
   const loaded = useRef(false)
 
@@ -95,8 +70,15 @@ export default function AgentPanel({ doc, onApply, uploadPrefix, courseId }: {
     }
   }
 
+  const addRefs = (files: File[]) => {
+    const ok = files.filter(isSupportedRef)
+    const bad = files.filter((f) => !isSupportedRef(f))
+    if (bad.length) toast.error(`읽을 수 없는 형식이라 뺐습니다: ${bad.map((f) => f.name).join(', ')}. PPT·워드·한글은 PDF 로 저장해서 넣어 주세요.`)
+    if (ok.length) setRefs((cur) => [...cur, ...ok])
+  }
+
   const run = async () => {
-    if (!notes.trim() && !library.length && !refs.length) return toast.error('자료를 하나 이상 넣어 주세요.')
+    if (!notes.trim() && !library.length && !refs.length) return toast.error("자료를 하나 이상 넣어 주세요. 기획서나 교안 파일을 끌어다 놓으면 됩니다.")
     const scopeSection = sections.find((s) => s.key === scope)
     const hasContent = scopeSection ? scopeSection.key in doc.sections : Object.keys(doc.sections).length > 0
     if (hasContent && !confirm(scopeSection
@@ -105,22 +87,23 @@ export default function AgentPanel({ doc, onApply, uploadPrefix, courseId }: {
 
     setRunning(true)
     setOutcome(null)
-    setProgress('참고 자료를 준비하고 있습니다…')
+    setProgress('자료를 준비하고 있습니다…')
     try {
-      const prepared: RefFile[] = []
-      for (const f of refs) prepared.push(await prepareRef(f))
-      const size = prepared.reduce((n, r) => n + r.data.length, 0)
-      if (size > REF_LIMIT) throw new Error(`참고 자료가 너무 큽니다 (합계 약 ${(size * 0.75 / 1_000_000).toFixed(1)}MB). 한 번에 약 2MB 까지 보낼 수 있습니다. 파일 수를 줄이거나, PDF 는 필요한 내용을 자료 메모에 붙여 넣어 주세요.`)
+      // 그림·PDF 는 파일 하나씩 올려 두고(합계 크기 제한 없음), 글 파일은 글만 꺼낸다. 올린 것은 초안을 만든 뒤 서버가 지운다.
+      const prepared = await prepareRefs(refs, setProgress)
       if (courseId != null) void landingAgentService.saveMaterials(courseId, notes, library)
+      // 강의 등록 칸에 이미 적은 값으로 기본 정보의 빈칸을 채운다(같은 값을 두 번 적지 않게)
+      const base = fillBlanks(doc, known)
 
       const { result, usage } = await landingAgentService.generate({
         type: doc.type,
         spec: describeSpec(doc.type),
-        facts: doc.facts,
+        facts: base.facts,
         sections: doc.sections,
         notes,
         library,
-        refs: prepared,
+        refs: prepared.refs,
+        texts: prepared.texts,
         scope: scopeSection ? `섹션 "${scopeSection.key}"(${scopeSection.name}) 만. 기본 정보는 바꾸지 않습니다.` : '',
         instruction,
       }, setProgress)
@@ -130,8 +113,8 @@ export default function AgentPanel({ doc, onApply, uploadPrefix, courseId }: {
       library.forEach((x) => allowed.add(x.url))
       const clean = sanitizeResult(doc.type, result, allowed)
       setPrevious(doc)
-      onApply(mergeResult(doc, clean, scopeSection?.key ?? null))
-      setOutcome({ clean, usage, scope: scopeSection?.name ?? '전체' })
+      onApply(mergeResult(base, clean, scopeSection?.key ?? null))
+      setOutcome({ clean, usage, scope: scopeSection?.name ?? '전체', warnings: prepared.warnings })
       toast.success('초안을 입력 화면에 채웠습니다. 미리보기와 점검 결과를 확인해 주세요.')
     } catch (e) {
       toast.error((e as Error).message)
@@ -169,10 +152,29 @@ export default function AgentPanel({ doc, onApply, uploadPrefix, courseId }: {
       {open && (
         <div className="px-4 pb-4 pt-1 space-y-4 border-t border-[#2ED573]/20">
           <div>
-            <p className="text-sm font-bold text-gray-800 mb-1">자료 메모</p>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={8} className={`${inputCls} resize-y`}
-              placeholder="자료 전달 템플릿에 적은 내용, 교안의 핵심 내용, 강사 원고를 그대로 붙여 넣습니다. (강사 이력, 일정, 증빙 숫자와 기간, 핵심 개념, 고객의 고민과 오해, 선물, 커리큘럼 등)" />
-            <p className="text-xs text-gray-400 mt-1">문장을 다듬을 필요는 없습니다. 사실과 숫자가 정확하면 됩니다. {courseId != null ? '초안을 만들 때 이 강의에 보관됩니다(관리자만 볼 수 있음).' : '강의를 한 번 저장하면 다음부터 이 메모가 보관됩니다.'}</p>
+            <p className="text-sm font-bold text-gray-800 mb-1">자료 넣기 <span className="font-normal text-gray-400">— 가진 자료를 통째로 넣으면 됩니다</span></p>
+            <label
+              onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={(e) => { e.preventDefault(); setDragging(false); addRefs(Array.from(e.dataTransfer.files)) }}
+              className={`block px-4 py-6 rounded-xl border-2 border-dashed text-center cursor-pointer transition-colors ${dragging ? 'border-[#2ED573] bg-[#2ED573]/10' : 'border-gray-300 bg-white hover:bg-gray-50'}`}>
+              <span className="block text-sm font-bold text-gray-700">파일을 여기로 끌어다 놓거나 눌러서 고르기</span>
+              <span className="block text-xs text-gray-500 mt-1">기획서, 교안, 강사 원고, 이미 만들어 둔 상세페이지 그림 — 그림·PDF·글 파일(txt·md·html), 여러 개를 한꺼번에</span>
+              <input type="file" accept="image/*,application/pdf,text/*,.txt,.md,.markdown,.html,.htm,.csv,.json" multiple hidden
+                onChange={(e) => { addRefs(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+            </label>
+            {refs.length > 0 && (
+              <div className="mt-2 space-y-1">
+                {refs.map((f, i) => (
+                  <div key={`${f.name}-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
+                    <span className="truncate">{f.name} · {(f.size / 1_000_000).toFixed(1)}MB</span>
+                    <button type="button" onClick={() => setRefs((cur) => cur.filter((_, j) => j !== i))} className="text-red-500 bg-transparent border-none p-0 cursor-pointer shrink-0">빼기</button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setRefs([])} className="text-xs text-gray-400 bg-transparent border-none p-0 cursor-pointer underline">모두 빼기</button>
+              </div>
+            )}
+            <p className="text-xs text-gray-400 mt-1">AI 가 읽기만 하는 자료입니다. 랜딩에 그대로 들어가지 않고 보관하지도 않습니다(초안을 만드는 동안만 AI 에 전달하고 끝나면 지웁니다). 크기 제한 없이 넣어도 됩니다 — 세로로 긴 그림은 잘라서, 큰 PDF 는 글과 앞쪽 40쪽 그림으로 읽습니다. PPT·워드·한글은 PDF 로 저장해서 넣어 주세요.</p>
           </div>
 
           <div>
@@ -196,20 +198,10 @@ export default function AgentPanel({ doc, onApply, uploadPrefix, courseId }: {
           </div>
 
           <div>
-            <p className="text-sm font-bold text-gray-800 mb-1">참고 자료 (저장하지 않음)</p>
-            <div className="space-y-1">
-              {refs.map((f, i) => (
-                <div key={`${f.name}-${i}`} className="flex items-center gap-2 text-xs text-gray-600">
-                  <span className="truncate">{f.name} · {(f.size / 1_000_000).toFixed(1)}MB</span>
-                  <button type="button" onClick={() => setRefs((cur) => cur.filter((_, j) => j !== i))} className="text-red-500 bg-transparent border-none p-0 cursor-pointer">빼기</button>
-                </div>
-              ))}
-              <label className="inline-block px-3 py-1.5 rounded-lg border border-dashed border-gray-300 bg-white text-sm text-gray-600 cursor-pointer hover:bg-gray-50">
-                + 그림·PDF 고르기
-                <input type="file" accept="image/*,application/pdf" multiple hidden onChange={(e) => { const files = Array.from(e.target.files ?? []); setRefs((cur) => [...cur, ...files]); e.target.value = '' }} />
-              </label>
-            </div>
-            <p className="text-xs text-gray-400 mt-1">AI 가 내용을 읽기만 하는 자료입니다(교안 PDF, 가리지 않은 원본 서류). 랜딩에 들어가지 않고 어디에도 저장되지 않으며, 초안을 만들 때만 AI 로 전달됩니다. 한 번에 합계 약 2MB 까지 — 큰 PDF 는 필요한 내용을 자료 메모에 붙여 넣어 주세요.</p>
+            <p className="text-sm font-bold text-gray-800 mb-1">자료 메모 <span className="font-normal text-gray-400">(선택)</span></p>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} className={`${inputCls} resize-y`}
+              placeholder="파일로 없는 내용만 덧붙입니다. 예: 선물 5종 이름, 입장 방법, 강사가 카톡으로 보내 준 이력" />
+            <p className="text-xs text-gray-400 mt-1">문장을 다듬을 필요는 없습니다. 사실과 숫자가 정확하면 됩니다. {courseId != null ? '초안을 만들 때 이 강의에 보관됩니다(관리자만 볼 수 있음).' : '강의를 한 번 저장하면 다음부터 이 메모가 보관됩니다.'}</p>
           </div>
 
           <div className="grid grid-cols-[200px_1fr] max-sm:grid-cols-1 gap-3">
@@ -240,6 +232,7 @@ export default function AgentPanel({ doc, onApply, uploadPrefix, courseId }: {
           {outcome && (
             <div className="space-y-3 bg-white rounded-xl p-4 border border-gray-200">
               <p className="text-sm font-bold">초안 결과 — {outcome.scope}</p>
+              {list('자료를 읽은 방식', outcome.warnings, 'text-gray-500')}
               {list('더 필요한 자료', outcome.clean.missing, 'text-red-500')}
               {list('검토할 점', outcome.clean.notes, 'text-amber-600')}
               {list('형식이 맞지 않아 뺀 것', outcome.clean.dropped, 'text-gray-500')}

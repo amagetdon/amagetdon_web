@@ -2,13 +2,14 @@
 //   관리자가 올린 강의 자료(메모·그림·PDF)를 Claude 가 읽고, 템플릿 랜딩의 섹션별 문구 초안을 JSON 으로 돌려준다.
 //   · 관리자 로그인 토큰이 있어야 한다(is_admin).
 //   · 자료에 있는 내용만 쓴다 — 없는 숫자·후기·약속을 지어내지 않도록 지시하고, 부족한 자료는 목록으로 돌려준다.
-//   · 참고 자료(base64 그림·PDF)는 이 요청에서 Anthropic 으로만 전달하고 어디에도 저장하지 않는다.
+//   · 참고 자료(그림·PDF)는 파일 하나씩 Anthropic 에 올려 두었다가(x-landing-op: upload) 초안을 만들 때 읽히고, 끝나면 바로 지운다.
+//     우리 저장소·DB 에는 남기지 않는다. 글 파일(기획서·원고)은 글만 꺼내 요청에 실어 보낸다.
 //   · 결과를 자료에 반영할지는 관리자 화면에서 정한다(이 함수는 DB 의 강의를 바꾸지 않는다).
 //   · 응답은 한 줄에 JSON 하나씩: {type:'status'|'progress'|'done'|'error', ...}
 //   · 요청마다 토큰·비용을 admin_chat_usage 에 기록(자료 내용은 저장 안 함).
 // 필요한 Vercel 환경변수: ANTHROPIC_API_KEY
 
-import Anthropic from '@anthropic-ai/sdk'
+import Anthropic, { toFile } from '@anthropic-ai/sdk'
 
 export const config = { runtime: 'edge' }
 
@@ -22,7 +23,11 @@ const MAX_NOTES = 120_000
 const MAX_SPEC = 80_000
 const MAX_DOC = 120_000
 const MAX_LIBRARY = 40
-const MAX_REFS = 12
+const MAX_REFS = 100
+const MAX_IMAGES = 100 // 한 요청에 실을 수 있는 그림 수(랜딩 그림 + 참고 그림)
+const MAX_TEXTS = 400_000 // 글 파일에서 꺼낸 글 합계(글자)
+const MAX_UPLOAD = 4_000_000 // 파일 하나(바이트) — 서버가 한 요청으로 받을 수 있는 크기 안쪽
+const FILES_BETA = 'files-api-2025-04-14'
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const
 type ImageType = (typeof IMAGE_TYPES)[number]
 
@@ -78,6 +83,8 @@ const SYSTEM = `당신은 온라인 강의 회사 '아마겟돈 클래스'의 �
 
 # 그림 쓰는 법
 - 그림 칸에는 '랜딩에 쓸 그림' 목록에 있는 주소만 그대로 넣을 수 있습니다. 목록에 없는 주소를 만들거나, 참고 자료 그림을 그림 칸에 넣을 수 없습니다(참고 자료는 저장되지 않습니다).
+- 참고 자료의 긴 그림은 위에서 아래로 여러 조각(1/3, 2/3 …)으로 나뉘어 옵니다. 조각끼리 조금 겹치니 같은 글을 두 번 세지 않습니다. 큰 PDF 는 글과 쪽 그림으로 나뉘어 올 수 있습니다.
+- 참고 자료가 이미 만들어진 랜딩·기획서라면 그 안의 글과 숫자를 명세의 맞는 섹션으로 옮겨 담습니다. 같은 말이 여러 번 나오면 한 번만 씁니다.
 - 각 그림의 이름표(관리자가 붙인 설명)와 실제 내용을 보고 맞는 칸에 넣습니다. 맞는 그림이 없으면 칸을 비우고 missing 에 적습니다.
 
 # 출력 형식
@@ -94,10 +101,36 @@ const SYSTEM = `당신은 온라인 강의 회사 '아마겟돈 클래스'의 �
 - sources 는 숫자·주장·인용이 들어간 칸 위주로 적습니다(모든 칸을 적을 필요는 없음).`
 
 interface LibraryImage { label: string; url: string }
-interface RefFile { name: string; media_type: string; data: string }
+interface RefFile { name: string; media_type: string; file_id: string }
+interface RefText { name: string; text: string }
 
 const isHttps = (u: unknown): u is string => typeof u === 'string' && /^https:\/\/[^\s"'<>]+$/.test(u)
-const isB64 = (s: unknown): s is string => typeof s === 'string' && s.length > 0 && /^[A-Za-z0-9+/]+=*$/.test(s)
+const isFileId = (s: unknown): s is string => typeof s === 'string' && /^file_[A-Za-z0-9_-]{6,80}$/.test(s)
+
+/** 참고 자료 하나를 Anthropic 에 올리고 번호를 돌려준다. 요청 본문이 파일 그대로다. */
+async function uploadRef(request: Request): Promise<Response> {
+  const mediaType = (request.headers.get('content-type') || '').split(';')[0].trim()
+  if (mediaType !== 'application/pdf' && !IMAGE_TYPES.includes(mediaType as ImageType)) return json({ error: '그림 또는 PDF 만 올릴 수 있습니다.' }, 400)
+  const buf = await request.arrayBuffer()
+  if (!buf.byteLength) return json({ error: '빈 파일입니다.' }, 400)
+  if (buf.byteLength > MAX_UPLOAD) return json({ error: '파일이 너무 큽니다.' }, 413)
+  try {
+    const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+    // 파일 이름에는 자료 내용이 드러날 수 있어 보내지 않는다
+    const file = await toFile(new Uint8Array(buf), mediaType === 'application/pdf' ? 'ref.pdf' : `ref.${mediaType.split('/')[1]}`, { type: mediaType })
+    const uploaded = await client.beta.files.upload({ file, betas: [FILES_BETA] })
+    return json({ file_id: uploaded.id })
+  } catch (e) {
+    return json({ error: `자료 올리기 실패: ${e instanceof Anthropic.APIError ? `AI 응답 오류 (${e.status ?? '연결'})` : (e as Error).message}` }, 502)
+  }
+}
+
+/** 올려 둔 참고 자료를 지운다. 실패해도 흐름을 막지 않는다. */
+async function deleteRefs(ids: string[]): Promise<void> {
+  if (!ids.length || !env.ANTHROPIC_API_KEY) return
+  const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY })
+  await Promise.all(ids.map((id) => client.beta.files.delete(id, { betas: [FILES_BETA] }).catch(() => {})))
+}
 
 /** 모델 출력에서 JSON 객체를 꺼낸다 (앞뒤에 다른 글이 붙어도 가장 바깥 { } 를 읽음) */
 function extractJson(text: string): Record<string, unknown> | null {
@@ -120,6 +153,15 @@ export default async function handler(request: Request): Promise<Response> {
   if (!adminRes.ok || (await adminRes.json()) !== true) return json({ error: '관리자만 사용할 수 있습니다.' }, 403)
   if (!env.ANTHROPIC_API_KEY) return json({ error: 'AI 키가 아직 설정되지 않았습니다 (Vercel 환경변수 ANTHROPIC_API_KEY).' }, 400)
 
+  // 참고 자료 올리기·지우기 — 한 요청에 다 싣지 못하는 큰 자료를 파일 하나씩 나눠 올린다
+  const op = request.headers.get('x-landing-op')
+  if (op === 'upload') return uploadRef(request)
+  if (op === 'delete') {
+    const ids = await request.json().then((b) => (Array.isArray((b as { ids?: unknown }).ids) ? (b as { ids: unknown[] }).ids : [])).catch(() => [])
+    await deleteRefs(ids.filter(isFileId))
+    return json({ ok: true })
+  }
+
   let body: Record<string, unknown>
   try { body = (await request.json()) as Record<string, unknown> } catch { return json({ error: '잘못된 요청' }, 400) }
 
@@ -133,20 +175,29 @@ export default async function handler(request: Request): Promise<Response> {
     .filter((x): x is LibraryImage => !!x && typeof x === 'object' && isHttps((x as LibraryImage).url))
     .map((x) => ({ label: String(x.label ?? '').slice(0, 100), url: x.url }))
   const refs = (Array.isArray(body.refs) ? body.refs : [])
-    .filter((x): x is RefFile => !!x && typeof x === 'object' && typeof (x as RefFile).media_type === 'string' && isB64((x as RefFile).data))
-    .map((x) => ({ name: String(x.name ?? '').slice(0, 100), media_type: x.media_type, data: x.data }))
+    .filter((x): x is RefFile => !!x && typeof x === 'object' && typeof (x as RefFile).media_type === 'string' && isFileId((x as RefFile).file_id))
+    .map((x) => ({ name: String(x.name ?? '').slice(0, 100), media_type: x.media_type, file_id: x.file_id }))
+  const texts = (Array.isArray(body.texts) ? body.texts : [])
+    .filter((x): x is RefText => !!x && typeof x === 'object' && typeof (x as RefText).text === 'string' && (x as RefText).text.trim().length > 0)
+    .map((x) => ({ name: String(x.name ?? '').slice(0, 100), text: x.text }))
+  const textChars = texts.reduce((n, t) => n + t.text.length, 0)
+  // 올려 둔 참고 자료는 어떤 경우에도(요청이 돌려보내져도) 지운다
+  const fileIds = refs.map((r) => r.file_id)
+  const reject = async (error: string) => { await deleteRefs(fileIds); return json({ error }, 400) }
 
-  if (!type) return json({ error: '강의 종류(무료·유료)가 없습니다.' }, 400)
-  if (!spec) return json({ error: '섹션 명세가 없습니다.' }, 400)
-  if (!notes && !library.length && !refs.length) return json({ error: '자료를 하나 이상 넣어 주세요 (메모, 그림, PDF).' }, 400)
+  if (!type) return reject('강의 종류(무료·유료)가 없습니다.')
+  if (!spec) return reject('섹션 명세가 없습니다.')
+  if (!notes && !library.length && !refs.length && !texts.length) return reject('자료를 하나 이상 넣어 주세요 (메모, 그림, PDF, 글 파일).')
+  if (textChars > MAX_TEXTS) return reject(`글 자료가 너무 깁니다 (${textChars.toLocaleString()}자). ${MAX_TEXTS.toLocaleString()}자 이하로 파일 수를 줄여 주세요.`)
+  if (refs.filter((r) => r.media_type !== 'application/pdf').length + library.length > MAX_IMAGES) return reject(`그림이 너무 많습니다. 랜딩에 쓸 그림과 참고 그림을 합쳐 ${MAX_IMAGES}장까지입니다.`)
   // 한도를 넘으면 잘라서 보내지 않는다 — 어떤 자료가 빠졌는지 모르게 되기 때문
-  if (notes.length > MAX_NOTES) return json({ error: `메모가 너무 깁니다 (${notes.length.toLocaleString()}자). ${MAX_NOTES.toLocaleString()}자 이하로 나눠 주세요.` }, 400)
-  if (spec.length > MAX_SPEC || currentDoc.length > MAX_DOC) return json({ error: '자료가 너무 큽니다.' }, 400)
-  if (library.length > MAX_LIBRARY) return json({ error: `랜딩에 쓸 그림은 한 번에 ${MAX_LIBRARY}장까지입니다.` }, 400)
-  if (refs.length > MAX_REFS) return json({ error: `참고 자료는 한 번에 ${MAX_REFS}개까지입니다.` }, 400)
+  if (notes.length > MAX_NOTES) return reject(`메모가 너무 깁니다 (${notes.length.toLocaleString()}자). ${MAX_NOTES.toLocaleString()}자 이하로 나눠 주세요.`)
+  if (spec.length > MAX_SPEC || currentDoc.length > MAX_DOC) return reject('자료가 너무 큽니다.')
+  if (library.length > MAX_LIBRARY) return reject(`랜딩에 쓸 그림은 한 번에 ${MAX_LIBRARY}장까지입니다.`)
+  if (refs.length > MAX_REFS) return reject(`참고 자료는 한 번에 ${MAX_REFS}개까지입니다.`)
   for (const r of refs) {
     if (r.media_type !== 'application/pdf' && !IMAGE_TYPES.includes(r.media_type as ImageType)) {
-      return json({ error: `참고 자료 "${r.name}" 은 지원하지 않는 형식입니다 (그림 또는 PDF 만).` }, 400)
+      return reject(`참고 자료 "${r.name}" 은 지원하지 않는 형식입니다 (그림 또는 PDF 만).`)
     }
   }
 
@@ -163,9 +214,13 @@ export default async function handler(request: Request): Promise<Response> {
     content.push({ type: 'text', text: `[참고 자료 ${refs.length}개] 내용을 읽는 용도입니다. 그림 칸에 넣을 수 없습니다.` })
     for (const r of refs) {
       content.push({ type: 'text', text: `참고 자료 — 파일 이름: ${r.name}` })
-      if (r.media_type === 'application/pdf') content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: r.data } })
-      else content.push({ type: 'image', source: { type: 'base64', media_type: r.media_type as ImageType, data: r.data } })
+      if (r.media_type === 'application/pdf') content.push({ type: 'document', source: { type: 'file', file_id: r.file_id } })
+      else content.push({ type: 'image', source: { type: 'file', file_id: r.file_id } })
     }
+  }
+  if (texts.length) {
+    content.push({ type: 'text', text: `[글 자료 ${texts.length}개] 관리자가 올린 파일에서 꺼낸 글입니다(기획서·원고·PDF 의 글). 자료 메모와 똑같이 랜딩의 재료로 씁니다.` })
+    for (const t of texts) content.push({ type: 'text', text: `글 자료 — 파일 이름: ${t.name}\n${t.text}` })
   }
   content.push({
     type: 'text',
@@ -196,7 +251,7 @@ export default async function handler(request: Request): Promise<Response> {
           max_tokens: 32000,
           thinking: { type: 'adaptive' },
           output_config: { effort: 'high' },
-          betas: ['server-side-fallback-2026-07-01'],
+          betas: fileIds.length ? ['server-side-fallback-2026-07-01', FILES_BETA] : ['server-side-fallback-2026-07-01'],
           fallbacks: 'default',
           system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
           messages: [{ role: 'user', content }],
@@ -244,6 +299,7 @@ export default async function handler(request: Request): Promise<Response> {
           cost_usd: Number(total.cost.toFixed(6)), tool_calls: 0, stop_reason: stopReason,
         }),
       }).catch(() => {})
+      await deleteRefs(fileIds)
       controller.close()
     },
   })

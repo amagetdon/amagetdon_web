@@ -170,6 +170,33 @@ export function collectImageUrls(value: unknown, out: Set<string> = new Set()): 
  *  - scope 가 섹션 키면 그 섹션만 바꾼다(기본 정보는 건드리지 않음).
  *  - 섹션은 칸 단위로 덮어쓴다: AI 가 돌려준 칸은 새 값으로, 돌려주지 않은 칸(사람이 넣은 그림 등)은 그대로.
  */
+const isBlank = (v: unknown) => v == null || (typeof v === 'string' && !v.trim())
+
+/**
+ * 기본 정보의 빈칸만 known 값으로 채운다. 이미 적힌 값은 건드리지 않는다.
+ * 그 종류(무료·유료)의 기본 정보에 있는 칸만 채우고, 묶음(예: 라이브 일시)은 안쪽 칸 단위로 채운다.
+ */
+export function fillBlanks(doc: LandingDoc, known?: Rec): LandingDoc {
+  if (!known) return doc
+  const facts: Rec = { ...doc.facts }
+  let changed = false
+  for (const f of LANDING_FORM[doc.type].facts) {
+    const value = known[f.key]
+    if (isBlank(value)) continue
+    if (f.kind === 'group' && isRec(value)) {
+      const cur: Rec = isRec(facts[f.key]) ? { ...(facts[f.key] as Rec) } : {}
+      for (const c of f.fields) {
+        if (isBlank(cur[c.key]) && !isBlank(value[c.key])) { cur[c.key] = value[c.key]; changed = true }
+      }
+      facts[f.key] = cur
+    } else if (f.kind !== 'group' && isBlank(facts[f.key])) {
+      facts[f.key] = value
+      changed = true
+    }
+  }
+  return changed ? { ...doc, facts } : doc
+}
+
 export function mergeResult(doc: LandingDoc, clean: CleanResult, scope: string | null): LandingDoc {
   const sections: Rec = { ...doc.sections }
   for (const [key, data] of Object.entries(clean.sections)) {
