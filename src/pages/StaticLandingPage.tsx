@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { Navigate, useLocation, useParams } from 'react-router-dom'
 import SeoHead from '../components/SeoHead'
 import NotFoundPage from './NotFoundPage'
 import { setChromeHidden } from '../lib/chrome'
@@ -9,14 +9,16 @@ import { STATIC_LANDINGS } from '../lib/staticLandings'
 export default function StaticLandingPage() {
   const { slug = '' } = useParams<{ slug: string }>()
   const cfg = STATIC_LANDINGS[slug]
+  const location = useLocation()
 
   useEffect(() => {
-    if (!cfg) return
+    if (!cfg || cfg.redirect) return
     setChromeHidden(true)
     return () => setChromeHidden(false)
   }, [cfg])
 
   if (!cfg) return <NotFoundPage />
+  if (cfg.redirect) return <Navigate to={`${cfg.redirect}${location.search}`} replace />
   return (
     <div className="fixed inset-0 bg-[#050506]">
       {/* 제목·설명은 서버(api/_lib/render-page.ts)가 noindex 와 함께 넣는다 — 앱 안에서도 같은 제목 유지 */}
