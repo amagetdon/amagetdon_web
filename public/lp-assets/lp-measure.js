@@ -90,7 +90,7 @@
     var key = a.getAttribute('data-link')
     var href = a.getAttribute('href') || ''
     var product = productOf(href)
-    var where = a.closest('.y-sticky') ? 'sticky' : 'page'
+    var where = a.closest('.y-sticky, .sticky') ? 'sticky' : 'page'
     if (product) {
       // 결제 버튼: 어느 랜딩에서 왔는지 적어 둔다(결제창 기록에 쓰임)
       try { localStorage.setItem('amag_lp_from', JSON.stringify({ slug: slug, product: product, at: Date.now() })) } catch (err) { /* 저장 못 해도 진행 */ }
@@ -99,6 +99,9 @@
       send('lp_click', { button: 'survey', kind: 'survey' })
     } else if (a.classList.contains('y-ask') || /pf\.kakao\.com/.test(href)) {
       send('lp_click', { button: 'ask', kind: 'ask' })
+    } else if (/open\.kakao\.com/.test(a.href || href)) {
+      // 무료특강 신청 버튼(오픈채팅 입장)
+      send('lp_click', { button: 'openchat_' + where, kind: 'openchat' })
     } else if (href === '#buy') {
       send('lp_click', { button: 'to_buy_' + where, kind: 'to_buy' })
     }
