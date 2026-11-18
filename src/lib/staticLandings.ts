@@ -27,3 +27,10 @@ export const STATIC_LANDINGS: Record<string, StaticLanding> = {
     src: '/lp-assets/donjakga-free/index.html',
   },
 }
+
+/** 강의 상세에 넣은 받은 HTML 랜딩 — courses.landing_doc 이 { static: '<slug>' } 이고 등록된 slug 일 때 */
+export function staticLandingSlug(doc: unknown): string | null {
+  if (!doc || typeof doc !== 'object') return null
+  const slug = (doc as { static?: unknown }).static
+  return typeof slug === 'string' && Object.prototype.hasOwnProperty.call(STATIC_LANDINGS, slug) ? slug : null
+}

@@ -4,6 +4,8 @@
    결제 버튼을 누르면 어느 랜딩에서 왔는지를 이 브라우저에 적어 둔다 → 결제창 기록(payment_attempts.landing)에 쓰인다. */
 (function () {
   'use strict'
+  // 강의 상세 화면 안에 넣어 쓸 때(?embed=1)는 측정하지 않는다 — 강의 화면이 방문·신청을 직접 기록한다
+  if (/[?&]embed=1\b/.test(location.search)) return
   var slug = (location.pathname.match(/\/lp-assets\/([^/]+)\//) || [])[1] || 'unknown'
 
   /* Umami 가 아직 안 떴으면 잠깐 모아 두었다가 보낸다(최대 15초) */
