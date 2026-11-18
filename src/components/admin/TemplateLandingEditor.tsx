@@ -4,6 +4,7 @@ import LandingForm from './landingForm/LandingForm'
 import AgentPanel from './landingForm/AgentPanel'
 import type { LandingDoc, LandingReport } from '../../lib/landingTemplate'
 import { isLandingDoc } from '../../lib/landingTemplate/guard'
+import { fillBlanks } from '../../lib/landingTemplate/agent'
 
 // 템플릿 랜딩 자료 편집 — 왼쪽은 섹션별 입력 화면, 오른쪽은 휴대폰 폭 미리보기와 점검 결과.
 // '직접 편집'은 자료 전체를 JSON 으로 보고 고치는 화면(옮겨 붙이기·점검용).
@@ -57,14 +58,14 @@ function ReportPanel({ report }: { report: LandingReport }) {
   )
 }
 
-export default function TemplateLandingEditor({ value, onChange, uploadPrefix, defaultTitle, courseId = null }: {
+export default function TemplateLandingEditor({ value, onChange, uploadPrefix, known, courseId = null }: {
   value: unknown
-  /** 올바른 자료일 때만 불린다 (잘못된 JSON 은 저장 대상에 반영되지 않음) */
-  onChange: (doc: unknown) => void
+  /** 올바른 자료일 때만 불린다 (잘못된 JSON 은 저장 대상에 반영되지 않음). fromDraft: AI 초안을 반영한 변경 */
+  onChange: (doc: unknown, fromDraft?: boolean) => void
   /** 그림을 올릴 저장 위치(강의별) */
   uploadPrefix: string
-  /** 새로 시작할 때 강의명 칸에 미리 넣을 값 */
-  defaultTitle?: string
+  /** 강의 등록 칸에 이미 적은 값(강의명·강사명·라이브 일시). 랜딩 기본 정보의 빈칸을 이 값으로 채운다 */
+  known?: Record<string, unknown>
   /** 저장된 강의의 번호 — 초안 만들기용 자료를 강의별로 보관할 때 쓴다 */
   courseId?: number | null
 }) {
@@ -76,7 +77,7 @@ export default function TemplateLandingEditor({ value, onChange, uploadPrefix, d
   const valid = isLandingDoc(value)
 
   const start = (type: LandingDoc['type']) => {
-    onChange({ version: 1, type, facts: defaultTitle ? { 강의명: defaultTitle } : {}, sections: {} } satisfies LandingDoc)
+    onChange(fillBlanks({ version: 1, type, facts: {}, sections: {} }, known))
     setRev((n) => n + 1)
   }
   const switchMode = (next: 'form' | 'json') => { setMode(next); setRev((n) => n + 1) }
@@ -95,12 +96,12 @@ export default function TemplateLandingEditor({ value, onChange, uploadPrefix, d
       <div className="grid grid-cols-[minmax(0,1fr)_400px] max-xl:grid-cols-1 gap-4 items-start">
         <div className="min-w-0">
           {mode === 'json' ? (
-            <JsonEditor key={rev} value={value} onChange={onChange} />
+            <JsonEditor key={rev} value={value} onChange={(doc) => onChange(doc)} />
           ) : valid ? (
             <div className="space-y-3">
               {/* 초안을 반영하면 입력 화면을 새 자료로 다시 연다 */}
-              <AgentPanel doc={value} uploadPrefix={uploadPrefix} courseId={courseId} onApply={(next) => { onChange(next); setRev((n) => n + 1) }} />
-              <LandingForm key={rev} value={value} onChange={onChange} uploadPrefix={uploadPrefix} />
+              <AgentPanel doc={value} uploadPrefix={uploadPrefix} courseId={courseId} known={known} onApply={(next) => { onChange(next, true); setRev((n) => n + 1) }} />
+              <LandingForm key={rev} value={value} onChange={(doc) => onChange(doc)} uploadPrefix={uploadPrefix} />
             </div>
           ) : (
             <div className="border border-dashed border-gray-300 rounded-xl p-6 text-center space-y-3">

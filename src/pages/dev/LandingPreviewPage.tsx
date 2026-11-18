@@ -32,7 +32,7 @@ export default function LandingPreviewPage() {
     return (
       <section className="w-full bg-gray-50">
         <div className="max-w-[1300px] mx-auto px-5 py-8">
-          <TemplateLandingEditor value={doc} onChange={setDoc} uploadPrefix="dev/landing-tpl" defaultTitle="강의명 예시" />
+          <TemplateLandingEditor value={doc} onChange={setDoc} uploadPrefix="dev/landing-tpl" known={{ 강의명: "강의명 예시" }} />
         </div>
       </section>
     )

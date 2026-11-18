@@ -3,7 +3,10 @@ import { supabase } from '../lib/supabase'
 // 랜딩 '자료로 초안 만들기' — 서버 함수(/api/landing-agent) 호출과, 강의별 자료 보관(course_landing_materials).
 
 export interface LibraryImage { label: string; url: string }
-export interface RefFile { name: string; media_type: string; data: string }
+/** 서버에 올려 둔 참고 자료(그림·PDF). 초안을 만들고 나면 서버가 지운다. */
+export interface RefFile { name: string; media_type: string; file_id: string }
+/** 글 파일·PDF 에서 꺼낸 글 */
+export interface RefText { name: string; text: string }
 export interface AgentUsage { cost_usd: number; input_tokens: number; output_tokens: number; model: string }
 
 export interface AgentRequest {
@@ -14,12 +17,37 @@ export interface AgentRequest {
   notes: string
   library: LibraryImage[]
   refs: RefFile[]
+  texts: RefText[]
   /** 다시 만들 범위를 설명하는 글 (비우면 전체) */
   scope: string
   instruction: string
 }
 
 export const landingAgentService = {
+  /** 참고 자료 하나를 올리고 번호를 받는다 (파일 하나 약 4MB 까지) */
+  async uploadRef(blob: Blob, mediaType: string): Promise<string> {
+    const { data: { session } } = await supabase.auth.getSession()
+    const res = await fetch('/api/landing-agent', {
+      method: 'POST',
+      headers: { 'content-type': mediaType, 'x-landing-op': 'upload', authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: blob,
+    })
+    const body = await res.json().catch(() => ({})) as { file_id?: string; error?: string }
+    if (!res.ok || !body.file_id) throw new Error(body.error || `자료 올리기 실패 (HTTP ${res.status})`)
+    return body.file_id
+  },
+
+  /** 올려 둔 참고 자료 지우기 (초안을 만들지 못하고 끝났을 때). 실패해도 조용히 넘어간다. */
+  async deleteRefs(ids: string[]): Promise<void> {
+    if (!ids.length) return
+    const { data: { session } } = await supabase.auth.getSession()
+    await fetch('/api/landing-agent', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-landing-op': 'delete', authorization: `Bearer ${session?.access_token ?? ''}` },
+      body: JSON.stringify({ ids }),
+    }).catch(() => {})
+  },
+
   /** 초안을 만든다. 진행 상황은 onProgress 로, 결과(JSON)와 사용량은 반환값으로. 실패하면 한국어 메시지로 throw. */
   async generate(req: AgentRequest, onProgress: (message: string) => void): Promise<{ result: unknown; usage: AgentUsage | null }> {
     const { data: { session } } = await supabase.auth.getSession()
