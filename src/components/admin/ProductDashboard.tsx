@@ -161,7 +161,7 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
     if (list.length && !cur) return toast.error('진행 중인 기수가 없습니다.')
     const curName = cur?.name ?? '1기'
     const nextNo = (cur?.no ?? 1) + 1
-    if (!confirm(`지금 시각으로 ${curName}를 마감하고 ${nextNo}기를 시작할까요?\n\n이 시각 이후의 방문·신청·결제·광고비는 ${nextNo}기로 집계됩니다.\n마감 시각은 [기수 관리]에서 고치거나 취소할 수 있습니다.`)) return
+    if (!confirm(`지금 시각으로 ${curName}를 마감하고 ${nextNo}기를 시작할까요?\n\n이 시각 이후의 방문·신청·결제·광고비는 ${nextNo}기로 집계됩니다.${kind === 'course' ? `\n커리큘럼은 ${curName} 수강생 전용으로 남고, ${nextNo}기에는 주차·제목 구성만 복사됩니다(영상은 새로 넣어야 합니다).\n유료 강의는 ${curName} 결제가 모두 끝난 뒤에 마감하세요. 마감 뒤 결제자는 ${nextNo}기 자료를 봅니다.` : ''}\n마감 시각은 [기수 관리]에서 고치거나 취소할 수 있습니다.`)) return
     setClosing(true)
     const { error } = await supabase.rpc('close_product_cohort', { p_kind: kind, p_id: productId } as never)
     setClosing(false)

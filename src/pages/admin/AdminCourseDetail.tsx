@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import AdminLayout from '../../components/admin/AdminLayout'
@@ -44,6 +44,8 @@ interface CurriculumRow {
   // 한 항목 안에 여러 영상/외부 링크. 빈 배열이면 영상 없음.
   video_urls: CurriculumVideo[]
   sort_order: number
+  /** null = 공통(모든 기수), 숫자 = 그 기수 전용 */
+  cohort_no?: number | null
 }
 
 interface CourseSeoShape {
@@ -132,6 +134,11 @@ export default function AdminCourseDetail() {
   // 커리큘럼 편집 상태
   const [curriculumItems, setCurriculumItems] = useState<CurriculumRow[]>([])
   const [curriculumSaving, setCurriculumSaving] = useState(false)
+  // 기수별 커리큘럼 — 기수가 있는 강의만 탭이 보인다. null 탭 = 공통(모든 기수에게 보임)
+  const [curriculumAll, setCurriculumAll] = useState<CurriculumRow[]>([])
+  const [cohortTabs, setCohortTabs] = useState<{ no: number; name: string; ends_at: string | null }[]>([])
+  const [curriculumCohort, setCurriculumCohort] = useState<number | null>(null)
+  const curriculumCohortRef = useRef<number | null | undefined>(undefined)
   const [curriculumDragIndex, setCurriculumDragIndex] = useState<number | null>(null)
   // 호버 중인 카드 인덱스와 마우스 Y 기준 위/아래 위치 — 인접 카드끼리 swap 과 끝자리 이동을 모두 지원.
   const [curriculumDragOver, setCurriculumDragOver] = useState<{ idx: number; position: 'above' | 'below' } | null>(null)
@@ -426,7 +433,7 @@ export default function AdminCourseDetail() {
         normalizedLinks = []
       }
       setEditing({ ...(data as unknown as Record<string, unknown>), landing_image_urls: normalizedUrls, landing_image_links: normalizedLinks })
-      setCurriculumItems(
+      const allRows: CurriculumRow[] = (
         (data.curriculum_items ?? []).map((item) => {
           const raw = (item as { video_urls?: unknown }).video_urls
           let videos: CurriculumVideo[] = []
@@ -452,9 +459,20 @@ export default function AdminCourseDetail() {
             description: item.description,
             video_urls: videos,
             sort_order: item.sort_order,
+            cohort_no: item.cohort_no ?? null,
           }
         })
       )
+      const { data: ks } = await supabase.from('product_cohorts').select('no, name, ends_at').eq('kind', 'course').eq('product_id', courseId).order('no')
+      const tabs = (ks ?? []) as { no: number; name: string; ends_at: string | null }[]
+      const wanted = curriculumCohortRef.current
+      const pick = wanted !== undefined && (wanted === null || tabs.some((k) => k.no === wanted))
+        ? wanted
+        : (tabs.find((k) => !k.ends_at)?.no ?? null)
+      setCohortTabs(tabs)
+      setCurriculumAll(allRows)
+      setCurriculumCohort(pick)
+      setCurriculumItems(tabs.length ? allRows.filter((r) => (r.cohort_no ?? null) === pick) : allRows)
     } catch {
       toast.error('강의를 불러오는데 실패했습니다.')
       navigate('/admin/courses')
@@ -656,6 +674,12 @@ export default function AdminCourseDetail() {
     }
   }
 
+  const pickCurriculumCohort = (no: number | null) => {
+    curriculumCohortRef.current = no
+    setCurriculumCohort(no)
+    setCurriculumItems(curriculumAll.filter((r) => (r.cohort_no ?? null) === no))
+  }
+
   const addCurriculumItem = () => {
     // 같은 주차에 영상/URL 을 연속 추가할 때 매번 주차를 다시 입력하지 않도록 마지막 항목의 week 를 복사.
     const lastWeek = curriculumItems.length > 0 ? curriculumItems[curriculumItems.length - 1].week : null
@@ -711,7 +735,10 @@ export default function AdminCourseDetail() {
     if (!courseId) return
     try {
       setCurriculumSaving(true)
-      const { error: delErr } = await supabase.from('curriculum_items').delete().eq('course_id', courseId)
+      // 기수가 있는 강의는 보고 있는 탭(그 기수 또는 공통)의 항목만 교체한다. 다른 기수 항목은 건드리지 않는다.
+      const byCohort = cohortTabs.length > 0
+      const del = supabase.from('curriculum_items').delete().eq('course_id', courseId)
+      const { error: delErr } = await (!byCohort ? del : curriculumCohort == null ? del.is('cohort_no', null) : del.eq('cohort_no', curriculumCohort))
       if (delErr) throw delErr
       const validItems = curriculumItems.filter((item) => item.label.trim())
       if (validItems.length > 0) {
@@ -734,6 +761,7 @@ export default function AdminCourseDetail() {
             video_url: firstVideo?.url ?? null,
             is_redirect: !!firstVideo?.is_redirect,
             sort_order: idx + 1,
+            ...(byCohort ? { cohort_no: curriculumCohort } : {}),
           }
         })
         const { error } = await supabase.from('curriculum_items').insert(items as never)
@@ -1377,6 +1405,24 @@ export default function AdminCourseDetail() {
               <i className="ti ti-plus text-xs" /> 항목 추가
             </button>
           </div>
+
+          {cohortTabs.length > 0 && (
+            <div className="mb-4">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {cohortTabs.map((k) => (
+                  <button key={k.no} type="button" onClick={() => pickCurriculumCohort(k.no)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border ${curriculumCohort === k.no ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                    {k.name}{k.ends_at ? '' : ' · 진행 중'} ({curriculumAll.filter((r) => r.cohort_no === k.no).length})
+                  </button>
+                ))}
+                <button type="button" onClick={() => pickCurriculumCohort(null)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border ${curriculumCohort === null ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                  공통 ({curriculumAll.filter((r) => r.cohort_no == null).length})
+                </button>
+              </div>
+              <p className="text-xs text-gray-400 mt-1.5">수강생은 자기가 결제한 기수의 항목과 공통 항목만 봅니다. 탭을 옮기기 전에 저장하세요. 저장하지 않은 수정은 사라집니다.</p>
+            </div>
+          )}
 
           {curriculumItems.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">등록된 커리큘럼이 없습니다. "항목 추가"를 눌러 시작하세요.</p>

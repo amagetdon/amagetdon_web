@@ -223,8 +223,10 @@ const ROUTES: [RegExp, Handler][] = [
   }],
 
   [/^\/course\/(\d+)$/, async (m, s) => {
-    const rows = (await q(`courses?id=eq.${m[1]}&is_published=eq.true&select=${COURSE_COLS},curriculum_items(week,label,description,sort_order)`)) as
-      | (CourseRow & { curriculum_items: { week: number | null; label: string; description: string | null; sort_order: number }[] })[]
+    // cohort_no(기수별 커리큘럼) 열이 아직 없는 환경이면 열 없이 한 번 더 읽는다
+    const sel = (extra: string) => `courses?id=eq.${m[1]}&is_published=eq.true&select=${COURSE_COLS},curriculum_items(week,label,description,sort_order${extra})`
+    const rows = ((await q(sel(',cohort_no'))) ?? (await q(sel('')))) as
+      | (CourseRow & { curriculum_items: { week: number | null; label: string; description: string | null; sort_order: number; cohort_no?: number | null }[] })[]
       | null
     const c = rows?.[0]
     if (!c) return { status: 404, title: '강의를 찾을 수 없습니다', description: '', noindex: true }
@@ -233,7 +235,9 @@ const ROUTES: [RegExp, Handler][] = [
     const who = c.instructor?.name
     const price = coursePrice(c)
     const desc = seo.description || plain(c.description, 150) || `${who ? `${who} 강사의 ` : ''}${c.title} — 아마겟돈 클래스 온라인 강의`
-    const curriculum = [...(c.curriculum_items || [])].sort((a, b) => a.sort_order - b.sort_order)
+    // 기수별로 나뉜 강의는 진행 중인(가장 뒤) 기수와 공통 항목만
+    const lastCohort = Math.max(0, ...(c.curriculum_items || []).map((i) => i.cohort_no ?? 0))
+    const curriculum = (c.curriculum_items || []).filter((i) => i.cohort_no == null || i.cohort_no === lastCohort).sort((a, b) => a.sort_order - b.sort_order)
     const schedule = [
       c.enrollment_start && `신청 시작 ${kstDate(c.enrollment_start)}`,
       c.enrollment_deadline && `신청 마감 ${kstDate(c.enrollment_deadline)}`,
