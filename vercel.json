@@ -20,6 +20,9 @@
       ]
     }
   ],
+  "redirects": [
+    { "source": "/course/143", "destination": "/course/129", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/r2/(.*)", "destination": "https://pub-95b8f0f45b784ba4a86ae023b75f8940.r2.dev/$1" },
     { "source": "/u/(.*)", "destination": "https://umami-ama.vercel.app/$1" },
