@@ -275,6 +275,8 @@ export interface CurriculumItem {
   video_urls: CurriculumVideo[]
   sort_order: number
   created_at: string
+  /** 기수별 커리큘럼 — null = 공통(모든 기수), 숫자 = 그 기수 결제자에게만 보임 */
+  cohort_no?: number | null
 }
 
 export interface EbookSeo {

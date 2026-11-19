@@ -4,7 +4,13 @@ import type { CourseWithInstructor, CourseWithCurriculum } from '../types'
 
 // 영상 주소(video_url·video_urls)는 공개 조회 권한이 없다 — curriculum_items 는 select('*') 금지.
 // 영상은 withCurriculumVideos(구매자·관리자만 서버 함수로 받음)로 붙인다.
-export const CURRICULUM_PUBLIC_COLUMNS = 'id, course_id, week, label, description, is_redirect, sort_order, created_at'
+export const CURRICULUM_PUBLIC_COLUMNS = 'id, course_id, week, label, description, is_redirect, sort_order, created_at, cohort_no'
+
+/** 진행 중인 기수가 보는 커리큘럼 — 공통(cohort_no 없음) + 가장 뒤 기수 항목. 기수로 나누지 않은 강의는 전부 */
+export function currentCohortItems<T extends { cohort_no?: number | null }>(items: T[]): T[] {
+  const last = Math.max(0, ...items.map((i) => i.cohort_no ?? 0))
+  return items.filter((i) => i.cohort_no == null || i.cohort_no === last)
+}
 
 type CurriculumVideoRow = { id: number; course_id: number; video_url: string | null; video_urls: unknown }
 
@@ -189,12 +195,13 @@ export const courseService = {
     if (insErr) throw insErr
     const newCourseId = (created as { id: number }).id
 
-    const items = original.curriculum_items ?? []
+    // 복제본에는 진행 중인 기수의 커리큘럼만 가져가고 기수 구분은 지운다 (새 강의는 기수가 없다)
+    const items = currentCohortItems(original.curriculum_items ?? [])
     if (items.length > 0) {
       const curriculumPayload = items.map((item) => {
         const { id: _ciId, course_id: _ciCourseId, created_at: _ciCreated, ...crest } = item
         void _ciId; void _ciCourseId; void _ciCreated
-        return { ...crest, course_id: newCourseId }
+        return { ...crest, cohort_no: null, course_id: newCourseId }
       })
       const { error: cuErr } = await supabase
         .from('curriculum_items')

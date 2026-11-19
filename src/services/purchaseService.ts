@@ -30,7 +30,7 @@ export const purchaseService = {
       .order('purchased_at', { ascending: false })
     if (error) throw error
     // 영상 주소는 서버 함수로 — 만료 전 구매 강의만 받아진다
-    type Row = { course: { id: number; curriculum_items?: { id: number }[] } | null }
+    type Row = { id: number; course: { id: number; curriculum_items?: { id: number; cohort_no?: number | null }[] } | null }
     // 기수제 재신청으로 같은 강의 신청이 여러 줄일 수 있다 — 강의당 가장 최근 줄만 보여 준다 (최근 순 정렬이라 처음 만난 줄)
     const seen = new Set<number>()
     const rows = ((data ?? []) as unknown as Row[]).filter((r) => {
@@ -41,10 +41,17 @@ export const purchaseService = {
       return true
     })
     const courseIds = [...new Set(rows.map((r) => r.course?.id).filter((x): x is number => !!x))]
-    const allItems = rows.flatMap((r) => r.course?.curriculum_items ?? [])
+    // 기수별 커리큘럼 — 이 구매가 속한 기수의 항목(과 공통 항목)만 보여 준다. 조회가 실패하면 나누지 않고 그대로 둔다(영상 주소는 서버가 따로 막는다).
+    let cohortOf: Map<number, number | null> | null = null
+    if (courseIds.length > 0) {
+      const { data: ks, error: kErr } = await supabase.rpc('get_my_purchase_cohorts' as never, { p_course_ids: courseIds } as never)
+      if (!kErr) cohortOf = new Map(((ks ?? []) as { purchase_id: number; cohort_no: number | null }[]).map((k) => [Number(k.purchase_id), k.cohort_no]))
+    }
+    const mine = (r: Row) => (r.course?.curriculum_items ?? []).filter((i) => cohortOf == null || i.cohort_no == null || i.cohort_no === cohortOf.get(r.id))
+    const allItems = rows.flatMap(mine)
     const merged = new Map((await withCurriculumVideos(courseIds, allItems)).map((i) => [i.id, i]))
     return rows.map((r) => (r.course
-      ? { ...r, course: { ...r.course, curriculum_items: (r.course.curriculum_items ?? []).map((i) => merged.get(i.id) ?? i) } }
+      ? { ...r, course: { ...r.course, curriculum_items: mine(r).map((i) => merged.get(i.id) ?? i) } }
       : r)) as typeof data
   },
 
