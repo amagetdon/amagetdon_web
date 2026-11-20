@@ -63,6 +63,9 @@ export default function AdminMembers() {
   const [bulkGrantOpen, setBulkGrantOpen] = useState(false)
   const [bulkMemberQuery, setBulkMemberQuery] = useState('')
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set())
+  // 엑셀로 회원 고르기 결과 — 파일 이름, 파일 안 사람 수, 찾은 회원 수, 못 찾은 값, 같은 연락처 계정이 여럿이던 건수
+  const [bulkExcel, setBulkExcel] = useState<{ fileName: string; total: number; matched: number; unmatched: string[]; multi: number } | null>(null)
+  const [bulkExcelReading, setBulkExcelReading] = useState(false)
   const [allCourses, setAllCourses] = useState<{ id: number; title: string; duration_days: number; enrollment_deadline: string | null }[]>([])
   const [allEbooks, setAllEbooks] = useState<{ id: number; title: string; duration_days: number }[]>([])
   const [allBoardInstructors, setAllBoardInstructors] = useState<{ id: number; name: string; newsletter_price: number | null; newsletter_months: number }[]>([])
@@ -245,8 +248,74 @@ export default function AdminMembers() {
     setBulkGrantOpen(true)
     setBulkSelectedIds(new Set())
     setBulkMemberQuery('')
+    setBulkExcel(null)
     resetGrantFields()
     await loadGrantItems()
+  }
+
+  // 엑셀·CSV 의 연락처(또는 이메일)로 회원을 찾아 선택한다. 열 이름·순서는 상관없이 칸 안의 전화번호·이메일을 읽는다.
+  // 연락처가 같은 계정이 여럿이면 이메일이 맞는 계정, 없으면 가장 최근에 가입한 계정을 고른다.
+  const handleBulkExcel = async (file: File) => {
+    setBulkExcelReading(true)
+    try {
+      const XLSX = await import('xlsx')
+      const wb = XLSX.read(await file.arrayBuffer())
+      const sheet = wb.Sheets[wb.SheetNames[0]]
+      const table = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, raw: false, defval: '' })
+      const normPhone = (v: unknown): string | null => {
+        let d = String(v ?? '').replace(/\D/g, '')
+        if (d.startsWith('82')) d = `0${d.slice(2)}`
+        if (/^1[016789]\d{7,8}$/.test(d)) d = `0${d}` // 엑셀이 맨 앞 0 을 지운 번호
+        return /^01[016789]\d{7,8}$/.test(d) ? d : null
+      }
+      const normEmail = (v: unknown): string | null => {
+        const t = String(v ?? '').trim().toLowerCase()
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(t) ? t : null
+      }
+      const byPhone = new Map<string, MemberWithPurchases[]>()
+      const byEmail = new Map<string, MemberWithPurchases>()
+      for (const m of members) {
+        const p = normPhone(m.phone)
+        if (p) byPhone.set(p, [...(byPhone.get(p) ?? []), m])
+        const e = normEmail(m.email)
+        if (e && !byEmail.has(e)) byEmail.set(e, m)
+      }
+      const found = new Set<string>()
+      const unmatched: string[] = []
+      const seen = new Set<string>()
+      let total = 0
+      let multi = 0
+      for (const row of table as unknown[][]) {
+        let phone: string | null = null
+        let email: string | null = null
+        for (const cell of row) {
+          phone = phone ?? normPhone(cell)
+          email = email ?? normEmail(cell)
+        }
+        const key = phone ?? email
+        if (!key || seen.has(key)) continue // 연락처·이메일이 없는 줄(제목 줄 등)과 같은 사람 중복은 건너뜀
+        seen.add(key)
+        total += 1
+        const list = phone ? byPhone.get(phone) ?? [] : []
+        let hit: MemberWithPurchases | undefined
+        if (list.length === 1) hit = list[0]
+        else if (list.length > 1) {
+          multi += 1
+          hit = list.find((m) => email && normEmail(m.email) === email)
+            ?? [...list].sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))[0]
+        } else if (email) hit = byEmail.get(email)
+        if (hit) found.add(hit.id)
+        else unmatched.push(phone ? `${phone.slice(0, 3)}-${phone.slice(3, -4)}-${phone.slice(-4)}` : (email as string))
+      }
+      if (total === 0) { toast.error('파일에서 전화번호나 이메일을 찾지 못했어요.'); return }
+      setBulkSelectedIds((prev) => new Set([...prev, ...found]))
+      setBulkExcel({ fileName: file.name, total, matched: found.size, unmatched, multi })
+      toast.success(`${total.toLocaleString()}명 중 ${found.size.toLocaleString()}명을 찾아 선택했어요.`)
+    } catch {
+      toast.error('파일을 읽지 못했어요. 엑셀(.xlsx)이나 CSV 파일인지 확인해 주세요.')
+    } finally {
+      setBulkExcelReading(false)
+    }
   }
 
   const toggleBulkMember = (id: string) => {
@@ -368,12 +437,17 @@ export default function AdminMembers() {
       const idsArr = Array.from(bulkSelectedIds)
 
       // 이미 같은 강의/전자책을 보유한 회원 제외
-      const { data: existing } = await supabase
-        .from('purchases')
-        .select('user_id')
-        .eq(grantType === 'course' ? 'course_id' : 'ebook_id', itemId)
-        .in('user_id', idsArr)
-      const already = new Set(((existing ?? []) as { user_id: string }[]).map((r) => r.user_id))
+      // 인원이 많으면 주소가 너무 길어지므로 100명씩 나눠 확인한다
+      const already = new Set<string>()
+      for (let i = 0; i < idsArr.length; i += 100) {
+        const { data: existing, error: exErr } = await supabase
+          .from('purchases')
+          .select('user_id')
+          .eq(grantType === 'course' ? 'course_id' : 'ebook_id', itemId)
+          .in('user_id', idsArr.slice(i, i + 100))
+        if (exErr) throw exErr
+        for (const r of (existing ?? []) as { user_id: string }[]) already.add(r.user_id)
+      }
       const targets = idsArr.filter((uid) => !already.has(uid))
 
       if (targets.length === 0) {
@@ -389,8 +463,17 @@ export default function AdminMembers() {
         price: 0,
         expires_at: expiresAt,
       }))
-      const { error } = await supabase.from('purchases').insert(rows as never)
-      if (error) throw error
+      // 500명씩 나눠 넣는다. 중간에 실패하면 거기까지 들어간 인원을 알려 준다(다시 누르면 이미 받은 사람은 건너뜀)
+      let done = 0
+      for (let i = 0; i < rows.length; i += 500) {
+        const { error } = await supabase.from('purchases').insert(rows.slice(i, i + 500) as never)
+        if (error) {
+          toast.error(`${done.toLocaleString()}명까지 부여하고 멈췄어요. 다시 누르면 남은 인원만 부여됩니다.`)
+          await fetchData()
+          return
+        }
+        done += Math.min(500, rows.length - i)
+      }
 
       const skipped = idsArr.length - targets.length
       toast.success(`${targets.length}명에게 "${item?.title}" 수강권 부여 완료${skipped > 0 ? ` (${skipped}명 보유 중 제외)` : ''}`)
@@ -1936,6 +2019,31 @@ export default function AdminMembers() {
                       </button>
                     )}
                   </div>
+                </div>
+                <div className="mb-2 border border-dashed border-gray-300 rounded-lg px-3 py-2.5 bg-gray-50">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-gray-700 m-0">엑셀로 한 번에 고르기</p>
+                      <p className="text-[11px] text-gray-400 m-0 mt-0.5">연락처(또는 이메일)가 든 엑셀·CSV 를 올리면 그 회원들이 선택됩니다. 열 이름·순서는 상관없어요.</p>
+                    </div>
+                    <label className={`shrink-0 text-xs font-bold px-3 py-1.5 rounded-lg border border-gray-300 bg-white cursor-pointer hover:border-gray-500 ${bulkExcelReading ? 'opacity-50 pointer-events-none' : ''}`}>
+                      {bulkExcelReading ? '읽는 중…' : '파일 올리기'}
+                      <input type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) handleBulkExcel(f) }} />
+                    </label>
+                  </div>
+                  {bulkExcel && (
+                    <div className="mt-2 pt-2 border-t border-gray-200 text-[11px] text-gray-600">
+                      <p className="m-0"><b>{bulkExcel.fileName}</b> — 파일 {bulkExcel.total.toLocaleString()}명 중 <b className="text-[#16a34a]">{bulkExcel.matched.toLocaleString()}명</b>을 찾아 선택했어요.</p>
+                      {bulkExcel.multi > 0 && <p className="m-0 mt-0.5">같은 연락처로 계정이 여러 개인 {bulkExcel.multi.toLocaleString()}명은 이메일이 맞는 계정(없으면 가장 최근 가입 계정)을 골랐어요.</p>}
+                      {bulkExcel.unmatched.length > 0 && (
+                        <details className="mt-1">
+                          <summary className="cursor-pointer text-red-500 font-bold">회원을 못 찾은 {bulkExcel.unmatched.length.toLocaleString()}명 (가입하지 않았거나 연락처가 다름)</summary>
+                          <div className="mt-1 max-h-24 overflow-auto bg-white border border-gray-200 rounded p-2 leading-relaxed select-all">{bulkExcel.unmatched.join(', ')}</div>
+                        </details>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <input
                   value={bulkMemberQuery}
