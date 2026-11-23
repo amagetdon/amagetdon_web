@@ -38,6 +38,7 @@ function LandingPage() {
           .select('*, instructor:instructors(id, name)')
           .contains('landing_category_ids', [cat.id])
           .eq('is_published', true)
+          .eq('is_unlisted', false)
           .or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`)
           .order('sort_order')
           .order('created_at', { ascending: false })

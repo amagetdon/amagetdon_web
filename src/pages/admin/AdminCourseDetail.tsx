@@ -632,6 +632,7 @@ export default function AdminCourseDetail() {
         scheduled_at: editing.scheduled_at ?? null,
         webhook_variables: (editing.webhook_variables as Record<string, string>) ?? {},
         is_published: editing.is_published !== false,
+        is_unlisted: editing.is_unlisted === true,
         is_on_sale: editing.is_on_sale !== false,
         reviews_enabled: editing.reviews_enabled !== false,
         allow_guest_purchase: editing.allow_guest_purchase === true,
@@ -832,6 +833,7 @@ export default function AdminCourseDetail() {
                 <span className={course.is_published ? 'text-emerald-600' : 'text-gray-400'}>
                   {course.is_published ? '공개' : '비공개'}
                 </span>
+                {course.is_unlisted && <span className="text-amber-600"> · 목록 숨김(주소로만)</span>}
               </p>
             </div>
             <div className="flex items-center gap-5 text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5">
@@ -1194,11 +1196,12 @@ export default function AdminCourseDetail() {
                   <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_hot} onChange={(e) => setEditing({ ...editing, is_hot: e.target.checked })} className="accent-[#2ED573]" /> HOT</label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={!!editing.is_new} onChange={(e) => setEditing({ ...editing, is_new: e.target.checked })} className="accent-[#2ED573]" /> NEW</label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_published !== false} onChange={(e) => setEditing({ ...editing, is_published: e.target.checked })} className="accent-[#2ED573]" /> 공개</label>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_unlisted === true} onChange={(e) => setEditing({ ...editing, is_unlisted: e.target.checked })} className="accent-[#2ED573]" /> 목록에 숨기기(주소로만 접근)</label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.is_on_sale !== false} onChange={(e) => setEditing({ ...editing, is_on_sale: e.target.checked })} className="accent-[#2ED573]" /> 판매 중</label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.reviews_enabled !== false} onChange={(e) => setEditing({ ...editing, reviews_enabled: e.target.checked })} className="accent-[#2ED573]" /> 후기 사용</label>
                   <label className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={editing.allow_guest_purchase === true} onChange={(e) => setEditing({ ...editing, allow_guest_purchase: e.target.checked })} className="accent-[#2ED573]" /> 비회원 구매 가능</label>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">판매 중지 시 결제 버튼이 비활성화됩니다. 후기 미사용 시 후기 섹션이 숨겨집니다. 비회원 구매 가능 시 로그인 없이도 신청할 수 있습니다.</p>
+                <p className="text-xs text-gray-400 mt-1">판매 중지 시 결제 버튼이 비활성화됩니다. 후기 미사용 시 후기 섹션이 숨겨집니다. 비회원 구매 가능 시 로그인 없이도 신청할 수 있습니다. 목록에 숨기기를 켜면 메인·강의 목록·강사 페이지·검색·일정에 나오지 않고, 상세 주소(/course/번호)로만 들어와 신청할 수 있습니다.</p>
               </div>
             </div>
 
