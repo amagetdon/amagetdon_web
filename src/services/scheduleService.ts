@@ -15,14 +15,16 @@ export const scheduleService = {
       .from('schedules')
       .select(`
         *,
-        course:courses(id, title),
+        course:courses(id, title, is_unlisted),
         instructor:instructors(id, name, image_url, thumbnail_url)
       `)
       .gte('scheduled_at', startDate)
       .lte('scheduled_at', endDate)
     if (!includeHidden) query = query.eq('is_hidden', false)
-    const { data, error } = await query.order('scheduled_at')
+    const { data: rows, error } = await query.order('scheduled_at')
     if (error) throw error
+    // 공개 일정에서는 목록에서 숨긴 강의(is_unlisted)의 일정도 뺀다
+    const data = includeHidden ? rows : ((rows ?? []) as ScheduleWithDetails[]).filter((s) => !s.course?.is_unlisted)
     return setCache(key, data as ScheduleWithDetails[])
   },
 

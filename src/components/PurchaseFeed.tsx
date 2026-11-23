@@ -155,6 +155,7 @@ export default function PurchaseFeed() {
           .from('courses')
           .select('id, title')
           .eq('is_published', true)
+          .eq('is_unlisted', false)
           .eq('is_on_sale', true)
           .or(`enrollment_start.is.null,enrollment_start.lte.${nowIso}`)
           .or(`enrollment_deadline.is.null,enrollment_deadline.gt.${nowIso}`)
@@ -165,6 +166,7 @@ export default function PurchaseFeed() {
           .from('ebooks')
           .select('id, title')
           .eq('is_published', true)
+          .eq('is_unlisted', false)
           .eq('is_on_sale', true)
           .or(`open_date.is.null,open_date.lte.${nowIso}`)
           .or(`close_date.is.null,close_date.gt.${nowIso}`),

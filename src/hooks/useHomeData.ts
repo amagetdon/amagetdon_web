@@ -48,12 +48,12 @@ async function fetchHomeData(year: number, month: number): Promise<HomeData> {
     supabase.from('ebooks').select(`${EBOOK_PUBLIC_COLUMNS}, instructor:instructors(id, name)`).eq('is_free', true).eq('is_published', true).order('sort_order').order('created_at', { ascending: false }).then((r) => r),
     // 무료 클래스 목록에는 pre_alert (사전 알림 신청) 강의도 함께 노출 — 무료강의와 동일 카테고리, 알림톡만 분기.
     // pre_alert 강의는 enrollment_start 가 미래여도 노출해야 함 (오픈 전 신청 받기 의도) → OR 절에 pre_alert 우회 추가.
-    supabase.from('courses').select('*, instructor:instructors(id, name)').in('course_type', ['free', 'pre_alert']).eq('is_published', true).or(`course_type.eq.pre_alert,enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
+    supabase.from('courses').select('*, instructor:instructors(id, name)').in('course_type', ['free', 'pre_alert']).eq('is_published', true).eq('is_unlisted', false).or(`course_type.eq.pre_alert,enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
     supabase.from('courses').select('*, instructor:instructors(id, name)').eq('course_type', 'premium').eq('is_published', true).eq('is_unlisted', false).or(`enrollment_start.is.null,enrollment_start.lte.${new Date().toISOString()}`).order('scheduled_at', { ascending: false, nullsFirst: false }).order('sort_order', { ascending: true }).order('created_at', { ascending: false }).then((r) => r),
     supabase.from('instructors').select('*').order('sort_order').then((r) => r),
     supabase.from('results').select('*').eq('is_published', true).order('sort_order').order('created_at', { ascending: false }).limit(20).then((r) => r),
     supabase.from('reviews').select(`${REVIEW_PUBLIC_COLUMNS}, course:courses(id, title)`).eq('is_published', true).eq('rating', 5).order('created_at', { ascending: false }).limit(30).then((r) => r),
-    supabase.from('schedules').select('*, course:courses(id, title), instructor:instructors(id, name, image_url, thumbnail_url)').eq('is_hidden', false).gte('scheduled_at', startDate).lte('scheduled_at', endDate).order('scheduled_at').then((r) => r),
+    supabase.from('schedules').select('*, course:courses(id, title, is_unlisted), instructor:instructors(id, name, image_url, thumbnail_url)').eq('is_hidden', false).gte('scheduled_at', startDate).lte('scheduled_at', endDate).order('scheduled_at').then((r) => r),
     supabase.from('banners').select('*').eq('page_key', 'bottom_links').eq('is_published', true).order('sort_order').then((r) => r),
   ]
 
@@ -70,7 +70,8 @@ async function fetchHomeData(year: number, month: number): Promise<HomeData> {
     instructors: getData(instructors) as Instructor[],
     results: getData(resultData) as Result[],
     reviews: getData(reviews) as ReviewWithCourse[],
-    schedules: getData(schedules) as ScheduleWithDetails[],
+    // 목록에서 숨긴 강의(is_unlisted)의 일정은 메인 달력에도 안 보이게
+    schedules: (getData(schedules) as ScheduleWithDetails[]).filter((s) => !s.course?.is_unlisted),
     bottomLinks: getData(bottomLinks) as Banner[],
   }
 }

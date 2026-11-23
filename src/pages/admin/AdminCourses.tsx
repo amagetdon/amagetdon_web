@@ -361,7 +361,10 @@ export default function AdminCourses() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 font-medium">{course.title}</td>
+                      <td className="px-4 py-3 font-medium">
+                        {course.title}
+                        {course.is_unlisted && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 align-middle">목록 숨김</span>}
+                      </td>
                       <td className="px-4 py-3 text-gray-500">{course.instructor?.name || '-'}</td>
                       <td className="px-4 py-3 text-center">
                         <span className={`text-xs px-2 py-0.5 rounded-full ${course.course_type === 'free' ? 'bg-blue-100 text-blue-700' : course.course_type === 'pre_alert' ? 'bg-amber-100 text-amber-700' : 'bg-purple-100 text-purple-700'}`}>

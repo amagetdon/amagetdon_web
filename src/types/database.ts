@@ -192,6 +192,8 @@ export interface Course {
   webhook_variables: Record<string, string>
   duration_days: number
   is_published: boolean
+  // true 면 메인·목록·강사 페이지·검색·사이트맵·일정에 안 나오고 상세 주소로만 들어온다
+  is_unlisted?: boolean
   is_on_sale: boolean
   reviews_enabled: boolean
   // true 면 랜딩 설정과 무관하게 이 강의는 로그인 없이 신청(비회원 구매) 가능
@@ -390,7 +392,7 @@ export interface Schedule {
 }
 
 export interface ScheduleWithDetails extends Schedule {
-  course: Pick<Course, 'id' | 'title'> | null
+  course: Pick<Course, 'id' | 'title' | 'is_unlisted'> | null
   instructor: Pick<Instructor, 'id' | 'name' | 'image_url' | 'thumbnail_url'> | null
 }
 
