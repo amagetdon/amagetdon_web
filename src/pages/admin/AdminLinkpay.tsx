@@ -8,6 +8,7 @@ import ManualPaymentSection from '../../components/admin/ManualPaymentSection'
 import LinkpayInbox from '../../components/admin/LinkpayInbox'
 import BankDepositInbox from '../../components/admin/BankDepositInbox'
 import TossReconcilePanel from '../../components/admin/TossReconcilePanel'
+import { supabase } from '../../lib/supabase'
 import { courseService } from '../../services/courseService'
 import { linkpayService, type LinkpayLink, type LinkpayPayment, type TossProduct } from '../../services/linkpayService'
 import type { CourseWithInstructor } from '../../types'
@@ -43,6 +44,8 @@ export default function AdminLinkpay() {
   const [linkInfoCourseId, setLinkInfoCourseId] = useState<number | null>(null)
   // 개인결제창 상품은 사람마다 따로라 자동 연결 이득이 없고 계정이 틀릴 위험만 있어 기본 숨김 (결제 내역에서 수동 부여)
   const [showPersonal, setShowPersonal] = useState(false)
+  // 플랜 강의의 플랜 목록 (매핑 표에서 상품별 플랜 지정)
+  const [plansByCourse, setPlansByCourse] = useState<Map<number, { id: number; name: string }[]>>(new Map())
 
   const fetchData = async () => {
     try {
@@ -57,6 +60,13 @@ export default function AdminLinkpay() {
       setPayments(p)
       setCourses(c)
       setTossProducts(cached)
+      // 플랜 SQL 적용 전이면 조용히 빈 목록
+      const { data: pls, error: plErr } = await supabase.from('course_plans' as never).select('id, name, course_id').order('sort_order').order('id')
+      const byCourse = new Map<number, { id: number; name: string }[]>()
+      if (!plErr) for (const pl of (pls ?? []) as { id: number; name: string; course_id: number }[]) {
+        byCourse.set(pl.course_id, [...(byCourse.get(pl.course_id) ?? []), { id: pl.id, name: pl.name }])
+      }
+      setPlansByCourse(byCourse)
     } catch {
       toast.error('데이터를 불러오는데 실패했습니다.')
     } finally {
@@ -402,7 +412,24 @@ export default function AdminLinkpay() {
               {links.map((l) => (
                 <tr key={l.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3 text-gray-800">{l.label || '-'}</td>
-                  <td className="px-4 py-3 text-gray-700">{courseTitle(l.course_id)}</td>
+                  <td className="px-4 py-3 text-gray-700">
+                    {courseTitle(l.course_id)}
+                    {l.course_id != null && (plansByCourse.get(l.course_id)?.length ?? 0) > 0 && (
+                      <select value={l.plan_id ?? ''}
+                        onChange={async (e) => {
+                          const planId = e.target.value === '' ? null : Number(e.target.value)
+                          try {
+                            await linkpayService.setLinkPlan(l.id, planId)
+                            setLinks((prev) => prev.map((x) => (x.id === l.id ? { ...x, plan_id: planId } : x)))
+                            toast.success('플랜을 연결했습니다. 이후 이 상품 결제는 그 플랜으로 등록됩니다.')
+                          } catch { toast.error('플랜 연결에 실패했습니다.') }
+                        }}
+                        className={`ml-2 border rounded-md px-2 py-1 text-xs bg-white ${l.plan_id == null ? 'border-red-300 text-red-500' : 'border-gray-200'}`}>
+                        <option value="">플랜 선택 안 됨</option>
+                        {(plansByCourse.get(l.course_id) ?? []).map((pl) => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                      </select>
+                    )}
+                  </td>
                   <td className="px-4 py-3 font-mono text-[11px] text-gray-400">{l.product_key}</td>
                   <td className="px-4 py-3 text-center">
                     <button onClick={() => setDeleteLinkId(l.id)} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 bg-transparent border-none cursor-pointer transition-colors mx-auto" aria-label="삭제">

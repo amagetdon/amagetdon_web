@@ -26,6 +26,7 @@ import { fetchAllRows } from '../../lib/fetchAllRows'
 import type { CourseWithCurriculum, Review, Instructor, LandingCategory } from '../../types'
 import AdminPagination from '../../components/admin/AdminPagination'
 import AdminPromoSettings from '../../components/admin/AdminPromoSettings'
+import CoursePlansEditor from '../../components/admin/CoursePlansEditor'
 
 // 템플릿 방식을 고른 강의에서만 받는다
 const TemplateLandingEditor = lazy(() => import('../../components/admin/TemplateLandingEditor'))
@@ -46,6 +47,8 @@ interface CurriculumRow {
   sort_order: number
   /** null = 공통(모든 기수), 숫자 = 그 기수 전용 */
   cohort_no?: number | null
+  /** null = 모든 플랜, 배열 = 그 플랜 구매자에게만 보임 */
+  plan_ids?: number[] | null
 }
 
 interface CourseSeoShape {
@@ -169,8 +172,24 @@ export default function AdminCourseDetail() {
     openchat_opened_at: string | null
     openchat_clicked_at: string | null
     purchase_touch: PurchaseTouch | null
+    plan_id: number | null
+    cohort_no: number | null
   }
   const MEMBERS_PER_PAGE = 10
+  // 플랜 (정보 탭 플랜 편집 · 커리큘럼 플랜 권한 · 수강생 플랜 구분)
+  const [coursePlans, setCoursePlans] = useState<{ id: number; name: string }[]>([])
+  const loadCoursePlans = useCallback(async () => {
+    if (!courseId) return
+    const { data, error } = await supabase.from('course_plans' as never).select('id, name').eq('course_id', courseId).order('sort_order').order('id')
+    setCoursePlans(error ? [] : ((data ?? []) as { id: number; name: string }[]))
+  }, [courseId])
+  useEffect(() => { loadCoursePlans() }, [loadCoursePlans])
+  const planName = (id: number | null) => (id == null ? null : coursePlans.find((p) => p.id === id)?.name ?? `플랜 #${id}`)
+  // 수강생 기수·플랜 구분
+  const [memberCohorts, setMemberCohorts] = useState<{ no: number; name: string }[]>([])
+  const [membersCohort, setMembersCohort] = useState<number | 'all'>('all')
+  const [membersPlan, setMembersPlan] = useState<number | 'all' | 'none'>('all')
+  const [planChangingId, setPlanChangingId] = useState<number | null>(null)
   const [members, setMembers] = useState<MemberRow[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [membersPage, setMembersPage] = useState(1)
@@ -202,6 +221,19 @@ export default function AdminCourseDetail() {
           .eq('course_id', courseId),
       ])
       if (purchaseRes.error) throw purchaseRes.error
+      // 플랜(plan_id)은 따로 읽는다 — 플랜 SQL 적용 전이면 실패하고 전부 '플랜 없음'으로 둔다
+      const planRes = await fetchAllRows((from, to) => supabase
+        .from('purchases').select('id, plan_id' as never).eq('course_id', courseId).order('id').range(from, to))
+      const planByPurchase = new Map<number, number | null>()
+      if (!planRes.error) for (const r of (planRes.data ?? []) as unknown as { id: number; plan_id: number | null }[]) planByPurchase.set(r.id, r.plan_id)
+      // 기수: 결제 시각이 속한 기수 (DB purchase_cohort_no 와 같은 규칙)
+      const { data: ks } = await supabase.from('product_cohorts').select('no, name, starts_at, ends_at').eq('kind', 'course').eq('product_id', courseId).order('no')
+      const cohorts = (ks ?? []) as { no: number; name: string; starts_at: string | null; ends_at: string | null }[]
+      setMemberCohorts(cohorts.map((k) => ({ no: k.no, name: k.name })))
+      const cohortOf = (at: string) => {
+        const t = new Date(at).getTime()
+        return cohorts.find((k) => (!k.starts_at || t >= new Date(k.starts_at).getTime()) && (!k.ends_at || t < new Date(k.ends_at).getTime()))?.no ?? null
+      }
 
       const totalItems = itemsRes.count ?? 0
       const completedByUser = new Map<string, number>()
@@ -243,6 +275,8 @@ export default function AdminCourseDetail() {
           openchat_opened_at: purchase.openchat_opened_at,
           openchat_clicked_at: purchase.openchat_clicked_at,
           purchase_touch: purchase.purchase_touch,
+          plan_id: planByPurchase.get(purchase.id) ?? null,
+          cohort_no: cohortOf(purchase.purchased_at),
         }
       })
       setMembers(rows)
@@ -257,7 +291,9 @@ export default function AdminCourseDetail() {
     if (tab === 'members' && courseId) fetchMembers()
   }, [tab, courseId, fetchMembers])
 
-  const filteredMembers = members.filter((m) => {
+  const cohortMembers = membersCohort === 'all' ? members : members.filter((m) => m.cohort_no === membersCohort)
+  const filteredMembers = cohortMembers.filter((m) => {
+    if (membersPlan === 'none' ? m.plan_id != null : membersPlan !== 'all' && m.plan_id !== membersPlan) return false
     if (!membersSearch.trim()) return true
     const q = membersSearch.toLowerCase()
     return (m.user_name ?? '').toLowerCase().includes(q)
@@ -293,13 +329,28 @@ export default function AdminCourseDetail() {
     return isNaN(d.getTime()) ? '' : d.toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   }
 
+  // 수강생 플랜 바꾸기 (수동 부여·링크페이·무통장 건의 플랜 지정, 업그레이드)
+  const changeMemberPlan = async (m: MemberRow, planId: number | null) => {
+    if (planId === m.plan_id) return
+    const label = planId == null ? '플랜 없음' : planName(planId)
+    if (!window.confirm(`${m.user_name || '이 수강생'}의 플랜을 '${label}'(으)로 바꿀까요? 볼 수 있는 커리큘럼이 바뀝니다.`)) return
+    setPlanChangingId(m.purchase_id)
+    const { error } = await supabase.rpc('admin_set_purchase_plan' as never, { p_purchase_id: m.purchase_id, p_plan_id: planId } as never)
+    setPlanChangingId(null)
+    if (error) { toast.error(`플랜 변경 실패: ${error.message}`); return }
+    setMembers((prev) => prev.map((x) => (x.purchase_id === m.purchase_id ? { ...x, plan_id: planId } : x)))
+    toast.success('플랜을 바꿨습니다.')
+  }
+
   // 수강생 목록 엑셀(CSV) 내보내기 — 검색으로 필터된 결과를 그대로 내보냄
   const exportMembersToExcel = () => {
-    const header = ['이름', '이메일', '전화번호', '결제일', '결제수단', '결제금액', '정가', '진도율(%)', '오픈채팅', '오픈채팅 시각', '수강만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로', '구매경로_source', '구매경로_medium', '구매경로_campaign', '구매경로_content', '구매경로_term', '구매경로_유입사이트', '구매경로_랜딩']
+    const header = ['이름', '이메일', '전화번호', '기수', '플랜', '결제일', '결제수단', '결제금액', '정가', '진도율(%)', '오픈채팅', '오픈채팅 시각', '수강만료일', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', '가입경로', '구매경로_source', '구매경로_medium', '구매경로_campaign', '구매경로_content', '구매경로_term', '구매경로_유입사이트', '구매경로_랜딩']
     const rows = filteredMembers.map((m) => [
       m.user_name || '',
       m.user_email || '',
       m.user_phone || '',
+      m.cohort_no == null ? '' : (memberCohorts.find((k) => k.no === m.cohort_no)?.name ?? `${m.cohort_no}기`),
+      planName(m.plan_id) ?? '',
       formatKoDate(m.purchased_at),
       memberPaymentLabel(m),
       m.price > 0 ? m.price : '무료',
@@ -460,6 +511,7 @@ export default function AdminCourseDetail() {
             video_urls: videos,
             sort_order: item.sort_order,
             cohort_no: item.cohort_no ?? null,
+            plan_ids: (item as { plan_ids?: number[] | null }).plan_ids ?? null,
           }
         })
       )
@@ -763,6 +815,8 @@ export default function AdminCourseDetail() {
             is_redirect: !!firstVideo?.is_redirect,
             sort_order: idx + 1,
             ...(byCohort ? { cohort_no: curriculumCohort } : {}),
+            // 플랜이 있는 강의만 플랜 권한 칸을 저장 (플랜 SQL 적용 전 강의 저장이 깨지지 않게)
+            ...(coursePlans.length > 0 ? { plan_ids: item.plan_ids && item.plan_ids.length > 0 ? item.plan_ids : null } : {}),
           }
         })
         const { error } = await supabase.from('curriculum_items').insert(items as never)
@@ -981,6 +1035,11 @@ export default function AdminCourseDetail() {
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#2ED573] focus:ring-2 focus:ring-[#2ED573]/10 transition-all" />
                 <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">마감일시(없으면 신청일) 이후 N일 · 0 = 무제한</p>
               </div>
+              {courseId && editing.course_type === 'premium' && (
+                <div className="w-full">
+                  <CoursePlansEditor courseId={courseId} onChange={loadCoursePlans} />
+                </div>
+              )}
               <div className="w-full">
                 <label className="text-sm font-bold block mb-1">신청자 수 표시 (지금 N명 신청 중)</label>
                 <div className="flex flex-wrap gap-3">
@@ -1497,6 +1556,26 @@ export default function AdminCourseDetail() {
                         onChange={(e) => updateCurriculumItem(idx, 'description', e.target.value || null)}
                         className="flex-1 border border-gray-300 rounded-md px-2.5 py-2 text-sm outline-none focus:border-[#2ED573] resize-none min-h-[76px] max-sm:min-h-[60px]" />
                     </div>
+                    {coursePlans.length > 0 && (
+                      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-gray-500 mr-1">볼 수 있는 플랜</span>
+                        {coursePlans.map((pl) => {
+                          const on = item.plan_ids == null || item.plan_ids.includes(pl.id)
+                          return (
+                            <button key={pl.id} type="button"
+                              onClick={() => {
+                                const cur = item.plan_ids ?? coursePlans.map((x) => x.id)
+                                const next = on ? cur.filter((id) => id !== pl.id) : [...cur, pl.id]
+                                if (next.length === 0) { toast.error('최소 한 플랜은 켜 두어야 합니다.'); return }
+                                updateCurriculumItem(idx, 'plan_ids', next.length === coursePlans.length ? null : next)
+                              }}
+                              className={`px-2.5 py-1 rounded-full text-xs font-bold border cursor-pointer ${on ? 'bg-[#2ED573] text-white border-[#2ED573]' : 'bg-white text-gray-400 border-gray-300 line-through'}`}>
+                              {pl.name} {on ? 'ON' : 'OFF'}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
                     <div className="mt-3 pt-3 border-t border-gray-200 space-y-1.5">
                       {item.video_urls.map((v, vIdx) => (
                         <div key={vIdx} className="flex items-center gap-1.5">
@@ -1647,7 +1726,7 @@ export default function AdminCourseDetail() {
         <div>
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <p className="text-sm text-gray-500">
-              전체 수강생 {members.length}명{membersSearch && ` · 검색 결과 ${filteredMembers.length}명`}
+              전체 수강생 {members.length}명{(membersSearch || membersCohort !== 'all' || membersPlan !== 'all') && ` · 조건 결과 ${filteredMembers.length}명`}
             </p>
             <div className="flex items-center gap-2 flex-wrap">
               <div className="relative max-w-xs">
@@ -1670,6 +1749,33 @@ export default function AdminCourseDetail() {
             </div>
           </div>
 
+          {(memberCohorts.length > 0 || coursePlans.length > 0) && (
+            <div className="mb-4 space-y-2">
+              {memberCohorts.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-bold text-gray-500 w-10">기수</span>
+                  {[{ no: 'all' as const, name: '전체' }, ...memberCohorts].map((k) => (
+                    <button key={String(k.no)} type="button" onClick={() => { setMembersCohort(k.no); setMembersPage(1) }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border ${membersCohort === k.no ? 'bg-gray-900 text-white border-gray-900' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                      {k.name} ({(k.no === 'all' ? members : members.filter((m) => m.cohort_no === k.no)).length})
+                    </button>
+                  ))}
+                </div>
+              )}
+              {coursePlans.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-bold text-gray-500 w-10">플랜</span>
+                  {[{ id: 'all' as const, name: '전체' }, ...coursePlans, { id: 'none' as const, name: '플랜 없음' }].map((pl) => (
+                    <button key={String(pl.id)} type="button" onClick={() => { setMembersPlan(pl.id); setMembersPage(1) }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer border ${membersPlan === pl.id ? 'bg-[#2ED573] text-white border-[#2ED573]' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                      {pl.name} ({cohortMembers.filter((m) => pl.id === 'all' ? true : pl.id === 'none' ? m.plan_id == null : m.plan_id === pl.id).length})
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {membersLoading ? (
             <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
               {[1, 2, 3].map((i) => <div key={i} className="animate-pulse h-12 bg-gray-100 rounded" />)}
@@ -1687,6 +1793,8 @@ export default function AdminCourseDetail() {
                       <th className="px-4 py-3 text-left font-bold text-gray-600">이름</th>
                       <th className="px-4 py-3 text-left font-bold text-gray-600">이메일</th>
                       <th className="px-4 py-3 text-left font-bold text-gray-600">전화</th>
+                      {memberCohorts.length > 0 && <th className="px-4 py-3 text-center font-bold text-gray-600">기수</th>}
+                      {coursePlans.length > 0 && <th className="px-4 py-3 text-center font-bold text-gray-600">플랜</th>}
                       <th className="px-4 py-3 text-center font-bold text-gray-600">결제일</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600">결제수단</th>
                       <th className="px-4 py-3 text-center font-bold text-gray-600">금액</th>
@@ -1703,6 +1811,21 @@ export default function AdminCourseDetail() {
                         <td className="px-4 py-3 font-medium">{m.user_name || '-'}</td>
                         <td className="px-4 py-3 text-gray-500">{m.user_email || '-'}</td>
                         <td className="px-4 py-3 text-gray-500">{m.user_phone || '-'}</td>
+                        {memberCohorts.length > 0 && (
+                          <td className="px-4 py-3 text-center text-xs text-gray-500">
+                            {m.cohort_no == null ? '-' : (memberCohorts.find((k) => k.no === m.cohort_no)?.name ?? `${m.cohort_no}기`)}
+                          </td>
+                        )}
+                        {coursePlans.length > 0 && (
+                          <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                            <select value={m.plan_id ?? ''} disabled={planChangingId === m.purchase_id}
+                              onChange={(e) => changeMemberPlan(m, e.target.value === '' ? null : Number(e.target.value))}
+                              className={`border rounded-md px-2 py-1 text-xs bg-white ${m.plan_id == null ? 'border-red-300 text-red-500' : 'border-gray-200 text-gray-700'}`}>
+                              <option value="">플랜 없음</option>
+                              {coursePlans.map((pl) => <option key={pl.id} value={pl.id}>{pl.name}</option>)}
+                            </select>
+                          </td>
+                        )}
                         <td className="px-4 py-3 text-center text-gray-400 text-xs">{formatKoDate(m.purchased_at)}</td>
                         <td className="px-4 py-3 text-center">
                           {m.payment_method === 'toss' ? (
