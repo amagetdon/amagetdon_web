@@ -110,11 +110,14 @@ export const purchaseService = {
   async purchaseWithPoints(
     item: { courseId?: number | null; ebookId?: number | null },
     couponId?: number | null,
+    planId?: number | null,
   ): Promise<{ final_price: number; price: number; discount: number; balance: number }> {
     const kind = item.courseId ? 'course' : item.ebookId ? 'ebook' : null
     const id = item.courseId ?? item.ebookId
     if (!kind || !id) throw new Error('잘못된 상품입니다.')
-    const { data, error } = await supabase.rpc('purchase_with_points' as never, { p_kind: kind, p_id: id, p_coupon_id: couponId ?? null } as never)
+    // 플랜은 고른 경우에만 보낸다 (플랜이 없는 강의는 지금과 같은 호출)
+    const args = { p_kind: kind, p_id: id, p_coupon_id: couponId ?? null, ...(planId ? { p_plan_id: planId } : {}) }
+    const { data, error } = await supabase.rpc('purchase_with_points' as never, args as never)
     if (error) throw new Error(error.message || '구매에 실패했습니다.')
     return data as unknown as { final_price: number; price: number; discount: number; balance: number }
   },
