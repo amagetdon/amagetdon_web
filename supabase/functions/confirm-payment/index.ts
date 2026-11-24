@@ -8,11 +8,42 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 
+// 할인 기간: 시작·종료가 둘 다 없으면 항상 할인 중 (상세 화면·포인트 결제와 같은 규칙)
+const DISCOUNT_GRACE_MS = 30 * 60 * 1000
+function discountState(start: string | null | undefined, end: string | null | undefined) {
+  const now = Date.now()
+  if (!start && !end) return { active: true, justEnded: false }
+  const started = !start || new Date(start).getTime() <= now
+  const endMs = end ? new Date(end).getTime() : null
+  const active = started && (endMs == null || endMs > now)
+  const justEnded = started && endMs != null && endMs <= now && now - endMs <= DISCOUNT_GRACE_MS
+  return { active, justEnded }
+}
+
+type CouponRow = {
+  min_purchase: number | null
+  discount_type: 'fixed' | 'percent'
+  discount_value: number
+  max_discount: number | null
+}
+// 쿠폰 할인액 (CourseDetailPage·purchase_with_points 와 같은 계산)
+function couponDiscount(price: number, cp: CouponRow | null): number {
+  if (!cp || price < (cp.min_purchase ?? 0)) return 0
+  if (cp.discount_type === 'percent') {
+    return Math.min(Math.floor(price * cp.discount_value / 100), cp.max_discount || Infinity, price)
+  }
+  return Math.min(cp.discount_value, price)
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { paymentKey, orderId, amount } = await req.json()
+    const { paymentKey, orderId, amount, couponId: rawCouponId } = await req.json()
+    const couponId = rawCouponId == null || rawCouponId === '' ? null : Number(rawCouponId)
+    if (couponId != null && (!Number.isInteger(couponId) || couponId <= 0)) {
+      return json({ error: '잘못된 쿠폰입니다.' }, 400)
+    }
 
     if (!paymentKey || !orderId || typeof amount !== 'number' || amount <= 0) {
       return json({ error: '필수 파라미터가 누락되었거나 유효하지 않습니다.' }, 400)
@@ -198,7 +229,10 @@ Deno.serve(async (req: Request) => {
     let ebookId: number | null = null
     let expiresAt: string | null = null
     let rewardPoints = 0
-    let maxPrice = 0
+    // 서버가 계산한 정가(할인 기간 반영, 쿠폰 전). 포인트 결제(purchase_with_points)와 같은 규칙.
+    let listPrice = 0
+    // 할인이 막 끝난 직후 결제창을 연 사람을 위해, 할인 종료 30분 안에는 할인가도 받아 준다
+    let graceSalePrice: number | null = null
     let isFreeItem = false
     let afterPurchaseUrl: string | null = null
     // 전환 추적(Purchase 이벤트)용 — 결제 완료 페이지로 내려보낸다.
@@ -209,7 +243,7 @@ Deno.serve(async (req: Request) => {
     if (itemType === 'course') {
       const { data: course } = await supabase
         .from('courses')
-        .select('title, original_price, sale_price, course_type, reward_points, duration_days, enrollment_deadline, after_purchase_url, landing_category_id, landing_category_ids, instructor:instructors(name)')
+        .select('title, original_price, sale_price, discount_start, discount_end, course_type, reward_points, duration_days, enrollment_deadline, after_purchase_url, landing_category_id, landing_category_ids, instructor:instructors(name)')
         .eq('id', itemId)
         .maybeSingle()
       if (!course) return json({ error: '강의를 찾을 수 없습니다.' }, 404)
@@ -217,7 +251,14 @@ Deno.serve(async (req: Request) => {
       title = course.title
       rewardPoints = course.reward_points ?? 0
       isFreeItem = course.course_type === 'free'
-      maxPrice = Math.max(course.original_price ?? 0, course.sale_price ?? 0)
+      {
+        const disc = discountState(course.discount_start, course.discount_end)
+        const sale = course.sale_price ?? 0
+        if (course.course_type === 'free' || course.sale_price === 0) listPrice = 0
+        else if (disc.active && sale > 0) listPrice = sale
+        else listPrice = course.original_price ?? 0
+        if (!disc.active && disc.justEnded && sale > 0) graceSalePrice = sale
+      }
       afterPurchaseUrl = course.after_purchase_url ?? null
       contentCategory = course.course_type === 'free' ? '무료강의' : course.course_type === 'pre_alert' ? '사전알림' : '유료강의'
       // to-one 관계라 객체로 오지만, 일부 환경에서 배열로 직렬화되는 경우까지 방어.
@@ -248,7 +289,7 @@ Deno.serve(async (req: Request) => {
     } else if (itemType === 'ebook') {
       const { data: ebook } = await supabase
         .from('ebooks')
-        .select('title, original_price, sale_price, is_free, duration_days, reward_points, instructor:instructors(name)')
+        .select('title, original_price, sale_price, discount_start, discount_end, is_free, duration_days, reward_points, instructor:instructors(name)')
         .eq('id', itemId)
         .maybeSingle()
       if (!ebook) return json({ error: '전자책을 찾을 수 없습니다.' }, 404)
@@ -256,7 +297,13 @@ Deno.serve(async (req: Request) => {
       title = ebook.title
       rewardPoints = ebook.reward_points ?? 0
       isFreeItem = !!ebook.is_free
-      maxPrice = Math.max(ebook.original_price ?? 0, ebook.sale_price ?? 0)
+      {
+        const disc = discountState(ebook.discount_start, ebook.discount_end)
+        if (ebook.is_free) listPrice = 0
+        else if (disc.active && ebook.sale_price != null) listPrice = ebook.sale_price
+        else listPrice = ebook.original_price ?? ebook.sale_price ?? 0
+        if (!disc.active && disc.justEnded && ebook.sale_price != null) graceSalePrice = ebook.sale_price
+      }
       contentCategory = ebook.is_free ? '무료전자책' : '유료전자책'
       {
         const inst = (ebook as { instructor?: { name?: string } | { name?: string }[] | null }).instructor
@@ -274,9 +321,39 @@ Deno.serve(async (req: Request) => {
     // 무료 상품인데 결제가 들어옴 — 거부
     if (isFreeItem) return json({ error: '무료 상품에는 결제가 필요하지 않습니다.' }, 400)
 
-    // 정가 초과 결제 차단 (쿠폰/할인은 가격을 낮추기만 하므로 amount > maxPrice 는 비정상)
-    if (maxPrice > 0 && amount > maxPrice) {
-      return json({ error: '결제 금액이 상품 가격을 초과합니다.' }, 400)
+    // 결제 금액 검증 — 서버가 계산한 금액(할인 기간·쿠폰 반영)과 정확히 같아야 한다.
+    // 다르면 토스 승인 전에 거절하므로 카드 대금은 빠져나가지 않는다.
+    let couponClaimId: number | null = null
+    {
+      let couponRow: CouponRow | null = null
+      if (couponId != null) {
+        const { data: cl } = await supabase
+          .from('coupon_claims').select('id, claimed_at')
+          .eq('coupon_id', couponId).eq('user_id', user.id).is('used_at', null)
+          .limit(1).maybeSingle()
+        const { data: cp } = await supabase
+          .from('coupons')
+          .select('id, is_published, expires_at, use_days, applies_to, course_id, ebook_id, min_purchase, discount_type, discount_value, max_discount')
+          .eq('id', couponId).maybeSingle()
+        const kindOk = cp && (cp.applies_to === 'all'
+          || (cp.applies_to === 'course' && courseId != null && (cp.course_id == null || cp.course_id === courseId))
+          || (cp.applies_to === 'ebook' && ebookId != null && (cp.ebook_id == null || cp.ebook_id === ebookId)))
+        const notExpired = cp && (!cp.expires_at || new Date(cp.expires_at).getTime() >= Date.now())
+          && !(cl && (cp.use_days ?? 0) > 0 && cl.claimed_at
+            && new Date(cl.claimed_at).getTime() + (cp.use_days as number) * 864e5 < Date.now())
+        if (!cl || !cp || !cp.is_published || !kindOk || !notExpired) {
+          return json({ error: '사용할 수 없는 쿠폰입니다. 결제는 진행되지 않았습니다.' }, 400)
+        }
+        couponRow = cp as CouponRow
+        couponClaimId = cl.id as number
+      }
+      const candidates = [listPrice, ...(graceSalePrice != null ? [graceSalePrice] : [])]
+      const ok = candidates.some((p) => p > 0 && amount === p - couponDiscount(p, couponRow))
+      if (!ok) {
+        return json({ error: '결제 금액이 상품 가격과 일치하지 않습니다. 결제는 진행되지 않았습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.' }, 400)
+      }
+      // 저장용 정가: 실제 결제 금액에 맞는 후보
+      listPrice = candidates.find((p) => p > 0 && amount === p - couponDiscount(p, couponRow)) ?? listPrice
     }
 
     // 동일 사용자 + 동일 상품 중복 구매 차단
@@ -315,13 +392,21 @@ Deno.serve(async (req: Request) => {
       course_id: courseId,
       ebook_id: ebookId,
       title,
-      original_price: amount,
+      original_price: listPrice,
       price: amount,
+      coupon_id: couponId,
       payment_key: paymentKey,
       payment_method: 'toss',
       expires_at: expiresAt,
     })
     if (purchaseError) return json({ error: '구매 기록 생성에 실패했습니다.' }, 500)
+
+    // 쿠폰 사용 처리 (실패해도 구매는 유효)
+    if (couponClaimId != null) {
+      try {
+        await supabase.from('coupon_claims').update({ used_at: new Date().toISOString() }).eq('id', couponClaimId)
+      } catch { /* 무시 */ }
+    }
 
     // 적립 포인트 (실패해도 구매는 유효)
     if (rewardPoints > 0) {

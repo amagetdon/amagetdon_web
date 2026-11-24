@@ -616,7 +616,8 @@ function CourseDetailPage() {
         amount: { currency: 'KRW', value: price },
         orderId,
         orderName: title,
-        successUrl: `${window.location.origin}/payment/success`,
+        // 쿠폰은 결제 완료 화면 → 서버 확인으로 넘겨 서버가 금액을 다시 계산한다
+        successUrl: `${window.location.origin}/payment/success${selectedCoupon && couponDiscount > 0 ? `?coupon=${selectedCoupon.id}` : ""}`,
         failUrl: `${window.location.origin}/payment/fail`,
         customerEmail: profile?.email || undefined,
         customerName: profile?.name || undefined,
