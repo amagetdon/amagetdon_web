@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
+import InterviewVideosSection from './InterviewVideosSection'
 
 // 관리자 강의·전자책 상세의 '통합 대시보드' 탭.
 // 집계는 서버 함수 get_product_dashboard(관리자 전용)가 하고, 여기서는 표시·연결 상품·광고비 입력만 한다.
@@ -426,6 +427,10 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
           ]}
         />
       </section>
+
+      {/* 인터뷰 채널 영상 — 조회수·댓글(유튜브) × UTM 신청 */}
+      <InterviewVideosSection kind={kind} productId={productId} rows={data.rows ?? []} visitRows={data.visit_rows ?? []}
+        cohortName={curCohort?.name ?? null} />
 
       {/* 게시글 경유 (강의만) */}
       {kind === 'course' && <BoardFunnelSection courseId={productId} />}
