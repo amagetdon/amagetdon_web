@@ -74,6 +74,12 @@ const SPEND_CHANNELS = ['meta', 'kakao', 'naver', 'google', 'youtube', 'dable', 
 const SIGNUP_MARK = ' (가입 경로)'
 const FREE_MARK = ' (무료 신청 경로)'
 const AGE_ORDER = ['10대', '20대', '30대', '40대', '50대', '60대+', '미상']
+/** 캠페인 줄 아래 소재 펼침을 여닫는 키 (매체 키와 겹치지 않게) */
+const subKey = (ch: string, k: string) => `${ch}\u0001${k}`
+type RouteRow = { channel: string; campaign: string; content: string; term: string; basis?: string }
+/** 펼친 줄의 값 — 가입 경로·무료 신청 경로로 분류된 신청자는 같은 값이라도 따로 묶어 표시(방문과 섞이지 않게) */
+const routeKey = (r: RouteRow, d: Dim) =>
+  'basis' in r && r[d] ? (r.basis === 'signup' ? `${r[d]}${SIGNUP_MARK}` : r.basis === 'free' ? `${r[d]}${FREE_MARK}` : r[d]) : r[d]
 
 const label = (c: string) => CHANNEL_LABEL[c] ?? c
 const n = (v: number) => Math.round(v).toLocaleString('ko-KR')
@@ -218,10 +224,19 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
     return aggregate(
       (data.rows ?? []).filter((r) => r.channel === ch),
       (data.visit_rows ?? []).filter((v) => v.channel === ch),
-      // 가입 경로로 분류된 신청자는 같은 값이라도 따로 묶어 '(가입 경로)' 로 표시 — 방문(이번 경로)과 섞이지 않게
-      (r) => ('basis' in r && r[dim] ? (r.basis === 'signup' ? `${r[dim]}${SIGNUP_MARK}` : r.basis === 'free' ? `${r[dim]}${FREE_MARK}` : r[dim]) : r[dim]),
+      (r) => routeKey(r, dim),
     )
   }, [data, dim])
+
+  // 펼친 캠페인의 소재(utm_content)별 줄 — 매체 > 캠페인 > 소재
+  const contentRows = useCallback((ch: string, camp: string) => {
+    if (!data) return []
+    return aggregate(
+      (data.rows ?? []).filter((r) => r.channel === ch && routeKey(r, 'campaign') === camp),
+      (data.visit_rows ?? []).filter((v) => v.channel === ch && routeKey(v, 'campaign') === camp),
+      (r) => r.content,
+    )
+  }, [data])
 
   const toggle = (ch: string) => setOpen((prev) => { const s = new Set(prev); if (s.has(ch)) s.delete(ch); else s.add(ch); return s })
 
@@ -262,9 +277,16 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
                   </td>
                   {cells(c, true).map((v, i) => <td key={i} className="px-3 py-2 text-right whitespace-nowrap">{v}</td>)}
                 </tr>
-                {isOpen && subRows(c.key).map((s) => (
-                  <tr key={`${c.key}:${s.key}`} className="bg-gray-50/60 text-gray-600">
+                {isOpen && subRows(c.key).map((s) => {
+                  // 캠페인으로 펼쳤을 때는 캠페인 줄을 다시 눌러 소재별로 펼친다
+                  const canDrill = dim === 'campaign'
+                  const sk = subKey(c.key, s.key)
+                  const subOpen = canDrill && open.has(sk)
+                  return (
+                  <Fragment key={`${c.key}:${s.key}`}>
+                  <tr className={`bg-gray-50/60 text-gray-600 ${canDrill ? 'cursor-pointer hover:bg-gray-100' : ''}`} onClick={canDrill ? () => toggle(sk) : undefined}>
                     <td className="pl-8 pr-3 py-1.5 text-xs max-w-[260px] truncate" title={s.key}>
+                      {canDrill && <i className={`ti ${subOpen ? 'ti-chevron-down' : 'ti-chevron-right'} text-[10px] text-gray-400 mr-1`} />}
                       {!s.key ? <span className="text-gray-400">(값 없음)</span>
                         : s.key.endsWith(SIGNUP_MARK) ? <>{s.key.slice(0, -SIGNUP_MARK.length)}<span className="text-gray-400" title="이번 신청 경로 기록이 없어(10/12 이전 신청) 회원가입 때 UTM 으로 분류">{SIGNUP_MARK}</span></>
                         : s.key.endsWith(FREE_MARK) ? <>{s.key.slice(0, -FREE_MARK.length)}<span className="text-gray-400" title="결제 직전 경로 기록이 없어(링크페이·무통장·부여 등) 무료 강의 신청 때 경로로 분류">{FREE_MARK}</span></>
@@ -272,7 +294,17 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
                     </td>
                     {cells(s, false).map((v, i) => <td key={i} className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{v}</td>)}
                   </tr>
-                ))}
+                  {subOpen && contentRows(c.key, s.key).map((t) => (
+                    <tr key={`${sk}:${t.key}`} className="bg-white text-gray-500">
+                      <td className="pl-14 pr-3 py-1 text-xs max-w-[260px] truncate" title={t.key}>
+                        <span className="text-gray-300 mr-1">└</span>{t.key || <span className="text-gray-400">(소재 값 없음)</span>}
+                      </td>
+                      {cells(t, false).map((v, i) => <td key={i} className="px-3 py-1 text-right text-xs whitespace-nowrap">{v}</td>)}
+                    </tr>
+                  ))}
+                  </Fragment>
+                  )
+                })}
               </Fragment>
             )
           })}
@@ -416,7 +448,7 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
           </div>
         </div>
         <p className="text-xs text-gray-400 mb-4">
-          가입·신청·결제는 전체 기간. 신규 가입 = 신청 전 24시간 안에 가입한 회원. 유입 = 이 상품 상세 페이지를 연 사람 수(사이트 전체 방문 아님). 10/12 밤 이전은 Umami, 이후는 자체 기록. 방문→신청 = 신청 수 ÷ 방문자 수(과거 방문은 회원과 연결할 수 없어 근사치). 매체 줄을 누르면 {DIM_LABEL[dim]}별로 펼쳐집니다.
+          가입·신청·결제는 전체 기간. 신규 가입 = 신청 전 24시간 안에 가입한 회원. 유입 = 이 상품 상세 페이지를 연 사람 수(사이트 전체 방문 아님). 10/12 밤 이전은 Umami, 이후는 자체 기록. 방문→신청 = 신청 수 ÷ 방문자 수(과거 방문은 회원과 연결할 수 없어 근사치). 매체 줄을 누르면 {DIM_LABEL[dim]}별로 펼쳐집니다{dim === 'campaign' ? ' (캠페인 줄을 다시 누르면 소재별)' : ''}.
         </p>
         <ChannelTable
           headers={['매체', '페이지 방문', '방문→신청', '신규 가입', '신청', '신규 비율', '결제', '결제율']}
@@ -448,7 +480,7 @@ export default function ProductDashboard({ kind, productId }: { kind: Kind; prod
           {product.is_free
             ? '매체 = 이번 신청 직전 유입 경로(UTM) → 없으면 회원가입 때 경로.'
             : '매체 = 결제 직전 유입 경로(UTM) → 없으면(링크페이·무통장·부여 등) 무료 강의 신청 때 경로 → 그것도 없으면 회원가입 때 경로.'}
-          {' '}광고비는 매체 단위(펼친 줄에는 없음).
+          {' '}광고비는 매체 단위(펼친 줄에는 없음). 매체 줄 → 캠페인 줄을 차례로 누르면 소재(utm_content)별 신청·결제가 나옵니다.
         </p>
         <ChannelTable
           headers={['매체', '신청(DB)', '결제', '결제율', '매출', '광고비', 'DB당 단가', '결제당 비용', 'ROAS']}
@@ -588,15 +620,36 @@ function FreeRouteSection({ match, rows, dim, dimPicker, totalPayers }: { match:
                         <td className="px-3 py-2 text-right whitespace-nowrap">{won(c.revenue)}</td>
                         <td className="px-3 py-2 text-right whitespace-nowrap">{pct(c.revenue, total.revenue)}</td>
                       </tr>
-                      {isOpen && sumFreeRoutes(mine.filter((r) => r.channel === c.key), (r) => r[dim]).map((s) => (
-                        <tr key={`${c.key}:${s.key}`} className="bg-gray-50/60 text-gray-600">
-                          <td className="pl-8 pr-3 py-1.5 text-xs max-w-[260px] truncate" title={s.key}>{s.key || <span className="text-gray-400">(값 없음)</span>}</td>
+                      {isOpen && sumFreeRoutes(mine.filter((r) => r.channel === c.key), (r) => r[dim]).map((s) => {
+                        const canDrill = dim === 'campaign'
+                        const sk = subKey(c.key, s.key)
+                        const subOpen = canDrill && open.has(sk)
+                        return (
+                        <Fragment key={`${c.key}:${s.key}`}>
+                        <tr className={`bg-gray-50/60 text-gray-600 ${canDrill ? 'cursor-pointer hover:bg-gray-100' : ''}`} onClick={canDrill ? () => toggle(sk) : undefined}>
+                          <td className="pl-8 pr-3 py-1.5 text-xs max-w-[260px] truncate" title={s.key}>
+                            {canDrill && <i className={`ti ${subOpen ? 'ti-chevron-down' : 'ti-chevron-right'} text-[10px] text-gray-400 mr-1`} />}
+                            {s.key || <span className="text-gray-400">(값 없음)</span>}
+                          </td>
                           <td className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{n(s.payers)}</td>
                           <td className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{s.phone ? n(s.phone) : '-'}</td>
                           <td className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{won(s.revenue)}</td>
                           <td className="px-3 py-1.5 text-right text-xs whitespace-nowrap">{pct(s.revenue, c.revenue)}</td>
                         </tr>
-                      ))}
+                        {subOpen && sumFreeRoutes(mine.filter((r) => r.channel === c.key && r.campaign === s.key), (r) => r.content).map((t) => (
+                          <tr key={`${sk}:${t.key}`} className="bg-white text-gray-500">
+                            <td className="pl-14 pr-3 py-1 text-xs max-w-[260px] truncate" title={t.key}>
+                              <span className="text-gray-300 mr-1">└</span>{t.key || <span className="text-gray-400">(소재 값 없음)</span>}
+                            </td>
+                            <td className="px-3 py-1 text-right text-xs whitespace-nowrap">{n(t.payers)}</td>
+                            <td className="px-3 py-1 text-right text-xs whitespace-nowrap">{t.phone ? n(t.phone) : '-'}</td>
+                            <td className="px-3 py-1 text-right text-xs whitespace-nowrap">{won(t.revenue)}</td>
+                            <td className="px-3 py-1 text-right text-xs whitespace-nowrap">{pct(t.revenue, c.revenue)}</td>
+                          </tr>
+                        ))}
+                        </Fragment>
+                        )
+                      })}
                     </Fragment>
                   )
                 })}
