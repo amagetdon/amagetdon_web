@@ -30,7 +30,7 @@ export const purchaseService = {
       .order('purchased_at', { ascending: false })
     if (error) throw error
     // 영상 주소는 서버 함수로 — 만료 전 구매 강의만 받아진다
-    type Row = { id: number; course: { id: number; curriculum_items?: { id: number; cohort_no?: number | null }[] } | null }
+    type Row = { id: number; plan_id?: number | null; course: { id: number; curriculum_items?: { id: number; cohort_no?: number | null }[] } | null }
     // 기수제 재신청으로 같은 강의 신청이 여러 줄일 수 있다 — 강의당 가장 최근 줄만 보여 준다 (최근 순 정렬이라 처음 만난 줄)
     const seen = new Set<number>()
     const rows = ((data ?? []) as unknown as Row[]).filter((r) => {
@@ -47,7 +47,18 @@ export const purchaseService = {
       const { data: ks, error: kErr } = await supabase.rpc('get_my_purchase_cohorts' as never, { p_course_ids: courseIds } as never)
       if (!kErr) cohortOf = new Map(((ks ?? []) as { purchase_id: number; cohort_no: number | null }[]).map((k) => [Number(k.purchase_id), k.cohort_no]))
     }
-    const mine = (r: Row) => (r.course?.curriculum_items ?? []).filter((i) => cohortOf == null || i.cohort_no == null || i.cohort_no === cohortOf.get(r.id))
+    // 플랜 강의 — 내 플랜에서 꺼 둔 항목은 숨긴다. 조회가 실패하면(플랜 SQL 적용 전) 나누지 않는다(영상 주소는 서버가 따로 막는다).
+    let planIdsOf: Map<number, number[] | null> | null = null
+    if (courseIds.length > 0) {
+      const { data: pi, error: pErr } = await supabase.from('curriculum_items').select('id, plan_ids' as never).in('course_id', courseIds)
+      if (!pErr) planIdsOf = new Map(((pi ?? []) as unknown as { id: number; plan_ids: number[] | null }[]).map((x) => [x.id, x.plan_ids]))
+    }
+    const planOk = (r: Row, itemId: number) => {
+      const ids = planIdsOf?.get(itemId)
+      return !ids || ids.length === 0 || (r.plan_id != null && ids.includes(r.plan_id))
+    }
+    const mine = (r: Row) => (r.course?.curriculum_items ?? []).filter((i) =>
+      (cohortOf == null || i.cohort_no == null || i.cohort_no === cohortOf.get(r.id)) && planOk(r, i.id))
     const allItems = rows.flatMap(mine)
     const merged = new Map((await withCurriculumVideos(courseIds, allItems)).map((i) => [i.id, i]))
     return rows.map((r) => (r.course
@@ -110,11 +121,14 @@ export const purchaseService = {
   async purchaseWithPoints(
     item: { courseId?: number | null; ebookId?: number | null },
     couponId?: number | null,
+    planId?: number | null,
   ): Promise<{ final_price: number; price: number; discount: number; balance: number }> {
     const kind = item.courseId ? 'course' : item.ebookId ? 'ebook' : null
     const id = item.courseId ?? item.ebookId
     if (!kind || !id) throw new Error('잘못된 상품입니다.')
-    const { data, error } = await supabase.rpc('purchase_with_points' as never, { p_kind: kind, p_id: id, p_coupon_id: couponId ?? null } as never)
+    // 플랜은 고른 경우에만 보낸다 (플랜이 없는 강의는 지금과 같은 호출)
+    const args = { p_kind: kind, p_id: id, p_coupon_id: couponId ?? null, ...(planId ? { p_plan_id: planId } : {}) }
+    const { data, error } = await supabase.rpc('purchase_with_points' as never, args as never)
     if (error) throw new Error(error.message || '구매에 실패했습니다.')
     return data as unknown as { final_price: number; price: number; discount: number; balance: number }
   },

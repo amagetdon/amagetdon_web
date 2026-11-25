@@ -81,6 +81,7 @@ async function computeExpiry(
   supabase: SupabaseClient,
   courseId: number | null,
   ebookId: number | null,
+  planId: number | null = null,
 ): Promise<string | null> {
   if (courseId) {
     const { data } = await supabase
@@ -89,6 +90,12 @@ async function computeExpiry(
       .eq('id', courseId)
       .maybeSingle()
     const c = data as { enrollment_deadline: string | null; duration_days: number | null } | null
+    // 플랜에 수강 기간이 따로 있으면 그것을 쓴다
+    if (c && planId) {
+      const { data: pl } = await supabase.from('course_plans').select('duration_days').eq('id', planId).maybeSingle()
+      const d = (pl as { duration_days: number | null } | null)?.duration_days
+      if (d != null) c.duration_days = d
+    }
     // 모집 마감일이 있으면 마감일부터, 없으면 결제 시점부터 다시보기 일수 (0 이면 무제한)
     if (c?.duration_days && c.duration_days > 0) {
       const base = c.enrollment_deadline ? new Date(c.enrollment_deadline).getTime() : Date.now()
@@ -154,14 +161,17 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
   let ebookId: number | null = null
   let boardPostId: number | null = null
   let boardInstructorId: number | null = null
+  let planId: number | null = null
   if (productKey) {
+    // '*' 로 읽는다 — plan_id 칸이 생기기 전에 이 함수가 먼저 배포돼도 깨지지 않게
     const { data: link } = await supabase
       .from('linkpay_links')
-      .select('course_id, ebook_id, board_post_id, board_instructor_id')
+      .select('*')
       .eq('product_key', productKey)
       .maybeSingle()
-    const l = link as { course_id: number | null; ebook_id: number | null; board_post_id: number | null; board_instructor_id: number | null } | null
+    const l = link as { course_id: number | null; ebook_id: number | null; board_post_id: number | null; board_instructor_id: number | null; plan_id?: number | null } | null
     courseId = l?.course_id ?? null
+    planId = l?.course_id ? (l?.plan_id ?? null) : null
     ebookId = l?.ebook_id ?? null
     boardPostId = l?.board_post_id ?? null
     boardInstructorId = l?.board_instructor_id ?? null
@@ -250,7 +260,7 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
         ? null
         : boardInstructorId
           ? await computeBoardSubExpiry(supabase, boardInstructorId, matchedUserId)
-          : await computeExpiry(supabase, courseId, ebookId)
+          : await computeExpiry(supabase, courseId, ebookId, planId)
       const { data: purchase, error } = await supabase
         .from('purchases')
         .insert({
@@ -264,6 +274,7 @@ async function processOrder(supabase: SupabaseClient, data: OrderData): Promise<
           payment_key: paymentKey,
           payment_method: 'linkpay',
           expires_at: expiresAt,
+          ...(planId ? { plan_id: planId } : {}),
         })
         .select('id')
         .single()

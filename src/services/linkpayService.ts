@@ -7,6 +7,8 @@ export interface LinkpayLink {
   ebook_id: number | null
   label: string | null
   created_at: string
+  /** 플랜 강의: 이 상품으로 결제하면 이 플랜으로 등록 (플랜 SQL 적용 전엔 없음) */
+  plan_id?: number | null
 }
 
 export interface TossProduct {
@@ -52,6 +54,11 @@ export const linkpayService = {
     const { error } = await supabase
       .from('linkpay_links')
       .upsert(input as never, { onConflict: 'product_key' })
+    if (error) throw error
+  },
+
+  async setLinkPlan(id: number, planId: number | null): Promise<void> {
+    const { error } = await supabase.from('linkpay_links').update({ plan_id: planId } as never).eq('id', id)
     if (error) throw error
   },
 

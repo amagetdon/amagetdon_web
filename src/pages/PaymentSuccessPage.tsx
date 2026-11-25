@@ -24,6 +24,7 @@ export default function PaymentSuccessPage() {
     const orderId = searchParams.get('orderId')
     const amount = searchParams.get('amount')
     const coupon = searchParams.get('coupon')
+    const plan = searchParams.get('plan')
 
     if (!paymentKey || !orderId || !amount) {
       setStatus('error')
@@ -46,7 +47,7 @@ export default function PaymentSuccessPage() {
         }
 
         const response = await supabase.functions.invoke('confirm-payment', {
-          body: { paymentKey, orderId, amount: Number(amount), ...(coupon ? { couponId: Number(coupon) } : {}) },
+          body: { paymentKey, orderId, amount: Number(amount), ...(coupon ? { couponId: Number(coupon) } : {}), ...(plan ? { planId: Number(plan) } : {}) },
         })
         if (!mounted) return
 

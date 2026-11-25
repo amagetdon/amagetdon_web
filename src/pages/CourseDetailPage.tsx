@@ -20,6 +20,8 @@ import LandingImage from '../components/LandingImage'
 import { isLandingDoc } from '../lib/landingTemplate/guard'
 import { STATIC_LANDINGS, staticLandingSlug } from '../lib/staticLandings'
 import CouponSelector from '../components/CouponSelector'
+import PlanPicker from '../components/PlanPicker'
+import { planPrice, planSoldOut, type CoursePlanOption } from '../lib/coursePlans'
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk'
 import { paymentService } from '../services/paymentService'
 import { supabase } from '../lib/supabase'
@@ -247,6 +249,30 @@ function CourseDetailPage() {
   })
   const enrollmentCount = enrollmentQ.data ?? 0
 
+  // 플랜 옵션 (베이직·마스터 등). 판매 중인 플랜이 없으면 빈 목록 → 지금과 같은 단일 가격
+  const plansQ = useQuery<CoursePlanOption[]>({
+    queryKey: ['course-plans', courseId],
+    queryFn: async () => {
+      if (!courseId) return []
+      const [{ data, error }, { data: counts }] = await Promise.all([
+        supabase.from('course_plans' as never)
+          .select('id, name, description, original_price, sale_price, installment_months, max_enrollments')
+          .eq('course_id', courseId).eq('is_active', true)
+          .order('sort_order').order('id'),
+        supabase.rpc('get_course_plan_counts' as never, { p_course_id: courseId } as never),
+      ])
+      if (error) return []
+      const sold = new Map(((counts ?? []) as { plan_id: number; sold: number }[]).map((c) => [c.plan_id, Number(c.sold)]))
+      return ((data ?? []) as Omit<CoursePlanOption, 'sold'>[]).map((p) => ({ ...p, sold: sold.get(p.id) ?? 0 }))
+    },
+    enabled: courseId != null,
+  })
+  const plans = useMemo(() => plansQ.data ?? [], [plansQ.data])
+  const [pickedPlanId, setPickedPlanId] = useState<number | null>(null)
+  // 고른 플랜이 없거나 마감이면 첫 번째 판매 가능한 플랜
+  const selectedPlan = plans.find((p) => p.id === pickedPlanId && !planSoldOut(p)) ?? plans.find((p) => !planSoldOut(p)) ?? null
+  const allPlansSoldOut = plans.length > 0 && plans.every(planSoldOut)
+
   // 관련 강의
   const relatedIds = course?.related_course_ids ?? []
   const relatedQ = useQuery<RelatedCourse[]>({
@@ -279,13 +305,16 @@ function CourseDetailPage() {
     (!course.discount_start || new Date(course.discount_start).getTime() <= now) &&
     (!course.discount_end || new Date(course.discount_end).getTime() > now)
   )
-  const isExplicitlyFree = isFree || course?.sale_price === 0
+  // 가격 기준: 플랜 강의는 고른 플랜, 아니면 강의 가격
+  const priceSrc: { original_price: number | null; sale_price: number | null } | null = selectedPlan ?? course ?? null
+  const isExplicitlyFree = isFree || (selectedPlan ? planPrice(selectedPlan, discountActive) === 0 : course?.sale_price === 0)
   const displayedPrice = isExplicitlyFree ? 0
+    : selectedPlan ? planPrice(selectedPlan, discountActive)
     : discountActive && course?.sale_price != null && course.sale_price > 0 ? course.sale_price
     : course?.original_price ?? 0
   const price = displayedPrice
   // 할부 표시 개월수 (0 이면 할부 미표시 — 원가 그대로)
-  const installmentMonths = Math.max(0, course?.installment_months ?? 0)
+  const installmentMonths = Math.max(0, (selectedPlan ? selectedPlan.installment_months : course?.installment_months) ?? 0)
   // 할부 개월수가 있으면 "월 N원"으로, 없으면 일시불 금액으로 표기 (실제 결제 금액은 항상 일시불)
   const fmtMonthly = (won: number) =>
     installmentMonths > 0
@@ -423,7 +452,7 @@ function CourseDetailPage() {
     if (takePostLoginAction() !== 'purchase') return
     const nowMs = Date.now()
     const closed = isClosed || (!!course.enrollment_deadline && new Date(course.enrollment_deadline).getTime() <= nowMs)
-    const full = course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments
+    const full = allPlansSoldOut || (course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments)
     const notOpen = course.course_type !== 'pre_alert' && !!course.enrollment_start && new Date(course.enrollment_start).getTime() > nowMs
     if (course.is_on_sale === false || closed || full || notOpen) return
     purchaseService.checkCourseEnrollment(user.id, courseId)
@@ -515,7 +544,7 @@ function CourseDetailPage() {
     if (!user || !course || !courseId || !profile) return
     setPurchasing(true)
     try {
-      await purchaseService.purchaseWithPoints({ courseId }, selectedCoupon?.id)
+      await purchaseService.purchaseWithPoints({ courseId }, selectedCoupon?.id, selectedPlan?.id ?? null)
       // 쿠폰 사용 처리는 서버(purchase_with_points)가 함께 수행
       // 무료/유료 분기 알림톡 (course_type 기준 — 쿠폰으로 0원 결제도 premium은 유료로 분류)
       // ('purchase' built-in event 는 더 이상 호출하지 않음 — purchase_free/premium custom event 가 대체)
@@ -595,6 +624,10 @@ function CourseDetailPage() {
       const tossPayments = await loadTossPayments(clientKey)
       const payment = tossPayments.payment({ customerKey: user!.id })
       const orderId = paymentService.generateOrderId() + `_course_${courseIdVal}`
+      // 결제 완료 화면 → 서버 확인으로 넘길 값 (쿠폰·플랜). 서버가 금액을 다시 계산한다
+      const successQs = new URLSearchParams()
+      if (selectedCoupon && couponDiscount > 0) successQs.set('coupon', String(selectedCoupon.id))
+      if (selectedPlan) successQs.set('plan', String(selectedPlan.id))
 
       // InitiateCheckout — 결제창 호출 직전 (전환이벤트설계서 #6)
       trackBeginCheckout({
@@ -615,9 +648,8 @@ function CourseDetailPage() {
         method: 'CARD',
         amount: { currency: 'KRW', value: price },
         orderId,
-        orderName: title,
-        // 쿠폰은 결제 완료 화면 → 서버 확인으로 넘겨 서버가 금액을 다시 계산한다
-        successUrl: `${window.location.origin}/payment/success${selectedCoupon && couponDiscount > 0 ? `?coupon=${selectedCoupon.id}` : ""}`,
+        orderName: selectedPlan ? `${title} (${selectedPlan.name})` : title,
+        successUrl: `${window.location.origin}/payment/success${successQs.toString() ? `?${successQs}` : ''}`,
         failUrl: `${window.location.origin}/payment/fail`,
         customerEmail: profile?.email || undefined,
         customerName: profile?.name || undefined,
@@ -682,7 +714,7 @@ function CourseDetailPage() {
   // 상세 이미지 속 신청 버튼 그림(#apply) — 아래 신청 버튼과 같은 조건: 판매 준비 중·정원 마감·모집 마감이면 신청하지 않는다
   const applyFromImage = () => {
     if (!course || ownershipLoading) return
-    const full = course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments
+    const full = allPlansSoldOut || (course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments)
     if (!owned && (course.is_on_sale === false || full || isExpired)) {
       toast('지금은 신청할 수 없는 강의예요.')
       return
@@ -699,7 +731,7 @@ function CourseDetailPage() {
       )
     }
 
-    if (course && course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments && !owned) {
+    if (course && (allPlansSoldOut || (course.max_enrollments != null && course.max_enrollments > 0 && enrollmentCount >= course.max_enrollments)) && !owned) {
       return (
         <button disabled className="w-full py-4 bg-gray-900 text-white font-bold text-center rounded-xl mt-4 cursor-not-allowed">
           정원 마감
@@ -920,7 +952,7 @@ function CourseDetailPage() {
                   <PriceCard
                     accent={accent}
                     title={isExplicitlyFree ? '무료 강의' : '결제 예상 금액'}
-                    original={course.original_price != null && course.original_price > displayedPrice ? course.original_price : null}
+                    original={priceSrc?.original_price != null && priceSrc.original_price > displayedPrice ? priceSrc.original_price : null}
                     priceText={installmentMonths > 0 && !isExplicitlyFree ? `월 ${Math.round(displayedPrice / installmentMonths).toLocaleString()}원` : `${(isExplicitlyFree ? 0 : displayedPrice).toLocaleString()} 원`}
                     discountLabel={applyCard.discount_label}
                     sub={installmentMonths > 0 && !isExplicitlyFree ? `${installmentMonths}개월 할부 시` : null}
@@ -929,8 +961,8 @@ function CourseDetailPage() {
                 <div className="border-t border-gray-200 my-6" />
 
                 <p className="font-bold text-gray-900">결제 예상 금액</p>
-                {discountActive && course.original_price != null && course.original_price > 0 && course.sale_price != null && course.sale_price < course.original_price && (
-                  <p className="text-sm text-gray-400 line-through mt-2">정가 {course.original_price.toLocaleString()}원</p>
+                {discountActive && priceSrc?.original_price != null && priceSrc.original_price > 0 && priceSrc.sale_price != null && priceSrc.sale_price < priceSrc.original_price && (
+                  <p className="text-sm text-gray-400 line-through mt-2">정가 {priceSrc.original_price.toLocaleString()}원</p>
                 )}
                 {isExplicitlyFree ? (
                   <p className="text-4xl font-extrabold text-gray-900 mt-1">무료</p>
@@ -954,6 +986,8 @@ function CourseDetailPage() {
                   </p>
                 )}
                 </>)}
+
+                {!owned && <PlanPicker plans={plans} selectedId={selectedPlan?.id ?? null} onSelect={setPickedPlanId} discountActive={discountActive} />}
 
                 {user && profile && !isFree && (
                   <p className="text-sm text-gray-500 mt-5">
@@ -1143,6 +1177,7 @@ function CourseDetailPage() {
                   </Dialog.Title>
                   <div className="mt-4 space-y-2 text-sm text-gray-600">
                     <p>강의명: <span className="font-medium text-gray-900">{course.title}</span></p>
+                    <PlanPicker plans={plans} selectedId={selectedPlan?.id ?? null} onSelect={setPickedPlanId} discountActive={discountActive} compact />
                     <p>결제 금액: <span className="font-bold text-gray-900">{fmtMonthly(price)}</span></p>
 
                     {/* 쿠폰 선택 — 이 강의에 적용 가능한 쿠폰만 노출 */}

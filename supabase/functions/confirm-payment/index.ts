@@ -39,10 +39,14 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    const { paymentKey, orderId, amount, couponId: rawCouponId } = await req.json()
+    const { paymentKey, orderId, amount, couponId: rawCouponId, planId: rawPlanId } = await req.json()
     const couponId = rawCouponId == null || rawCouponId === '' ? null : Number(rawCouponId)
     if (couponId != null && (!Number.isInteger(couponId) || couponId <= 0)) {
       return json({ error: '잘못된 쿠폰입니다.' }, 400)
+    }
+    const planId = rawPlanId == null || rawPlanId === '' ? null : Number(rawPlanId)
+    if (planId != null && (!Number.isInteger(planId) || planId <= 0)) {
+      return json({ error: '잘못된 플랜입니다.' }, 400)
     }
 
     if (!paymentKey || !orderId || typeof amount !== 'number' || amount <= 0) {
@@ -234,6 +238,8 @@ Deno.serve(async (req: Request) => {
     // 할인이 막 끝난 직후 결제창을 연 사람을 위해, 할인 종료 30분 안에는 할인가도 받아 준다
     let graceSalePrice: number | null = null
     let isFreeItem = false
+    // 플랜 강의에서 고른 플랜 (플랜이 없는 강의는 null)
+    let planIdUsed: number | null = null
     let afterPurchaseUrl: string | null = null
     // 전환 추적(Purchase 이벤트)용 — 결제 완료 페이지로 내려보낸다.
     let instructorName: string | null = null
@@ -259,6 +265,37 @@ Deno.serve(async (req: Request) => {
         else listPrice = course.original_price ?? 0
         if (!disc.active && disc.justEnded && sale > 0) graceSalePrice = sale
       }
+      // 플랜: 판매 중인 플랜이 있는 강의는 고른 플랜의 가격·인원·기간을 쓴다 (purchase_with_points 와 같은 규칙)
+      let durationDays: number | null = course.duration_days ?? null
+      {
+        const { data: plans } = await supabase
+          .from('course_plans')
+          .select('id, name, original_price, sale_price, max_enrollments, duration_days')
+          .eq('course_id', itemId).eq('is_active', true)
+        const planRows = (plans ?? []) as { id: number; name: string; original_price: number | null; sale_price: number | null; max_enrollments: number | null; duration_days: number | null }[]
+        if (planRows.length > 0) {
+          const plan = planRows.find((p) => p.id === planId)
+          if (!plan) return json({ error: '플랜을 다시 선택해 주세요. 결제는 진행되지 않았습니다.' }, 400)
+          if ((plan.max_enrollments ?? 0) > 0) {
+            const { count } = await supabase.from('purchases').select('id', { count: 'exact', head: true }).eq('plan_id', plan.id)
+            if ((count ?? 0) >= (plan.max_enrollments as number)) {
+              return json({ error: '이 플랜은 정원이 마감되었습니다. 결제는 진행되지 않았습니다.' }, 400)
+            }
+          }
+          const disc = discountState(course.discount_start, course.discount_end)
+          const sale = plan.sale_price ?? 0
+          graceSalePrice = null
+          if (plan.sale_price === 0) listPrice = 0
+          else if (disc.active && sale > 0) listPrice = sale
+          else listPrice = plan.original_price ?? plan.sale_price ?? 0
+          if (!disc.active && disc.justEnded && sale > 0) graceSalePrice = sale
+          title = `${course.title} (${plan.name})`
+          if (plan.duration_days != null) durationDays = plan.duration_days
+          planIdUsed = plan.id
+        } else if (planId != null) {
+          return json({ error: '선택할 수 없는 플랜입니다. 결제는 진행되지 않았습니다.' }, 400)
+        }
+      }
       afterPurchaseUrl = course.after_purchase_url ?? null
       contentCategory = course.course_type === 'free' ? '무료강의' : course.course_type === 'pre_alert' ? '사전알림' : '유료강의'
       // to-one 관계라 객체로 오지만, 일부 환경에서 배열로 직렬화되는 경우까지 방어.
@@ -281,9 +318,9 @@ Deno.serve(async (req: Request) => {
         }
       }
       // 수강 기간: 모집 마감일이 있으면 마감일부터, 없으면 결제 시점부터 다시보기 일수 (0 이면 무제한)
-      if (course.duration_days && course.duration_days > 0) {
+      if (durationDays && durationDays > 0) {
         const base = course.enrollment_deadline ? new Date(course.enrollment_deadline) : new Date()
-        base.setDate(base.getDate() + course.duration_days)
+        base.setDate(base.getDate() + durationDays)
         expiresAt = base.toISOString()
       }
     } else if (itemType === 'ebook') {
@@ -398,6 +435,8 @@ Deno.serve(async (req: Request) => {
       payment_key: paymentKey,
       payment_method: 'toss',
       expires_at: expiresAt,
+      // 플랜 칸은 플랜 강의일 때만 넣는다 (DB 에 칸이 생기기 전에 함수가 먼저 배포돼도 일반 결제는 그대로 되게)
+      ...(planIdUsed != null ? { plan_id: planIdUsed } : {}),
     })
     if (purchaseError) return json({ error: '구매 기록 생성에 실패했습니다.' }, 500)
 
