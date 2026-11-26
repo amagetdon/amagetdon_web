@@ -16,6 +16,7 @@ import ExternalServicesInjector from './components/ExternalServicesInjector'
 import ExternalCodesInjector from './components/ExternalCodesInjector'
 import PixelInjector from './components/PixelInjector'
 import { captureLastTouch, logProductVisit } from './lib/attribution'
+import { COURSE_VARIANTS } from './lib/courseVariants'
 import { useChromeHidden } from './lib/chrome'
 import { takeReturnPath } from './lib/postLogin'
 
@@ -73,6 +74,7 @@ const AdminEbookDetail = lazy(() => import('./pages/admin/AdminEbookDetail'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const SecretGamePage = lazy(() => import('./pages/SecretGamePage'))
 const StaticLandingPage = lazy(() => import('./pages/StaticLandingPage'))
+const CourseVariantPage = lazy(() => import('./pages/CourseVariantPage'))
 // 개발용 미리보기 — 로컬 실행에서만 등록된다(운영 묶음에는 들어가지 않음)
 const LandingPreviewPage = import.meta.env.DEV ? lazy(() => import('./pages/dev/LandingPreviewPage')) : null
 const AdminBoard = lazy(() => import('./pages/admin/AdminBoard'))
@@ -148,6 +150,9 @@ function UtmCapture() {
   useEffect(() => {
     const m = location.pathname.match(/^\/(course|ebook)\/(\d+)\/?$/)
     if (m) logProductVisit(`${m[1]}_${m[2]}`)
+    // 미노출 강의 랜딩(/c/:slug) — 원래 강의 방문으로 센다
+    const v = location.pathname.match(/^\/c\/([^/]+)\/?$/)
+    if (v && Object.prototype.hasOwnProperty.call(COURSE_VARIANTS, v[1])) logProductVisit(`course_${COURSE_VARIANTS[v[1]].courseId}`)
   }, [location.pathname])
 
   return null
@@ -249,6 +254,7 @@ function App() {
                 <Route path="/landing/:slug" element={<LandingPage />} />
                 <Route path="/s/:slug" element={<SecretGamePage />} />
                 <Route path="/lp/:slug" element={<StaticLandingPage />} />
+                <Route path="/c/:slug" element={<CourseVariantPage />} />
                 {LandingPreviewPage && <Route path="/__landing-preview" element={<LandingPreviewPage />} />}
 
                 {/* 아마겟돈 뉴스레터: /board 목록·/board/:id 글은 공개(잠금은 서버 RPC 판정),
