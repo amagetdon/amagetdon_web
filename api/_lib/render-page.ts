@@ -451,6 +451,15 @@ const ROUTES: [RegExp, Handler][] = [
     noindex: true,
   })],
 
+  // 미노출 강의 랜딩(광고 전용, 메뉴·검색 비노출) — 색인 안 함. 화면 설정은 src/lib/courseVariants.ts (제목·설명 같게)
+  [/^\/c\/ai-blog-free$/, async () => ({
+    title: 'AI 블로그 수익화 무료 특강',
+    description: 'AI 블로그 수익화 무료 온라인 특강',
+    noindex: true,
+    h1: 'AI 블로그 수익화 무료 특강',
+    body: '<p>* 본 강의는 수익을 보장하는 강의가 아닙니다. 아래 소개 되는 사례는 개인의 역량에 따라 다르며 실제 수강생 및 강사의 성과 자료입니다.</p>',
+  })],
+
   // 수강생 커뮤니티 — 로그인 회원 전용이라 글 내용은 서버에서 그리지 않고 색인도 안 함
   [/^\/community(\/.*)?$/, async () => ({
     title: '아마 돈 벌고 있을걸요? | 아마겟돈 클래스',

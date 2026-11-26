@@ -37,14 +37,21 @@ import PromoTopBanner from '../components/PromoTopBanner'
 import { ScheduleBlock, PromoCountdownBlock, SeatsBadge, PriceCard, ACCENT } from '../components/ApplyCardParts'
 import { detectInAppBrowser, openExternalBrowser } from '../lib/inAppBrowser'
 import { rememberPostLogin, takePostLoginAction } from '../lib/postLogin'
+import type { CourseVariant } from '../lib/courseVariants'
 
 // 템플릿 방식 강의에서만 받는다 (이미지 방식 강의의 첫 화면 용량을 늘리지 않게)
 const TemplateLanding = lazy(() => import('../components/TemplateLanding'))
 const StaticLandingEmbed = lazy(() => import('../components/StaticLandingEmbed'))
 
-function CourseDetailPage() {
+/** 상세 맨 위·맨 아래 면책조항 — 작고 옅게, 본문과 구분되는 자리에 */
+function Disclaimer({ text, className = '' }: { text: string; className?: string }) {
+  return <p className={`text-[11px] leading-relaxed text-gray-400 break-keep ${className}`}>{text}</p>
+}
+
+/** variant: 미노출 랜딩(/c/:slug, lib/courseVariants.ts) — 같은 강의를 제목·면책조항만 바꿔 보여 준다. 신청·집계는 그 강의 그대로 */
+function CourseDetailPage({ variant }: { variant?: CourseVariant } = {}) {
   const { id } = useParams()
-  const courseId = id ? Number(id) : null
+  const courseId = variant ? variant.courseId : id ? Number(id) : null
   // 신청 카드·상단 배너 설정 — 캐시 없이 바로 읽어 관리자 변경이 즉시 보이게
   const promo = usePromoSettings('course', courseId)
   const applyCard = promo?.apply_card?.enabled ? promo.apply_card : null
@@ -804,6 +811,7 @@ function CourseDetailPage() {
     )
   }
 
+  const shownTitle = variant?.title ?? course.title
   return (
     <>
       {isPreview && previewOverrides && (
@@ -814,26 +822,27 @@ function CourseDetailPage() {
       )}
       <PromoTopBanner settings={promo?.top_banner} />
       <SeoHead override={{
-        title: course.seo?.title || course.title,
-        description: course.seo?.description || undefined,
+        title: variant ? variant.title : course.seo?.title || course.title,
+        description: variant ? variant.description : course.seo?.description || undefined,
         keywords: course.seo?.keywords || undefined,
         author: course.seo?.author || undefined,
-        ogTitle: course.seo?.ogTitle,
-        ogDescription: course.seo?.ogDescription,
+        ogTitle: variant ? variant.title : course.seo?.ogTitle,
+        ogDescription: variant ? variant.description : course.seo?.ogDescription,
         ogImage: course.seo?.ogImage || course.thumbnail_url || undefined,
-        twitterTitle: course.seo?.twitterTitle,
-        twitterDescription: course.seo?.twitterDescription,
+        twitterTitle: variant ? variant.title : course.seo?.twitterTitle,
+        twitterDescription: variant ? variant.description : course.seo?.twitterDescription,
         twitterImage: course.seo?.twitterImage || course.thumbnail_url || undefined,
       }} />
       <section className="w-full bg-white py-10">
         <div className="max-w-[1200px] mx-auto px-5">
+          {variant?.disclaimer && <Disclaimer text={variant.disclaimer} className="mb-3" />}
           <div className="grid grid-cols-[1fr_340px] gap-x-8 max-md:grid-cols-1 max-md:gap-y-6">
             <div className="md:col-start-1 md:row-start-1 min-w-0 max-md:order-1">
               {course.video_url ? (
                 <VideoEmbed url={course.video_url} className="w-full" />
               ) : course.promo_image_url ? (
                 // 맨 위 홍보 이미지는 첫 화면 대표 이미지라 늦게 받지 않고 우선 받는다
-                <img src={r2Proxy(course.promo_image_url)} alt={course.title} className="w-full rounded-xl block" fetchPriority="high" decoding="async" />
+                <img src={r2Proxy(course.promo_image_url)} alt={shownTitle} className="w-full rounded-xl block" fetchPriority="high" decoding="async" />
               ) : null}
             </div>
 
@@ -878,7 +887,7 @@ function CourseDetailPage() {
                       const key = `${url}-${idx}`
                       const link = (links[idx] || '').trim()
                       // 홍보 영상·이미지가 없으면 첫 장이 첫 화면 대표 이미지 — 그 장만 바로, 나머지는 가까워질 때
-                      const img = <LandingImage src={url} alt={`${course.title} 상세 ${idx + 1}`} eager={idx === 0 && !hasPromo} />
+                      const img = <LandingImage src={url} alt={`${shownTitle} 상세 ${idx + 1}`} eager={idx === 0 && !hasPromo} />
                       if (!link) return <Fragment key={key}>{img}</Fragment>
                       // #apply: 상세 이미지 속 '신청' 버튼 그림 — 아래 신청 버튼과 같은 흐름(비로그인 → 로그인 후 복귀해 신청 이어짐)
                       if (link === '#apply') {
@@ -940,12 +949,14 @@ function CourseDetailPage() {
                   )}
                 </div>
               ) : null}
+
+              {variant?.disclaimer && <Disclaimer text={variant.disclaimer} className="mt-4" />}
             </div>
 
             <div className="md:col-start-2 md:row-start-1 md:row-span-2 max-md:order-2">
               <div className="md:sticky md:top-4">
                 <p className="text-sm text-[#2ED573] font-medium">{course.instructor?.name} 강사</p>
-                <h1 className="text-xl font-bold text-gray-900 mt-1">{course.title}</h1>
+                <h1 className="text-xl font-bold text-gray-900 mt-1">{shownTitle}</h1>
                 {applyCard && applyCard.show_schedule !== false && course.scheduled_at && <ScheduleBlock startsAt={course.scheduled_at} />}
 
                 {applyCard ? (
@@ -1176,7 +1187,7 @@ function CourseDetailPage() {
                     구매 확인
                   </Dialog.Title>
                   <div className="mt-4 space-y-2 text-sm text-gray-600">
-                    <p>강의명: <span className="font-medium text-gray-900">{course.title}</span></p>
+                    <p>강의명: <span className="font-medium text-gray-900">{shownTitle}</span></p>
                     <PlanPicker plans={plans} selectedId={selectedPlan?.id ?? null} onSelect={setPickedPlanId} discountActive={discountActive} compact />
                     <p>결제 금액: <span className="font-bold text-gray-900">{fmtMonthly(price)}</span></p>
 
@@ -1345,7 +1356,7 @@ function CourseDetailPage() {
         isOpen={guestModalOpen}
         onClose={() => setGuestModalOpen(false)}
         signupReferrer={fromSlug ? `/landing/${fromSlug}` : undefined}
-        description={course?.title ? `"${course.title}" 을(를) 회원가입 없이 바로 구매하세요.` : undefined}
+        description={course?.title ? `"${variant?.title ?? course.title}" 을(를) 회원가입 없이 바로 구매하세요.` : undefined}
         onSuccess={() => {
           // 모달만 닫고 플래그 세팅 → useEffect 가 user 준비되는 순간 자동으로 구매 플로우 진행
           setGuestModalOpen(false)
