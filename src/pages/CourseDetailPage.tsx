@@ -48,7 +48,7 @@ function Disclaimer({ text, className = '' }: { text: string; className?: string
   return <p className={`text-[11px] leading-relaxed text-gray-400 break-keep ${className}`}>{text}</p>
 }
 
-/** variant: 미노출 랜딩(/c/:slug, lib/courseVariants.ts) — 같은 강의를 제목·면책조항만 바꿔 보여 준다. 신청·집계는 그 강의 그대로 */
+/** variant: 미노출 랜딩(/c/:slug, lib/courseVariants.ts) — 같은 강의를 제목·면책조항(·이미지 일부)만 바꿔 보여 준다. 신청·집계는 그 강의 그대로 */
 function CourseDetailPage({ variant }: { variant?: CourseVariant } = {}) {
   const { id } = useParams()
   const courseId = variant ? variant.courseId : id ? Number(id) : null
@@ -835,7 +835,6 @@ function CourseDetailPage({ variant }: { variant?: CourseVariant } = {}) {
       }} />
       <section className="w-full bg-white py-10">
         <div className="max-w-[1200px] mx-auto px-5">
-          {variant?.disclaimer && <Disclaimer text={variant.disclaimer} className="mb-3" />}
           <div className="grid grid-cols-[1fr_340px] gap-x-8 max-md:grid-cols-1 max-md:gap-y-6">
             <div className="md:col-start-1 md:row-start-1 min-w-0 max-md:order-1">
               {course.video_url ? (
@@ -844,14 +843,16 @@ function CourseDetailPage({ variant }: { variant?: CourseVariant } = {}) {
                 // 맨 위 홍보 이미지는 첫 화면 대표 이미지라 늦게 받지 않고 우선 받는다
                 <img src={r2Proxy(course.promo_image_url)} alt={shownTitle} className="w-full rounded-xl block" fetchPriority="high" decoding="async" />
               ) : null}
+              {variant?.topDisclaimer && <Disclaimer text={variant.topDisclaimer} className="mt-2 font-bold" />}
             </div>
 
             <div className="md:col-start-1 md:row-start-2 min-w-0 max-md:order-3">
               {(() => {
                 const hasPromo = !!(course.video_url || course.promo_image_url)
-                const urls = (course.landing_image_urls && course.landing_image_urls.length > 0)
+                const urls = ((course.landing_image_urls && course.landing_image_urls.length > 0)
                   ? course.landing_image_urls
-                  : (course.landing_image_url ? [course.landing_image_url] : [])
+                  : (course.landing_image_url ? [course.landing_image_url] : []))
+                  .map((u) => variant?.imageReplace?.[u] ?? u)
                 const links = course.landing_image_links ?? []
                 // 템플릿 방식 — 이미지 대신 섹션 자료로 구성한 페이지. 랜딩 안 신청 버튼은 아래 신청 버튼과 같은 흐름을 탄다.
                 if (course.landing_mode === 'template' && isLandingDoc(course.landing_doc)) {
@@ -950,7 +951,7 @@ function CourseDetailPage({ variant }: { variant?: CourseVariant } = {}) {
                 </div>
               ) : null}
 
-              {variant?.disclaimer && <Disclaimer text={variant.disclaimer} className="mt-4" />}
+              {variant?.bottomDisclaimer && <Disclaimer text={variant.bottomDisclaimer} className="mt-4" />}
             </div>
 
             <div className="md:col-start-2 md:row-start-1 md:row-span-2 max-md:order-2">
