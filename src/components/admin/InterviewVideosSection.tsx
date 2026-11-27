@@ -118,6 +118,19 @@ export default function InterviewVideosSection({ kind, productId, rows, visitRow
   const [editId, setEditId] = useState<number | null>(null)
   const [edit, setEdit] = useState<Utm & { memo: string; extras: string }>({ utm_source: '', utm_campaign: '', utm_content: '', utm_term: '', memo: '', extras: '' })
   const [attachTo, setAttachTo] = useState<Record<string, string>>({})
+  // '등록 안 된 유튜브 UTM' 에서 제외한 키 (다른 강사 영상 링크 등) — product_funnel_settings.interview_utm_excluded. null = 칸 없음(SQL 전)
+  const [excluded, setExcluded] = useState<string[] | null>(null)
+  const [showExcluded, setShowExcluded] = useState(false)
+  useEffect(() => {
+    supabase.from('product_funnel_settings' as never).select('interview_utm_excluded').eq('kind', kind).eq('product_id', productId).maybeSingle()
+      .then(({ data, error }) => setExcluded(error ? null : (((data as { interview_utm_excluded?: string[] } | null)?.interview_utm_excluded) ?? [])))
+  }, [kind, productId])
+  const saveExcluded = async (next: string[]) => {
+    const { error } = await supabase.from('product_funnel_settings' as never)
+      .upsert({ kind, product_id: productId, interview_utm_excluded: next, updated_at: new Date().toISOString() } as never, { onConflict: 'kind,product_id' })
+    if (error) return toast.error(`저장 실패: ${error.message}`)
+    setExcluded(next)
+  }
   const autoRefreshed = useRef(false)
 
   const load = useCallback(async () => {
@@ -246,7 +259,7 @@ export default function InterviewVideosSection({ kind, productId, rows, visitRow
   }, [videos, rows, visitRows])
 
   // 유튜브로 들어왔는데 어느 영상에도 안 묶인 UTM (지금 보는 기수 기준)
-  const orphans = useMemo(() => {
+  const allOrphans = useMemo(() => {
     const m = new Map<string, { utm: Utm; visitors: number; applicants: number; payers: number }>()
     const put = (r: RowKey) => {
       const key = [r.campaign, r.content, r.term].join('\u0001')
@@ -259,6 +272,9 @@ export default function InterviewVideosSection({ kind, productId, rows, visitRow
     return [...m.entries()].filter(([, o]) => o.applicants > 0 || o.visitors > 0)
       .sort((a, b) => b[1].applicants - a[1].applicants || b[1].visitors - a[1].visitors)
   }, [videos, rows, visitRows])
+  const exKey = (u: Utm) => [u.utm_campaign, u.utm_content, u.utm_term].map((x) => x.trim().toLowerCase()).join('|')
+  const orphans = useMemo(() => allOrphans.filter(([, o]) => !(excluded ?? []).includes(exKey(o.utm))), [allOrphans, excluded])
+  const excludedOrphans = useMemo(() => allOrphans.filter(([, o]) => (excluded ?? []).includes(exKey(o.utm))), [allOrphans, excluded])
 
   if (unavailable) return null
 
@@ -408,13 +424,20 @@ export default function InterviewVideosSection({ kind, productId, rows, visitRow
       )}
 
       {/* 등록 안 된 유튜브 UTM — 설명란 링크가 바뀌었거나 영상 등록을 빠뜨린 경우 */}
+      {!loading && orphans.length === 0 && excludedOrphans.length > 0 && (
+        <p className="mt-4 text-xs text-gray-400">
+          등록 안 된 유튜브 UTM 없음 · 제외한 UTM {excludedOrphans.length}개{' '}
+          <button type="button" onClick={() => setShowExcluded(!showExcluded)} className="underline bg-transparent border-none p-0 cursor-pointer text-gray-500">{showExcluded ? '접기' : '보기'}</button>
+        </p>
+      )}
       {!loading && orphans.length > 0 && (
         <div className="mt-5 border border-amber-200 bg-amber-50/50 rounded-lg p-3">
           <p className="text-sm font-bold text-amber-700 mb-0.5">
             <i className="ti ti-alert-triangle mr-1" />등록 안 된 유튜브 UTM {orphans.length}개 · 신청 {n(orphans.reduce((a, [, o]) => a + o.applicants, 0))}
           </p>
           <p className="text-xs text-gray-500 mb-2">
-            유튜브로 들어왔는데 위 영상 어디에도 묶이지 않은 링크입니다. 설명란 링크가 바뀌었거나 영상 등록을 빠뜨린 경우가 많습니다. 맞는 영상을 골라 [묶기]를 누르면 그 영상 숫자에 합쳐집니다. (다른 강의 영상 링크로 들어온 사람도 여기 보일 수 있습니다)
+            유튜브로 들어왔는데 위 영상 어디에도 묶이지 않은 링크입니다. 설명란 링크가 바뀌었거나 영상 등록을 빠뜨린 경우가 많습니다. 맞는 영상을 골라 [묶기]를 누르면 그 영상 숫자에 합쳐집니다. 다른 강사 영상 링크처럼 묶을 영상이 없는 건 [제외]하면 여기서 빠집니다(되돌릴 수 있음).
+            {excludedOrphans.length > 0 && <>{' '}제외한 UTM {excludedOrphans.length}개 <button type="button" onClick={() => setShowExcluded(!showExcluded)} className="underline bg-transparent border-none p-0 cursor-pointer text-gray-500">{showExcluded ? '접기' : '보기'}</button></>}
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-[640px]">
@@ -448,12 +471,35 @@ export default function InterviewVideosSection({ kind, productId, rows, visitRow
                             className="px-2 py-1 rounded bg-[#2ED573] text-white border-none cursor-pointer disabled:opacity-40">묶기</button>
                         </span>
                       )}
+                      {excluded && (
+                        <button type="button" onClick={() => saveExcluded([...excluded, exKey(o.utm)])} title="묶을 영상이 없는 링크(다른 강사 영상 등) — 이 경고에서 뺍니다"
+                          className="ml-1 px-2 py-1 rounded bg-white border border-gray-200 text-gray-500 cursor-pointer hover:text-gray-800">제외</button>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+      {!loading && showExcluded && excludedOrphans.length > 0 && excluded && (
+        <div className="mt-2 border border-gray-200 rounded-lg p-3">
+          <p className="text-xs font-bold text-gray-500 mb-1">제외한 UTM (지금 보는 기수에서 들어온 것)</p>
+          <table className="w-full text-xs">
+            <tbody>
+              {excludedOrphans.map(([key, o]) => (
+                <tr key={key} className="border-b border-gray-50">
+                  <td className="py-1 pr-2 text-gray-700 break-all">{o.utm.utm_campaign || '(값 없음)'}{(o.utm.utm_content || o.utm.utm_term) && <span className="text-gray-400"> · {[o.utm.utm_content, o.utm.utm_term].filter(Boolean).join(' · ')}</span>}</td>
+                  <td className="py-1 px-2 text-right text-gray-500 whitespace-nowrap">방문 {n(o.visitors)} · 신청 {n(o.applicants)} · 결제 {n(o.payers)}</td>
+                  <td className="py-1 pl-2 text-right">
+                    <button type="button" onClick={() => saveExcluded(excluded.filter((k) => k !== exKey(o.utm)))}
+                      className="px-2 py-0.5 rounded bg-white border border-gray-200 text-gray-500 cursor-pointer hover:text-gray-800">되돌리기</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </section>
