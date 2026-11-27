@@ -3,33 +3,76 @@
     {
       "source": "/r2/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
-        { "key": "CDN-Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        },
+        {
+          "key": "CDN-Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
       "source": "/version.json",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, must-revalidate" }
+        {
+          "key": "Cache-Control",
+          "value": "no-store, must-revalidate"
+        }
       ]
     }
   ],
   "redirects": [
-    { "source": "/course/143", "destination": "/course/129", "permanent": false }
+    {
+      "source": "/course/143",
+      "destination": "/course/129",
+      "permanent": false
+    }
   ],
   "rewrites": [
-    { "source": "/r2/(.*)", "destination": "https://pub-95b8f0f45b784ba4a86ae023b75f8940.r2.dev/$1" },
-    { "source": "/u/(.*)", "destination": "https://umami-ama.vercel.app/$1" },
-    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
-    { "source": "/llms.txt", "destination": "/api/llms" },
-    { "source": "/assets/(.*)", "destination": "/assets/$1" },
-    { "source": "/version.json", "destination": "/version.json" },
-    { "source": "/(.*)", "destination": "/" }
+    {
+      "source": "/r2/(.*)",
+      "destination": "https://pub-95b8f0f45b784ba4a86ae023b75f8940.r2.dev/$1"
+    },
+    {
+      "source": "/u/(.*)",
+      "destination": "https://umami-ama.vercel.app/$1"
+    },
+    {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
+      "source": "/llms.txt",
+      "destination": "/api/llms"
+    },
+    {
+      "source": "/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
+      "source": "/version.json",
+      "destination": "/version.json"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/ad-spend-sync",
+      "schedule": "0 19 * * *"
+    }
   ]
 }

@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import InterviewVideosSection from './InterviewVideosSection'
+import AdSpendSync from './AdSpendSync'
 
 // 관리자 강의·전자책 상세의 '통합 대시보드' 탭.
 // 집계는 서버 함수 get_product_dashboard(관리자 전용)가 하고, 여기서는 표시·연결 상품·광고비 입력만 한다.
@@ -706,8 +707,6 @@ function DdaySection({ rows }: { rows: DdayRow[] }) {
 function SpendSection({ kind, productId, rows, onChanged }: { kind: Kind; productId: number; rows: SpendRow[]; onChanged: () => void }) {
   const [form, setForm] = useState({ channel: 'meta', spend_date: kstToday(), amount: '', note: '' })
   const [saving, setSaving] = useState(false)
-  const [syncing, setSyncing] = useState(false)
-  const metaRows = rows.filter((r) => r.source === 'meta')
   const manualRows = rows.filter((r) => r.source === 'manual')
 
   const add = async () => {
@@ -730,41 +729,17 @@ function SpendSection({ kind, productId, rows, onChanged }: { kind: Kind; produc
     onChanged()
   }
 
-  const syncMeta = async () => {
-    setSyncing(true)
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/meta-ad-sync', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${session?.access_token ?? ''}` },
-        body: JSON.stringify({ action: 'sync', kind, product_id: productId }),
-      })
-      const body = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`)
-      toast.success(`메타 광고비 ${body.days ?? 0}일치를 가져왔습니다.`)
-      onChanged()
-    } catch (e) {
-      toast.error(`메타 가져오기 실패: ${(e as Error).message}`)
-    } finally {
-      setSyncing(false)
-    }
-  }
-
-  const metaTotal = useMemo(() => metaRows.reduce((s, r) => s + Number(r.amount), 0), [metaRows])
 
   return (
     <section className="bg-white rounded-xl shadow-sm p-5 space-y-5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <h3 className="text-base font-bold text-gray-900">광고비</h3>
-        <MetaCampaignPicker kind={kind} productId={productId} onSync={syncMeta} syncing={syncing} />
       </div>
 
-      {metaRows.length > 0 && (
-        <p className="text-sm text-gray-600">메타 자동: 캠페인 {new Set(metaRows.map((r) => r.external_id)).size}개 · {metaRows.length}일치 · 합계 <b>{won(metaTotal)}</b></p>
-      )}
+      <AdSpendSync kind={kind} productId={productId} rows={rows} onChanged={onChanged} />
 
       <div>
-        <p className="text-xs font-bold text-gray-400 mb-2">직접 입력 (메타 외 매체, 또는 자동으로 못 가져오는 비용)</p>
+        <p className="text-xs font-bold text-gray-400 mb-2">직접 입력 (카카오·데이블 등 자동으로 못 가져오는 비용)</p>
         <div className="flex gap-2 flex-wrap items-end">
           <select value={form.channel} onChange={(e) => setForm({ ...form, channel: e.target.value })} className="px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
             {SPEND_CHANNELS.map((c) => <option key={c} value={c}>{label(c)}</option>)}
@@ -799,78 +774,6 @@ function SpendSection({ kind, productId, rows, onChanged }: { kind: Kind; produc
         </div>
       )}
     </section>
-  )
-}
-
-function MetaCampaignPicker({ kind, productId, onSync, syncing }: { kind: Kind; productId: number; onSync: () => void; syncing: boolean }) {
-  const [ids, setIds] = useState<string[]>([])
-  const [open, setOpen] = useState(false)
-  const [campaigns, setCampaigns] = useState<{ id: string; name: string; status: string }[] | null>(null)
-  const [draft, setDraft] = useState<string[]>([])
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    supabase.from('product_funnel_settings').select('meta_campaign_ids').eq('kind', kind).eq('product_id', productId).maybeSingle()
-      .then(({ data }) => setIds(((data as { meta_campaign_ids?: string[] } | null)?.meta_campaign_ids) ?? []))
-  }, [kind, productId])
-
-  const openPicker = async () => {
-    setOpen(true); setDraft(ids); setError('')
-    if (campaigns) return
-    const { data: { session } } = await supabase.auth.getSession()
-    const res = await fetch('/api/meta-ad-sync', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${session?.access_token ?? ''}` },
-      body: JSON.stringify({ action: 'campaigns' }),
-    })
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) return setError(body.error || `HTTP ${res.status}`)
-    setCampaigns(body.campaigns ?? [])
-  }
-
-  const save = async () => {
-    const { error: e } = await supabase.from('product_funnel_settings')
-      .upsert({ kind, product_id: productId, meta_campaign_ids: draft, updated_at: new Date().toISOString() } as never, { onConflict: 'kind,product_id' })
-    if (e) return toast.error(`저장 실패: ${e.message}`)
-    setIds(draft); setOpen(false)
-    toast.success('메타 캠페인 연결을 저장했습니다.')
-    if (draft.length) onSync()
-  }
-
-  return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs text-gray-500">메타 캠페인 {ids.length}개 연결</span>
-      <button onClick={openPicker} className="bg-white border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer hover:bg-gray-50">캠페인 연결</button>
-      <button onClick={onSync} disabled={syncing || ids.length === 0} className="bg-[#1877F2] text-white px-3 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer disabled:opacity-40">
-        {syncing ? '가져오는 중…' : '메타 광고비 가져오기'}
-      </button>
-      {open && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
-          <div className="bg-white rounded-xl w-full max-w-[560px] max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="p-5 border-b border-gray-100">
-              <h4 className="font-bold">이 상품에 쓴 메타 캠페인 선택</h4>
-              <p className="text-xs text-gray-400 mt-1">선택한 캠페인의 일별 지출이 이 상품 광고비로 들어갑니다. 한 캠페인을 여러 상품에 연결하면 중복으로 잡히니 주의하세요.</p>
-            </div>
-            <div className="p-5 overflow-y-auto flex-1">
-              {error ? <p className="text-sm text-red-500">{error}</p>
-                : !campaigns ? <p className="text-sm text-gray-400">캠페인 목록을 불러오는 중…</p>
-                : campaigns.length === 0 ? <p className="text-sm text-gray-400">캠페인이 없습니다.</p>
-                : campaigns.map((c) => (
-                  <label key={c.id} className="flex items-center gap-2 py-1.5 text-sm cursor-pointer">
-                    <input type="checkbox" checked={draft.includes(c.id)} onChange={(e) => setDraft(e.target.checked ? [...draft, c.id] : draft.filter((x) => x !== c.id))} />
-                    <span className="flex-1 min-w-0 truncate">{c.name}</span>
-                    <span className={`text-xs ${c.status === 'ACTIVE' ? 'text-[#2ED573]' : 'text-gray-400'}`}>{c.status === 'ACTIVE' ? '진행 중' : '꺼짐'}</span>
-                  </label>
-                ))}
-            </div>
-            <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
-              <button onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl text-sm bg-gray-100 border-none cursor-pointer">취소</button>
-              <button onClick={save} disabled={!!error || !campaigns} className="px-4 py-2 rounded-xl text-sm bg-[#2ED573] text-white font-bold border-none cursor-pointer disabled:opacity-40">저장</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
   )
 }
 
