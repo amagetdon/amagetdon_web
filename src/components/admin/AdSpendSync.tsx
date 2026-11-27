@@ -7,6 +7,15 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import * as XLSX from 'xlsx'
 import { supabase } from '../../lib/supabase'
+import { COURSE_VARIANTS } from '../../lib/courseVariants'
+
+/** 랜딩 주소(호스트+경로)가 이 상품 페이지인지 — /course/N, /ebook/N, 미노출 랜딩 /c/slug */
+function isThisProduct(url: string, kind: Kind, productId: number) {
+  const path = url.replace(/^[^/]*/, '')
+  if (new RegExp(`^/${kind}/${productId}(/|$)`).test(path)) return true
+  const m = path.match(/^\/c\/([^/]+)/)
+  return kind === 'course' && !!m && COURSE_VARIANTS[m[1]]?.courseId === productId
+}
 
 type Kind = 'course' | 'ebook'
 type Channel = 'meta' | 'naver_sa' | 'google' | 'gfa'
@@ -130,9 +139,20 @@ function Picker({ kind, productId, channel, current, onClose, onSaved }: {
   const [error, setError] = useState('')
   const [draft, setDraft] = useState<string[]>(current)
   const [q, setQ] = useState('')
+  const [landings, setLandings] = useState<Record<string, string[] | null> | null>(null)
+  const [onlyThis, setOnlyThis] = useState(false)
 
   useEffect(() => {
-    call({ action: 'campaigns', channel }).then((o) => setCampaigns(o.campaigns ?? []), (e) => setError((e as Error).message))
+    call({ action: 'campaigns', channel }).then((o) => {
+      const list: Campaign[] = o.campaigns ?? []
+      setCampaigns(list)
+      // 캠페인마다 광고가 보내는 랜딩 주소 — 이름 말고 주소로 어느 강의 캠페인인지 확인
+      if ((channel === 'meta' || channel === 'naver_sa') && list.length) {
+        setLandings(null)
+        call({ action: 'landings', channel, ids: list.map((c) => c.id) })
+          .then((r) => setLandings(r.landings ?? {}), () => setLandings({}))
+      }
+    }, (e) => setError((e as Error).message))
   }, [channel])
 
   const list = useMemo(() => {
@@ -140,8 +160,12 @@ function Picker({ kind, productId, channel, current, onClose, onSaved }: {
     const all = campaigns ?? []
     // 이미 고른 캠페인이 목록에 없으면(오래돼 안 보이는 등) 그래도 보여 준다
     const missing: Campaign[] = current.filter((id) => !all.some((c) => c.id === id)).map((id) => ({ id, name: id, status: '목록에 없음', account: '' }))
-    return [...missing, ...all].filter((c) => !s || c.name.toLowerCase().includes(s) || c.id.includes(s) || c.account.toLowerCase().includes(s))
-  }, [campaigns, q, current])
+    const mine = (c: Campaign) => (landings?.[c.id] ?? []).some((u) => isThisProduct(u, kind, productId))
+    return [...missing, ...all]
+      .filter((c) => !s || c.name.toLowerCase().includes(s) || c.id.includes(s) || c.account.toLowerCase().includes(s) || (landings?.[c.id] ?? []).some((u) => u.toLowerCase().includes(s)))
+      .filter((c) => !onlyThis || mine(c) || current.includes(c.id))
+      .sort((a, b) => Number(mine(b)) - Number(mine(a)))
+  }, [campaigns, q, current, landings, onlyThis, kind, productId])
 
   const save = async () => {
     const { error: e } = await supabase.from('product_funnel_settings')
@@ -163,7 +187,15 @@ function Picker({ kind, productId, channel, current, onClose, onSaved }: {
               : channel === 'gfa' ? '올린 GFA 보고서에 있던 캠페인만 보입니다. 비어 있으면 [GFA 파일 올리기]부터 하세요.'
               : '선택한 캠페인의 일별 비용이 이 상품 광고비로 들어갑니다.'}
           </p>
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="캠페인 이름·계정 검색" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="캠페인 이름·계정·랜딩 주소 검색" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          {(channel === 'meta' || channel === 'naver_sa') && (
+            <div className="flex items-center gap-3 text-xs">
+              <label className="flex items-center gap-1 cursor-pointer text-gray-600">
+                <input type="checkbox" checked={onlyThis} onChange={(e) => setOnlyThis(e.target.checked)} /> 이 {kind === 'course' ? '강의' : '전자책'}로 가는 캠페인만
+              </label>
+              {landings === null && campaigns && <span className="text-gray-400">랜딩 주소 확인 중…</span>}
+            </div>
+          )}
         </div>
         <div className="p-5 overflow-y-auto flex-1">
           {error ? <p className="text-sm text-red-500">{error}</p>
@@ -172,7 +204,21 @@ function Picker({ kind, productId, channel, current, onClose, onSaved }: {
             : list.map((c) => (
               <label key={c.id} className="flex items-center gap-2 py-1.5 text-sm cursor-pointer">
                 <input type="checkbox" checked={draft.includes(c.id)} onChange={(e) => setDraft(e.target.checked ? [...draft, c.id] : draft.filter((x) => x !== c.id))} />
-                <span className="flex-1 min-w-0 truncate">{c.name}{c.account && <span className="text-xs text-gray-400 ml-1.5">{c.account}</span>}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block truncate">{c.name}{c.account && <span className="text-xs text-gray-400 ml-1.5">{c.account}</span>}</span>
+                  {landings && (() => {
+                    const ls = landings[c.id]
+                    if (ls === undefined) return null
+                    if (ls === null) return <span className="block text-[11px] text-gray-400">랜딩 확인 실패</span>
+                    if (!ls.length) return <span className="block text-[11px] text-gray-400">랜딩 주소 없음</span>
+                    const hit = ls.some((u) => isThisProduct(u, kind, productId))
+                    return (
+                      <span className={`block text-[11px] truncate ${hit ? 'text-[#2ED573] font-medium' : 'text-amber-600'}`} title={ls.join('\n')}>
+                        {hit ? '✓ 이 상품 · ' : '다른 주소 · '}{ls.slice(0, 2).join(', ')}{ls.length > 2 ? ` 외 ${ls.length - 2}개` : ''}
+                      </span>
+                    )
+                  })()}
+                </span>
                 {c.total != null && <span className="text-xs text-gray-500">{won(c.total)}</span>}
                 <span className={`text-xs whitespace-nowrap ${active(c.status) ? 'text-[#2ED573]' : 'text-gray-400'}`}>
                   {active(c.status) ? '진행 중' : c.status.startsWith('마지막') || c.status === '목록에 없음' ? c.status : '꺼짐'}
