@@ -61,6 +61,24 @@ export default function AdSpendSync({ kind, productId, rows, onChanged }: { kind
 
   const total = Object.values(ids).reduce((a, l) => a + l.length, 0)
 
+  // 메타·네이버 검색광고 캠페인을 광고 랜딩 주소로 모든 상품에 자동 연결 (매일 새벽에도 자동으로 돎)
+  const [linking, setLinking] = useState(false)
+  const autoLink = async () => {
+    setLinking(true)
+    try {
+      const out = await call({ action: 'autolink' })
+      if (out.error) throw new Error(out.error)
+      const mine = (out.added ?? []).filter((a: { kind: string; product_id: number }) => a.kind === kind && a.product_id === productId).length
+      toast.success(`새로 연결 ${out.added?.length ?? 0}개(이 상품 ${mine}개)${out.ambiguous?.length ? ` · 여러 상품으로 가는 캠페인 ${out.ambiguous.length}개는 직접 고르세요` : ''}`, { duration: 8000 })
+      if (out.errors?.length) toast.error(`일부 실패: ${out.errors.join(' / ')}`)
+      loadIds(); onChanged()
+    } catch (e) {
+      toast.error(`자동 연결 실패: ${(e as Error).message}`)
+    } finally {
+      setLinking(false)
+    }
+  }
+
   const sync = async () => {
     setSyncing(true)
     try {
@@ -98,6 +116,10 @@ export default function AdSpendSync({ kind, productId, rows, onChanged }: { kind
             {c.label} {ids[c.field].length > 0 ? <b>{ids[c.field].length}</b> : <span className="text-gray-400">0</span>}
           </button>
         ))}
+        <button onClick={autoLink} disabled={linking} title="광고가 보내는 랜딩 주소(/course/N 등)로 메타·네이버 검색광고 캠페인을 모든 상품에 자동 연결합니다. 매일 새벽에도 자동으로 합니다."
+          className="bg-[#2ED573] text-white px-3 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer disabled:opacity-40">
+          {linking ? '랜딩 확인·연결 중… (1~2분)' : '랜딩으로 자동 연결'}
+        </button>
         <button onClick={sync} disabled={syncing || total === 0}
           className="bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold border-none cursor-pointer disabled:opacity-40">
           {syncing ? '가져오는 중…' : '지금 가져오기'}
@@ -106,7 +128,7 @@ export default function AdSpendSync({ kind, productId, rows, onChanged }: { kind
         <button onClick={() => setGuide(guide === 'gfa' ? null : 'gfa')} className="text-xs text-gray-500 underline bg-transparent border-none cursor-pointer">GFA 파일 올리기</button>
       </div>
       <p className="text-xs text-gray-400">
-        캠페인을 연결하면 그 캠페인 비용만 이 상품 광고비로 들어갑니다(부가세 별도). 메타·네이버 검색광고는 매일 새벽 4시에 최근 35일을 다시 받고, 구글은 구글 Ads 스크립트가 매일 보내며, GFA 는 보고서 파일을 올립니다.
+        메타·네이버 검색광고 캠페인은 광고 랜딩 주소가 이 상품 페이지면 매일 새벽 자동으로 연결됩니다(여러 상품으로 가는 캠페인·블로그 등 다른 주소로 가는 캠페인은 직접 고르기). 연결된 캠페인 비용만 이 상품 광고비로 들어갑니다(부가세 별도). 메타·네이버 검색광고는 매일 새벽 4시에 최근 35일을 다시 받고, 구글은 구글 Ads 스크립트가 매일 보내며, GFA 는 보고서 파일을 올립니다.
         {' '}한 캠페인을 여러 상품에 연결하면 양쪽에 다 잡힙니다.
       </p>
 
