@@ -342,7 +342,7 @@ export default async function handler(request: Request): Promise<Response> {
   }
   if (request.method !== 'POST') return json({ error: 'GET/POST only' }, 405)
 
-  let body: { action?: string; channel?: string; kind?: string; product_id?: number; account_id?: string; rows?: unknown[] }
+  let body: { action?: string; channel?: string; kind?: string; product_id?: number; account_id?: string; rows?: unknown[]; landings?: Record<string, unknown> }
   try { body = await request.json() } catch { return json({ error: '잘못된 요청' }, 400) }
 
   // 구글 Ads 스크립트가 보내는 일별 비용
@@ -360,8 +360,35 @@ export default async function handler(request: Request): Promise<Response> {
     if (rows.length > 20000) return json({ error: '한 번에 너무 많습니다' }, 400)
     try {
       await saveDaily(rows, SERVICE_KEY)
+      // 스크립트가 보낸 캠페인별 랜딩 주소로 자동 연결 (상품 한 곳일 때만, 이미 붙은 캠페인은 그대로)
+      const added: string[] = []
+      const ambiguous: string[] = []
+      const landings = body.landings && typeof body.landings === 'object' ? body.landings : {}
+      const settings = await allSettings(SERVICE_KEY)
+      const linked = new Set(settings.flatMap((s) => s.google_campaign_ids ?? []))
+      const patch = new Map<string, Settings>()
+      for (const [cid, urls] of Object.entries(landings).slice(0, 2000)) {
+        if (linked.has(cid) || !Array.isArray(urls)) continue
+        const prods = new Map<string, { kind: Kind; id: number }>()
+        for (const u of urls.slice(0, 50)) { const p = productOf(shortUrl(String(u))); if (p) prods.set(`${p.kind}:${p.id}`, p) }
+        if (prods.size !== 1) { if (prods.size > 1) ambiguous.push(cid); continue }
+        const p = [...prods.values()][0]
+        const k = `${p.kind}:${p.id}`
+        const s = patch.get(k) ?? { ...(settings.find((x) => x.kind === p.kind && x.product_id === p.id) ?? { kind: p.kind, product_id: p.id, meta_campaign_ids: [] }) }
+        s.google_campaign_ids = [...new Set([...(s.google_campaign_ids ?? []), cid])]
+        patch.set(k, s)
+        added.push(cid)
+      }
+      if (patch.size) {
+        const res = await db('product_funnel_settings?on_conflict=kind,product_id', SERVICE_KEY, {
+          method: 'POST',
+          body: JSON.stringify([...patch.values()].map((s) => ({ kind: s.kind, product_id: s.product_id, google_campaign_ids: s.google_campaign_ids, updated_at: new Date().toISOString() }))),
+          headers: { prefer: 'resolution=merge-duplicates,return=minimal' },
+        })
+        if (!res.ok) throw new Error(`연결 저장 실패: ${(await res.text()).slice(0, 200)}`)
+      }
       const products = await rebuildAll(SERVICE_KEY, (s) => (s.google_campaign_ids?.length ?? 0) > 0)
-      return json({ ok: true, rows: rows.length, products })
+      return json({ ok: true, rows: rows.length, products, linked: added.length, ambiguous: ambiguous.length })
     } catch (e) { return json({ error: (e as Error).message }, 502) }
   }
 
