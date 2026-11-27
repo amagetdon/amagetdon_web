@@ -261,26 +261,46 @@ function Picker({ kind, productId, channel, current, onClose, onSaved }: {
 }
 
 const GOOGLE_SCRIPT = `// 아마겟돈 클래스 광고비 보내기 — 구글 Ads > 도구 > 대량 작업 > 스크립트 에 붙여 넣고 '매일' 실행으로 예약
+// 캠페인별 일별 비용 + 광고 랜딩 주소를 보냅니다. 랜딩이 강의 한 곳이면 대시보드가 그 강의에 자동으로 연결합니다.
 var URL = 'https://amag-class.com/api/ad-spend-sync';
 var SECRET = '여기에_AD_SYNC_SECRET_값';
-var DAYS = 90; // 처음 한 번은 90일, 그다음부터는 35일로 줄여도 됩니다
+var DAYS = 90;
 
 function main() {
   var tz = 'Asia/Seoul';
   var today = Utilities.formatDate(new Date(), tz, 'yyyy-MM-dd');
   var since = Utilities.formatDate(new Date(Date.now() - DAYS * 86400000), tz, 'yyyy-MM-dd');
+
+  // 1) 캠페인별 일별 비용
+  var rows = [];
   var it = AdsApp.search(
     "SELECT campaign.id, campaign.name, segments.date, metrics.cost_micros FROM campaign " +
     "WHERE segments.date BETWEEN '" + since + "' AND '" + today + "' AND metrics.cost_micros > 0");
-  var rows = [];
   while (it.hasNext()) {
     var r = it.next();
     rows.push({ campaign_id: String(r.campaign.id), campaign_name: r.campaign.name, date: r.segments.date, cost: r.metrics.costMicros / 1000000 });
   }
+
+  // 2) 캠페인별 랜딩 주소 (일반·디맨드젠·동영상 광고 + 실적 최대화 애셋 그룹)
+  var landings = {};
+  function add(cid, urls) {
+    if (!urls) return;
+    landings[cid] = landings[cid] || [];
+    for (var i = 0; i < urls.length; i++) if (landings[cid].indexOf(urls[i]) < 0 && landings[cid].length < 50) landings[cid].push(urls[i]);
+  }
+  try {
+    var a = AdsApp.search("SELECT campaign.id, ad_group_ad.ad.final_urls FROM ad_group_ad WHERE campaign.status != 'REMOVED' AND ad_group_ad.status != 'REMOVED'");
+    while (a.hasNext()) { var x = a.next(); add(String(x.campaign.id), x.adGroupAd && x.adGroupAd.ad && x.adGroupAd.ad.finalUrls); }
+  } catch (e) { Logger.log('광고 랜딩 읽기 실패: ' + e); }
+  try {
+    var g = AdsApp.search("SELECT campaign.id, asset_group.final_urls FROM asset_group WHERE campaign.status != 'REMOVED'");
+    while (g.hasNext()) { var y = g.next(); add(String(y.campaign.id), y.assetGroup && y.assetGroup.finalUrls); }
+  } catch (e) { Logger.log('애셋 그룹 랜딩 읽기 실패: ' + e); }
+
   var res = UrlFetchApp.fetch(URL, {
     method: 'post', contentType: 'application/json', muteHttpExceptions: true,
     headers: { 'x-ad-sync-secret': SECRET },
-    payload: JSON.stringify({ action: 'push', channel: 'google', account_id: AdsApp.currentAccount().getCustomerId(), rows: rows })
+    payload: JSON.stringify({ action: 'push', channel: 'google', account_id: AdsApp.currentAccount().getCustomerId(), rows: rows, landings: landings })
   });
   Logger.log(res.getResponseCode() + ' ' + res.getContentText());
 }`
@@ -295,7 +315,7 @@ function GoogleGuide() {
         <li>구글 Ads → 도구 → 대량 작업 → <b>스크립트</b> → + 새 스크립트 → 아래 코드를 붙여 넣고, <code>SECRET</code> 자리에 1번 문자열을 넣습니다.</li>
         <li>[승인]으로 권한을 허용하고 [실행] → 로그에 <code>200</code> 이 나오면 성공입니다.</li>
         <li>스크립트 목록에서 실행 빈도를 <b>매일</b>로 바꿉니다.</li>
-        <li>이 화면 [구글 Ads] 버튼에서 이 상품 캠페인을 고릅니다.</li>
+        <li>랜딩이 이 강의 한 곳인 캠페인은 자동으로 연결됩니다. 랜딩이 다른 곳이면 [구글 Ads] 버튼에서 직접 고릅니다.</li>
       </ol>
       <div className="relative">
         <pre className="text-[11px] leading-snug bg-white border border-gray-200 rounded p-3 overflow-x-auto max-h-[220px]">{GOOGLE_SCRIPT}</pre>
