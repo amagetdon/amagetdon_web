@@ -144,6 +144,39 @@ async function naverDaily(ids: string[], since: string): Promise<Daily[]> {
   return per.flat()
 }
 
+// ── 캠페인 랜딩 주소 (캠페인 고를 때 어느 강의로 가는지 확인용) ─────────────────────────────
+/** 객체 안의 http 주소를 모두 모은다 (이미지·메타 내부 주소 제외) */
+function collectUrls(x: unknown, out: Set<string>, depth = 0) {
+  if (depth > 8 || x == null) return
+  if (typeof x === 'string') {
+    if (/^https?:\/\//i.test(x) && !/\.(jpe?g|png|gif|webp|mp4|svg)(\?|$)/i.test(x) && !/(fbcdn|facebook\.com|instagram\.com|fb\.me|pstatic\.net|naver\.net)/i.test(x)) out.add(x)
+    return
+  }
+  if (Array.isArray(x)) { for (const v of x) collectUrls(v, out, depth + 1); return }
+  if (typeof x === 'object') for (const v of Object.values(x as Record<string, unknown>)) collectUrls(v, out, depth + 1)
+}
+
+/** 주소 → 호스트+경로 (쿼리·UTM 제외) */
+const shortUrl = (u: string) => { try { const x = new URL(u); return (x.host + x.pathname).replace(/\/$/, '') } catch { return u } }
+
+async function metaLandings(cid: string): Promise<string[]> {
+  const ads = await graphAll<unknown>(
+    `${GRAPH}/${cid}/ads?fields=creative{object_story_spec,asset_feed_spec,link_url,object_url,template_url}&limit=100&access_token=${encodeURIComponent(META_TOKEN)}`,
+  )
+  const s = new Set<string>(); collectUrls(ads, s)
+  return [...new Set([...s].map(shortUrl))]
+}
+
+async function naverLandings(cid: string): Promise<string[]> {
+  const groups = await naverFetch<{ nccAdgroupId: string }[]>('GET', '/ncc/adgroups', `nccCampaignId=${encodeURIComponent(cid)}`)
+  const s = new Set<string>()
+  await pool(groups.slice(0, 30), 4, async (g) => {
+    const ads = await naverFetch<unknown[]>('GET', '/ncc/ads', `nccAdgroupId=${encodeURIComponent(g.nccAdgroupId)}`).catch(() => [])
+    collectUrls(ads, s)
+  })
+  return [...new Set([...s].map(shortUrl))]
+}
+
 // ── 저장 ─────────────────────────────────────────────────────────────────────
 async function saveDaily(rows: Daily[], token: string) {
   for (let i = 0; i < rows.length; i += 500) {
@@ -237,6 +270,22 @@ export default async function handler(request: Request): Promise<Response> {
   if (!adminRes.ok || (await adminRes.json()) !== true) return json({ error: '관리자만 사용할 수 있습니다.' }, 403)
 
   try {
+    // 캠페인별 랜딩 주소 — 목록을 띄운 뒤 따로 부른다 (메타는 캠페인마다 한 번씩 물어 봐야 해서 느림)
+    if (body.action === 'landings') {
+      const ids = (Array.isArray((body as { ids?: unknown }).ids) ? (body as { ids: unknown[] }).ids : []).map(String).slice(0, 300)
+      if (body.channel === 'meta') {
+        if (!META_TOKEN) return json({ error: '메타 토큰 없음' }, 400)
+        const r = await pool(ids.filter((x) => /^\d+$/.test(x)), 8, async (id) => [id, await metaLandings(id).catch(() => null)] as const)
+        return json({ landings: Object.fromEntries(r) })
+      }
+      if (body.channel === 'naver_sa') {
+        if (!naverReady()) return json({ error: '네이버 키 없음' }, 400)
+        const r = await pool(ids, 3, async (id) => [id, await naverLandings(id).catch(() => null)] as const)
+        return json({ landings: Object.fromEntries(r) })
+      }
+      return json({ landings: {} })
+    }
+
     if (body.action === 'campaigns') {
       if (body.channel === 'meta') {
         if (!META_TOKEN) return json({ error: '메타 연동 토큰이 없습니다 (Vercel 환경변수 META_ACCESS_TOKEN).' }, 400)
